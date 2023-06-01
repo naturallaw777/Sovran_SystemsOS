@@ -1,17 +1,25 @@
 {
-	description = "The Ultimate Sovran Pro Configuration from Sovran Systems";
+	description = "The Ultimate Sovran_SystemsOS Configuration for the Sovran Pro from Sovran Systems";
 
 	inputs = {
+		
 		nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
 
 		nix-bitcoin.url = "github:fort-nix/nix-bitcoin/release";
+		
+		agenix.url = "github:ryantm/agenix";
+
+		agenix.inputs.darwin.follows = "";
+
 	};
 
-	outputs = { self, nixpkgs, nix-bitcoin, ... }: 
+	outputs = { self, nixpkgs, nix-bitcoin, agenix, ... }: 
+		
 		{
 		
 		nixosConfigurations.nixos = nixpkgs.lib.nixosSystem {
 			system ="x86_64-linux";
+		
 		};
 		
 		nixosModules.Sovran_Pro = { pkgs, ... }: {
@@ -21,7 +29,9 @@
 			./modules/modules.nix 
 
 			nix-bitcoin.nixosModules.default
-		
+
+			agenix.nixosModules.default
+
  			];			
 		};
 	};
