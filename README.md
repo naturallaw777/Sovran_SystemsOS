@@ -7,10 +7,8 @@
 <br />
 <br />
 
-## Complete Configuration for Sovran_SystemsOS and the Sovran Pro
+### Complete Configuration for Sovran_SystemsOS and the Sovran Pro
 
-
-__________________________________________________________________________________________
 A Nix Flake Implementation
 
 Thanks to all the NixOS creators and developers for creating what is the future of computing. 
@@ -20,8 +18,8 @@ https://www.sovransystems.com
 Connect on Matrix here: https://matrix.to/#/#sovran-systems:anarchyislove.xyz
 
 
-__________________________________________________________________________________________
-GNU GPL 3.0+
+
+##### GNU GPL 3.0+
 
 All Open Source Software Used Falls Under Its Specific Open Source License.
 
