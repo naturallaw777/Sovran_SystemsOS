@@ -7,7 +7,7 @@
 <br />
 <br />
 
-#Complete Configuration for Sovran_SystemsOS and the Sovran Pro
+# Complete Configuration for Sovran_SystemsOS and the Sovran Pro
 
 ________________________________________________________________________________________
 
