@@ -19,12 +19,13 @@ Connect on Matrix here: https://matrix.to/#/#sovran-systems:anarchyislove.xyz
 
 
 
-##### GNU GPL 3.0+
+
+### Created, Handcrafted, and Headquartered in Southern California – 2022-2023 🏖️.
 
 All Open Source Software Used Falls Under Its Specific Open Source License.
-
-Created, Handcrafted, and Headquartered in Southern California – 2022-2023 🏖️.
 
 This Gitea is Proudly Powered by a Sovran Pro 💚.
 
 All Is Love. Fear Is Illusion. All Beings Are Free. Truth Can Never Be Destroyed.
+
+GNU GPL 3.0+
