@@ -19,8 +19,6 @@ Connect on Matrix here: https://matrix.to/#/#sovran-systems:anarchyislove.xyz
 
 ###
 
-###
-
 ## All Is Love. Fear Is Illusion. All Beings Are Free. Truth Can Never Be Destroyed.
 
 Created, Handcrafted, and Headquartered in Southern California – 2022-2023 🏖️.
