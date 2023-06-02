@@ -301,14 +301,14 @@ in
 			};
 
 	services.postgresql.initialScript = pkgs.writeText "begin-init.sql" ''
-		CREATE ROLE "ncusr" WITH LOGIN PASSWORD '${personalization.nextclouddb_pass}';
+		CREATE ROLE "ncusr" WITH LOGIN PASSWORD '${age.secrets.nextclouddb.file}';
 		CREATE DATABASE "nextclouddb" WITH OWNER "ncusr"
 			TEMPLATE template0
 			LC_COLLATE = "C"
 			LC_CTYPE = "C";
 
 
-		CREATE ROLE "matrix-synapse" WITH LOGIN PASSWORD '${personalization.matrix-synapsedb_pass}';
+		CREATE ROLE "matrix-synapse" WITH LOGIN PASSWORD '${age.secrets.matrixdb.file}';
 		CREATE DATABASE "matrix-synapse" WITH OWNER "matrix-synapse"
 			TEMPLATE template0
 			LC_COLLATE = "C"
@@ -319,7 +319,7 @@ in
 
 	services.mysql.initialScript = pkgs.writeText "wordpress-init.sql" ''
 		CREATE DATABASE wordpressdb;
-		GRANT ALL ON *.* TO 'wpusr'@'localhost' IDENTIFIED BY '${personalization.wordpressdb_pass}';
+		GRANT ALL ON *.* TO 'wpusr'@'localhost' IDENTIFIED BY '${age.secrets.wordpressdb.file}';
 		FLUSH PRIVILEGES;
 	''
 	;

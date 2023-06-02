@@ -7,11 +7,13 @@ btcpayserver_url = builtins.readFile /var/lib/domains/btcpayserver;
 caddy_email_for_zerossl = builtins.readFile /var/lib/domains/sslemail;
 vaultwarden_url = builtins.readFile /var/lib/domains/vaultwarden;
 
-wordpressdb_pass = builtins.readFile /var/lib/secrets/wordpressdb;
-matrix-synapsedb_pass = builtins.readFile /var/lib/secrets/matrixdb;
-nextclouddb_pass = builtins.readFile /var/lib/secrets/nextclouddb;
-turn_shared = builtins.readFile /var/lib/secrets/turn;
-matrix_reg_secret = builtins.readFile /var/lib/secrets/matrix_reg_secret;
+
+age.secrets.turn.file = /var/lib/agenix-secrets/turn.age;
+age.secrets.matrix_reg_secret.file = /var/lib/agenix-secrets/matrix_reg_secret.age;
+age.secrets.matrixdb.file = /var/lib/agenix-secrets/matrixdb.age;
+age.secrets.nextclouddb.file = /var/lib/agenix-secrets/nextclouddb.age;
+age.secrets.wordpressdb.file = /var/lib/agenix-secrets/wordpressdb.age;
+
 external_ip_secret = builtins.readFile /var/lib/secrets/external_ip;
 
 }
