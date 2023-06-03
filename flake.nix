@@ -22,7 +22,7 @@
 		
 		};
 		
-		nixosModules.Sovran_Pro = { pkgs, ... }: {
+		nixosModules.Sovran_SystemsOS = { pkgs, ... }: {
 			
 			imports = [
 
