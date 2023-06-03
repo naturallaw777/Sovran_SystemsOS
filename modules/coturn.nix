@@ -35,7 +35,7 @@ let
 	services.coturn = {
 		enable = true;
 		use-auth-secret = true;
-		static-auth-secret = "${age.secrets.turn.file}";
+		static-auth-secret = "${personalization.age.secrets.turn.file}";
 		realm = personalization.matrix_url;
 		cert = "/var/lib/coturn/${personalization.matrix_url}.crt.pem";
 		pkey = "/var/lib/coturn/${personalization.matrix_url}.key.pem";

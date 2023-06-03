@@ -43,7 +43,7 @@ in
 				"ff00::/8"
 				];
 		 	url_preview_ip_ranger_whitelist = [ "127.0.0.1" ];
-		 	turn_shared_secret = "${age.secrets.turn.file}";
+		 	turn_shared_secret = "${personalization.age.secrets.turn.file}";
     		turn_uris = [
       			"turn:${personalization.matrix_url}:5349?transport=udp"
       			"turn:${personalization.matrix_url}:5349?transport=tcp"
@@ -52,7 +52,7 @@ in
           	];
 			presence.enabled = true;
 			enable_registration = false;
-			registration_shared_secret = "${age.secrets.matrix_reg_secret.file}";
+			registration_shared_secret = "${personalization.age.secrets.matrix_reg_secret.file}";
 			listeners = [
 				{
 					port = 8008;
