@@ -13,7 +13,7 @@
 			
 			system = "x86_64-linux";
  			
- 			modules = [ Sovran_Systems.nixosModules.Sovran_SystemsOS];
+ 			modules = [ Sovran_Systems.nixosModules.Sovran_SystemsOS ];
 		
 		};
 	
