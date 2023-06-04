@@ -131,7 +131,7 @@ in
 		librewolf
 		fish
 		htop
-		gnomeExtensions.dash-to-dock-for-cosmic
+		gnomeExtensions.dash-to-dock
 		gnomeExtensions.vitals
 		gnomeExtensions.pop-shell
 		gnomeExtensions.transparent-top-bar
@@ -165,8 +165,6 @@ in
 		parted
 		screen
 		gnome.zenity
-		moreutils
-		dig
 
 	];
 
@@ -410,20 +408,6 @@ backup	/etc/nix-bitcoin-secrets/	localhost/
 	networking.firewall.enable = true;
 
 	
-
-
-####### AUTO UPDATE #######
-#	system.autoUpgrade = {
-#		enable = true;
-#		flags = [ "--impure" "--update-input" "Sovran_Systems" "--commit-lock-file" ];
-#		flake = "/etc/nixos";
-#		persistent = true;
-#		allowReboot = true;
-#		rebootWindow = { lower = "02:00"; upper = "05:00"; };
-#	};
-
-
-
 ####### AUTO COLLECT GARABAGE #######
 	nix.gc = {
 		automatic = true;
