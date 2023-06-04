@@ -166,6 +166,7 @@ in
 		screen
 		gnome.zenity
 		moreutils
+		dig
 
 	];
 
