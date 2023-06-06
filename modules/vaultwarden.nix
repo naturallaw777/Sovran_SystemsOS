@@ -16,6 +16,6 @@ in
         		ROCKET_LOG = "critical";
         	};
 		dbBackend = "sqlite";
-		environmentFile = "/var/lib/secrets/vaultwarden/";
+		environmentFile = "/var/lib/secrets/vaultwarden/vaultwarden.env";
 	};
 }
