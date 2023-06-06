@@ -165,6 +165,7 @@ in
 		parted
 		screen
 		gnome.zenity
+		libargon2
 
 	];
 
