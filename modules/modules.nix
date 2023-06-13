@@ -8,6 +8,7 @@
 		./coturn.nix
 		./bitcoinecosystem.nix
 		./vaultwarden.nix
+		./onlyoffice.nix
 		/etc/nixos/hardware-configuration.nix
 		];
 }

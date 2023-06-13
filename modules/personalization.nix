@@ -6,6 +6,7 @@ nextcloud_url = builtins.readFile /var/lib/domains/nextcloud;
 btcpayserver_url = builtins.readFile /var/lib/domains/btcpayserver;
 caddy_email_for_zerossl = builtins.readFile /var/lib/domains/sslemail;
 vaultwarden_url = builtins.readFile /var/lib/domains/vaultwarden;
+onlyoffice_url = builtins.readFile /var/lib/domains/onlyoffice;
 
 age.identityPaths = [ "/root/.ssh/agenix/agenix-secret-keys" ];
 
