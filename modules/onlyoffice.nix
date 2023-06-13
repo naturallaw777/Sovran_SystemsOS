@@ -19,7 +19,6 @@ let
 	    webroot = "/var/lib/acme/challenges-com";
 	    email = "cert+${personalization.caddy_email_for_zerossl}";
 	    group = "nginx";
-	    extraDomainNames = [ "www.${personalization.onlyoffice_url}" ];
 		};
 	};
 	
