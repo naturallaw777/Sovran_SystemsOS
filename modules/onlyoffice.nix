@@ -12,5 +12,4 @@ let
 	services.nginx.defaultSSLListenPort = 9443;
 	services.nginx.defaultHTTPListenPort = 9080;
 
-
 }
