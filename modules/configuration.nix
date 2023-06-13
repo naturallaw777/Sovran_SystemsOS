@@ -166,6 +166,7 @@ in
 		screen
 		gnome.zenity
 		libargon2
+		onlyoffice-documentserver
 
 	];
 
