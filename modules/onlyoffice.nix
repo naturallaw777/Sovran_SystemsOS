@@ -6,6 +6,6 @@ let
 {
 	services.onlyoffice = {
 		enable = true;
-		hostname = "${personalization.wordpress_url}";
+		hostname = "${personalization.onlyoffice_url}";
 	};
 }
