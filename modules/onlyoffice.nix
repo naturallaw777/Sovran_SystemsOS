@@ -14,10 +14,10 @@ let
 
 	security.acme = {
 	  acceptTerms = true;
-	  defaults.email = "cert+${caddy_email_for_zerossl}";
+	  defaults.email = "cert+${personalization.caddy_email_for_zerossl}";
 	  certs."${personalization.onlyoffice_url}" = {
 	    webroot = "/var/lib/acme/challenges-com";
-	    email = "cert+${caddy_email_for_zerossl}";
+	    email = "cert+${personalization.caddy_email_for_zerossl}";
 	    group = "nginx";
 	    extraDomainNames = [ "www.${personalization.onlyoffice_url}" ];
 		};
