@@ -6,5 +6,7 @@ let
 {
 	services.onlyoffice = {
 		enable = true;
+		enableExampleServer = true;
+		examplePort = 8100;
 	};	
 }
