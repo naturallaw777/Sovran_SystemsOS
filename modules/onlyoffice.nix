@@ -8,4 +8,9 @@ let
 		enable = true;
 		hostname = "${personalization.onlyoffice_url}";
 	};	
+
+	services.nginx.defaultSSLListenPort = 9443;
+	services.nginx.defaultHTTPListenPort = 9080;
+
 }
+
