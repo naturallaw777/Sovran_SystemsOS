@@ -6,4 +6,5 @@ let
 {
 	services.onlyoffice = {
 		enable = true;
+	};	
 }
