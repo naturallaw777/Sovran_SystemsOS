@@ -278,6 +278,13 @@ in
 						tls internal
 					'';
 			};
+
+			"https://${personalization.onlyoffice_url}" = {
+						extraConfig = ''
+							reverse_proxy http://localhost:8000
+							encode gzip zstd
+					'';
+			};
 		};
 	};
 
