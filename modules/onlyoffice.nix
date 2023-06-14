@@ -6,7 +6,7 @@ let
 {
 	services.onlyoffice = {
 		enable = true;
-		#hostname = "${personalization.onlyoffice_url}";
+		hostname = "${personalization.onlyoffice_url}";
 		examplePort = 8100;
 		enableExampleServer = true;
 
