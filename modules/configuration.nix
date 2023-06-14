@@ -400,8 +400,9 @@ backup	/etc/nix-bitcoin-secrets/	localhost/
 	
 
 ####### Open ports in the firewall #######
-	networking.firewall.allowedTCPPorts = [ 80 443 5349 8448 3050 3051 9443 9080 ];
-	networking.firewall.allowedUDPPorts = [ 80 443 5349 8448 3050 3051 9443 9080 ];
+	networking.firewall.allowedTCPPorts = [ 80 443 5349 8448 3050 3051 9443 9080 8100 8000 ];
+	networking.firewall.allowedUDPPorts = [ 80 443 5349 8448 3050 3051 9443 9080 8100 8000
+	];
 	networking.firewall.allowedUDPPortRanges = [
 			{ from=49152; to=65535; } # TURN relay
 		];
