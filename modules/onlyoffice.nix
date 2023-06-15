@@ -6,7 +6,8 @@ let
 {
 	services.onlyoffice = {
 		enable = true;
-		jwtSecretFile = "${personalization.onlyofficejwtSecretFile}";
+		#jwtSecretFile = "${personalization.onlyofficejwtSecretFile}";
+		jwtSecretFile = "${age.secrets.onlyofficejwtSecretFile.file}";
 	};	
 
 	services.nginx.defaultSSLListenPort = 9443;
