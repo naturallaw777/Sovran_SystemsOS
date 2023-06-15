@@ -6,7 +6,7 @@ let
 		
 		
 	custom-php = pkgs.php81.buildEnv {
-		extensions = { enabled, all }: enabled ++ (with all; [ redis imagick memcached ]);
+		extensions = { enabled, all }: enabled ++ (with all; [ apcu redis imagick memcached ]);
 		extraConfig = ''
 			display_errors = On
 			display_startup_errors = On
@@ -21,6 +21,7 @@ let
 			post_max_size = 2048M
 			upload_max_filesize = 2048M
 			opcache.interned_strings_buffer = 32
+			apc.enable_cli=1
 		'';
 	};
 in
