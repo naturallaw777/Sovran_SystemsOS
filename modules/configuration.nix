@@ -282,7 +282,6 @@ in
 			"https://${personalization.onlyoffice_url}" = {
 						extraConfig = ''
 							reverse_proxy http://localhost:8000
-							encode gzip zstd
 					'';
 			};
 		};
@@ -407,8 +406,8 @@ backup	/etc/nix-bitcoin-secrets/	localhost/
 	
 
 ####### Open ports in the firewall #######
-	networking.firewall.allowedTCPPorts = [ 80 443 5349 8448 3050 3051 9080 9443 8000 8100 ];
-	networking.firewall.allowedUDPPorts = [ 80 443 5349 8448 3050 3051 9080 9443 8000 8100 ];
+	networking.firewall.allowedTCPPorts = [ 80 443 5349 8448 3050 3051 ];
+	networking.firewall.allowedUDPPorts = [ 80 443 5349 8448 3050 3051 ];
 	networking.firewall.allowedUDPPortRanges = [
 			{ from=49152; to=65535; } # TURN relay
 		];

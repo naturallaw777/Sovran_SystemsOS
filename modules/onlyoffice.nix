@@ -7,14 +7,9 @@ let
 	services.onlyoffice = {
 		enable = true;
 		jwtSecretFile = "${personalization.onlyofficejwtSecretFile}";
-		enableExampleServer = true;
-		examplePort = 8100;
 	};	
 
 	services.nginx.defaultSSLListenPort = 9443;
 	services.nginx.defaultHTTPListenPort = 9080;
-
-	#services.epmd.listenStream = "127.0.0.1:4369";
-
 }
 
