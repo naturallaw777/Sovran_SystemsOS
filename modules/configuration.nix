@@ -201,7 +201,7 @@ in
 		};			
 	};
 
-	networking.enableIPv6 = false;
+	#networking.enableIPv6 = false;
 
 ####### CADDY  #######
 	services.caddy = {
