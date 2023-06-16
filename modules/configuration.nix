@@ -281,7 +281,7 @@ in
 
 			"https://${personalization.onlyoffice_url}" = {
 						extraConfig = ''
-							reverse_proxy http://localhost:8000
+							reverse_proxy :8000
 							encode gzip zstd
 					'';
 			};
