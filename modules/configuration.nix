@@ -414,7 +414,7 @@ backup	/etc/nix-bitcoin-secrets/	localhost/
 		];
 
 	# Or disable the firewall altogether.
-	networking.firewall.enable = true;
+	networking.firewall.enable = false;
 
 	
 ####### AUTO COLLECT GARABAGE #######
