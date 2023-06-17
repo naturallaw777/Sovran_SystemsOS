@@ -135,7 +135,6 @@ in
 		gnomeExtensions.transparent-top-bar-adjustable-transparency
 		gnomeExtensions.vitals
 		gnomeExtensions.pop-shell
-		gnomeExtensions.transparent-top-bar
 		gnomeExtensions.just-perfection
 		gnomeExtensions.appindicator
 		gnomeExtensions.systemd-manager
@@ -390,7 +389,7 @@ backup	/etc/nix-bitcoin-secrets/	localhost/
 			PermitRootLogin = "yes";
 		};
 	};
-
+	programs.ssh.agentTimeout = "3m";
 
 #######FailtoBan#######
 	services.fail2ban = {
