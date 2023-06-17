@@ -132,6 +132,7 @@ in
 		fish
 		htop
 		gnomeExtensions.dash-to-dock
+		gnomeExtensions.transparent-top-bar-adjustable-transparency
 		gnomeExtensions.vitals
 		gnomeExtensions.pop-shell
 		gnomeExtensions.transparent-top-bar
@@ -166,7 +167,6 @@ in
 		screen
 		gnome.zenity
 		libargon2
-		onlyoffice-documentserver
 
 	];
 
