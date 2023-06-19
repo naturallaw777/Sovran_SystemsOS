@@ -6,7 +6,7 @@ let
 	in
 {
 
-	systemd.services.sslcoturn = {
+	systemd.services.coturn-helper = {
 	  
 	  script = ''
 	   
