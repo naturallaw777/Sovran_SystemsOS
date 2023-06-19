@@ -8,7 +8,7 @@ ENDCOLOR="\e[0m"
 
 pushd /etc/nixos/
 
-sudo wget https://git.sovransystems.com/Sovran_Systems/Sovran_Pro/raw/branch/main/For_NEW_Sovran_Pros_Upload/flake.nix
+sudo wget https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS/raw/branch/main/For_NEW_Sovran_Pros_Upload/flake.nix
 
 sudo chown root:root /etc/nixos/ -R
 
@@ -34,7 +34,7 @@ sudo rsync -av -e "ssh -i /root/sovransystems" root@192.168.1.32:/var/lib/secret
 
 #
 
-nixos-rebuild switch --flake '/etc/nixos/#' --impure --update-input Sovran_Systems --commit-lock-file
+nixos-rebuild switch --impure
 
 #
 
@@ -49,6 +49,10 @@ sudo chown postgres:postgres /var/lib/secrets/nextclouddb -R
 sudo chown turnserver:turnserver /var/lib/secrets/turn -R
 
 sudo chown mysql:mysql /var/lib/secrets/wordpressdb -R
+
+sudo chown vaultwarden:vaultwarden /var/lib/secrets/vaultwarden -R
+
+sudo chown onlyoffice:onlyoffice /var/lib/secrets/onlyofficejwtSecretFile
 
 sudo chmod 770 /var/lib/secrets/ -R
 
@@ -73,6 +77,10 @@ sudo echo -n $REPLY > /var/lib/domains/btcpayserver
 sudo echo -e "${GREEN}What is your New Vaultwarden domain name?${ENDCOLOR}"
 read 
 sudo echo -n $REPLY > /var/lib/domains/vaultwarden
+
+sudo echo -e "${GREEN}What is your New OnlyOffice domain name?${ENDCOLOR}"
+read 
+sudo echo -n $REPLY > /var/lib/domains/onlyoffice
 
 sudo echo -e "${GREEN}What is the email you would like to use to manage the SSL certificates for your domains?${ENDCOLOR}"
 read 
@@ -123,13 +131,7 @@ sudo chown turnserver:turnserver /var/lib/coturn -R
 
 sudo chmod 770 /var/lib/coturn -R
 
-#
-
-sudo touch /var/lib/vaultwarden.env
-
-sudo chown vaultwarden:vaultwarden /var/lib/vaultwarden.env
-
-sudo chmod 770 /var/lib/vaultwarden.env
+###### Add coturn .pem from certificates
 
 #
 
@@ -139,8 +141,9 @@ sudo echo -n $(pwgen -s 17 -1) > /var/lib/secrets/matrixdb
 sudo echo -n $(pwgen -s 17 -1) > /var/lib/secrets/turn
 sudo echo -n $(pwgen -s 17 -1) > /var/lib/secrets/matrix_reg_secret
 sudo echo -n $(pwgen -s 17 -1) > /var/lib/secrets/main
+sudo echo -n $(pwgen -s 17 -1) > /var/lib/secrets/onlyofficejwtSecretFile
 sudo echo -n ADMIN_TOKEN=$(openssl rand -base64 48
-) > /var/lib/vaultwarden.env
+) > /var/lib/secrets/vaultwarden/vaultwarden.env
 
 #
 
