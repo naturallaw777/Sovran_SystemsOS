@@ -71,6 +71,9 @@ in
 		xkbVariant = "";
 	};
 
+	# Turn off IPv6
+	networking.enableIPv6 = false;
+
 	# Enable CUPS to print documents.
 	services.printing.enable = true;
 
