@@ -21,8 +21,8 @@ let
 	  };
 	   
 	  serviceConfig = {
-	    emainAfterExit = "yes";
-	     Type = "oneshot";
+	    RemainAfterExit = "yes";
+	    Type = "oneshot";
 	  };
 
 	  wantedBy = [ "multi-user.target" ];
