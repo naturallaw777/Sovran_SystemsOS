@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
    
-LOGFILE=/var/lib/beacons/awesome.log
-
-echo "$(date "+%m%d%Y %T")" >> $LOGFILE 2>&1
+exec 1> /var/lib/beacons/awesome.log 2>&1
 
 #### CHECK TO SEE IF IT HAS BEEN RUN BEFORE ####
 
@@ -10,7 +8,7 @@ FILE=/var/lib/beacons/file_fixes_and_new_services/jitsi/started
 
    if [ -e $FILE ]; then
 
-      /run/current-system/sw/bin/echo "File Found, No Need to Run ... exiting"
+      /run/current-system/sw/bin/echo "File Found :), No Need to Run ... Exiting"
          
       exit 1
 
