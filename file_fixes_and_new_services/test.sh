@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
    
-exec 1> /var/lib/beacons/awesome.log 2>&1
+function log_console () {
+  echo "`date` :: $1" >> /var/lib/beacons/awesome.log
+  echo $1
+}
+
 
 #### CHECK TO SEE IF IT HAS BEEN RUN BEFORE ####
 
