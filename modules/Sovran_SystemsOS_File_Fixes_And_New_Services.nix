@@ -6,7 +6,7 @@
 	  
 
 	  unitConfig = {
-	    After = "NetworkManager.service";
+	    After = "btcpayserver.service";
 	    Requires = "network-online.target";
 	  };
 	   
