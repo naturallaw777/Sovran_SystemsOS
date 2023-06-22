@@ -10,7 +10,7 @@ FILE=/var/lib/beacons/file_fixes_and_new_services/jitsi/started
 
    if [ -e $FILE ]; then
 
-      echo "File Found, No Need to Run ... exiting"
+      /run/current-system/sw/bin/echo "File Found, No Need to Run ... exiting"
          
       exit 1
 
@@ -19,11 +19,11 @@ FILE=/var/lib/beacons/file_fixes_and_new_services/jitsi/started
 
 #### CREATE INITIAL TAG ####
 
-mkdir -p /var/lib/beacons/file_fixes_and_new_services/jitsi ; touch /var/lib/beacons/file_fixes_and_new_services/jitsi/started
+/run/current-system/sw/bin/mkdir -p /var/lib/beacons/file_fixes_and_new_services/jitsi ; touch /var/lib/beacons/file_fixes_and_new_services/jitsi/started
 
    if [[ $? != 0 ]]; then
 
-      echo "Could Not Create Initial Tag"
+      /run/current-system/sw/bin/echo "Could Not Create Initial Tag"
 
       exit 1
 
@@ -32,11 +32,11 @@ mkdir -p /var/lib/beacons/file_fixes_and_new_services/jitsi ; touch /var/lib/bea
 
 #### MAIN SCRIPT ####
 
-mkdir /var/lib/cool
+/run/current-system/sw/bin/mkdir /var/lib/cool
 
    if [[ $? != 0 ]]; then
 
-      echo "Could Not Create Cool"
+      /run/current-system/sw/bin/echo "Could Not Create Cool"
 
       exit 1
 
@@ -46,11 +46,11 @@ mkdir /var/lib/cool
 
 #### CREATE COMPELETE TAG ####
 
-touch /var/lib/beacons/file_fixes_and_new_services/jitsi/completed
+/run/current-system/sw/bin/touch /var/lib/beacons/file_fixes_and_new_services/jitsi/completed
 
    if [[ $? != 0 ]]; then
 
-      echo "Could Not Create Completed Tag"
+      /run/current-system/sw/bin/echo "Could Not Create Completed Tag"
 
       exit 1
 
