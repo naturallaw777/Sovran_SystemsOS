@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
    
+(date && test.sh) >> /var/lib/beacons/awesome.log
+
 exec 1> /var/lib/beacons/awesome.log 2>&1
 
 #### CHECK TO SEE IF IT HAS BEEN RUN BEFORE ####
