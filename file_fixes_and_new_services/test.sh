@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
    
 exec 1> /var/lib/beacons/awesome.log 2>&1
-set -x
-
 
 #### CHECK TO SEE IF IT HAS BEEN RUN BEFORE ####
 
