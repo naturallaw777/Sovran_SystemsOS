@@ -8,7 +8,7 @@ function log_console () {
 
 #### CHECK TO SEE IF IT HAS BEEN RUN BEFORE ####
 
-FILE=/var/lib/beacons/file_fixes_and_new_services/jitsi/started
+FILE=/var/lib/beacons/file_fixes_and_new_services/jitsi/completed
 
    if [ -e $FILE ]; then
 
