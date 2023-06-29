@@ -11,9 +11,11 @@
 
 		agenix.inputs.darwin.follows = "";
 
+		erosanix.url = "github:emmanuelrosa/erosanix";
+
 	};
 
-	outputs = { self, nixpkgs, nix-bitcoin, agenix, ... }: 
+	outputs = { self, nixpkgs, nix-bitcoin, agenix, erosanix, ... }: 
 		
 		{
 		

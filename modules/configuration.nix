@@ -142,7 +142,7 @@ in
 		papirus-icon-theme
 		ranger
 		gnome.gnome-tweaks
-		sparrow
+		erosanix.packages.x86_64-linux.sparrow-unwrapped
 		bisq-desktop
 		neofetch
 		gnome.gedit
