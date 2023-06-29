@@ -28,18 +28,19 @@
 			
 			imports = [
 
-			./modules/modules.nix 
+				./modules/modules.nix 
 
-			nix-bitcoin.nixosModules.default
+				nix-bitcoin.nixosModules.default
 
-			agenix.nixosModules.default
+				agenix.nixosModules.default
 
  			];
 
  			environment.systemPackages = with pkgs; [
+ 			  
  			  erosanix.packages.x86_64-linux.sparrow
- 			  ];
-
+ 			
+ 			];
 		};
 	};
 }
