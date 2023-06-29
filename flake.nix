@@ -37,7 +37,7 @@
  			];
 
  			environment.systemPackages = with pkgs; [
- 			  erosanix.packages.x86_64-linux.somePackage
+ 			  erosanix.packages.x86_64-linux.sparrow
  			  ];
 
 		};
