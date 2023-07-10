@@ -13,8 +13,8 @@ pushd /etc/nixos/
 	wget https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS/raw/branch/main/for_new_sovran_pros/flake.nix
 
 	chown root:root /etc/nixos/ -R
-
- chmod 770 /etc/nixos/ -R
+	
+	chmod 770 /etc/nixos/ -R
 
 popd
 
