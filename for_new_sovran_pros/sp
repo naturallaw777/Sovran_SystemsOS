@@ -36,6 +36,8 @@ rsync -av -e "ssh -i /root/factory_login_install" root@192.168.0.103:/var/lib/se
 
 rsync -av -e "ssh -i /root/factory_login_install" root@192.168.0.103:/var/lib/agenix-secrets/ /var/lib/agenix-secrets
 
+rsync -av -e "ssh -i /root/factory_login_install" root@192.168.0.103:/root/.ssh/agenix/ /root/.ssh/agenix
+
 #
 
 nixos-rebuild switch --impure
@@ -170,7 +172,11 @@ echo "free:a" | chpasswd -c SHA512
 
 rm -rf /root/sp
 
-rm -rf /root/factory_login
+rm -rf /root/factory_login_install
+
+rm -rf /home/free/.ssh/sovranpro_login
+
+rm -rf /home/free/.ssh/sovranpro_login.pub
 
 
 chown bitcoin:bitcoin /run/media/Second_Drive/BTCEcoandBackup/Bitcoin_Node -R
