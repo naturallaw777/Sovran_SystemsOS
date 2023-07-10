@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -o nounset
+
 GREEN="\e[32m"
 LIGHTBLUE="\e[94m"
 ENDCOLOR="\e[0m"
@@ -198,3 +200,5 @@ echo -e "$(pwgen -s 17 -1) \n"
 echo -e "${LIGHTBLUE}One last thing, you need to put the Njalla DDNS info from Njalla into njalla.sh.${ENDCOLOR} \n"
 
 echo -e "${GREEN}All Finished! Please Reboot then Enjoy your New Sovran Pro!${ENDCOLOR} \n"
+
+exit 0
