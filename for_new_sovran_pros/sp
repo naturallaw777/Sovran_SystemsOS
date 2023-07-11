@@ -155,7 +155,7 @@ echo "root:$(cat /var/lib/secrets/main)" | chpasswd -c SHA512
 
 #
 
-flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+sudo -u free flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
 flatpak update
 
 #
