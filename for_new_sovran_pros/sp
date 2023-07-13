@@ -151,10 +151,10 @@ echo -n ADMIN_TOKEN=$(openssl rand -base64 48
 
 #
 
-rm -rf /var/lib/agenix-secrets/nextclouddb.age ; 
-rm -rf /var/lib/agenix-secrets/wordpressdb.age ;
-rm -rf /var/lib/agenix-secrets/turn.age ;
-rm -rf /var/lib/agenix-secrets/matrixdb.age ;
+rm -rf /var/lib/agenix-secrets/nextclouddb.age
+rm -rf /var/lib/agenix-secrets/wordpressdb.age
+rm -rf /var/lib/agenix-secrets/turn.age
+rm -rf /var/lib/agenix-secrets/matrixdb.age
 rm -rf /var/lib/agenix-secrets/matrix_reg_secret.age
 
 pushd /var/lib/agenix-secrets/
