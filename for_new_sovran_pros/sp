@@ -40,6 +40,40 @@ rsync -av -e "ssh -i /root/factory_login_install" root@192.168.0.103:/root/.ssh/
 
 #
 
+echo -n $(pwgen -s 17 -1) > /var/lib/secrets/nextclouddb 
+echo -n $(pwgen -s 17 -1) > /var/lib/secrets/wordpressdb 
+echo -n $(pwgen -s 17 -1) > /var/lib/secrets/matrixdb
+echo -n $(pwgen -s 17 -1) > /var/lib/secrets/turn
+echo -n $(pwgen -s 17 -1) > /var/lib/secrets/matrix_reg_secret
+echo -n $(pwgen -s 17 -1) > /var/lib/secrets/main
+echo -n $(pwgen -s 17 -1) > /var/lib/secrets/onlyofficejwtSecretFile
+echo -n ADMIN_TOKEN=$(openssl rand -base64 48
+) > /var/lib/secrets/vaultwarden/vaultwarden.env
+
+#
+
+rm -rf /var/lib/agenix-secrets/nextclouddb.age
+rm -rf /var/lib/agenix-secrets/wordpressdb.age
+rm -rf /var/lib/agenix-secrets/turn.age
+rm -rf /var/lib/agenix-secrets/matrixdb.age
+rm -rf /var/lib/agenix-secrets/matrix_reg_secret.age
+
+pushd /var/lib/agenix-secrets/
+
+  echo -n $(cat /var/lib/secrets/wordpressdb) | EDITOR='cp /dev/stdin' nix run github:ryantm/agenix -- -e wordpressdb.age -i /root/.ssh/agenix/agenix-secret-keys
+
+  echo -n $(cat /var/lib/secrets/nextclouddb) | EDITOR='cp /dev/stdin' nix run github:ryantm/agenix -- -e nextclouddb.age -i /root/.ssh/agenix/agenix-secret-keys
+
+  echo -n $(cat /var/lib/secrets/matrixdb) | EDITOR='cp /dev/stdin' nix run github:ryantm/agenix -- -e matrixdb.age -i /root/.ssh/agenix/agenix-secret-keys
+
+  echo -n $(cat /var/lib/secrets/turn) | EDITOR='cp /dev/stdin' nix run github:ryantm/agenix -- -e turn.age -i /root/.ssh/agenix/agenix-secret-keys
+
+  echo -n $(cat /var/lib/secrets/matrix_reg_secret) | EDITOR='cp /dev/stdin' nix run github:ryantm/agenix -- -e matrix_reg_secret.age -i /root/.ssh/agenix/agenix-secret-keys
+
+popd
+
+#
+
 nixos-rebuild switch --impure
 
 #
@@ -136,40 +170,6 @@ mkdir /var/lib/coturn
 chown turnserver:turnserver /var/lib/coturn -R
 
 chmod 770 /var/lib/coturn -R
-
-#
-
-echo -n $(pwgen -s 17 -1) > /var/lib/secrets/nextclouddb 
-echo -n $(pwgen -s 17 -1) > /var/lib/secrets/wordpressdb 
-echo -n $(pwgen -s 17 -1) > /var/lib/secrets/matrixdb
-echo -n $(pwgen -s 17 -1) > /var/lib/secrets/turn
-echo -n $(pwgen -s 17 -1) > /var/lib/secrets/matrix_reg_secret
-echo -n $(pwgen -s 17 -1) > /var/lib/secrets/main
-echo -n $(pwgen -s 17 -1) > /var/lib/secrets/onlyofficejwtSecretFile
-echo -n ADMIN_TOKEN=$(openssl rand -base64 48
-) > /var/lib/secrets/vaultwarden/vaultwarden.env
-
-#
-
-rm -rf /var/lib/agenix-secrets/nextclouddb.age
-rm -rf /var/lib/agenix-secrets/wordpressdb.age
-rm -rf /var/lib/agenix-secrets/turn.age
-rm -rf /var/lib/agenix-secrets/matrixdb.age
-rm -rf /var/lib/agenix-secrets/matrix_reg_secret.age
-
-pushd /var/lib/agenix-secrets/
-
-  echo -n $(cat /var/lib/secrets/wordpressdb) | EDITOR='cp /dev/stdin' nix run github:ryantm/agenix -- -e wordpressdb.age -i /root/.ssh/agenix/agenix-secret-keys
-
-  echo -n $(cat /var/lib/secrets/nextclouddb) | EDITOR='cp /dev/stdin' nix run github:ryantm/agenix -- -e nextclouddb.age -i /root/.ssh/agenix/agenix-secret-keys
-
-  echo -n $(cat /var/lib/secrets/matrixdb) | EDITOR='cp /dev/stdin' nix run github:ryantm/agenix -- -e matrixdb.age -i /root/.ssh/agenix/agenix-secret-keys
-
-  echo -n $(cat /var/lib/secrets/turn) | EDITOR='cp /dev/stdin' nix run github:ryantm/agenix -- -e turn.age -i /root/.ssh/agenix/agenix-secret-keys
-
-  echo -n $(cat /var/lib/secrets/matrix_reg_secret) | EDITOR='cp /dev/stdin' nix run github:ryantm/agenix -- -e matrix_reg_secret.age -i /root/.ssh/agenix/agenix-secret-keys
-
-popd
 
 #
 
