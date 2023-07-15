@@ -30,6 +30,43 @@ touch /var/lib/domains/wordpress
 
 #
 
+echo -e "${GREEN}What is your New Matrix (Element Chat) domain name?${ENDCOLOR}"
+read 
+echo -n $REPLY > /var/lib/domains/matrix
+
+echo -e "${GREEN}What is your New Wordpress domain name?${ENDCOLOR}"
+read 
+echo -n $REPLY > /var/lib/domains/wordpress
+
+echo -e "${GREEN}What is your New Nextcloud domain name?${ENDCOLOR}"
+read 
+echo -n $REPLY > /var/lib/domains/nextcloud
+
+echo -e "${GREEN}What is your New BTCPayserver domain name?${ENDCOLOR}"
+read 
+echo -n $REPLY > /var/lib/domains/btcpayserver
+
+echo -e "${GREEN}What is your New Vaultwarden domain name?${ENDCOLOR}"
+read 
+echo -n $REPLY > /var/lib/domains/vaultwarden
+
+echo -e "${GREEN}What is your New OnlyOffice domain name?${ENDCOLOR}"
+read 
+echo -n $REPLY > /var/lib/domains/onlyoffice
+
+echo -e "${GREEN}What is the email you would like to use to manage the SSL certificates for your domains?${ENDCOLOR}"
+read 
+echo -n $REPLY > /var/lib/domains/sslemail
+
+
+chown caddy:php /var/lib/domains -R
+
+chmod 770 /var/lib/domains -R
+
+#
+
+#
+
 mkdir /var/lib/nextcloudaddition
 
 cat <<EOT >> /var/lib/nextcloudaddition/nextcloudaddition       
@@ -192,41 +229,6 @@ chown vaultwarden:vaultwarden /var/lib/secrets/vaultwarden -R
 chown onlyoffice:onlyoffice /var/lib/secrets/onlyofficejwtSecretFile
 
 chmod 770 /var/lib/secrets/ -R
-
-#
-
-echo -e "${GREEN}What is your New Matrix (Element Chat) domain name?${ENDCOLOR}"
-read 
-echo -n $REPLY > /var/lib/domains/matrix
-
-echo -e "${GREEN}What is your New Wordpress domain name?${ENDCOLOR}"
-read 
-echo -n $REPLY > /var/lib/domains/wordpress
-
-echo -e "${GREEN}What is your New Nextcloud domain name?${ENDCOLOR}"
-read 
-echo -n $REPLY > /var/lib/domains/nextcloud
-
-echo -e "${GREEN}What is your New BTCPayserver domain name?${ENDCOLOR}"
-read 
-echo -n $REPLY > /var/lib/domains/btcpayserver
-
-echo -e "${GREEN}What is your New Vaultwarden domain name?${ENDCOLOR}"
-read 
-echo -n $REPLY > /var/lib/domains/vaultwarden
-
-echo -e "${GREEN}What is your New OnlyOffice domain name?${ENDCOLOR}"
-read 
-echo -n $REPLY > /var/lib/domains/onlyoffice
-
-echo -e "${GREEN}What is the email you would like to use to manage the SSL certificates for your domains?${ENDCOLOR}"
-read 
-echo -n $REPLY > /var/lib/domains/sslemail
-
-
-chown caddy:php /var/lib/domains -R
-
-chmod 770 /var/lib/domains -R
 
 #
 
