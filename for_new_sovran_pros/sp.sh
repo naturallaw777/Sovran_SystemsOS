@@ -283,7 +283,9 @@ flatpak update
 
 #
 
-mkdir -p /root/.ssh/authorized_keys
+mkdir /root/.ssh
+
+touch /root/.ssh/authorized_keys
 
 sudo -u free ssh-keygen -q -N "gosovransytems" -t ed25519 -f /home/free/.ssh/factory_login
 
@@ -318,9 +320,9 @@ popd
 
 pushd /home/free/Downloads
 
-	sudo -u free wget https://git.sovransystems.com/Sovran_Systems/Software/raw/branch/main/Sovran_SystemsOS_Reseter/sovran_systemsOS_reseter_local_installer/sovran_systemsOS_reseter_install.sh
+	wget https://git.sovransystems.com/Sovran_Systems/Software/raw/branch/main/Sovran_SystemsOS_Reseter/sovran_systemsOS_reseter_local_installer/sovran_systemsOS_reseter_install.sh
 
-	sudo -u free bash sovran_systemsOS_reseter_install.sh
+	bash sovran_systemsOS_reseter_install.sh
 
 popd
 
@@ -328,9 +330,9 @@ popd
 
 pushd /home/free/Downloads
 
-	sudo -u free wget https://git.sovransystems.com/Sovran_Systems/Software/raw/branch/main/Sovran_SystemsOS_Updater/sovran_systemsOS_updater_local_installer/sovran_systemsOS_updater_install.sh
+	wget https://git.sovransystems.com/Sovran_Systems/Software/raw/branch/main/Sovran_SystemsOS_Updater/sovran_systemsOS_updater_local_installer/sovran_systemsOS_updater_install.sh
 
-	sudo -u free bash sovran_systemsOS_updater_install.sh
+	bash sovran_systemsOS_updater_install.sh
 
 popd
 
