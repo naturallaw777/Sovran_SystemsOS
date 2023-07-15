@@ -148,6 +148,7 @@ touch /var/lib/secrets/matrix_reg_secret
 touch /var/lib/secrets/main
 touch /var/lib/secrets/onlyofficejwtSecretFile
 touch /var/lib/secrets/vaultwarden/vaultwarden.env
+touch /var/lib/secrets/external_ip
 
 echo -n $(pwgen -s 17 -1) > /var/lib/secrets/nextclouddb 
 echo -n $(pwgen -s 17 -1) > /var/lib/secrets/wordpressdb 
@@ -161,7 +162,7 @@ echo -n ADMIN_TOKEN=$(openssl rand -base64 48
 
 #
 
-mkdir /root/.ssh/agenix
+mkdir -p /root/.ssh/agenix
 
 ssh-keygen -q -N "" -t ed25519 -f /root/.ssh/agenix/agenix-secret-keys
 
@@ -171,7 +172,7 @@ sed -i 's:\(root =[[:blank:]]*\)\(.*\):\1"\2";:' /var/lib/agenix-secrets/secrets
 
 #
 
-pushd /var/lib/agenix-secrets/
+pushd /var/lib/agenix-secrets
 
   echo -n $(cat /var/lib/secrets/wordpressdb) | EDITOR='cp /dev/stdin' nix run github:ryantm/agenix -- -e wordpressdb.age -i /root/.ssh/agenix/agenix-secret-keys
 
