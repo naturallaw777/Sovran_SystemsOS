@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+# wget https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS/raw/branch/main/for_new_sovran_pros/sp.sh
+
 set -o nounset
 
 GREEN="\e[32m"
@@ -114,7 +116,7 @@ cat <<EOT >> /var/lib/agenix-secrets/secrets.nix
 
 let
 
-  root = ;
+  root = "" ;
 
 in
 {
