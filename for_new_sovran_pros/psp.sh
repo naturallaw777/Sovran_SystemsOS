@@ -55,6 +55,7 @@ cat <<EOT >> /mnt/etc/nixos/configuration.nix
 		git
 		ranger
 		fish
+		pwgen
 	];
 
 	services.openssh = {

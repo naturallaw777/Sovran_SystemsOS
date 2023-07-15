@@ -134,32 +134,6 @@ EOT
 
 #
 
-pushd /etc/nixos
-
-  nix flake update
-
-  nixos-rebuild switch --impure
-
-popd
-
-#
-
-chown caddy:php /var/lib/domains -R
-
-chmod 770 /var/lib/domains -R
-
-#
-
-mkdir /root/.ssh/agenix
-
-ssh-keygen -q -N "" -t ed25519 -f /root/.ssh/agenix/agenix-secret-keys
-
-sed -i -e "0,/root.*/{s::root = $(cat /root/.ssh/agenix/agenix-secret-keys.pub):};s:root@nixos::" /var/lib/agenix-secrets/secrets.nix
-
-sed -i 's:\(root =[[:blank:]]*\)\(.*\):\1"\2";:' /var/lib/agenix-secrets/secrets.nix
-
-#
-
 mkdir /var/lib/secrets
 
 touch /var/lib/secrets/nextclouddb
@@ -196,6 +170,32 @@ pushd /var/lib/agenix-secrets/
   echo -n $(cat /var/lib/secrets/matrix_reg_secret) | EDITOR='cp /dev/stdin' nix run github:ryantm/agenix -- -e matrix_reg_secret.age -i /root/.ssh/agenix/agenix-secret-keys
 
 popd
+
+#
+
+pushd /etc/nixos
+
+  nix flake update
+
+  nixos-rebuild switch --impure
+
+popd
+
+#
+
+chown caddy:php /var/lib/domains -R
+
+chmod 770 /var/lib/domains -R
+
+#
+
+mkdir /root/.ssh/agenix
+
+ssh-keygen -q -N "" -t ed25519 -f /root/.ssh/agenix/agenix-secret-keys
+
+sed -i -e "0,/root.*/{s::root = $(cat /root/.ssh/agenix/agenix-secret-keys.pub):};s:root@nixos::" /var/lib/agenix-secrets/secrets.nix
+
+sed -i 's:\(root =[[:blank:]]*\)\(.*\):\1"\2";:' /var/lib/agenix-secrets/secrets.nix
 
 #
 
