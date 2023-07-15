@@ -104,7 +104,13 @@ EOT
 
 #
 
-nixos-rebuild switch --impure
+pushd /etc/nixos
+
+  nix flake update
+
+  nixos-rebuild switch --impure
+
+popd
 
 #
 
@@ -157,7 +163,13 @@ popd
 
 #
 
-nixos-rebuild switch --impure
+pushd /etc/nixos
+
+  nix flake update
+
+  nixos-rebuild switch --impure
+
+popd
 
 #
 
@@ -287,8 +299,15 @@ chown electrs:electrs /run/media/Second_Drive/BTCEcoandBackup/Electrs_Data -R
 
 chmod 770 /run/media/Second_Drive/BTCEcoandBackup/Electrs_Data -R
 
-nixos-rebuild switch --impure
+#
 
+pushd /etc/nixos
+
+  nix flake update
+
+  nixos-rebuild switch --impure
+
+popd
 
 #
 
