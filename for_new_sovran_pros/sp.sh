@@ -114,7 +114,7 @@ cat <<EOT >> /var/lib/agenix-secrets/secrets.nix
 
 let
 
-  root =
+  root = ;
 
 in
 {
