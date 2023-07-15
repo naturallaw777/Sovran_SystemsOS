@@ -315,7 +315,7 @@ popd
 
 #
 
-pushd ~/Downloads
+pushd /home/free/Downloads
 
 	wget https://git.sovransystems.com/Sovran_Systems/Software/raw/branch/main/Sovran_SystemsOS_Reseter/sovran_systemsOS_reseter_local_installer/sovran_systemsOS_reseter_install.sh
 
@@ -325,7 +325,7 @@ popd
 
 #
 
-pushd ~/Downloads
+pushd /home/free/Downloads
 
 	wget https://git.sovransystems.com/Sovran_Systems/Software/raw/branch/main/Sovran_SystemsOS_Updater/sovran_systemsOS_updater_local_installer/sovran_systemsOS_updater_install.sh
 
