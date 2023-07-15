@@ -58,13 +58,6 @@ echo -e "${GREEN}What is the email you would like to use to manage the SSL certi
 read 
 echo -n $REPLY > /var/lib/domains/sslemail
 
-
-chown caddy:php /var/lib/domains -R
-
-chmod 770 /var/lib/domains -R
-
-#
-
 #
 
 mkdir /var/lib/nextcloudaddition
@@ -148,6 +141,12 @@ pushd /etc/nixos
   nixos-rebuild switch --impure
 
 popd
+
+#
+
+chown caddy:php /var/lib/domains -R
+
+chmod 770 /var/lib/domains -R
 
 #
 
