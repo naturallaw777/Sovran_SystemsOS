@@ -108,6 +108,8 @@ nixos-rebuild switch --impure
 
 #
 
+mkdir /root/.ssh/agenix/agenix-secret-keys
+
 ssh-keygen -q -N "" -t ed25519 -f /root/.ssh/agenix/agenix-secret-keys
 
 sed -i -e "0,/root.*/{s::root = $(cat /root/.ssh/agenix/agenix-secret-keys.pub):};s:root@nixos::" /var/lib/agenix-secrets/secrets.nix
@@ -115,6 +117,15 @@ sed -i -e "0,/root.*/{s::root = $(cat /root/.ssh/agenix/agenix-secret-keys.pub):
 sed -i 's:\(root =[[:blank:]]*\)\(.*\):\1"\2";:' /var/lib/agenix-secrets/secrets.nix
 
 #
+
+mkdir /var/lib/secrets/nextclouddb
+mkdir /var/lib/secrets/wordpressdb
+mkdir /var/lib/secrets/matrixdb
+mkdir /var/lib/secrets/turn
+mkdir /var/lib/secrets/matrix_reg_secret
+mkdir /var/lib/secrets/main
+mkdir /var/lib/secrets/onlyofficejwtSecretFile
+mkdir /var/lib/secrets/vaultwarden/vaultwarden.env
 
 echo -n $(pwgen -s 17 -1) > /var/lib/secrets/nextclouddb 
 echo -n $(pwgen -s 17 -1) > /var/lib/secrets/wordpressdb 
@@ -127,6 +138,8 @@ echo -n ADMIN_TOKEN=$(openssl rand -base64 48
 ) > /var/lib/secrets/vaultwarden/vaultwarden.env
 
 #
+
+mkdir /var/lib/agenix-secrets
 
 pushd /var/lib/agenix-secrets/
 
