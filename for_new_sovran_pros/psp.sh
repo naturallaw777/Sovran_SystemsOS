@@ -1,37 +1,5 @@
 #!/usr/bin/env bash
 
-### First make sure USB Flash Drive has latest NixOS image
-
-### Then plug in power and ether cord to new blank Sovran Pro and then plug in USB Flash Drive with the NixOS installer image; then turn on.
-
-### Second once booted into the installer image type:
- 
- ### "sudo su"
- ### "passwd"
- ### then type "a"
- ### then "ip a" 
-
-
-#### Third - GO TO LAPTOP and send script to the HOUSE-SOVRANPRO...
-
-	### rsync -avP -e "ssh -i ~/.ssh/sovransystems" /home/free/Documents/Sovran\ Systems/Sovran\ Pro\ Scripts/Step_2_pspv2 root@172.88.122.161:/home/free/Documents/New_Install_Scripts
-
-
-#### Fourth - FROM LAPTOP LOGIN to the HOUSE-SOVRANPRO transfer this script to The New Sovran Pro...
-	
-	### Open terminal Log into the HOUSE-SOVRANPRO
-
-	### ssh -i ~/.ssh/sovransystems root@172.88.122.161
-
-	### NOW WHILE LOGGED INTO HOUSE-SOVRANPRO type...
-	
-	### rsync -avP -e ssh /home/free/Documents/New_Install_Scripts/Step_2_psp root@192.168.0.?:/root
-
-
-## Then log in with ssh root@192.168.1.[whatever is the ip of the New Sovran Pro]
-
-## Then run bash Step_2_psp
-
 GREEN="\e[32m"
 LIGHTBLUE="\e[94m"
 ENDCOLOR="\e[0m"
@@ -100,18 +68,3 @@ EOT
 nixos-install
 
 reboot
-
-#### After reboot from Laptop WHILE LOGGED INTO The TestSovranPro
-
-	### rsync -avP -e ssh /root/.ssh/authorized_keys root@192.168.[whatever is the ip of the New Sovran Pro]:/root/
-
-### Then type login into the New Sovran Pro to send the sp script: 
-	
-	### "ssh root@192.168.1.[whatever the ip is]"  
-	### then password is "a"
-	### then wget command...
-	### "wget https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS/raw/branch/main/for_new_sovran_pros/sp"
-
-#### Then type:
-
-	### "bash sp" (which the script "sp" is Step 3)
