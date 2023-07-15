@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
 
-set -o nounset
-
 GREEN="\e[32m"
 LIGHTBLUE="\e[94m"
 ENDCOLOR="\e[0m"
