@@ -54,7 +54,7 @@ cat <<EOT >> /var/lib/njalla/njalla.sh
 
 IP=$(wget -qO- https://ipecho.net/plain ; echo)
 
-##Add DDNS Script From Njalla User Account
+##Manually Add DDNS Script From Njalla User Account AFTER Install
 
 curl "https://...${IP}"
 
@@ -260,12 +260,7 @@ echo "free:a" | chpasswd -c SHA512
 
 rm -rf /root/sp
 
-rm -rf /root/factory_login_install
-
-rm -rf /home/free/.ssh/sovranpro_login
-
-rm -rf /home/free/.ssh/sovranpro_login.pub
-
+#
 
 chown bitcoin:bitcoin /run/media/Second_Drive/BTCEcoandBackup/Bitcoin_Node -R
 
@@ -306,21 +301,6 @@ sudo echo "no" | matrix-synapse-register_new_matrix_user -u test -p a
 
 #
 
-DOMAIN=$(cat /var/lib/domains/matrix)
-
-
-cp -n /var/lib/caddy/.local/share/caddy/certificates/acme.zerossl.com-v2-dv90/${DOMAIN}/${DOMAIN}.crt /var/lib/coturn/${DOMAIN}.crt.pem
-			
-cp -n /var/lib/caddy/.local/share/caddy/certificates/acme.zerossl.com-v2-dv90/${DOMAIN}/${DOMAIN}.key /var/lib/coturn/${DOMAIN}.key.pem
-			
-chown turnserver:turnserver /var/lib/coturn -R
-
-chmod 770 /var/lib/coturn -R
-
-systemctl restart coturn	
-
-#
-
 sed -i '$e cat /var/lib/nextcloudaddition/nextcloudaddition' /var/lib/www/nextcloud/config/config.php
 
 chown caddy:php /var/lib/www -R
@@ -329,6 +309,21 @@ chmod 770 /var/lib/www -R
 
 #
 
+echo "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQCQa3DEhx9RUtV0WopfFuL3cjQt2fBzp5wOg/hkj0FXyZXpp+F47Td1B9mKMNvucINaMQB6T0mW6c70fyT92gZO2OqCff6aeWovtTd9ynRgtJbny/qvVSShDbJcR7nSMeVPoDRaYs18fuA50guYnfoYAkaXyXPmVQ0uK84HwIB5j8gq6GMji7vv+TTNhDP8qOceUzt1DYPo9Z2JSnkFey+Z/fmxWJGsu+MSrA0/PPENEmf6L0ZSgxnu3gHEtdyX2hrFzjE16y3G0wSQzbWJb8MJO0KRSMcyvz6AzOSW4RYdXR1c+4JiciKRdnIAYYHfg7tnZT9wC9AzHjdEbmmrlF05mtjXKnxbPgGY0tlRSYo7B5E0k2zfi30MkIJ6kIE9TMM2z/+1KstrQN4OKBTGomBTYQaRQCT6dGpRTR+b8lOvUcnCSuat1sUC2M2VGFcBbDbKD0FyXy/vOk1pgA4I7GoESWQClnl+ntRg8HrW4oVTX2KpqR2CXjlF956HJGqHW6k= free@nixos" >> /root/.ssh/authorized_keys
+#
+
+pushd /home/free/Downloads
+
+  wget https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS/raw/branch/main/for_new_sovran_pros/Sovran_SystemsOS-Desktop
+
+  sudo -u free dconf load / < Sovran_SystemsOS-Desktop
+
+  rm -rf Sovran_SystemsOS-Desktop
+
+popd
+
+
+#
 set +x
 
 echo -e "${GREEN}These four passwords are generated for convenience to use for the Web front end setup UI accounts for Nextcloud, Wordpress, VaultWarden, and BTCPayserver (if you want to use them).${ENDCOLOR} \n"
