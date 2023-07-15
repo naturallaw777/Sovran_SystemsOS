@@ -258,7 +258,7 @@ echo "free:a" | chpasswd -c SHA512
 
 #
 
-rm -rf /root/sp
+rm -rf /root/sp.sh
 
 #
 
