@@ -274,6 +274,8 @@ chmod 770 /var/lib/coturn -R
 
 echo "root:$(cat /var/lib/secrets/main)" | chpasswd -c SHA512
 
+echo "free:a" | chpasswd -c SHA512
+
 #
 
 sudo -u free flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
@@ -284,10 +286,6 @@ flatpak update
 sudo -u free ssh-keygen -q -N "gosovransytems" -t ed25519 -f /home/free/.ssh/factory_login
 
 sed -i -e "0,/ssh-ed25519.*/{ s::$(cat /home/free/.ssh/factory_login.pub): }" /root/.ssh/authorized_keys
-
-#
-
-echo "free:a" | chpasswd -c SHA512
 
 #
 
@@ -338,14 +336,6 @@ popd
 sudo matrix-synapse-register_new_matrix_user -u admin -p a -a
 
 sudo echo "no" | matrix-synapse-register_new_matrix_user -u test -p a
-
-#
-
-sed -i '$e cat /var/lib/nextcloudaddition/nextcloudaddition' /var/lib/www/nextcloud/config/config.php
-
-chown caddy:php /var/lib/www -R
-
-chmod 770 /var/lib/www -R
 
 #
 
