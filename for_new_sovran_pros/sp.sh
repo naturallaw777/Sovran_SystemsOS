@@ -313,21 +313,21 @@ popd
 
 #
 
-wget https://git.sovransystems.com/Sovran_Systems/Software/raw/branch/main/Sovran_SystemsOS_Reseter/sovran_systemsOS_reseter_local_installer/sovran_systemsOS_reseter_install.sh
-
 pushd ~/Downloads
 
-sudo -u free bash sovran_systemsOS_reseter_install.sh
+  wget https://git.sovransystems.com/Sovran_Systems/Software/raw/branch/main/Sovran_SystemsOS_Reseter/sovran_systemsOS_reseter_local_installer/sovran_systemsOS_reseter_install.sh
+
+  sudo -u free bash sovran_systemsOS_reseter_install.sh
 
 popd
 
 #
 
-wget https://git.sovransystems.com/Sovran_Systems/Software/raw/branch/main/Sovran_SystemsOS_Updater/sovran_systemsOS_updater_local_installer/sovran_systemsOS_updater_install.sh
-
 pushd ~/Downloads
 
-sudo -u free bash sovran_systemsOS_updater_install.sh
+  wget https://git.sovransystems.com/Sovran_Systems/Software/raw/branch/main/Sovran_SystemsOS_Updater/sovran_systemsOS_updater_local_installer/sovran_systemsOS_updater_install.sh
+
+  sudo -u free bash sovran_systemsOS_updater_install.sh
 
 popd
 
