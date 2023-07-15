@@ -59,6 +59,7 @@ cat <<EOT >> /mnt/etc/nixos/configuration.nix
 		fish
 		pwgen
 		openssl
+		sed
 	];
 
 	services.openssh = {
