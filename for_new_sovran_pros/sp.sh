@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -o nounset
+
 GREEN="\e[32m"
 LIGHTBLUE="\e[94m"
 ENDCOLOR="\e[0m"
@@ -135,6 +137,7 @@ EOT
 #
 
 mkdir /var/lib/secrets
+mkdir /var/lib/secrets/vaultwarden
 
 touch /var/lib/secrets/nextclouddb
 touch /var/lib/secrets/wordpressdb
@@ -171,6 +174,12 @@ pushd /var/lib/agenix-secrets/
 
 popd
 
+  if [[ $? != 0 ]]; then
+
+   exit 1
+
+  fi
+
 #
 
 pushd /etc/nixos
@@ -180,6 +189,12 @@ pushd /etc/nixos
   nixos-rebuild switch --impure
 
 popd
+
+  if [[ $? != 0 ]]; then
+
+   exit 1
+
+  fi
 
 #
 
@@ -206,6 +221,12 @@ pushd /etc/nixos
   nixos-rebuild switch --impure
 
 popd
+
+  if [[ $? != 0 ]]; then
+
+   exit 1
+
+  fi
 
 #
 

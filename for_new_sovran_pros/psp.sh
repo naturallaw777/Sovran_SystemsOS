@@ -56,6 +56,7 @@ cat <<EOT >> /mnt/etc/nixos/configuration.nix
 		ranger
 		fish
 		pwgen
+		openssl
 	];
 
 	services.openssh = {
