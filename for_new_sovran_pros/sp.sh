@@ -287,7 +287,8 @@ mkdir -p /root/.ssh/authorized_keys
 
 sudo -u free ssh-keygen -q -N "gosovransytems" -t ed25519 -f /home/free/.ssh/factory_login
 
-sed -i -e "0,/ssh-ed25519.*/{ s::$(cat /home/free/.ssh/factory_login.pub): }" /root/.ssh/authorized_keys
+echo "$(cat /home/free/.ssh/factory_login.pub)" >> /root/.ssh/authorized_keys
+
 
 #
 
