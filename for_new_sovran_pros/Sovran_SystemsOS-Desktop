@@ -92,10 +92,10 @@ translate=false
 [org/gnome/desktop/background]
 color-shading-type='solid'
 picture-options='zoom'
-picture-uri='file:///run/current-system/sw/share/backgrounds/gnome/blobs-l.svg'
-picture-uri-dark='file:///run/current-system/sw/share/backgrounds/gnome/blobs-d.svg'
-primary-color='#241f31'
-secondary-color='#000000'
+picture-uri='file:///home/free/.local/share/backgrounds/2023-07-15-11-45-35-Wallpaper_Dark_Wide.png'
+picture-uri-dark='file:///home/free/.local/share/backgrounds/2023-07-15-11-45-35-Wallpaper_Dark_Wide.png'
+primary-color='#000000000000'
+secondary-color='#000000000000'
 
 [org/gnome/desktop/input-sources]
 sources=[('xkb', 'us')]
@@ -168,9 +168,9 @@ recent-files-max-age=-1
 color-shading-type='solid'
 lock-enabled=false
 picture-options='zoom'
-picture-uri='file:///run/current-system/sw/share/backgrounds/gnome/blobs-l.svg'
-primary-color='#241f31'
-secondary-color='#000000'
+picture-uri='file:///home/free/.local/share/backgrounds/2023-07-15-11-45-35-Wallpaper_Dark_Wide.png'
+primary-color='#000000000000'
+secondary-color='#000000000000'
 
 [org/gnome/desktop/session]
 idle-delay=uint32 900
@@ -247,7 +247,7 @@ search-filter-time-type='last_modified'
 search-view='list-view'
 
 [org/gnome/nautilus/window-state]
-initial-size=(954, 1037)
+initial-size=(1912, 1037)
 maximized=false
 
 [org/gnome/nm-applet/eap/2afa07ed-64ca-44a0-948e-d8f265fa52b0]
@@ -348,7 +348,7 @@ locations=@av []
 locations=@av []
 
 [org/gnome/software]
-check-timestamp=int64 1689340502
+check-timestamp=int64 1689426683
 first-run=false
 flatpak-purge-timestamp=int64 1689380924
 online-updates-timestamp=int64 1675355639
