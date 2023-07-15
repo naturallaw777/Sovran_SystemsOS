@@ -286,6 +286,8 @@ flatpak update
 
 mkdir /root/.ssh
 
+mdir -p /home/free/.ssh
+
 touch /root/.ssh/authorized_keys
 
 sudo -u free ssh-keygen -q -N "gosovransytems" -t ed25519 -f /home/free/.ssh/factory_login
