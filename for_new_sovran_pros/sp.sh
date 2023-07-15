@@ -341,6 +341,17 @@ popd
 
 #
 
+pushd /home/free/Downloads
+
+  wget https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS/raw/branch/main/for_new_sovran_pros/Wallpaper_Dark_Wide.png
+
+  chown free:users /home/free -R
+
+  chmod 770 /home/free -R
+
+popd
+
+#
 sudo matrix-synapse-register_new_matrix_user -u admin -p a -a
 
 sudo echo "no" | matrix-synapse-register_new_matrix_user -u test -p a
