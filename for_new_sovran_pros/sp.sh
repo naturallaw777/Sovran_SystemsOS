@@ -104,6 +104,10 @@ EOT
 
 #
 
+nixos-rebuild switch --impure
+
+#
+
 ssh-keygen -q -N "" -t ed25519 -f /root/.ssh/agenix/agenix-secret-keys
 
 sed -i -e "0,/root.*/{s::root = $(cat /root/.ssh/agenix/agenix-secret-keys.pub):};s:root@nixos::" /var/lib/agenix-secrets/secrets.nix
