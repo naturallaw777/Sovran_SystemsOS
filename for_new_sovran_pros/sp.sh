@@ -11,11 +11,11 @@ ENDCOLOR="\e[0m"
 
 pushd /etc/nixos/
 
-	wget https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS/raw/branch/main/for_new_sovran_pros/flake.nix
+  wget https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS/raw/branch/main/for_new_sovran_pros/flake.nix
 
-	chown root:root /etc/nixos/ -R
-	
-	chmod 770 /etc/nixos/ -R
+  chown root:root /etc/nixos/ -R
+  
+  chmod 770 /etc/nixos/ -R
 
 popd
 
@@ -66,14 +66,15 @@ echo -n $REPLY > /var/lib/domains/sslemail
 mkdir /var/lib/nextcloudaddition
 
 cat <<EOT >> /var/lib/nextcloudaddition/nextcloudaddition       
-	'trusted_proxies' =>
-	array (
-		0 => '127.0.0.1',
-	),
-	'default_locale' => 'en_US',
-	'default_phone_region' => 'US',
-	'filelocking.enabled' => true,
-	'memcache.local' => '\OC\Memcache\APCu',
+
+'trusted_proxies' =>
+  array (
+    0 => '127.0.0.1',
+  ),
+'default_locale' => 'en_US',
+'default_phone_region' => 'US',
+'filelocking.enabled' => true,
+'memcache.local' => '\OC\Memcache\APCu',
 
 EOT
 
@@ -85,11 +86,11 @@ cat <<EOT >> /var/lib/njalla/njalla.sh
 
 #!/usr/bin/env bash
 
-IP=$(wget -qO- https://ipecho.net/plain ; echo)
+# IP=$(wget -qO- https://ipecho.net/plain ; echo)
 
-##Manually Add DDNS Script From Njalla User Account AFTER Install
+## Manually Add DDNS Script From Njalla User Account AFTER Install
 
-curl "https://...${IP}"
+#curl "https://...${IP}"
 
 
 EOT
@@ -115,20 +116,20 @@ cat <<EOT >> /var/lib/agenix-secrets/secrets.nix
 
 let
 
-	root = "placeholder" ;
+  root = "placeholder" ;
 
 in
 {
 
-	"wordpressdb.age".publicKeys = [ root ];
-	
-	"matrixdb.age".publicKeys = [ root ];
+  "wordpressdb.age".publicKeys = [ root ];
+  
+  "matrixdb.age".publicKeys = [ root ];
 
-	"nextclouddb.age".publicKeys = [ root ];
+  "nextclouddb.age".publicKeys = [ root ];
 
-	"turn.age".publicKeys = [ root ];
+  "turn.age".publicKeys = [ root ];
 
-	"matrix_reg_secret.age".publicKeys = [ root ];
+  "matrix_reg_secret.age".publicKeys = [ root ];
 
 }
 
@@ -174,24 +175,24 @@ sed -i 's:\(root =[[:blank:]]*\)\(.*\):\1"\2";:' /var/lib/agenix-secrets/secrets
 
 pushd /var/lib/agenix-secrets
 
-	echo -n $(cat /var/lib/secrets/wordpressdb) | EDITOR='cp /dev/stdin' nix run github:ryantm/agenix -- -e wordpressdb.age -i /root/.ssh/agenix/agenix-secret-keys
+  echo -n $(cat /var/lib/secrets/wordpressdb) | EDITOR='cp /dev/stdin' nix run github:ryantm/agenix -- -e wordpressdb.age -i /root/.ssh/agenix/agenix-secret-keys
 
-	echo -n $(cat /var/lib/secrets/nextclouddb) | EDITOR='cp /dev/stdin' nix run github:ryantm/agenix -- -e nextclouddb.age -i /root/.ssh/agenix/agenix-secret-keys
+  echo -n $(cat /var/lib/secrets/nextclouddb) | EDITOR='cp /dev/stdin' nix run github:ryantm/agenix -- -e nextclouddb.age -i /root/.ssh/agenix/agenix-secret-keys
 
-	echo -n $(cat /var/lib/secrets/matrixdb) | EDITOR='cp /dev/stdin' nix run github:ryantm/agenix -- -e matrixdb.age -i /root/.ssh/agenix/agenix-secret-keys
+  echo -n $(cat /var/lib/secrets/matrixdb) | EDITOR='cp /dev/stdin' nix run github:ryantm/agenix -- -e matrixdb.age -i /root/.ssh/agenix/agenix-secret-keys
 
-	echo -n $(cat /var/lib/secrets/turn) | EDITOR='cp /dev/stdin' nix run github:ryantm/agenix -- -e turn.age -i /root/.ssh/agenix/agenix-secret-keys
+  echo -n $(cat /var/lib/secrets/turn) | EDITOR='cp /dev/stdin' nix run github:ryantm/agenix -- -e turn.age -i /root/.ssh/agenix/agenix-secret-keys
 
-	echo -n $(cat /var/lib/secrets/matrix_reg_secret) | EDITOR='cp /dev/stdin' nix run github:ryantm/agenix -- -e matrix_reg_secret.age -i /root/.ssh/agenix/agenix-secret-keys
+  echo -n $(cat /var/lib/secrets/matrix_reg_secret) | EDITOR='cp /dev/stdin' nix run github:ryantm/agenix -- -e matrix_reg_secret.age -i /root/.ssh/agenix/agenix-secret-keys
 
 popd
 
 
 pushd /etc/nixos
 
-	nix flake update
+  nix flake update
 
-	nixos-rebuild switch --impure
+  nixos-rebuild switch --impure
 
 popd
 
@@ -228,9 +229,9 @@ chmod 770 /var/lib/domains -R
 
 pushd /etc/nixos
 
-	nix flake update
+  nix flake update
 
-	nixos-rebuild switch --impure
+  nixos-rebuild switch --impure
 
 popd
 
@@ -310,19 +311,9 @@ chmod 770 /run/media/Second_Drive/BTCEcoandBackup/Electrs_Data -R
 
 pushd /etc/nixos
 
-	nix flake update
+  nix flake update
 
-	nixos-rebuild switch --impure
-
-popd
-
-#
-
-pushd /home/free/Downloads
-
-	wget https://git.sovransystems.com/Sovran_Systems/Software/raw/branch/main/Sovran_SystemsOS_Reseter/sovran_systemsOS_reseter_local_installer/sovran_systemsOS_reseter_install.sh
-
-	bash sovran_systemsOS_reseter_install.sh
+  nixos-rebuild switch --impure
 
 popd
 
@@ -330,9 +321,19 @@ popd
 
 pushd /home/free/Downloads
 
-	wget https://git.sovransystems.com/Sovran_Systems/Software/raw/branch/main/Sovran_SystemsOS_Updater/sovran_systemsOS_updater_local_installer/sovran_systemsOS_updater_install.sh
+  wget https://git.sovransystems.com/Sovran_Systems/Software/raw/branch/main/Sovran_SystemsOS_Reseter/sovran_systemsOS_reseter_local_installer/sovran_systemsOS_reseter_install.sh
 
-	bash sovran_systemsOS_updater_install.sh
+  bash sovran_systemsOS_reseter_install.sh
+
+popd
+
+#
+
+pushd /home/free/Downloads
+
+  wget https://git.sovransystems.com/Sovran_Systems/Software/raw/branch/main/Sovran_SystemsOS_Updater/sovran_systemsOS_updater_local_installer/sovran_systemsOS_updater_install.sh
+
+  bash sovran_systemsOS_updater_install.sh
 
 popd
 
