@@ -37,8 +37,11 @@ rm /mnt/etc/nixos/configuration.nix
 
 cat <<EOT >> /mnt/etc/nixos/configuration.nix         
 { config, pkgs, ... }: {
+  
   imports = [
+	
 	./hardware-configuration.nix
+  
   ];
 
   boot.loader.systemd-boot.enable = true;
@@ -46,10 +49,10 @@ cat <<EOT >> /mnt/etc/nixos/configuration.nix
 	boot.loader.efi.efiSysMountPoint = "/boot/efi";
 
   nix = {
-  package = pkgs.nixUnstable;
-	extraOptions = ''
-		experimental-features = nix-command flakes
-	'';
+  	package = pkgs.nixUnstable;
+		extraOptions = ''
+			experimental-features = nix-command flakes
+		'';
   };
 
 	users.users = {
@@ -58,6 +61,7 @@ cat <<EOT >> /mnt/etc/nixos/configuration.nix
 			description = "free";
 			extraGroups = [ "networkmanager" ];
 		};
+	};
 
 	environment.systemPackages = with pkgs; [
 		wget
@@ -71,7 +75,7 @@ cat <<EOT >> /mnt/etc/nixos/configuration.nix
 	services.openssh = {
 		enable = true;
 		permitRootLogin = "yes";
-		};
+	};
 }
 
 EOT
