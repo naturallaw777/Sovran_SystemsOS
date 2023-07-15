@@ -52,6 +52,13 @@ cat <<EOT >> /mnt/etc/nixos/configuration.nix
 	'';
   };
 
+	users.users = {
+		free = {
+			isNormalUser = true;
+			description = "free";
+			extraGroups = [ "networkmanager" ];
+		};
+
 	environment.systemPackages = with pkgs; [
 		wget
 		git
