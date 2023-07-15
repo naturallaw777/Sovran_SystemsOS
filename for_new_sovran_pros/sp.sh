@@ -2,7 +2,6 @@
 
 # wget https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS/raw/branch/main/for_new_sovran_pros/sp.sh
 
-set -e
 
 GREEN="\e[32m"
 LIGHTBLUE="\e[94m"
@@ -170,6 +169,16 @@ pushd /etc/nixos
 
 popd
 
+exit_on_error() {
+    exit_code=$1
+    last_command=${@:2}
+    if [ $exit_code -ne 0 ]; then
+        >&2 echo "\"${last_command}\" command failed with exit code ${exit_code}."
+        exit $exit_code
+    fi
+}
+
+
 #
 
 chown root:root /var/lib/secrets/main -R
@@ -202,6 +211,15 @@ sed -i -e "0,/root.*/{s::root = $(cat /root/.ssh/agenix/agenix-secret-keys.pub):
 
 sed -i 's:\(root =[[:blank:]]*\)\(.*\):\1"\2";:' /var/lib/agenix-secrets/secrets.nix
 
+exit_on_error() {
+    exit_code=$1
+    last_command=${@:2}
+    if [ $exit_code -ne 0 ]; then
+        >&2 echo "\"${last_command}\" command failed with exit code ${exit_code}."
+        exit $exit_code
+    fi
+}
+
 #
 
 pushd /var/lib/agenix-secrets/
@@ -218,6 +236,15 @@ pushd /var/lib/agenix-secrets/
 
 popd
 
+exit_on_error() {
+    exit_code=$1
+    last_command=${@:2}
+    if [ $exit_code -ne 0 ]; then
+        >&2 echo "\"${last_command}\" command failed with exit code ${exit_code}."
+        exit $exit_code
+    fi
+}
+
 #
 
 chown caddy:php /var/lib/domains -R
@@ -233,6 +260,15 @@ pushd /etc/nixos
   nixos-rebuild switch --impure
 
 popd
+
+exit_on_error() {
+    exit_code=$1
+    last_command=${@:2}
+    if [ $exit_code -ne 0 ]; then
+        >&2 echo "\"${last_command}\" command failed with exit code ${exit_code}."
+        exit $exit_code
+    fi
+}
 
 #
 
