@@ -286,7 +286,7 @@ flatpak update
 
 mkdir /root/.ssh
 
-mdir -p /home/free/.ssh
+mkdir -p /home/free/.ssh
 
 touch /root/.ssh/authorized_keys
 
