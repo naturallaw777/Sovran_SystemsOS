@@ -108,9 +108,6 @@ echo "${IP}" > /var/lib/secrets/external_ip
 
 EOF
 
-
-
-
 #
 
 mkdir /var/lib/agenix-secrets/
