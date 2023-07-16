@@ -187,6 +187,7 @@ pushd /var/lib/agenix-secrets
 
 popd
 
+#
 
 pushd /etc/nixos
 
@@ -195,7 +196,6 @@ pushd /etc/nixos
   nixos-rebuild switch --impure
 
 popd
-
 
 #
 
@@ -332,7 +332,7 @@ popd
 
 mkdir -p /home/free/Pictures
 
-pushd /home/free/Downloads
+pushd /home/free/Pictures
 
   wget https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS/raw/branch/main/for_new_sovran_pros/Wallpaper_Dark_Wide.png
 
