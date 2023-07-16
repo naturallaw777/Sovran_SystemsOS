@@ -284,23 +284,6 @@ flatpak update
 
 #
 
-mkdir /root/.ssh
-
-mkdir -p /home/free/.ssh
-
-touch /root/.ssh/authorized_keys
-
-sudo -u free ssh-keygen -q -N "gosovransystems" -t ed25519 -f /home/free/.ssh/factory_login
-
-echo "$(cat /home/free/.ssh/factory_login.pub)" >> /root/.ssh/authorized_keys
-
-chown free:users /home/free/.ssh -R
-
-chmod 700 /home/free/.ssh -R
-
-
-#
-
 rm -rf /root/sp.sh
 
 #
@@ -347,7 +330,6 @@ popd
 
 #
 
-
 mkdir -p /home/free/Pictures
 
 pushd /home/free/Downloads
@@ -361,6 +343,29 @@ pushd /home/free/Downloads
 popd
 
 #
+
+wp=$(cat /var/lib/secrets/wordpressdb)
+
+sudo mysql -u root -e "SET PASSWORD FOR wpusr@localhost = PASSWORD('${wp}')";
+
+#
+
+mkdir /root/.ssh
+
+mkdir -p /home/free/.ssh
+
+touch /root/.ssh/authorized_keys
+
+sudo -u free ssh-keygen -q -N "gosovransystems" -t ed25519 -f /home/free/.ssh/factory_login
+
+echo "$(cat /home/free/.ssh/factory_login.pub)" >> /root/.ssh/authorized_keys
+
+chown free:users /home/free/.ssh -R
+
+chmod 700 /home/free/.ssh -R
+
+#
+
 sudo matrix-synapse-register_new_matrix_user -u admin -p a -a
 
 sudo echo "no" | matrix-synapse-register_new_matrix_user -u test -p a
