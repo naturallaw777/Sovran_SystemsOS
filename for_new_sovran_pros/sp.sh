@@ -280,7 +280,6 @@ echo "free:a" | chpasswd -c SHA512
 #
 
 sudo -u free flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-flatpak update
 
 #
 
