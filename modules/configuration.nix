@@ -141,7 +141,6 @@ in
 		gnome.gnome-tweaks
 		papirus-icon-theme
 		ranger
-		gnome.gnome-tweaks
 		bisq-desktop
 		neofetch
 		gnome.gedit
@@ -165,6 +164,7 @@ in
 		screen
 		gnome.zenity
 		libargon2
+		gnome.gnome-terminal
 
 	];
 
