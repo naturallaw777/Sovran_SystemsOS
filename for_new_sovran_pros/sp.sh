@@ -65,7 +65,7 @@ echo -n $REPLY > /var/lib/domains/sslemail
 
 mkdir /var/lib/nextcloudaddition
 
-cat <<EOT >> /var/lib/nextcloudaddition/nextcloudaddition       
+cat > /var/lib/nextcloudaddition/nextcloudaddition <<- "EOF"
 
 'trusted_proxies' =>
   array (
@@ -76,49 +76,53 @@ cat <<EOT >> /var/lib/nextcloudaddition/nextcloudaddition
 'filelocking.enabled' => true,
 'memcache.local' => '\OC\Memcache\APCu',
 
-EOT
+EOF
 
 #
 
 mkdir /var/lib/njalla/
 
-cat <<EOT >> /var/lib/njalla/njalla.sh
+cat > /var/lib/njalla/njalla.sh <<- "EOF"
 
 #!/usr/bin/env bash
 
-# IP=$(wget -qO- https://ipecho.net/plain ; echo)
+IP=$(wget -qO- https://ipecho.net/plain ; echo)
 
 ## Manually Add DDNS Script From Njalla User Account AFTER Install
 
-#curl "https://...${IP}"
+curl "https://...${IP}"
 
-
-EOT
+EOF
 
 #
 
 mkdir /var/lib/external_ip
 
-cat <<EOT >> /var/lib/external_ip/external_ip.sh
+cat > /var/lib/external_ip/external_ip.sh <<- "EOF"
 
 #!/usr/bin/env bash
 
-wget -qO- https://ipecho.net/plain ; echo > /var/lib/secrets/external_ip
+IP=$(wget -qO- https://ipecho.net/plain ; echo)
+
+echo "${IP}" > /var/lib/secrets/external_ip
+
+EOF
 
 
-EOT
+
 
 #
 
 mkdir /var/lib/agenix-secrets/
 
-cat <<EOT >> /var/lib/agenix-secrets/secrets.nix
+cat > /var/lib/agenix-secrets/secrets.nix <<- "EOF"
 
 let
 
   root = "placeholder" ;
 
 in
+
 {
 
   "wordpressdb.age".publicKeys = [ root ];
@@ -133,8 +137,7 @@ in
 
 }
 
-
-EOT
+EOF
 
 #
 
