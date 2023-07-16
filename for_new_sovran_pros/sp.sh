@@ -290,9 +290,13 @@ mkdir -p /home/free/.ssh
 
 touch /root/.ssh/authorized_keys
 
-sudo -u free ssh-keygen -q -N "gosovransytems" -t ed25519 -f /home/free/.ssh/factory_login
+sudo -u free ssh-keygen -q -N "gosovransystems" -t ed25519 -f /home/free/.ssh/factory_login
 
 echo "$(cat /home/free/.ssh/factory_login.pub)" >> /root/.ssh/authorized_keys
+
+chown free:users /home/free/.ssh -R
+
+chmod 700 /home/free/.ssh -R
 
 
 #
@@ -321,6 +325,8 @@ popd
 
 #
 
+mkdir -p /home/free/Downloads
+
 pushd /home/free/Downloads
 
   wget https://git.sovransystems.com/Sovran_Systems/Software/raw/branch/main/Sovran_SystemsOS_Reseter/sovran_systemsOS_reseter_local_installer/sovran_systemsOS_reseter_install.sh
@@ -340,6 +346,9 @@ pushd /home/free/Downloads
 popd
 
 #
+
+
+mkdir -p /home/free/Pictures
 
 pushd /home/free/Downloads
 
