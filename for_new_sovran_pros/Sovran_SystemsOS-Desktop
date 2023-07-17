@@ -3,7 +3,7 @@ dark-full-screen=false
 
 [org/gnome/Console]
 font-scale=1.7000000000000006
-last-window-size=(1912, 1037)
+last-window-size=(954, 1037)
 
 [org/gnome/Geary]
 migrated-config=true
@@ -16,7 +16,7 @@ subtitle-encoding='UTF-8'
 
 [org/gnome/baobab/ui]
 is-maximized=false
-window-size=(1912, 1037)
+window-size=(954, 1037)
 
 [org/gnome/calculator]
 accuracy=9
@@ -35,11 +35,11 @@ word-size=64
 [org/gnome/calendar]
 active-view='month'
 window-maximized=false
-window-size=(1912, 1037)
+window-size=(486, 1037)
 
 [org/gnome/control-center]
-last-panel='background'
-window-state=(1912, 1037, false)
+last-panel='network'
+window-state=(954, 1037, false)
 
 [org/gnome/desktop/app-folders]
 folder-children=['Utilities', 'YaST', 'd737daeb-6dbb-4a5d-9ec7-e674398539ce', '7d66e46a-a135-4e42-91bb-d438e499d251', '3fea025e-f5e4-4905-9912-e70e38cd0419', '83d8148a-1f0b-4f83-814a-11c33ab8debc', '68c075b1-a254-4b7c-ba63-c45f88bc2a58', '534e2716-83c7-4a2a-9678-8144999213ed', '4acaa2d8-d284-4efd-bba3-40f150f1ace5']
@@ -85,15 +85,15 @@ name='suse-yast.directory'
 translate=true
 
 [org/gnome/desktop/app-folders/folders/d737daeb-6dbb-4a5d-9ec7-e674398539ce]
-apps=['fish.desktop', 'org.gnome.Console.desktop', 'htop.desktop', 'ranger.desktop', 'xterm.desktop']
+apps=['fish.desktop', 'org.gnome.Console.desktop', 'htop.desktop', 'ranger.desktop', 'xterm.desktop', 'org.gnome.Terminal.desktop']
 name='Terminal Fun'
 translate=false
 
 [org/gnome/desktop/background]
 color-shading-type='solid'
 picture-options='zoom'
-picture-uri='file:///home/free/.local/share/backgrounds/2023-07-15-11-45-35-Wallpaper_Dark_Wide.png'
-picture-uri-dark='file:///home/free/.local/share/backgrounds/2023-07-15-11-45-35-Wallpaper_Dark_Wide.png'
+picture-uri='file:///home/free/.local/share/backgrounds/2023-07-16-12-58-54-Wallpaper_Dark_Wide.png'
+picture-uri-dark='file:///home/free/.local/share/backgrounds/2023-07-16-12-58-54-Wallpaper_Dark_Wide.png'
 primary-color='#000000000000'
 secondary-color='#000000000000'
 
@@ -112,7 +112,7 @@ icon-theme='Papirus-Dark'
 text-scaling-factor=1.0700000000000001
 
 [org/gnome/desktop/notifications]
-application-children=['gnome-power-panel', 'org-gnome-nautilus', 'org-gnome-software', 'gnome-network-panel', 'sparrow', 'org-gnome-settings', 'org-gnome-console', 'gnome-printers-panel', 'org-gnome-epiphany', 'com-obsproject-studio', 'io-github-seadve-kooha', 'xdg-desktop-portal-gnome']
+application-children=['gnome-power-panel', 'org-gnome-nautilus', 'org-gnome-software', 'gnome-network-panel', 'sparrow', 'org-gnome-settings', 'org-gnome-console', 'gnome-printers-panel', 'org-gnome-epiphany', 'com-obsproject-studio', 'io-github-seadve-kooha', 'xdg-desktop-portal-gnome', 'org-gnome-baobab']
 show-in-lock-screen=false
 
 [org/gnome/desktop/notifications/application/com-obsproject-studio]
@@ -129,6 +129,9 @@ application-id='gnome-printers-panel.desktop'
 
 [org/gnome/desktop/notifications/application/io-github-seadve-kooha]
 application-id='io.github.seadve.Kooha.desktop'
+
+[org/gnome/desktop/notifications/application/org-gnome-baobab]
+application-id='org.gnome.baobab.desktop'
 
 [org/gnome/desktop/notifications/application/org-gnome-console]
 application-id='org.gnome.Console.desktop'
@@ -168,7 +171,7 @@ recent-files-max-age=-1
 color-shading-type='solid'
 lock-enabled=false
 picture-options='zoom'
-picture-uri='file:///home/free/.local/share/backgrounds/2023-07-15-11-45-35-Wallpaper_Dark_Wide.png'
+picture-uri='file:///home/free/.local/share/backgrounds/2023-07-16-12-58-54-Wallpaper_Dark_Wide.png'
 primary-color='#000000000000'
 secondary-color='#000000000000'
 
@@ -206,7 +209,7 @@ window-height=990
 window-width=954
 
 [org/gnome/gnome-system-monitor]
-current-tab='disks'
+current-tab='processes'
 maximized=false
 network-total-in-bits=false
 show-dependencies=false
@@ -223,12 +226,12 @@ sort-col=8
 sort-order=0
 
 [org/gnome/maps]
-last-viewed-location=[33.98678824432703, -118.33063362501532]
+last-viewed-location=[34.015438242460405, -118.32766985901287]
 map-type='MapsStreetSource'
 transportation-type='pedestrian'
 window-maximized=false
 window-size=[1912, 1037]
-zoom-level=19
+zoom-level=9
 
 [org/gnome/mutter]
 attach-modal-dialogs=true
@@ -271,10 +274,10 @@ power-button-action='interactive'
 sleep-inactive-ac-type='nothing'
 
 [org/gnome/shell]
-app-picker-layout=[{'org.gnome.Weather.desktop': <{'position': <0>}>, 'org.gnome.clocks.desktop': <{'position': <1>}>, 'org.gnome.Maps.desktop': <{'position': <2>}>, 'org.gnome.Calculator.desktop': <{'position': <3>}>, '68c075b1-a254-4b7c-ba63-c45f88bc2a58': <{'position': <4>}>, '3fea025e-f5e4-4905-9912-e70e38cd0419': <{'position': <5>}>, '83d8148a-1f0b-4f83-814a-11c33ab8debc': <{'position': <6>}>, 'Utilities': <{'position': <7>}>, 'd737daeb-6dbb-4a5d-9ec7-e674398539ce': <{'position': <8>}>, '7d66e46a-a135-4e42-91bb-d438e499d251': <{'position': <9>}>, '534e2716-83c7-4a2a-9678-8144999213ed': <{'position': <10>}>, '4acaa2d8-d284-4efd-bba3-40f150f1ace5': <{'position': <11>}>, 'bitwarden.desktop': <{'position': <12>}>, 'gnome-system-monitor.desktop': <{'position': <13>}>, 'Sovran_SystemsOS_Reseter.desktop': <{'position': <14>}>}]
+app-picker-layout=[{'org.gnome.Weather.desktop': <{'position': <0>}>, 'org.gnome.clocks.desktop': <{'position': <1>}>, 'org.gnome.Maps.desktop': <{'position': <2>}>, 'org.gnome.Calculator.desktop': <{'position': <3>}>, '68c075b1-a254-4b7c-ba63-c45f88bc2a58': <{'position': <4>}>, '3fea025e-f5e4-4905-9912-e70e38cd0419': <{'position': <5>}>, '83d8148a-1f0b-4f83-814a-11c33ab8debc': <{'position': <6>}>, 'Utilities': <{'position': <7>}>, 'd737daeb-6dbb-4a5d-9ec7-e674398539ce': <{'position': <8>}>, '7d66e46a-a135-4e42-91bb-d438e499d251': <{'position': <9>}>, '534e2716-83c7-4a2a-9678-8144999213ed': <{'position': <10>}>, '4acaa2d8-d284-4efd-bba3-40f150f1ace5': <{'position': <11>}>, 'bitwarden.desktop': <{'position': <12>}>, 'gnome-system-monitor.desktop': <{'position': <13>}>}]
 disabled-extensions=['transparent-top-bar@zhanghai.me']
-enabled-extensions=['appindicatorsupport@rgcjonas.gmail.com', 'dash-to-dock-cosmic-@halfmexicanhalfamazing@gmail.com', 'Vitals@CoreCoding.com', 'dash-to-dock@micxgx.gmail.com', 'transparent-top-bar@ftpix.com', 'just-perfection-desktop@just-perfection', 'pop-shell@system76.com', 'systemd-manager@hardpixel.eu']
-favorite-apps=['brave-browser.desktop', 'org.gnome.Nautilus.desktop', 'org.gnome.Console.desktop', 'Sovran_SystemsOS_Updater.desktop', 'Sovran_SystemsOS_Reseter.desktop', 'org.gnome.Settings.desktop', 'org.gnome.Software.desktop', 'org.gnome.Geary.desktop', 'org.gnome.Contacts.desktop', 'org.gnome.Calendar.desktop', 'Bisq.desktop', 'sparrow-desktop.desktop']
+enabled-extensions=['appindicatorsupport@rgcjonas.gmail.com', 'dash-to-dock-cosmic-@halfmexicanhalfamazing@gmail.com', 'Vitals@CoreCoding.com', 'dash-to-dock@micxgx.gmail.com', 'transparent-top-bar@ftpix.com', 'just-perfection-desktop@just-perfection', 'pop-shell@system76.com', 'systemd-manager@hardpixel.eu', 'date-menu-formatter@marcinjakubowski.github.com']
+favorite-apps=['brave-browser.desktop', 'org.gnome.Nautilus.desktop', 'Sovran_SystemsOS_Updater.desktop', 'Sovran_SystemsOS_Reseter.desktop', 'org.gnome.Settings.desktop', 'org.gnome.Software.desktop', 'org.gnome.Geary.desktop', 'org.gnome.Contacts.desktop', 'org.gnome.Calendar.desktop', 'Bisq.desktop', 'sparrow-desktop.desktop']
 last-selected-power-profile='performance'
 welcome-dialog-last-shown-version='42.3.1'
 
@@ -320,6 +323,10 @@ show-mounts-only-mounted=false
 show-trash=false
 transparency-mode='FIXED'
 
+[org/gnome/shell/extensions/date-menu-formatter]
+font-size=14
+pattern='EEEE    MMM  d     h: mm aaa'
+
 [org/gnome/shell/extensions/just-perfection]
 accessibility-menu=false
 
@@ -348,11 +355,15 @@ locations=@av []
 locations=@av []
 
 [org/gnome/software]
-check-timestamp=int64 1689426683
+check-timestamp=int64 1689537660
 first-run=false
-flatpak-purge-timestamp=int64 1689380924
+flatpak-purge-timestamp=int64 1689552000
 online-updates-timestamp=int64 1675355639
 update-notification-timestamp=int64 1666382024
+
+[org/gnome/terminal/legacy/profiles:/:b1dcc9dd-5262-4d8d-a863-c897e6d979b9]
+font='Monospace 14'
+use-system-font=false
 
 [org/gnome/tweaks]
 show-extensions-notice=false
@@ -363,7 +374,7 @@ selected-color=(true, 0.0, 0.0, 0.0, 1.0)
 [org/gtk/gtk4/settings/file-chooser]
 date-format='regular'
 location-mode='path-bar'
-show-hidden=true
+show-hidden=false
 show-size-column=true
 show-type-column=true
 sidebar-width=177
@@ -380,7 +391,7 @@ show-hidden=true
 
 [system/proxy]
 ignore-hosts=@as []
-mode='none'
+mode='manual'
 
 [system/proxy/http]
 port=0
