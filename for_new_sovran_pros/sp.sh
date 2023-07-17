@@ -217,6 +217,7 @@ chown vaultwarden:vaultwarden /var/lib/secrets/vaultwarden -R
 
 chown onlyoffice:onlyoffice /var/lib/secrets/onlyofficejwtSecretFile
 
+
 chmod 770 /var/lib/secrets/ -R
 
 #
@@ -343,6 +344,14 @@ popd
 
 #
 
+pushd /home/free/Downloads
+
+  sudo -u free wget https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS/raw/branch/main/for_new_sovran_pros/Sovran_SystemsOS-Desktop
+
+popd
+
+#
+
 wp=$(cat /var/lib/secrets/wordpressdb)
 
 sudo mysql -u root -e "SET PASSWORD FOR wpusr@localhost = PASSWORD('${wp}')";
@@ -353,15 +362,15 @@ mkdir /root/.ssh
 
 mkdir -p /home/free/.ssh
 
+chown free:users /home/free/.ssh -R
+
 touch /root/.ssh/authorized_keys
 
 sudo -u free ssh-keygen -q -N "gosovransystems" -t ed25519 -f /home/free/.ssh/factory_login
 
-echo "$(cat /home/free/.ssh/factory_login.pub)" >> /root/.ssh/authorized_keys
-
-chown free:users /home/free/.ssh -R
-
 chmod 700 /home/free/.ssh -R
+
+echo "$(cat /home/free/.ssh/factory_login.pub)" >> /root/.ssh/authorized_keys
 
 #
 
@@ -383,6 +392,31 @@ echo -e "$(pwgen -s 17 -1) \n"
 echo -e "$(pwgen -s 17 -1) \n"
 echo -e "$(pwgen -s 17 -1) \n"
 echo -e "$(pwgen -s 17 -1) \n"
+
+#
+
+DOMAIN=$(cat /var/lib/domains/matrix)
+
+
+cp -n /var/lib/caddy/.local/share/caddy/certificates/acme.zerossl.com-v2-dv90/${DOMAIN}/${DOMAIN}.crt /var/lib/coturn/${DOMAIN}.crt.pem
+      
+cp -n /var/lib/caddy/.local/share/caddy/certificates/acme.zerossl.com-v2-dv90/${DOMAIN}/${DOMAIN}.key /var/lib/coturn/${DOMAIN}.key.pem
+
+bash /var/lib/external_ip/external_ip.sh
+
+chown turnserver:turnserver /var/lib/coturn -R
+
+chmod 770 /var/lib/coturn -R
+
+#
+
+pushd /etc/nixos
+
+  nix flake update
+
+  nixos-rebuild switch --impure
+
+popd
 
 #
 
