@@ -138,6 +138,7 @@ in
 		gnomeExtensions.just-perfection
 		gnomeExtensions.appindicator
 		gnomeExtensions.systemd-manager
+		gnomeExtensions.date-menu-formatter
 		gnome.gnome-tweaks
 		papirus-icon-theme
 		ranger
