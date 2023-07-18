@@ -171,7 +171,7 @@ in
 
 	nixpkgs.config.permittedInsecurePackages = [
 	               "nodejs-16.20.1"
-	               "nodejs-slim-16.20.0"
+	               "nodejs-slim-16.20.1"
 	             ];
 
 
