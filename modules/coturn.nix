@@ -16,7 +16,7 @@ let
 
 	  unitConfig = {
 	  	Type = "simple";
-	    After = "NetworkManager.service";
+	    After = "btcpayserver.service";
 	    Requires = "network-online.target";
 	  };
 	   
