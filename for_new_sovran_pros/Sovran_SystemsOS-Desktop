@@ -35,11 +35,11 @@ word-size=64
 [org/gnome/calendar]
 active-view='month'
 window-maximized=false
-window-size=(486, 1037)
+window-size=(954, 1037)
 
 [org/gnome/control-center]
 last-panel='network'
-window-state=(954, 1037, false)
+window-state=(1912, 1037, false)
 
 [org/gnome/desktop/app-folders]
 folder-children=['Utilities', 'YaST', 'd737daeb-6dbb-4a5d-9ec7-e674398539ce', '7d66e46a-a135-4e42-91bb-d438e499d251', '3fea025e-f5e4-4905-9912-e70e38cd0419', '83d8148a-1f0b-4f83-814a-11c33ab8debc', '68c075b1-a254-4b7c-ba63-c45f88bc2a58', '534e2716-83c7-4a2a-9678-8144999213ed', '4acaa2d8-d284-4efd-bba3-40f150f1ace5']
@@ -112,7 +112,7 @@ icon-theme='Papirus-Dark'
 text-scaling-factor=1.0700000000000001
 
 [org/gnome/desktop/notifications]
-application-children=['gnome-power-panel', 'org-gnome-nautilus', 'org-gnome-software', 'gnome-network-panel', 'sparrow', 'org-gnome-settings', 'org-gnome-console', 'gnome-printers-panel', 'org-gnome-epiphany', 'com-obsproject-studio', 'io-github-seadve-kooha', 'xdg-desktop-portal-gnome', 'org-gnome-baobab']
+application-children=['gnome-power-panel', 'org-gnome-nautilus', 'org-gnome-software', 'gnome-network-panel', 'sparrow', 'org-gnome-settings', 'org-gnome-console', 'gnome-printers-panel', 'org-gnome-epiphany', 'com-obsproject-studio', 'io-github-seadve-kooha', 'xdg-desktop-portal-gnome', 'org-gnome-baobab', 'org-gnome-geary', 'sparrow-desktop']
 show-in-lock-screen=false
 
 [org/gnome/desktop/notifications/application/com-obsproject-studio]
@@ -139,6 +139,9 @@ application-id='org.gnome.Console.desktop'
 [org/gnome/desktop/notifications/application/org-gnome-epiphany]
 application-id='org.gnome.Epiphany.desktop'
 
+[org/gnome/desktop/notifications/application/org-gnome-geary]
+application-id='org.gnome.Geary.desktop'
+
 [org/gnome/desktop/notifications/application/org-gnome-nautilus]
 application-id='org.gnome.Nautilus.desktop'
 
@@ -147,6 +150,9 @@ application-id='org.gnome.Settings.desktop'
 
 [org/gnome/desktop/notifications/application/org-gnome-software]
 application-id='org.gnome.Software.desktop'
+
+[org/gnome/desktop/notifications/application/sparrow-desktop]
+application-id='sparrow-desktop.desktop'
 
 [org/gnome/desktop/notifications/application/sparrow]
 application-id='Sparrow.desktop'
@@ -218,7 +224,7 @@ window-state=(1912, 1037, 26, 23)
 
 [org/gnome/gnome-system-monitor/disktreenew]
 col-6-visible=true
-col-6-width=1502
+col-6-width=0
 
 [org/gnome/gnome-system-monitor/proctree]
 columns-order=[0, 1, 2, 3, 4, 6, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26]
@@ -250,7 +256,7 @@ search-filter-time-type='last_modified'
 search-view='list-view'
 
 [org/gnome/nautilus/window-state]
-initial-size=(1912, 1037)
+initial-size=(954, 1037)
 maximized=false
 
 [org/gnome/nm-applet/eap/2afa07ed-64ca-44a0-948e-d8f265fa52b0]
@@ -274,7 +280,7 @@ power-button-action='interactive'
 sleep-inactive-ac-type='nothing'
 
 [org/gnome/shell]
-app-picker-layout=[{'org.gnome.Weather.desktop': <{'position': <0>}>, 'org.gnome.clocks.desktop': <{'position': <1>}>, 'org.gnome.Maps.desktop': <{'position': <2>}>, 'org.gnome.Calculator.desktop': <{'position': <3>}>, '68c075b1-a254-4b7c-ba63-c45f88bc2a58': <{'position': <4>}>, '3fea025e-f5e4-4905-9912-e70e38cd0419': <{'position': <5>}>, '83d8148a-1f0b-4f83-814a-11c33ab8debc': <{'position': <6>}>, 'Utilities': <{'position': <7>}>, 'd737daeb-6dbb-4a5d-9ec7-e674398539ce': <{'position': <8>}>, '7d66e46a-a135-4e42-91bb-d438e499d251': <{'position': <9>}>, '534e2716-83c7-4a2a-9678-8144999213ed': <{'position': <10>}>, '4acaa2d8-d284-4efd-bba3-40f150f1ace5': <{'position': <11>}>, 'bitwarden.desktop': <{'position': <12>}>, 'gnome-system-monitor.desktop': <{'position': <13>}>}]
+app-picker-layout=[{'org.gnome.Weather.desktop': <{'position': <0>}>, 'org.gnome.clocks.desktop': <{'position': <1>}>, 'org.gnome.Maps.desktop': <{'position': <2>}>, 'org.gnome.Calculator.desktop': <{'position': <3>}>, '68c075b1-a254-4b7c-ba63-c45f88bc2a58': <{'position': <4>}>, '3fea025e-f5e4-4905-9912-e70e38cd0419': <{'position': <5>}>, '83d8148a-1f0b-4f83-814a-11c33ab8debc': <{'position': <6>}>, 'Utilities': <{'position': <7>}>, 'd737daeb-6dbb-4a5d-9ec7-e674398539ce': <{'position': <8>}>, '7d66e46a-a135-4e42-91bb-d438e499d251': <{'position': <9>}>, '534e2716-83c7-4a2a-9678-8144999213ed': <{'position': <10>}>, '4acaa2d8-d284-4efd-bba3-40f150f1ace5': <{'position': <11>}>, 'bitwarden.desktop': <{'position': <12>}>, 'gnome-system-monitor.desktop': <{'position': <13>}>, 'Bisq-hidpi.desktop': <{'position': <14>}>, 'com.obsproject.Studio.desktop': <{'position': <15>}>}]
 disabled-extensions=['transparent-top-bar@zhanghai.me']
 enabled-extensions=['appindicatorsupport@rgcjonas.gmail.com', 'dash-to-dock-cosmic-@halfmexicanhalfamazing@gmail.com', 'Vitals@CoreCoding.com', 'dash-to-dock@micxgx.gmail.com', 'transparent-top-bar@ftpix.com', 'just-perfection-desktop@just-perfection', 'pop-shell@system76.com', 'systemd-manager@hardpixel.eu', 'date-menu-formatter@marcinjakubowski.github.com']
 favorite-apps=['brave-browser.desktop', 'org.gnome.Nautilus.desktop', 'Sovran_SystemsOS_Updater.desktop', 'Sovran_SystemsOS_Reseter.desktop', 'org.gnome.Settings.desktop', 'org.gnome.Software.desktop', 'org.gnome.Geary.desktop', 'org.gnome.Contacts.desktop', 'org.gnome.Calendar.desktop', 'Bisq.desktop', 'sparrow-desktop.desktop']
@@ -312,9 +318,10 @@ apply-custom-theme=false
 background-color='rgb(0,0,0)'
 background-opacity=0.17000000000000001
 custom-background-color=true
-dash-max-icon-size=76
+dash-max-icon-size=72
 dock-position='BOTTOM'
 height-fraction=0.79000000000000004
+intellihide-mode='ALL_WINDOWS'
 preferred-monitor=-2
 preferred-monitor-by-connector='HDMI-1'
 running-indicator-style='DASHES'
@@ -355,9 +362,9 @@ locations=@av []
 locations=@av []
 
 [org/gnome/software]
-check-timestamp=int64 1689537660
+check-timestamp=int64 1690377814
 first-run=false
-flatpak-purge-timestamp=int64 1689552000
+flatpak-purge-timestamp=int64 1690417354
 online-updates-timestamp=int64 1675355639
 update-notification-timestamp=int64 1666382024
 
