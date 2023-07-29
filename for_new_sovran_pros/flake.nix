@@ -15,7 +15,14 @@
  			
  			modules = [ 
 
- 				(nixpkgs + "/etc/nixos/hardware-configuration.nix")
+ 				(nixpkgs + "
+
+ 					/etc/nixos/hardware-configuration.nix
+
+ 					./modules/bitcoinecosystem.nix	
+
+
+ 					")
 
  				Sovran_Systems.nixosModules.Sovran_SystemsOS 
 
