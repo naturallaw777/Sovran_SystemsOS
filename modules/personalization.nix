@@ -1,12 +1,12 @@
 {
 
-matrix_url = /var/lib/domains/matrix;
-wordpress_url = /var/lib/domains/wordpress;
-nextcloud_url = /var/lib/domains/nextcloud;
-btcpayserver_url = /var/lib/domains/btcpayserver;
-caddy_email_for_zerossl = /var/lib/domains/sslemail;
-vaultwarden_url = /var/lib/domains/vaultwarden;
-onlyoffice_url = /var/lib/domains/onlyoffice;
+matrix_url = builtins.readFile /var/lib/domains/matrix;
+wordpress_url = builtins.readFile /var/lib/domains/wordpress;
+nextcloud_url = builtins.readFile /var/lib/domains/nextcloud;
+btcpayserver_url = builtins.readFile /var/lib/domains/btcpayserver;
+caddy_email_for_zerossl = builtins.readFile /var/lib/domains/sslemail;
+vaultwarden_url = builtins.readFile /var/lib/domains/vaultwarden;
+onlyoffice_url = builtins.readFile /var/lib/domains/onlyoffice;
 
 ##
 
