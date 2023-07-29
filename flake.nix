@@ -30,7 +30,7 @@
 
 				./configuration.nix
 
-				(nixpkgs + "modules/personalization.nix")
+				(nixpkgs + "./modules/personalization.nix")
 
 				nix-bitcoin.nixosModules.default
 
