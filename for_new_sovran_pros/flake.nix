@@ -13,20 +13,7 @@
 			
 			system = "x86_64-linux";
  			
- 			modules = [ 
-
- 				(nixpkgs + "
-
- 					/etc/nixos/hardware-configuration.nix
-
- 					./modules/bitcoinecosystem.nix	
-
-
- 					")
-
- 				Sovran_Systems.nixosModules.Sovran_SystemsOS 
-
- 			];
+ 			modules = [ Sovran_Systems.nixosModules.Sovran_SystemsOS ];
 		
 		};
 	
