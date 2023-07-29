@@ -30,7 +30,7 @@
 
 				./configuration.nix
 
-				(nixpkgs + "/etc/nixos/hardware-configuration.nix")
+				(nixpkgs + "/modules/modules.nix")
 
 				nix-bitcoin.nixosModules.default
 
