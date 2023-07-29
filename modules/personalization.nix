@@ -1,3 +1,6 @@
+{ config, pkgs, lib, ... }:
+
+
 {
 
 matrix_url = builtins.readFile /var/lib/domains/matrix;
