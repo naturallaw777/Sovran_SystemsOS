@@ -28,7 +28,7 @@
 			
 			imports = [
 
-				./modules/modules.nix 
+				./configuration.nix
 
 				nix-bitcoin.nixosModules.default
 
