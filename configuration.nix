@@ -32,7 +32,7 @@ in
 	imports =
 		
 		[ 
-			./hardware-configuration.nix
+		
 			./modules/modules.nix
 
 		];
