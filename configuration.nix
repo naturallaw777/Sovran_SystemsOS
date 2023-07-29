@@ -2,7 +2,7 @@
 
 
 let
-	personalization = import ./personalization.nix;
+	personalization = import ./modules/personalization.nix;
 		
 		
 	custom-php = pkgs.php81.buildEnv {

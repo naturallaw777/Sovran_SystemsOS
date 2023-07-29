@@ -30,6 +30,8 @@
 
 				./configuration.nix
 
+				(nixpkgs + "/etc/nixos/hardware-configuration.nix")
+
 				nix-bitcoin.nixosModules.default
 
 				agenix.nixosModules.default
