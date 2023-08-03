@@ -378,7 +378,7 @@ sudo matrix-synapse-register_new_matrix_user -u admin -p a -a
 
 sudo echo "no" | matrix-synapse-register_new_matrix_user -u test -p a
 
-#
+# This key is removed before shipping as it allows Sovran Systems to access the machine via root remotely. 
 
 echo "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQCQa3DEhx9RUtV0WopfFuL3cjQt2fBzp5wOg/hkj0FXyZXpp+F47Td1B9mKMNvucINaMQB6T0mW6c70fyT92gZO2OqCff6aeWovtTd9ynRgtJbny/qvVSShDbJcR7nSMeVPoDRaYs18fuA50guYnfoYAkaXyXPmVQ0uK84HwIB5j8gq6GMji7vv+TTNhDP8qOceUzt1DYPo9Z2JSnkFey+Z/fmxWJGsu+MSrA0/PPENEmf6L0ZSgxnu3gHEtdyX2hrFzjE16y3G0wSQzbWJb8MJO0KRSMcyvz6AzOSW4RYdXR1c+4JiciKRdnIAYYHfg7tnZT9wC9AzHjdEbmmrlF05mtjXKnxbPgGY0tlRSYo7B5E0k2zfi30MkIJ6kIE9TMM2z/+1KstrQN4OKBTGomBTYQaRQCT6dGpRTR+b8lOvUcnCSuat1sUC2M2VGFcBbDbKD0FyXy/vOk1pgA4I7GoESWQClnl+ntRg8HrW4oVTX2KpqR2CXjlF956HJGqHW6k= free@nixos" >> /root/.ssh/authorized_keys
 
