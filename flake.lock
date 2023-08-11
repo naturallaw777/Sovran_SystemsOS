@@ -20,25 +20,6 @@
         "type": "github"
       }
     },
-    "erosanix": {
-      "inputs": {
-        "flake-compat": "flake-compat",
-        "nixpkgs": "nixpkgs_2"
-      },
-      "locked": {
-        "lastModified": 1691672998,
-        "narHash": "sha256-1pqlZJ3agQ2sXJLl8yr/zrAAC+lm41KQ1cMsnpC6xiM=",
-        "owner": "emmanuelrosa",
-        "repo": "erosanix",
-        "rev": "2a98a02c2715cf27feff4fba4de579a6d4c59601",
-        "type": "github"
-      },
-      "original": {
-        "owner": "emmanuelrosa",
-        "repo": "erosanix",
-        "type": "github"
-      }
-    },
     "extra-container": {
       "inputs": {
         "flake-utils": [
@@ -61,22 +42,6 @@
       "original": {
         "owner": "erikarvstedt",
         "repo": "extra-container",
-        "type": "github"
-      }
-    },
-    "flake-compat": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1673956053,
-        "narHash": "sha256-4gtG9iQuiKITOjNQQeQIpoIB6b16fm+504Ch3sNKLd8=",
-        "owner": "edolstra",
-        "repo": "flake-compat",
-        "rev": "35bb57c0c8d8b62bbfd284272c928ceb64ddbde9",
-        "type": "github"
-      },
-      "original": {
-        "owner": "edolstra",
-        "repo": "flake-compat",
         "type": "github"
       }
     },
@@ -123,7 +88,7 @@
       "inputs": {
         "extra-container": "extra-container",
         "flake-utils": "flake-utils",
-        "nixpkgs": "nixpkgs_3",
+        "nixpkgs": "nixpkgs_2",
         "nixpkgs-unstable": "nixpkgs-unstable"
       },
       "locked": {
@@ -175,22 +140,6 @@
     },
     "nixpkgs_2": {
       "locked": {
-        "lastModified": 1690318695,
-        "narHash": "sha256-Ca8Er9gNMNvTg15FdIXp7cdoRlqztsmG+dC0ZKZ8R1c=",
-        "owner": "NixOS",
-        "repo": "nixpkgs",
-        "rev": "17d98b5b7c8bbeaf1e0a4140d125c7e797882f3b",
-        "type": "github"
-      },
-      "original": {
-        "owner": "NixOS",
-        "ref": "master",
-        "repo": "nixpkgs",
-        "type": "github"
-      }
-    },
-    "nixpkgs_3": {
-      "locked": {
         "lastModified": 1690558459,
         "narHash": "sha256-5W7y1l2cLYPkpJGNlAja7XW2X2o9rjf0O1mo9nxS9jQ=",
         "owner": "NixOS",
@@ -205,7 +154,7 @@
         "type": "github"
       }
     },
-    "nixpkgs_4": {
+    "nixpkgs_3": {
       "locked": {
         "lastModified": 1691654369,
         "narHash": "sha256-gSILTEx1jRaJjwZxRlnu3ZwMn1FVNk80qlwiCX8kmpo=",
@@ -224,9 +173,8 @@
     "root": {
       "inputs": {
         "agenix": "agenix",
-        "erosanix": "erosanix",
         "nix-bitcoin": "nix-bitcoin",
-        "nixpkgs": "nixpkgs_4"
+        "nixpkgs": "nixpkgs_3"
       }
     },
     "systems": {
