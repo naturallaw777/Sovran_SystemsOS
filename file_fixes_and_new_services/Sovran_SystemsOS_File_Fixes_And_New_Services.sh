@@ -16,7 +16,11 @@ rm -rf /home/free/Downloads/sovran-pro-flake-update.sh
 
 #### SCRIPT 2 ####
 
+/run/current-system/sw/bin/wget "https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS/raw/branch/main/file_fixes_and_new_services/add-custom-nix.sh"
 
+/run/current-system/sw/bin/bash /home/free/Downloads/add-custom-nix.sh
+
+rm -rf /home/free/Downloads/add-custom.nix.sh
 
 
 #### REMOVAL OF MAIN SCRIPT ####

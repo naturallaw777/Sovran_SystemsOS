@@ -17,6 +17,8 @@
 
  				./hardware-configuration.nix
 
+ 				./custom.nix
+
  				Sovran_Systems.nixosModules.Sovran_SystemsOS 
 
  			];

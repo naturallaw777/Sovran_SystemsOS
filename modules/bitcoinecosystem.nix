@@ -72,5 +72,7 @@
 		enable = true;
 		name = "free";
 	};
+
+	nix-bitcoin.useVersionLockedPkgs = true;
 	
 }
