@@ -55,7 +55,7 @@ FILE=/var/lib/beacons/file_fixes_and_new_services/sovran-pro-flake-update2/compl
          
          modules = [ 
 
-            ./custom   
+            ./custom.nix  
 
             ./hardware-configuration.nix
 
