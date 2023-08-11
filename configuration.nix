@@ -176,6 +176,7 @@ in
 		gnome.zenity
 		libargon2
 		gnome.gnome-terminal
+		libreoffice-fresh
 
 	];
 
