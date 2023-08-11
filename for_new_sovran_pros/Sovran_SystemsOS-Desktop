@@ -38,11 +38,15 @@ window-maximized=false
 window-size=(954, 1037)
 
 [org/gnome/control-center]
-last-panel='network'
-window-state=(1912, 1037, false)
+last-panel='wifi'
+window-state=(1912, 1037, true)
 
 [org/gnome/desktop/app-folders]
-folder-children=['Utilities', 'YaST', 'd737daeb-6dbb-4a5d-9ec7-e674398539ce', '7d66e46a-a135-4e42-91bb-d438e499d251', '3fea025e-f5e4-4905-9912-e70e38cd0419', '83d8148a-1f0b-4f83-814a-11c33ab8debc', '68c075b1-a254-4b7c-ba63-c45f88bc2a58', '534e2716-83c7-4a2a-9678-8144999213ed', '4acaa2d8-d284-4efd-bba3-40f150f1ace5']
+folder-children=['Utilities', 'YaST', 'd737daeb-6dbb-4a5d-9ec7-e674398539ce', '7d66e46a-a135-4e42-91bb-d438e499d251', '3fea025e-f5e4-4905-9912-e70e38cd0419', '83d8148a-1f0b-4f83-814a-11c33ab8debc', '68c075b1-a254-4b7c-ba63-c45f88bc2a58', '534e2716-83c7-4a2a-9678-8144999213ed', '4acaa2d8-d284-4efd-bba3-40f150f1ace5', '1e62b69b-d9bb-4e80-be8d-5e9b4d777fc8']
+
+[org/gnome/desktop/app-folders/folders/1e62b69b-d9bb-4e80-be8d-5e9b4d777fc8]
+apps=['math.desktop', 'writer.desktop', 'impress.desktop', 'draw.desktop', 'calc.desktop', 'base.desktop', 'startcenter.desktop']
+name='Office'
 
 [org/gnome/desktop/app-folders/folders/3fea025e-f5e4-4905-9912-e70e38cd0419]
 apps=['cups.desktop', 'simple-scan.desktop']
@@ -256,7 +260,7 @@ search-filter-time-type='last_modified'
 search-view='list-view'
 
 [org/gnome/nautilus/window-state]
-initial-size=(954, 1037)
+initial-size=(1912, 1037)
 maximized=false
 
 [org/gnome/nm-applet/eap/2afa07ed-64ca-44a0-948e-d8f265fa52b0]
@@ -280,10 +284,10 @@ power-button-action='interactive'
 sleep-inactive-ac-type='nothing'
 
 [org/gnome/shell]
-app-picker-layout=[{'org.gnome.Weather.desktop': <{'position': <0>}>, 'org.gnome.clocks.desktop': <{'position': <1>}>, 'org.gnome.Maps.desktop': <{'position': <2>}>, 'org.gnome.Calculator.desktop': <{'position': <3>}>, '68c075b1-a254-4b7c-ba63-c45f88bc2a58': <{'position': <4>}>, '3fea025e-f5e4-4905-9912-e70e38cd0419': <{'position': <5>}>, '83d8148a-1f0b-4f83-814a-11c33ab8debc': <{'position': <6>}>, 'Utilities': <{'position': <7>}>, 'd737daeb-6dbb-4a5d-9ec7-e674398539ce': <{'position': <8>}>, '7d66e46a-a135-4e42-91bb-d438e499d251': <{'position': <9>}>, '534e2716-83c7-4a2a-9678-8144999213ed': <{'position': <10>}>, '4acaa2d8-d284-4efd-bba3-40f150f1ace5': <{'position': <11>}>, 'bitwarden.desktop': <{'position': <12>}>, 'gnome-system-monitor.desktop': <{'position': <13>}>, 'Bisq-hidpi.desktop': <{'position': <14>}>, 'com.obsproject.Studio.desktop': <{'position': <15>}>}]
+app-picker-layout=[{'org.gnome.Weather.desktop': <{'position': <0>}>, 'org.gnome.clocks.desktop': <{'position': <1>}>, 'org.gnome.Maps.desktop': <{'position': <2>}>, 'org.gnome.Calculator.desktop': <{'position': <3>}>, '68c075b1-a254-4b7c-ba63-c45f88bc2a58': <{'position': <4>}>, '3fea025e-f5e4-4905-9912-e70e38cd0419': <{'position': <5>}>, '83d8148a-1f0b-4f83-814a-11c33ab8debc': <{'position': <6>}>, 'Utilities': <{'position': <7>}>, 'd737daeb-6dbb-4a5d-9ec7-e674398539ce': <{'position': <8>}>, '7d66e46a-a135-4e42-91bb-d438e499d251': <{'position': <9>}>, '534e2716-83c7-4a2a-9678-8144999213ed': <{'position': <10>}>, '4acaa2d8-d284-4efd-bba3-40f150f1ace5': <{'position': <11>}>, 'bitwarden.desktop': <{'position': <12>}>, 'gnome-system-monitor.desktop': <{'position': <13>}>, 'Bisq-hidpi.desktop': <{'position': <14>}>, 'com.obsproject.Studio.desktop': <{'position': <15>}>, '1e62b69b-d9bb-4e80-be8d-5e9b4d777fc8': <{'position': <16>}>}]
 disabled-extensions=['transparent-top-bar@zhanghai.me']
 enabled-extensions=['appindicatorsupport@rgcjonas.gmail.com', 'dash-to-dock-cosmic-@halfmexicanhalfamazing@gmail.com', 'Vitals@CoreCoding.com', 'dash-to-dock@micxgx.gmail.com', 'transparent-top-bar@ftpix.com', 'just-perfection-desktop@just-perfection', 'pop-shell@system76.com', 'systemd-manager@hardpixel.eu', 'date-menu-formatter@marcinjakubowski.github.com']
-favorite-apps=['brave-browser.desktop', 'org.gnome.Nautilus.desktop', 'Sovran_SystemsOS_Updater.desktop', 'Sovran_SystemsOS_Reseter.desktop', 'org.gnome.Settings.desktop', 'org.gnome.Software.desktop', 'org.gnome.Geary.desktop', 'org.gnome.Contacts.desktop', 'org.gnome.Calendar.desktop', 'Bisq.desktop', 'sparrow-desktop.desktop']
+favorite-apps=['brave-browser.desktop', 'org.gnome.Nautilus.desktop', 'Sovran_SystemsOS_Updater.desktop', 'Sovran_SystemsOS_Reseter.desktop', 'org.gnome.Settings.desktop', 'org.gnome.Software.desktop', 'writer.desktop', 'calc.desktop', 'impress.desktop', 'org.gnome.Geary.desktop', 'org.gnome.Contacts.desktop', 'org.gnome.Calendar.desktop', 'Bisq.desktop', 'sparrow-desktop.desktop']
 last-selected-power-profile='performance'
 welcome-dialog-last-shown-version='42.3.1'
 
@@ -345,7 +349,7 @@ tile-by-default=true
 
 [org/gnome/shell/extensions/systemd-manager]
 command-method='systemctl'
-systemd=['{"name":"Bitcoind","service":"bitcoind.service","type":"system"}', '{"name":"Electrs","service":"electrs.service","type":"system"}', '{"name":"BTCPayserver","service":"btcpayserver.service","type":"system"}', '{"name":"Nbxplorer","service":"nbxplorer.service","type":"system"}', '{"name":"Caddy","service":"caddy.service","type":"system"}', '{"name":"Phpfpm-Mypool","service":"phpfpm-mypool.service","type":"system"}', '{"name":"Mysql","service":"mysql.service","type":"system"}', '{"name":"Postgresql","service":"postgresql.service","type":"system"}', '{"name":"Matrix-Synapse","service":"matrix-synapse.service","type":"system"}', '{"name":"Coturn","service":"coturn.service","type":"system"}', '{"name":"Tor","service":"tor.service","type":"system"}', '{"name":"VaultWarden","service":"vaultwarden.service","type":"system"}', '{"name":"LND","service":"lnd.service","type":"system"}', '{"name":"LND Loop","service":"lightning-loop.service","type":"system"}', '{"name":"Ride The Lightning","service":"rtl.service","type":"system"}', '{"name":"OnlyOffice (docservice)","service":"onlyoffice-docservice.service","type":"system"}', '{"name":"OnlyOffice (converterservice)","service":"onlyoffice-converter.service","type":"system"}', '{"name":"OnlyOffice (rabbitmq)","service":"rabbitmq.service","type":"system"}', '{"name":"OnlyOffice (nginx)","service":"nginx.service","type":"system"}']
+systemd=['{"name":"Bitcoind","service":"bitcoind.service","type":"system"}', '{"name":"Electrs","service":"electrs.service","type":"system"}', '{"name":"BTCPayserver","service":"btcpayserver.service","type":"system"}', '{"name":"Nbxplorer","service":"nbxplorer.service","type":"system"}', '{"name":"Caddy","service":"caddy.service","type":"system"}', '{"name":"Phpfpm-Mypool","service":"phpfpm-mypool.service","type":"system"}', '{"name":"Mysql","service":"mysql.service","type":"system"}', '{"name":"Postgresql","service":"postgresql.service","type":"system"}', '{"name":"Matrix-Synapse","service":"matrix-synapse.service","type":"system"}', '{"name":"Coturn","service":"coturn.service","type":"system"}', '{"name":"Tor","service":"tor.service","type":"system"}', '{"name":"VaultWarden","service":"vaultwarden.service","type":"system"}', '{"name":"LND","service":"lnd.service","type":"system"}', '{"name":"LND Loop","service":"lightning-loop.service","type":"system"}', '{"name":"Ride The Lightning","service":"rtl.service","type":"system"}']
 
 [org/gnome/shell/extensions/vitals]
 fixed-widths=false
@@ -362,9 +366,9 @@ locations=@av []
 locations=@av []
 
 [org/gnome/software]
-check-timestamp=int64 1690377814
+check-timestamp=int64 1691673017
 first-run=false
-flatpak-purge-timestamp=int64 1690417354
+flatpak-purge-timestamp=int64 1691712556
 online-updates-timestamp=int64 1675355639
 update-notification-timestamp=int64 1666382024
 
@@ -398,7 +402,7 @@ show-hidden=true
 
 [system/proxy]
 ignore-hosts=@as []
-mode='manual'
+mode='none'
 
 [system/proxy/http]
 port=0
