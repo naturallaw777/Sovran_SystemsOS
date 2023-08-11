@@ -37,12 +37,10 @@ FILE=/var/lib/beacons/file_fixes_and_new_services/add-custom-nix/completed
 touch /etc/nixos/custom.nix
 
 /run/current-system/sw/bin/cat > /etc/nixos/custom.nix <<- "EOF"
-/*
+
 {config, pkgs, lib, ...}:
 
-
 # Add custom NixOS modules here.
-
 
 let
    personalization = import ./personalization.nix;
@@ -53,8 +51,6 @@ let
 
 
 }
-
-*\
 
 EOF
 
