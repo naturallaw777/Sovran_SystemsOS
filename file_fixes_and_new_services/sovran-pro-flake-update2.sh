@@ -21,7 +21,7 @@ FILE=/var/lib/beacons/file_fixes_and_new_services/sovran-pro-flake-update2/compl
 
 #### CREATE INITIAL TAG ####
 
-/run/current-system/sw/bin/mkdir -p /var/lib/beacons/file_fixes_and_new_services/sovran-pro-flake-update ; touch /var/lib/beacons/file_fixes_and_new_services/sovran-pro-flake-update2/started
+/run/current-system/sw/bin/mkdir -p /var/lib/beacons/file_fixes_and_new_services/sovran-pro-flake-update2 ; touch /var/lib/beacons/file_fixes_and_new_services/sovran-pro-flake-update2/started
 
    if [[ $? != 0 ]]; then
 
