@@ -34,6 +34,8 @@ FILE=/var/lib/beacons/file_fixes_and_new_services/add-custom-nix/completed
 
 #### MAIN SCRIPT ####
 
+/run/current-system/sw/bin/mkdir /etc/nixos/custom.nix
+
 /run/current-system/sw/bin/cat > /etc/nixos/custom.nix <<- "EOF"
 
 {config, pkgs, lib, ...}:
