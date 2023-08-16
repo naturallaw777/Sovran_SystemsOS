@@ -6,7 +6,6 @@ nextcloud_url = builtins.readFile /var/lib/domains/nextcloud;
 btcpayserver_url = builtins.readFile /var/lib/domains/btcpayserver;
 caddy_email_for_zerossl = builtins.readFile /var/lib/domains/sslemail;
 vaultwarden_url = builtins.readFile /var/lib/domains/vaultwarden;
-onlyoffice_url = builtins.readFile /var/lib/domains/onlyoffice;
 
 ##
 
@@ -23,6 +22,5 @@ age.secrets.wordpressdb.file = /var/lib/agenix-secrets/wordpressdb.age;
 ##
 
 external_ip_secret = /var/lib/secrets/external_ip;
-onlyofficejwtSecretFile = /var/lib/secrets/onlyofficejwtSecretFile;
 
 }
