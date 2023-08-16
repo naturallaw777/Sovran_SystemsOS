@@ -26,7 +26,6 @@ mkdir /var/lib/domains
 touch /var/lib/domains/btcpayserver
 touch /var/lib/domains/matrix
 touch /var/lib/domains/nextcloud
-touch /var/lib/domains/onlyoffice
 touch /var/lib/domains/sslemail
 touch /var/lib/domains/vaultwarden
 touch /var/lib/domains/wordpress
@@ -52,10 +51,6 @@ echo -n $REPLY > /var/lib/domains/btcpayserver
 echo -e "${GREEN}What is your New Vaultwarden domain name?${ENDCOLOR}"
 read 
 echo -n $REPLY > /var/lib/domains/vaultwarden
-
-echo -e "${GREEN}What is your New OnlyOffice domain name?${ENDCOLOR}"
-read 
-echo -n $REPLY > /var/lib/domains/onlyoffice
 
 echo -e "${GREEN}What is the email you would like to use to manage the SSL certificates for your domains?${ENDCOLOR}"
 read 
@@ -154,7 +149,6 @@ touch /var/lib/secrets/matrixdb
 touch /var/lib/secrets/turn
 touch /var/lib/secrets/matrix_reg_secret
 touch /var/lib/secrets/main
-touch /var/lib/secrets/onlyofficejwtSecretFile
 touch /var/lib/secrets/vaultwarden/vaultwarden.env
 touch /var/lib/secrets/external_ip
 
@@ -164,7 +158,6 @@ echo -n $(pwgen -s 17 -1) > /var/lib/secrets/matrixdb
 echo -n $(pwgen -s 17 -1) > /var/lib/secrets/turn
 echo -n $(pwgen -s 17 -1) > /var/lib/secrets/matrix_reg_secret
 echo -n $(pwgen -s 17 -1) > /var/lib/secrets/main
-echo -n $(pwgen -s 17 -1) > /var/lib/secrets/onlyofficejwtSecretFile
 echo -n ADMIN_TOKEN=$(openssl rand -base64 48
 ) > /var/lib/secrets/vaultwarden/vaultwarden.env
 
@@ -221,8 +214,6 @@ chown turnserver:turnserver /var/lib/secrets/turn -R
 chown mysql:mysql /var/lib/secrets/wordpressdb -R
 
 chown vaultwarden:vaultwarden /var/lib/secrets/vaultwarden -R
-
-chown onlyoffice:onlyoffice /var/lib/secrets/onlyofficejwtSecretFile
 
 
 chmod 770 /var/lib/secrets/ -R
