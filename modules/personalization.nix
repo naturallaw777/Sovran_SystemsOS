@@ -21,6 +21,6 @@ age.secrets.wordpressdb.file = /var/lib/agenix-secrets/wordpressdb.age;
 
 ##
 
-external_ip_secret = /var/lib/secrets/external_ip;
+external_ip_secret = builtins.readFile /var/lib/secrets/external_ip;
 
 }
