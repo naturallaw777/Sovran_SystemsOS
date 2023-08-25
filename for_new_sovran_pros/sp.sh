@@ -97,7 +97,7 @@ cat > /var/lib/external_ip/external_ip.sh <<- "EOF"
 
 #!/usr/bin/env bash
 
-IP=$(wget -qO- https://ipecho.net/plain ; echo)
+IP=$(wget -qO- https://ipecho.net/plain)
 
 echo "${IP}" > /var/lib/secrets/external_ip
 
@@ -368,6 +368,9 @@ echo "$(cat /home/free/.ssh/factory_login.pub)" >> /root/.ssh/authorized_keys
 sudo matrix-synapse-register_new_matrix_user -u admin -p a -a
 
 sudo echo "no" | matrix-synapse-register_new_matrix_user -u test -p a
+
+#
+
 
 # This key is removed before shipping as it allows Sovran Systems to access the machine via root remotely. 
 
