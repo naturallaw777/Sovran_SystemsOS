@@ -81,7 +81,7 @@ cat > /var/lib/njalla/njalla.sh <<- "EOF"
 
 #!/usr/bin/env bash
 
-IP=$(wget -qO- https://ipecho.net/plain ; echo)
+IP=$(wget -qO- https://ipecho.net/plain)
 
 ## Manually Add DDNS Script From Njalla User Account AFTER Install
 
