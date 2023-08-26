@@ -81,7 +81,7 @@ cat > /var/lib/njalla/njalla.sh <<- "EOF"
 
 #!/usr/bin/env bash
 
-IP=$(wget -qO- https://ipecho.net/plain)
+IP=$(dig @resolver4.opendns.com myip.opendns.com +short -4)
 
 ## Manually Add DDNS Script From Njalla User Account AFTER Install
 
@@ -97,7 +97,7 @@ cat > /var/lib/external_ip/external_ip.sh <<- "EOF"
 
 #!/usr/bin/env bash
 
-IP=$(wget -qO- https://ipecho.net/plain)
+IP=$(dig @resolver4.opendns.com myip.opendns.com +short -4)
 
 echo "${IP}" > /var/lib/secrets/external_ip
 
