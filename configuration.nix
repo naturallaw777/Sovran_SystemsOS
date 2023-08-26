@@ -178,6 +178,7 @@ in
 		libargon2
 		gnome.gnome-terminal
 		libreoffice-fresh
+		dig
 
 	];
 
