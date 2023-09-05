@@ -69,7 +69,17 @@ cat > /var/lib/nextcloudaddition/nextcloudaddition <<- "EOF"
   ),
   'default_locale' => 'en_US',
   'default_phone_region' => 'US',
-  'memcache.local' => '\\OC\\Memcache\\APCu',
+  'filelocking.enabled' => true,
+  'memcache.locking' => '\OC\Memcache\Redis',
+  'memcache.distributed' => '\OC\Memcache\Redis',
+  'memcache.local' =>'\OC\Memcache\Redis' ,
+  'redis' =>
+    array (
+     'host' => '/run/redis-roffice/redis.sock',
+     'port' => 0,
+     'timeout' => 0.0,
+    ),
+
 
 EOF
 
@@ -105,6 +115,20 @@ EOF
 
 #
 
+mkdir /var/lib/internal_ip
+
+cat > /var/lib/internal_ip/internal_ip.sh <<- "EOF"
+
+#!/usr/bin/env bash
+
+sudo echo -n $(ip route get 1.2.3.4 | awk '{print $7}') > /var/lib/secrets/internal_ip
+
+exit 0
+
+
+EOF
+
+#
 mkdir /var/lib/agenix-secrets/
 
 cat > /var/lib/agenix-secrets/secrets.nix <<- "EOF"
@@ -144,6 +168,7 @@ touch /var/lib/secrets/matrix_reg_secret
 touch /var/lib/secrets/main
 touch /var/lib/secrets/vaultwarden/vaultwarden.env
 touch /var/lib/secrets/external_ip
+touch /var/lib/secrets/internal_ip
 
 echo -n $(pwgen -s 17 -1) > /var/lib/secrets/nextclouddb 
 echo -n $(pwgen -s 17 -1) > /var/lib/secrets/wordpressdb 
@@ -195,6 +220,8 @@ popd
 chown root:root /var/lib/secrets/main -R
 
 chown root:root /var/lib/secrets/external_ip -R
+
+chown root:root /var/lib/secrets/internal_ip -R
 
 chown matrix-synapse:matrix-synapse /var/lib/secrets/matrix_reg_secret -R
 
