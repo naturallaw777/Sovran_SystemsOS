@@ -72,7 +72,7 @@ cat > /var/lib/nextcloudaddition/nextcloudaddition <<- "EOF"
   'filelocking.enabled' => true,
   'memcache.locking' => '\OC\Memcache\Redis',
   'memcache.distributed' => '\OC\Memcache\Redis',
-  'memcache.local' =>'\OC\Memcache\Redis' ,
+  'memcache.local' =>'\OC\Memcache\ACPu' ,
   'redis' =>
     array (
      'host' => '/run/redis-roffice/redis.sock',
