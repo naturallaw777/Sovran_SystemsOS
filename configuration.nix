@@ -394,7 +394,6 @@ backup	/etc/nix-bitcoin-secrets/	localhost/
 			PermitRootLogin = "yes";
 		};
 	};
-	programs.ssh.agentTimeout = "3m";
 
 #######FailtoBan#######
 	services.fail2ban = {
