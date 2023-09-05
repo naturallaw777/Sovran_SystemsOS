@@ -22,6 +22,10 @@ let
 			upload_max_filesize = 2048M
 			opcache.interned_strings_buffer = 32
 			apc.enable_cli=1
+			redis.session.locking_enabled=1
+			redis.session.lock_retries=-1
+			redis.session.lock_wait_time=10000
+
 		'';
 	};
 in
