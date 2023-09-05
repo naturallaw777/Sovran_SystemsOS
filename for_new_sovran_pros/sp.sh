@@ -129,6 +129,24 @@ exit 0
 EOF
 
 #
+
+touch /etc/nixos/custom.nix
+
+cat > /etc/nixos/custom.nix <<- "EOF"
+
+{config, pkgs, lib, ...}:
+
+let
+  personalization = import ./personalization.nix;
+  
+  in
+{
+}
+
+EOF
+
+#
+
 mkdir /var/lib/agenix-secrets/
 
 cat > /var/lib/agenix-secrets/secrets.nix <<- "EOF"
@@ -209,8 +227,6 @@ popd
 #
 
 pushd /etc/nixos
-
-  touch custom.nix
 
   nix flake update
 
