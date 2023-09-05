@@ -205,9 +205,12 @@ pushd /var/lib/agenix-secrets
 
 popd
 
+
 #
 
 pushd /etc/nixos
+
+  touch custom.nix
 
   nix flake update
 
