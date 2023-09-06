@@ -62,24 +62,13 @@ mkdir /var/lib/nextcloudaddition
 
 cat > /var/lib/nextcloudaddition/nextcloudaddition <<- "EOF"
 
-
 'trusted_proxies' => 
   array (
     0 => '127.0.0.1',
   ),
   'default_locale' => 'en_US',
   'default_phone_region' => 'US',
-  'filelocking.enabled' => true,
-  'memcache.locking' => '\OC\Memcache\Redis',
-  'memcache.distributed' => '\OC\Memcache\Redis',
-  'memcache.local' =>'\OC\Memcache\ACPu' ,
-  'redis' =>
-    array (
-     'host' => '/run/redis-roffice/redis.sock',
-     'port' => 0,
-     'timeout' => 0.0,
-    ),
-
+  'memcache.local' =>'\OC\Memcache\APCu' ,
 
 EOF
 
