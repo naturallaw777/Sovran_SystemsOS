@@ -17,7 +17,7 @@ https://www.sovransystems.com
 
 Connect on Matrix here: https://matrix.to/#/#sovran-systems:anarchyislove.xyz
 
-Connect on for Support on Matrix here: https://matrix.to/#/#sovran-systems-support:anarchyislove.xyz
+Connect for Support on Matrix here: https://matrix.to/#/#sovran-systems-support:anarchyislove.xyz
 
 ###
 
