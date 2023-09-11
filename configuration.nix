@@ -183,6 +183,7 @@ in
 		gnome.gnome-terminal
 		libreoffice-fresh
 		dig
+		nextcloud-client
 
 	];
 
