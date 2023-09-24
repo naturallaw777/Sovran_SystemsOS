@@ -184,7 +184,6 @@ in
 		libreoffice-fresh
 		dig
 		nextcloud-client
-		nmap
 
 	];
 
