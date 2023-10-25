@@ -290,7 +290,6 @@ in
 					extraConfig = ''
 						reverse_proxy :3050
 						encode gzip zstd
-						tls internal
 					'';
 			};
 		};
