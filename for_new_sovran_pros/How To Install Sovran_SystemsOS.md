@@ -1,4 +1,4 @@
-# Sovran Systems does not offer any support of a DIY install of Sovran_SystemsOS. You are on your own. You can reach out to others in the matrix room https://matrix.to/#/#DIY_Sovran_SystemsOS:anarchyislove.xyz Good Luck!
+# Sovran Systems does not offer any support of a DIY install of Sovran_SystemsOS. You are on your own. You can reach out to others in the matrix room https://matrix.to/#/#DIY_Sovran_SystemsOS:anarchyislove.xyz. Good Luck!
 
 # These instructions will change as time moves forward due to new software and Sovran Systems creator finding new efficient way to install Sovran_SystemsOS. 10-27-2023
 
