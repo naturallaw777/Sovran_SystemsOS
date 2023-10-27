@@ -42,11 +42,11 @@ wget https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS/raw/branch/ma
 
 then press enter.
 
-6. Now, type `bash sdpsp.sh` then press enter.
-7. Then the screen will ask for "what block..." which will be the drive in the list that is not mounted,which will be the second internal drive you just plugged in. It might be labeled `sda`, `sdb`, `sdc`, or if it is a NVME it will be `nvme0n1`, or `nvme0n2`.
-8. Then the screen will ask for "what partition...,"which will be whatever you typed into the first prompt, but with a "1" on it. For example `sda1`, `sdb1`, `sdc1`, or `nvme0n1p1` or `nvme0n2p1`.
-9. Since the script is made to copy the blockchain from another Sovran Pro that already has the full blockchain installed it will throw an error. However, it should complete the setup just fine.
-10. Once complete, remove the second drive from the USB enclosure and install it into your second machine in which you are installing Sovran_SystemsOS.
+5. Now, type `bash sdpsp.sh` then press enter.
+6. Then the screen will ask for "what block..." which will be the drive in the list that is not mounted,which will be the second internal drive you just plugged in. It might be labeled `sda`, `sdb`, `sdc`, or if it is a NVME it will be `nvme0n1`, or `nvme0n2`.
+7. Then the screen will ask for "what partition...,"which will be whatever you typed into the first prompt, but with a "1" on it. For example `sda1`, `sdb1`, `sdc1`, or `nvme0n1p1` or `nvme0n2p1`.
+8. Since the script is made to copy the blockchain from another Sovran Pro that already has the full blockchain installed it will throw an error. However, it should complete the setup just fine.
+9. Once complete, remove the second drive from the USB enclosure and install it into your second machine in which you are installing Sovran_SystemsOS.
 
 ## Preparing the First Main Internal Drive
 
