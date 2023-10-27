@@ -1,10 +1,10 @@
-# Sovran Systems does not offer any support of a DIY install of Sovran_SystemsOS. You are on your own. Good Luck!
+# Sovran Systems does not offer any support of a DIY install of Sovran_SystemsOS. You are on your own. You can reach out to others in the matrix room https://matrix.to/#/#DIY_Sovran_SystemsOS:anarchyislove.xyz Good Luck!
 
 # These instructions will change as time moves forward due to new software and Sovran Systems creator finding new efficient way to install Sovran_SystemsOS. 10-27-2023
 
 # Also, the Bitcoin blockchain will have to download to finish the setup. This could take up to 3 weeks.
 
-# Lastly, if you gift to the computer movement <https://zaps.sovransystems.com> to receive a Sovran Pro, you do not have to do any of this. It is all done for you. On top of that, the Bitcoin blockchain is already installed. 😉 
+# Lastly, if you gift to the computer movement <https://zaps.sovransystems.com> to receive a Sovran Pro, you do not have to do any of this. It is all done for you. On top of that, the Bitcoin blockchain is already installed. 😉
 
 ### Requirements
 
@@ -207,7 +207,8 @@ and press enter.
 ```
 set DOMAIN $(cat /var/lib/domains/matrix) && cp -n /var/lib/caddy/.local/share/caddy/certificates/acme.zerossl.com-v2-dv90/{$DOMAIN}/{$DOMAIN}.crt /var/lib/coturn/{$DOMAIN}.crt.pem && cp -n /var/lib/caddy/.local/share/caddy/certificates/acme.zerossl.com-v2-dv90/{$DOMAIN}/{$DOMAIN}.key /var/lib/coturn/{$DOMAIN}.key.pem && chown turnserver:turnserver /var/lib/coturn -R && chmod 770 /var/lib/coturn -R  && systemctl restart coturn
 ```
+and press enter.
 
 ### Most everything now will be installed regarding the server and Sovran_SystemsOS. The remaining setup will be only be frontend user settings.
 
-### Congratulations! 🎉 
+### Congratulations! 🎉
