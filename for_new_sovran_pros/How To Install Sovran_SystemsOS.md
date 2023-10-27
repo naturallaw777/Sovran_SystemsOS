@@ -106,7 +106,7 @@ then press enter.
 
 ### Setting the Desktop
 
-1. Open the Terminal app and type in: `dconf load / < /home/free/Downloads/Sovran_SystemsOS-Desktop`
+1. Open the Terminal app and type in: `dconf load / < /home/free/Downloads/Sovran_SystemsOS-Desktop`. Do NOT log in as root.
 
 ### Setting Up Nextcloud and Wordpress
 
