@@ -19,9 +19,9 @@
 - Second internal drive to store the Bitcoin blockchain and the automatic backups (SSD or NVME 2TB or larger)
 - Also, the Second internal drive needs to be be installed FIRST into an USB enclosure. If the second drive is SSD, you need a SSD USB enclosure. If the second drive is NVME, you need a NVME USB enclosure. The USB enclosure will be plugged into the first Linux machine.
 
-1. Working Internet connection for both machines
-2. Personalized Domain names already purchased from Njal.la. See the explanation here: https://sovransystems.com/how-to-setup/
-3. Your Router with ports open (Port Forwarding) to your second machine's internal IP address. This will usually be `192.168.1.(some number)` You will complete this at the end. 
+5. Working Internet connection for both machines
+6. Personalized Domain names already purchased from Njal.la. See the explanation here: https://sovransystems.com/how-to-setup/
+7. Your Router with ports open (Port Forwarding) to your second machine's internal IP address. This will usually be `192.168.1.(some number)` You will complete this at the end. 
 
 - Port 80
 - Port 443
@@ -42,11 +42,11 @@ wget https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS/raw/branch/ma
 
 then press enter.
 
-1. Now, type `bash sdpsp.sh` then press enter.
-2. Then the screen will ask for "what block..." which will be the drive in the list that is not mounted,which will be the second internal drive you just plugged in. It might be labeled `sda`, `sdb`, `sdc`, or if it is a NVME it will be `nvme0n1`, or `nvme0n2`.
-3. Then the screen will ask for "what partition...,"which will be whatever you typed into the first prompt, but with a "1" on it. For example `sda1`, `sdb1`, `sdc1`, or `nvme0n1p1` or `nvme0n2p1`.
-4. Since the script is made to copy the blockchain from another Sovran Pro that already has the full blockchain installed it will throw an error. However, it should complete the setup just fine.
-5. Once complete, remove the second drive from the USB enclosure and install it into your second machine in which you are installing Sovran_SystemsOS.
+6. Now, type `bash sdpsp.sh` then press enter.
+7. Then the screen will ask for "what block..." which will be the drive in the list that is not mounted,which will be the second internal drive you just plugged in. It might be labeled `sda`, `sdb`, `sdc`, or if it is a NVME it will be `nvme0n1`, or `nvme0n2`.
+8. Then the screen will ask for "what partition...,"which will be whatever you typed into the first prompt, but with a "1" on it. For example `sda1`, `sdb1`, `sdc1`, or `nvme0n1p1` or `nvme0n2p1`.
+9. Since the script is made to copy the blockchain from another Sovran Pro that already has the full blockchain installed it will throw an error. However, it should complete the setup just fine.
+10. Once complete, remove the second drive from the USB enclosure and install it into your second machine in which you are installing Sovran_SystemsOS.
 
 ## Preparing the First Main Internal Drive
 
@@ -120,28 +120,28 @@ then press enter.
    2. Database username is `ncusr`
    3. Database name is `nextclouddb`
    4. Database password is found by doing this:
-      1. Open the Terminal app and type in: 
+         1. Open the Terminal app and type in: 
 
-         ```
-         ssh -i /home/free/.ssh/factory_login root@[one of your domain names]
-         ```
+            ```
+            ssh -i /home/free/.ssh/factory_login root@[one of your domain names]
+            ```
 
-         Remove the brackets when actually executed the command, for example:
+            Remove the brackets when actually executed the command, for example:
 
-         ```
-         ssh -i /home/free/.ssh/factory_login root@myfreedomsite.com
-         ```
+            ```
+            ssh -i /home/free/.ssh/factory_login root@myfreedomsite.com
+            ```
 
-         It will as you for a password which is `gosovransystems` as this is the default temporary password from Sovran Systems.
+            It will as you for a password which is `gosovransystems` as this is the default temporary password from Sovran Systems.
 
-         Now you will be logged in as root.
-      2. Now open the Terminal app and type:
+            Now you will be logged in as root.
+         2. Now open the Terminal app and type:
 
-         `cat /var/lib/secrets/nextclouddb`
+            `cat /var/lib/secrets/nextclouddb`
 
-         and press enter.
-      3. Your database password will be displayed in the Terminal window.
-      4. Type that into the password field
+            and press enter.
+         3. Your database password will be displayed in the Terminal window.
+         4. Type that into the password field
    5. Now, press install and Nextcloud will be installed. It will take a few minutes. Follow the on screen prompts.
 
 #### Wordpress
@@ -202,7 +202,7 @@ chmod 770 /var/lib/www -R
 
 and press enter.
 
-1. Now type
+5. Now type
 
 ```
 set DOMAIN $(cat /var/lib/domains/matrix) && cp -n /var/lib/caddy/.local/share/caddy/certificates/acme.zerossl.com-v2-dv90/{$DOMAIN}/{$DOMAIN}.crt /var/lib/coturn/{$DOMAIN}.crt.pem && cp -n /var/lib/caddy/.local/share/caddy/certificates/acme.zerossl.com-v2-dv90/{$DOMAIN}/{$DOMAIN}.key /var/lib/coturn/{$DOMAIN}.key.pem && chown turnserver:turnserver /var/lib/coturn -R && chmod 770 /var/lib/coturn -R  && systemctl restart coturn
