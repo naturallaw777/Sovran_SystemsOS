@@ -300,16 +300,6 @@ chmod 770 /var/lib/coturn -R
 
 #
 
-echo "root:$(cat /var/lib/secrets/main)" | chpasswd -c SHA512
-
-echo "free:a" | chpasswd -c SHA512
-
-#
-
-sudo -u free flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-
-#
-
 rm -rf /root/sp.sh
 
 #
@@ -412,17 +402,6 @@ echo "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQCQa3DEhx9RUtV0WopfFuL3cjQt2fBzp5wOg/
 
 #
 
-set +x
-
-echo -e "${GREEN}These four passwords are generated for convenience to use for the Web front end setup UI accounts for Nextcloud, Wordpress, VaultWarden, and BTCPayserver (if you want to use them).${ENDCOLOR} \n"
-
-echo -e "$(pwgen -s 17 -1) \n"
-echo -e "$(pwgen -s 17 -1) \n"
-echo -e "$(pwgen -s 17 -1) \n"
-echo -e "$(pwgen -s 17 -1) \n"
-
-#
-
 pushd /etc/nixos
 
   nix flake update
@@ -433,9 +412,20 @@ popd
 
 #
 
+sudo -u free flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+
+#
+
+echo "root:$(cat /var/lib/secrets/main)" | chpasswd -c SHA512
+
+echo "free:a" | chpasswd -c SHA512
+
+#
+
 chmod 700 /home/free/.ssh -R
 
 #
+
 echo -e "${LIGHTBLUE}One last thing, you need to put the Njalla DDNS info from Njalla into njalla.sh.${ENDCOLOR} \n"
 
 echo -e "${GREEN}All Finished! Please Reboot then Enjoy your New Sovran Pro!${ENDCOLOR} \n"
