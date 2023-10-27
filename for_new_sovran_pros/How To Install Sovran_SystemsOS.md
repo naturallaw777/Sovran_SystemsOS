@@ -34,7 +34,7 @@
 1. Install the second internal drive (NVME or SSD) into its appropriate USB enclosure, NOT into the Second machine yet.
 2. Plug in the USB enclosure with the second drive installed into the first machine with Linux installed into one of its available USB ports.
 3. Open a terminal in the first Linux machine and log in as root.
-4. Type in:
+4. Type in or copy and paste:
 
 ```bash
 wget https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS/raw/branch/main/for_new_sovran_pros/sdpsp.sh
@@ -60,7 +60,7 @@ then press enter.
  6. Once at the command prompt type in `sudo su` to move to the root user
  7. Once logged into the root user type in `passwd` then set the root user password to `a`
  8. Type in `ip a` to get your internal IP address. It will usually be `192.1681.1.(somenumber)` make a note of this IP as you will need it later.
- 9. Now, that you are logged in as the root user type in:
+ 9. Now, that you are logged in as the root user type in or copy and paste:
 
     ```
     curl https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS/raw/branch/main/for_new_sovran_pros/psp.sh -o psp.sh
@@ -79,7 +79,7 @@ then press enter.
 
 1. Now at the basic install of NixOS from step 16, type `root` to log into root and type the password `a` when asked then press enter.
 2. Now you are logged in as `root`.
-3. Now type in:
+3. Now type in or copy and paste:
 
    ```
    wget https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS/raw/branch/main/for_new_sovran_pros/sp.sh
@@ -120,7 +120,7 @@ then press enter.
    2. Database username is `ncusr`
    3. Database name is `nextclouddb`
    4. Database password is found by doing this:
-         1. Open the Terminal app and type in: 
+         1. Open the Terminal app and type in or copy and paste: 
 
             ```
             ssh -i /home/free/.ssh/factory_login root@[one of your domain names]
@@ -151,7 +151,7 @@ then press enter.
    1. Database username is `wpusr`
    2. Database name is `wordpressdb`
    3. Database password is found by doing this:
-      1. Open the Terminal app and type in: 
+      1. Open the Terminal app and type in or copy and paste: 
 
          ```
          ssh -i /home/free/.ssh/factory_login root@[one of your domain names]
@@ -177,7 +177,7 @@ then press enter.
 
 ### Final Install for Coturn and Nextcloud
 
-1. Open the Terminal app and type in: 
+1. Open the Terminal app and type in or copy and paste: 
 
    ```
    ssh -i /home/free/.ssh/factory_login root@[one of your domain names]
@@ -190,7 +190,7 @@ then press enter.
    ```
 2. It will as you for a password which is `gosovransystems` as this is the default temporary password from Sovran Systems.
 3. Now you will be logged in as root.
-4. Now open the Terminal app and type:
+4. Now open the Terminal app and type or copy and paste:
 
 ```
 sed -i '$e cat /var/lib/nextcloudaddition/nextcloudaddition' /var/lib/www/nextcloud/config/config.php
@@ -202,7 +202,7 @@ chmod 770 /var/lib/www -R
 
 and press enter.
 
-5. Now type
+5. Now type or copy and paste:
 
 ```
 set DOMAIN $(cat /var/lib/domains/matrix) && cp -n /var/lib/caddy/.local/share/caddy/certificates/acme.zerossl.com-v2-dv90/{$DOMAIN}/{$DOMAIN}.crt /var/lib/coturn/{$DOMAIN}.crt.pem && cp -n /var/lib/caddy/.local/share/caddy/certificates/acme.zerossl.com-v2-dv90/{$DOMAIN}/{$DOMAIN}.key /var/lib/coturn/{$DOMAIN}.key.pem && chown turnserver:turnserver /var/lib/coturn -R && chmod 770 /var/lib/coturn -R  && systemctl restart coturn
