@@ -34,7 +34,7 @@
 1. Install the second internal drive (NVME or SSD) into its appropriate USB enclosure, NOT into the Second machine yet.
 2. Plug in the USB enclosure with the second drive installed into the first machine with Linux installed into one of its available USB ports.
 3. Open a terminal in the first Linux machine and log in as root.
-4. Type in
+4. Type in:
 
 ```bash
 wget https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS/raw/branch/main/for_new_sovran_pros/sdpsp.sh
@@ -79,7 +79,7 @@ then press enter.
 
 1. Now at the basic install of NixOS from step 16, type `root` to log into root and type the password `a` when asked then press enter.
 2. Now you are logged in as `root`.
-3. Now type in
+3. Now type in:
 
    ```
    wget https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS/raw/branch/main/for_new_sovran_pros/sp.sh
