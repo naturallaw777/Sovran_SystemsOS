@@ -1,8 +1,8 @@
 # Sovran Systems does not offer any support of a DIY install of Sovran_SystemsOS. You are on your own. You can reach out to others in the matrix room https://matrix.to/#/#DIY_Sovran_SystemsOS:anarchyislove.xyz. Good Luck!
 
-# These instructions will change as time moves forward due to new software and Sovran Systems creator finding new efficient way to install Sovran_SystemsOS. 10-27-2023
+# These instructions will change over time due to new software development and Sovran Systems creator finding more efficient ways to install Sovran_SystemsOS. 10-27-2023
 
-# Also, the Bitcoin blockchain will have to download to finish the setup. This could take up to 3 weeks.
+# Also, to fully complete the install, the Bitcoin blockchain will have to download. This could take up to 3 weeks.
 
 # Lastly, if you gift to the computer movement <https://zaps.sovransystems.com> to receive a Sovran Pro, you do not have to do any of this. It is all done for you. On top of that, the Bitcoin blockchain is already installed. 😉
 
@@ -48,7 +48,7 @@ then press enter.
 4. Since the script is made to copy the blockchain from another Sovran Pro that already has the full blockchain installed it will throw an error. However, it should complete the setup just fine.
 5. Once complete, remove the second drive from the USB enclosure and install it into your second machine in which you are installing Sovran_SystemsOS.
 
-## Preparing the First Main Drive
+## Preparing the First Main Internal Drive
 
 ### Procedure One - Installing base NixOS
 
@@ -112,7 +112,7 @@ then press enter.
 
 #### Nextcloud
 
-1. Open a web browser and navigate to your domain name you bought from [njal.la](https://njal.la)  for example cloud.myfreedomsite.com you attributed to your Nextcloud instance.
+1. Open a web browser and navigate to your domain name you bought from [njal.la](https://njal.la)  for example "cloud.myfreedomsite.com" you attributed to your Nextcloud instance.
 2. Nextcloud will as you to set up a new account to be used as a log in. Do so.
 3. Nextcloud will also ask you where you want the data directory. Type in `/var/lib/nextcloud/data`
 4. Nextcloud will ask you to connect the database:
@@ -146,7 +146,7 @@ then press enter.
 
 #### Wordpress
 
-1. Open a web browser and navigate to your domain name you bought from [njal.la](https://njal.la) for example myfreedomsite.com you attributed to your Wordpress instance.
+1. Open a web browser and navigate to your domain name you bought from [njal.la](https://njal.la) for example "myfreedomsite.com" you attributed to your Wordpress instance.
 2. Wordpress will ask you to connect the database:
    1. Database username is `wpusr`
    2. Database name is `wordpressdb`
@@ -209,6 +209,6 @@ set DOMAIN $(cat /var/lib/domains/matrix) && cp -n /var/lib/caddy/.local/share/c
 ```
 and press enter.
 
-### Most everything now will be installed regarding the server and Sovran_SystemsOS. The remaining setup will be only be frontend user settings.
+### Everything now will be installed regarding Sovran_SystemsOS. The remaining setup will be only be frontend user account creations for BTCpayserver, Vaultwarden, connecting the node to Sparrow wallet and Bisq.
 
 ### Congratulations! 🎉
