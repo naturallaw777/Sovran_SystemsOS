@@ -12,8 +12,8 @@
 		extraConfig = ''
 			peerbloomfilters=1
 			server=1
-			'';
-		};
+		'';
+	};
 
 	nix-bitcoin.onionServices.bitcoind.enable = true;
 	nix-bitcoin.onionServices.electrs.enable = true;
