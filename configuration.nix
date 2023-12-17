@@ -6,7 +6,7 @@ let
 		
 		
 	custom-php = pkgs.php81.buildEnv {
-		extensions = { enabled, all }: enabled ++ (with all; [ apcu redis imagick memcached ]);
+		extensions = { enabled, all }: enabled ++ (with all; [ bz2 apcu redis imagick memcached ]);
 		extraConfig = ''
 			display_errors = On
 			display_startup_errors = On
@@ -57,6 +57,9 @@ in
 		package = pkgs.nixUnstable;
 		extraOptions = ''
 				experimental-features = nix-command flakes
+				experimental-features = auto-allocate-uids
+				experimental-features = configurable-impure-env
+
 			'';
 		};
 
