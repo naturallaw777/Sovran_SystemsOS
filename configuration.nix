@@ -53,15 +53,7 @@ in
 		options = [ "nofail" ];
 		};
 
-	nix = {
-		package = pkgs.nixUnstable;
-		extraOptions = ''
-				experimental-features = nix-command flakes
-				experimental-features = auto-allocate-uids
-				experimental-features = configurable-impure-env
-
-			'';
-		};
+	nix.settings.experimental-features = [ "nix-command" "flakes" ];
 
 	networking.hostName = "nixos"; # Define your hostname.
 	# networking.wireless.enable = true;  # Enables wireless support via wpa_supplicant.
