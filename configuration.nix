@@ -56,7 +56,6 @@ in
 	nix.settings.experimental-features = [ "nix-command" "flakes" ];
 
 	networking.hostName = "nixos"; # Define your hostname.
-	# networking.wireless.enable = true;  # Enables wireless support via wpa_supplicant.
 
 	# Enable networking
 	networking.networkmanager.enable = true;
@@ -115,8 +114,6 @@ in
 
 	users.users.php.group = "php";
 	users.groups.php = {};
-
-
 
 	# Enable automatic login for the user.
 	services.xserver.displayManager.autoLogin.enable = true;
@@ -211,7 +208,6 @@ in
 		};			
 	};
 
-	#networking.enableIPv6 = false;
 
 ####### CADDY  #######
 	services.caddy = {
@@ -294,9 +290,9 @@ in
 ###### CREATE DATABASE (WORDPRESS, MATRIX_SYNAPSE, AND NEXTCLOUD) #######
 	services.postgresql = {
 			enable = true;
-			package = pkgs.postgresql_14;
 			};
 
+	
 	services.postgresql.authentication = lib.mkForce ''
 			# Generated file; do not edit!
 			# TYPE  DATABASE        USER            ADDRESS                 METHOD
@@ -308,9 +304,10 @@ in
 
 	services.mysql = {
 			enable = true;
-			package = pkgs.mariadb_1011;
+			package = pkgs.mariadb;
 			};
 
+	
 	services.postgresql.initialScript = pkgs.writeText "begin-init.sql" ''
 		CREATE ROLE "ncusr" WITH LOGIN PASSWORD '${personalization.age.secrets.nextclouddb.file}';
 		CREATE DATABASE "nextclouddb" WITH OWNER "ncusr"
@@ -336,10 +333,8 @@ in
 	;
 
 
-
 ####### KEEP AWAKE for DISPLAY and HEADLESS #######
 	services.xserver.displayManager.gdm.autoSuspend = false;
-
 
 
 ####### BACKUP TO INTERNAL DRIVE #######
@@ -353,13 +348,12 @@ backup	/home/	localhost/
 backup	/var/lib/	localhost/
 backup	/etc/nixos/	localhost/
 backup	/etc/nix-bitcoin-secrets/	localhost/
-					'';
+		'';
 	 cronIntervals = {
 			daily = "50 21 * * *";
 			hourly = "0 * * * *";
-						};
-				};
-
+		};
+	};
 
 
 ####### CRON #######
@@ -379,9 +373,8 @@ backup	/etc/nix-bitcoin-secrets/	localhost/
 	client.enable = true;
 	torsocks.enable = true;
 	};
+	
 	services.privoxy.enableTor = true;
-
-
 
 
 ####### Enable the OpenSSH daemon #######
@@ -393,6 +386,7 @@ backup	/etc/nix-bitcoin-secrets/	localhost/
 			PermitRootLogin = "yes";
 		};
 	};
+
 
 #######FailtoBan#######
 	services.fail2ban = {
@@ -414,7 +408,7 @@ backup	/etc/nix-bitcoin-secrets/	localhost/
 			{ from=49152; to=65535; } # TURN relay
 		];
 
-	# Or disable the firewall altogether.
+	
 	networking.firewall.enable = true;
 
 	
@@ -425,6 +419,7 @@ backup	/etc/nix-bitcoin-secrets/	localhost/
 		options = "--delete-older-than 7d";
 	};
 
+	
 	system.stateVersion = "22.05";
 
 }
