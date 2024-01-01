@@ -23,7 +23,7 @@ Connect for Support on Matrix here: https://matrix.to/#/#sovran-systems-support:
 
 ## All Is Love. Fear Is Illusion. All Beings Are Free. Truth Can Never Be Destroyed.
 
-Created, Handcrafted, and Headquartered in Southern California – 2022-2023 🏖️.
+Created, Handcrafted, and Headquartered in Southern California – 2022-2024 🏖️.
 
 All Open Source Software Used Falls Under Its Specific Open Source License.
 
