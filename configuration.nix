@@ -151,7 +151,7 @@ in
 		sparrow
 		bisq-desktop
 		neofetch
-		gnome.gedit
+		gedit
 		matrix-synapse
 		openssl
 		pwgen
