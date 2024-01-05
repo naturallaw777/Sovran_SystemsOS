@@ -18,8 +18,8 @@ let
 			opcache_revalidate_freq = 240;
 			opcache.max_accelerated_files=4000;
 			auto_prepend_file = '/var/lib/www/wordpress/wordfence-waf.php'
-			post_max_size = 2048M
-			upload_max_filesize = 2048M
+			post_max_size = 3G
+			upload_max_filesize = 3G
 			opcache.interned_strings_buffer = 32
 			apc.enable_cli=1
 			redis.session.locking_enabled=1
@@ -342,8 +342,8 @@ in
 		enable = true;
 		extraConfig = ''
 snapshot_root	/run/media/Second_Drive/BTCEcoandBackup/NixOS_Snapshot_Backup
-retain	hourly	12
-retain	daily	12
+retain	hourly	7
+retain	daily	7
 backup	/home/	localhost/
 backup	/var/lib/	localhost/
 backup	/etc/nixos/	localhost/
