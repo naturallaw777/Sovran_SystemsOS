@@ -14,7 +14,7 @@ in
 	services.matrix-synapse = {
 		enable = true;
 		settings = {
-			include_content = false;
+			push.include_content = false;
 			group_unread_count_by_room = false;
 			encryption_enabled_by_default_for_room_type = "invite";
 			allow_profile_lookup_over_federation = false;
