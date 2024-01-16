@@ -328,9 +328,9 @@ mkdir -p /home/free/Downloads
 
 pushd /home/free/Downloads
 
-  wget https://git.sovransystems.com/Sovran_Systems/Software/raw/branch/main/Sovran_SystemsOS_Reseter/sovran_systemsOS_reseter_local_installer/sovran_systemsOS_reseter_install.sh
+  wget https://git.sovransystems.com/Sovran_Systems/Software/raw/branch/main/Sovran_SystemsOS_Resetter/sovran_systemsOS_resetter_local_installer/sovran_systemsOS_resetter_install.sh
 
-  bash sovran_systemsOS_reseter_install.sh
+  bash sovran_systemsOS_resetter_install.sh
 
 popd
 
