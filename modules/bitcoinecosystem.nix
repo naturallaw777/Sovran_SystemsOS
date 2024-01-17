@@ -72,6 +72,10 @@
 		};
 	};
 
+	services.mempool.enable = true;
+
+	nix-bitcoin.onionServices.mempool-frontend.enable = true;
+
 	nix-bitcoin.onionServices.lnd.public = true;
 	
 	services.lnd.lndconnect = {
