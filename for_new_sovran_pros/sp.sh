@@ -352,11 +352,11 @@ pushd /home/free/Pictures
 
   wget https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS/raw/branch/main/for_new_sovran_pros/Wallpaper_Dark_Wide.png
 
-  chown free:users /home/free -R
-
-  chmod 770 /home/free -R
-
 popd
+
+chown free:users /home/free -R
+
+chmod 700 /home/free -R
 
 #
 
@@ -422,7 +422,9 @@ echo "free:a" | chpasswd -c SHA512
 
 #
 
-chmod 700 /home/free/.ssh -R
+chown free:users /home/free -R
+
+chmod 700 /home/free -R
 
 #
 
