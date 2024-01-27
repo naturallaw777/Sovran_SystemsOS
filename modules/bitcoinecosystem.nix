@@ -15,6 +15,8 @@
 		'';
 	};
 
+	systemd.services.bitcoind.wants = [ "network-online.target" ];
+
 	nix-bitcoin.onionServices.bitcoind.enable = true;
 	nix-bitcoin.onionServices.electrs.enable = true;
 	nix-bitcoin.onionServices.rtl.enable = true;
