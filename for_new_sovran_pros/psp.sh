@@ -46,15 +46,15 @@ rm /mnt/etc/nixos/configuration.nix
 
 cat <<EOT >> /mnt/etc/nixos/configuration.nix         
 { config, pkgs, ... }: {
-  
-  imports = [
+	
+	imports = [
 	
 	./hardware-configuration.nix
-  
-  ];
+	
+	];
 
-  boot.loader.systemd-boot.enable = true;
-  boot.loader.efi.canTouchEfiVariables = true;
+	boot.loader.systemd-boot.enable = true;
+	boot.loader.efi.canTouchEfiVariables = true;
 	boot.loader.efi.efiSysMountPoint = "/boot/efi";
 
 	nix.settings.experimental-features = [ "nix-command" "flakes" ];
