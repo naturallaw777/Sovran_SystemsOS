@@ -1,0 +1,1 @@
+"use strict";(globalThis.webpackChunkfloccus=globalThis.webpackChunkfloccus||[]).push([[353],{46556:(e,n,c)=>{c.r(n),c.d(n,{SendIntentWeb:()=>t});var s=c(29895);class t extends s.WebPlugin{constructor(){super()}async checkSendIntentReceived(){return{title:null}}finish(){}}}}]);

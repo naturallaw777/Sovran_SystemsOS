@@ -1,0 +1,9 @@
+This extension requires a server with Nextcloud Bookmarks, a webdav server or Google Drive to sync bookmarks. You can test using the following credentials:
+
+Method: Nextcloud Bookmarks
+Server: https://cloud.marcelklehr.de
+Username: test
+Password: I want testosterone
+
+You can build this extension with node.js v20 by executing `npm run build`
+in the root of the source code directory.

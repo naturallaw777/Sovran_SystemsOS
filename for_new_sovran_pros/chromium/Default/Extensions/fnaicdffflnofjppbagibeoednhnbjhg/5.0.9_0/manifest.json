@@ -1,0 +1,35 @@
+{
+   "action": {
+      "browser_style": false,
+      "default_icon": {
+         "48": "icons/logo.png"
+      },
+      "default_popup": "dist/html/options.html",
+      "default_title": "Open Floccus options"
+   },
+   "background": {
+      "service_worker": "dist/js/background-script.js"
+   },
+   "content_security_policy": {
+      "extension_pages": "script-src 'self'; object-src 'self';"
+   },
+   "default_locale": "en",
+   "description": "__MSG_DescriptionExtension__",
+   "host_permissions": [ "*://*/*" ],
+   "icons": {
+      "128": "icons/logo_128.png",
+      "48": "icons/logo.png",
+      "64": "icons/logo_64.png"
+   },
+   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAhV577hk+UYurcLgRCzh9QNTs9bfmvUoRdHzneepg2kakWS/jY1evKhYFoL+WucmmMwGsxbms+tHz+h49TlqQfHj8SmpERkpQxkLR7j6uIX5239ry1s3t+wdkqHh0V7ZLDajd7beHkRyAFG8bapeiu8tZC0DyeEx9Quoeicipf0G97DK5CAyyK+F9RdJw6h1u/NP9/NSD79NqTRQ3pEMhTghBx/Ck2Ix1GadT9fN5K5WMkEDlFqk9BhIO135aKHK6Z17cT0wdPbp5Mb7eUKQTDHoWxYR4A26n59sFGtqz8nJWiTYOtKg4osMFPkLv0oNsVdKal6n2gXzCtaPMX+ttJQIDAQAB",
+   "manifest_version": 3,
+   "name": "floccus bookmarks sync",
+   "options_ui": {
+      "browser_style": false,
+      "page": "dist/html/options.html"
+   },
+   "permissions": [ "alarms", "bookmarks", "storage", "unlimitedStorage", "tabs", "identity" ],
+   "short_name": "floccus",
+   "update_url": "https://clients2.google.com/service/update2/crx",
+   "version": "5.0.9"
+}
