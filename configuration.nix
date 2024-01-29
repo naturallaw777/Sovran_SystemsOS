@@ -53,6 +53,8 @@ in
 		options = [ "nofail" ];
 		};
 
+	fileSystems."/boot/efi".options = [ "umask=0077" "defaults" ];
+
 	nix.settings.experimental-features = [ "nix-command" "flakes" ];
 
 	networking.hostName = "nixos"; # Define your hostname.
@@ -216,7 +218,7 @@ in
 		user = "caddy";
 		group = "root";
 		email = "${personalization.caddy_email_for_zerossl}";
-		acmeCA = "https://acme.zerossl.com/v2/DV90";
+
 		virtualHosts = {
 			"${personalization.wordpress_url}" = {
 				 extraConfig = ''
@@ -224,15 +226,6 @@ in
 					root * /var/lib/www/wordpress
 					php_fastcgi unix//run/phpfpm/mypool.sock
 					file_server browse
-					'';
-			};
-
-			"www.${personalization.wordpress_url}" = {
-					extraConfig = ''
-						encode gzip zstd
-						root * /var/lib/www/wordpress
-						php_fastcgi unix//run/phpfpm/mypool.sock
-						file_server browse
 					'';
 			};
 
