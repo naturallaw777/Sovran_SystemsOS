@@ -217,7 +217,7 @@ in
 		package = pkgs.caddy;
 		user = "caddy";
 		group = "root";
-		email = "${personalization.caddy_email_for_zerossl}";
+		email = "${personalization.caddy_email_for_acme}";
 
 		virtualHosts = {
 			"${personalization.wordpress_url}" = {
