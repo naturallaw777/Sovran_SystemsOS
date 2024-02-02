@@ -1,3 +1,0 @@
-/*! Capacitor: https://capacitorjs.com/ - MIT License */
-
-/*! https://mths.be/punycode v1.4.1 by @mathias */
