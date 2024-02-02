@@ -104,9 +104,8 @@ then press enter.
 
 1. Log into your [njal.la](https://njal.la) account
 2. Make a "dynamic" record for each subdomain and copy the `curl` commands after each sub-domain.
-3. Paste `curl` command from njal.la website into `/var/lib/njalla/njalla.sh` . 
-    For example: 
-    
+3. Paste `curl` command from njal.la website into `/var/lib/njalla/njalla.sh` . For example: 
+
     ```bash
     curl "https://njal.la/update/?h=test.testsovransystems.com&k=8n7vk3afj-jkyg37&a=${IP}"
     ```
