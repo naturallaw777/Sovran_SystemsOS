@@ -13,7 +13,7 @@ A Nix Flake Implementation
 
 Thanks to all the NixOS creators and developers for creating what is the future of computing. 
 
-https://www.sovransystems.com
+https://sovransystems.com
 
 Connect on Matrix here: https://matrix.to/#/#sovran-systems:anarchyislove.xyz
 
