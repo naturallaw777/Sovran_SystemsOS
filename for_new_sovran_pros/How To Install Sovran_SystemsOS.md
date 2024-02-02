@@ -179,7 +179,7 @@ then press enter.
    ```
 
 2. It will as you for a password which is `gosovransystems` as this is the default temporary password from Sovran Systems.
-   3. Now you will be logged in as root.
+3. Now you will be logged in as root.
 4. Now open the Terminal app and type or copy and paste:
 
    ```bash
@@ -192,7 +192,7 @@ then press enter.
 
 and press enter.
 
-1. Now type or copy and paste:
+5. Now type or copy and paste:
 
 ```bash
 set DOMAIN $(cat /var/lib/domains/matrix) && cp -n /var/lib/caddy/.local/share/caddy/certificates/acme.-v02.api.letsencrypt.org-directory/{$DOMAIN}/{$DOMAIN}.crt /var/lib/coturn/{$DOMAIN}.crt.pem && cp -n /var/lib/caddy/.local/share/caddy/certificates/acme.-v02.api.letsencrypt.org-directory/{$DOMAIN}/{$DOMAIN}.key /var/lib/coturn/{$DOMAIN}.key.pem && chown turnserver:turnserver /var/lib/coturn -R && chmod 770 /var/lib/coturn -R  && systemctl restart coturn
