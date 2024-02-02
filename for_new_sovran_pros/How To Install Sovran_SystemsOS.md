@@ -200,6 +200,6 @@ set DOMAIN $(cat /var/lib/domains/matrix) && cp -n /var/lib/caddy/.local/share/c
 
 and press enter.
 
-### Everything now will be installed regarding Sovran_SystemsOS. The remaining setup will be only for the frontend user account creations for BTCpayserver, Vaultwarden, connecting the node to Sparrow wallet and Bisq.
+### Everything now will be installed regarding Sovran_SystemsOS. The remaining setup will be only for the front-end user account creations for BTCpayserver, Vaultwarden, connecting the node to Sparrow wallet and Bisq.
 
 ### Congratulations! 🎉
