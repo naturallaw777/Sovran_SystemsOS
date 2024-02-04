@@ -42,11 +42,11 @@ wget https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS/raw/branch/ma
 
 then press enter.
 
-5. Now, type `bash sdpsp.sh` then press enter.
-6. Then the screen will ask for "what block..." which will be the drive in the list that is not mounted,which will be the drive you just plugged in. It might be labeled `sda`, `sdb`, `sdc`, or if it is a NVME it will be `nvme0n1`, or `nvme0n2` etc.
-7. Then the screen will ask for "what partition...,"which will be whatever you typed into the first prompt, but with a "1" on it. For example `sda1`, `sdb1`, `sdc1`, or `nvme0n1p1` or `nvme0n2p1`.
-8. Since the script is made to copy the blockchain from another Sovran Pro that already has the full blockchain installed it will throw an error. However, it should complete the setup just fine.
-9. Once complete, remove the second drive from the USB enclosure and install it into your second machine in which you are installing Sovran_SystemsOS.
+1. Now, type `bash sdpsp.sh` then press enter.
+2. Then the screen will ask for "what block..." which will be the drive in the list that is not mounted,which will be the drive you just plugged in. It might be labeled `sda`, `sdb`, `sdc`, or if it is a NVME it will be `nvme0n1`, or `nvme0n2` etc.
+3. Then the screen will ask for "what partition...,"which will be whatever you typed into the first prompt, but with a "1" on it. For example `sda1`, `sdb1`, `sdc1`, or `nvme0n1p1` or `nvme0n2p1`.
+4. Since the script is made to copy the blockchain from another Sovran Pro that already has the full blockchain installed it will throw an error. However, it should complete the setup just fine.
+5. Once complete, remove the second drive from the USB enclosure and install it into your second machine in which you are installing Sovran_SystemsOS.
 
 ## Preparing the First Main Internal Drive
 
@@ -104,18 +104,20 @@ then press enter.
 
 1. Log into your [njal.la](https://njal.la) account
 2. Make a "dynamic" record for each subdomain and copy the `curl` commands after each sub-domain.
-3. Paste `curl` command from njal.la website into `/var/lib/njalla/njalla.sh` . For example: 
+3. Paste `curl` command from njal.la website into `/var/lib/njalla/njalla.sh` . For example:
 
-    ```bash
-    curl "https://njal.la/update/?h=test.testsovransystems.com&k=8n7vk3afj-jkyg37&a=${IP}"
-    ```
-    ##### Make sure `&a=${IP}` is replaced by `&auto` at the end of each `curl` command.
+   ```bash
+   curl "https://njal.la/update/?h=test.testsovransystems.com&k=8n7vk3afj-jkyg37&a=${IP}"
+   ```
+
+   ##### Make sure `&a=${IP}` is replaced by `&auto` at the end of each `curl` command.
 
 ### Setting the Desktop
 
 1. Open the Terminal app and type in: `dconf load / < /home/free/Downloads/Sovran_SystemsOS-Desktop`. Do NOT log in as root.
 
 ### Setting Up Nextcloud and Wordpress
+
 #### Nextcloud
 
 1. Open a web browser and navigate to your domain name you bought from [njal.la](https://njal.la) for example "cloud.myfreedomsite.com" you attributed to your Nextcloud instance.
@@ -160,7 +162,6 @@ then press enter.
          It will as you for a password which is `gosovransystems` as this is the default temporary password from Sovran Systems.
 
          Now you will be logged in as root.
-
       2. Now open the Terminal app and type:
 
          `cat /var/lib/secrets/wordpressdb`
@@ -177,22 +178,21 @@ then press enter.
    ```bash
    ssh root@localhost
    ```
-
 2. It will as you for a password which is `gosovransystems` as this is the default temporary password from Sovran Systems.
 3. Now you will be logged in as root.
 4. Now open the Terminal app and type or copy and paste:
 
    ```bash
    sed -i '$e cat /var/lib/nextcloudaddition/nextcloudaddition' /var/lib/www/nextcloud/config/config.php
-
+   
    chown caddy:php /var/lib/www -R
-
+   
    chmod 700 /var/lib/www -R
    ```
 
 and press enter.
 
-5. Now type or copy and paste:
+1. Now type or copy and paste:
 
 ```bash
 set DOMAIN $(cat /var/lib/domains/matrix) && cp -n /var/lib/caddy/.local/share/caddy/certificates/acme.-v02.api.letsencrypt.org-directory/{$DOMAIN}/{$DOMAIN}.crt /var/lib/coturn/{$DOMAIN}.crt.pem && cp -n /var/lib/caddy/.local/share/caddy/certificates/acme.-v02.api.letsencrypt.org-directory/{$DOMAIN}/{$DOMAIN}.key /var/lib/coturn/{$DOMAIN}.key.pem && chown turnserver:turnserver /var/lib/coturn -R && chmod 770 /var/lib/coturn -R  && systemctl restart coturn
