@@ -334,8 +334,8 @@ in
 		enable = true;
 		extraConfig = ''
 snapshot_root	/run/media/Second_Drive/BTCEcoandBackup/NixOS_Snapshot_Backup
-retain	hourly	7
-retain	daily	7
+retain	hourly	5
+retain	daily	5
 backup	/home/	localhost/
 backup	/var/lib/	localhost/
 backup	/etc/nixos/	localhost/
