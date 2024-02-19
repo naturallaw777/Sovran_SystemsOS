@@ -34,7 +34,7 @@ FILE=/var/lib/beacons/file_fixes_and_new_services/nextcloud_maintenance_window_f
 
 #### MAIN SCRIPT ####
 
-/run/wrappers/bin/sudo -u caddy php /var/lib/www/nextcloud/occ config:system:set maintenance_window_start --type=integer --value=1
+/run/wrappers/bin/sudo -u caddy /run/current-system/sw/bin/php /var/lib/www/nextcloud/occ config:system:set maintenance_window_start --type=integer --value=1
 
    if [[ $? != 0 ]]; then
 
