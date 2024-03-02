@@ -135,7 +135,6 @@ in
 	# $ nix search wget
 	environment.systemPackages = with pkgs; [
 		(callPackage ./modules/systemd-manager_sovran_systems.nix {})
-		(callPackage ./modules/sparrow_sovran_systems.nix {})
 		git
 		wget
 		librewolf
