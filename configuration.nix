@@ -150,6 +150,7 @@ in
 		gnome.gnome-tweaks
 		papirus-icon-theme
 		ranger
+		sparrow
 		bisq-desktop
 		neofetch
 		gedit
