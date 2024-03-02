@@ -134,6 +134,7 @@ in
 	# List packages installed in system profile. To search, run:
 	# $ nix search wget
 	environment.systemPackages = with pkgs; [
+		(callPackage ./modules/systemd-manager_sovran_systems.nix {})
 		git
 		wget
 		librewolf
@@ -145,7 +146,6 @@ in
 		gnomeExtensions.pop-shell
 		gnomeExtensions.just-perfection
 		gnomeExtensions.appindicator
-		gnomeExtensions.systemd-manager
 		#gnomeExtensions.date-menu-formatter
 		gnome.gnome-tweaks
 		papirus-icon-theme
