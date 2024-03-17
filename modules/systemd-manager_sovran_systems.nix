@@ -2,11 +2,11 @@
 
 			stdenv.mkDerivation rec {
 				pname = "systemd-manager";
-				version = "15";
+				version = "16";
 
 				src = fetchzip {
 					url = "https://github.com/hardpixel/systemd-manager/releases/download/v${version}/systemd-manager-v${version}.zip";
-					hash = "sha256-IIiHvntAnaEJIiofNDOQXDKeJupyEMys32N8Qz1IfXk=";
+					hash = "sha256-mbo0kSLkFpT71f/E4AJ0rMFLVtsks7u9snc8maMib4U=";
 					stripRoot = false;
 				};
 
