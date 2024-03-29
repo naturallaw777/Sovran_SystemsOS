@@ -195,7 +195,7 @@ and press enter.
 1. Now type or copy and paste:
 
 ```bash
-set DOMAIN $(cat /var/lib/domains/matrix) && cp -n /var/lib/caddy/.local/share/caddy/certificates/acme.-v02.api.letsencrypt.org-directory/{$DOMAIN}/{$DOMAIN}.crt /var/lib/coturn/{$DOMAIN}.crt.pem && cp -n /var/lib/caddy/.local/share/caddy/certificates/acme.-v02.api.letsencrypt.org-directory/{$DOMAIN}/{$DOMAIN}.key /var/lib/coturn/{$DOMAIN}.key.pem && chown turnserver:turnserver /var/lib/coturn -R && chmod 770 /var/lib/coturn -R  && systemctl restart coturn
+set DOMAIN $(cat /var/lib/domains/matrix) && cp -n /var/lib/caddy/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory/{$DOMAIN}/{$DOMAIN}.crt /var/lib/coturn/{$DOMAIN}.crt.pem && cp -n /var/lib/caddy/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory/{$DOMAIN}/{$DOMAIN}.key /var/lib/coturn/{$DOMAIN}.key.pem && chown turnserver:turnserver /var/lib/coturn -R && chmod 770 /var/lib/coturn -R  && systemctl restart coturn
 ```
 
 and press enter.
