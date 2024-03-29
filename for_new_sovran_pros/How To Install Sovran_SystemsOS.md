@@ -110,7 +110,7 @@ then press enter.
    curl "https://njal.la/update/?h=test.testsovransystems.com&k=8n7vk3afj-jkyg37&a=${IP}"
    ```
 
-   ##### Make sure `&a=${IP}` is replaced by `&auto` at the end of each `curl` command.
+   ##### Make sure the default `&auto` from njal.la is replaced by `&a=${IP}` at the end of each `curl` command in the `/var/lib/njalla/njalla.sh` as in the example above.
 
 ### Setting the Desktop
 
