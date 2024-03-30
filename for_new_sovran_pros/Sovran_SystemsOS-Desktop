@@ -44,11 +44,16 @@ window-maximized=false
 window-size=(1912, 1037)
 
 [org/gnome/control-center]
-last-panel='network'
+last-panel='power'
 window-state=(1912, 1037, false)
 
 [org/gnome/desktop/app-folders]
-folder-children=['Utilities', 'YaST', 'd737daeb-6dbb-4a5d-9ec7-e674398539ce', '7d66e46a-a135-4e42-91bb-d438e499d251', '3fea025e-f5e4-4905-9912-e70e38cd0419', '83d8148a-1f0b-4f83-814a-11c33ab8debc', '68c075b1-a254-4b7c-ba63-c45f88bc2a58', '534e2716-83c7-4a2a-9678-8144999213ed', '4acaa2d8-d284-4efd-bba3-40f150f1ace5', '1e62b69b-d9bb-4e80-be8d-5e9b4d777fc8']
+folder-children=['Utilities', 'YaST', 'd737daeb-6dbb-4a5d-9ec7-e674398539ce', '7d66e46a-a135-4e42-91bb-d438e499d251', '3fea025e-f5e4-4905-9912-e70e38cd0419', '83d8148a-1f0b-4f83-814a-11c33ab8debc', '68c075b1-a254-4b7c-ba63-c45f88bc2a58', '534e2716-83c7-4a2a-9678-8144999213ed', '4acaa2d8-d284-4efd-bba3-40f150f1ace5', '1e62b69b-d9bb-4e80-be8d-5e9b4d777fc8', '1991ed9f-9b77-48d8-9335-d11c4b691b78']
+
+[org/gnome/desktop/app-folders/folders/1991ed9f-9b77-48d8-9335-d11c4b691b78]
+apps=['Sovran_SystemsOS_External_Backup.desktop', 'Sovran_SystemsOS_Resetter.desktop']
+name='Sovran Systems Apps'
+translate=false
 
 [org/gnome/desktop/app-folders/folders/1e62b69b-d9bb-4e80-be8d-5e9b4d777fc8]
 apps=['math.desktop', 'writer.desktop', 'impress.desktop', 'draw.desktop', 'calc.desktop', 'base.desktop', 'startcenter.desktop']
@@ -82,6 +87,11 @@ apps=['org.gnome.Tour.desktop', 'yelp.desktop', 'nixos-manual.desktop']
 name='Help'
 translate=false
 
+[org/gnome/desktop/app-folders/folders/Pardus]
+categories=['X-Pardus-Apps']
+name='X-Pardus-Apps.directory'
+translate=true
+
 [org/gnome/desktop/app-folders/folders/Utilities]
 apps=['gnome-abrt.desktop', 'gnome-system-log.desktop', 'nm-connection-editor.desktop', 'org.gnome.Connections.desktop', 'org.gnome.DejaDup.desktop', 'org.gnome.Dictionary.desktop', 'org.gnome.eog.desktop', 'org.gnome.Evince.desktop', 'org.gnome.FileRoller.desktop', 'org.gnome.fonts.desktop', 'org.gnome.seahorse.Application.desktop', 'org.gnome.Usage.desktop', 'vinagre.desktop', 'org.gnome.TextEditor.desktop', 'org.gnome.gedit.desktop']
 categories=['X-GNOME-Utilities']
@@ -102,8 +112,8 @@ translate=false
 [org/gnome/desktop/background]
 color-shading-type='solid'
 picture-options='zoom'
-picture-uri='file:///home/free/.local/share/backgrounds/2023-07-16-12-58-54-Wallpaper_Dark_Wide.png'
-picture-uri-dark='file:///home/free/.local/share/backgrounds/2023-07-16-12-58-54-Wallpaper_Dark_Wide.png'
+picture-uri='file:///home/free/.local/share/backgrounds/2024-03-29-13-52-44-Wallpaper_Dark_Wide.png'
+picture-uri-dark='file:///home/free/.local/share/backgrounds/2024-03-29-13-52-44-Wallpaper_Dark_Wide.png'
 primary-color='#000000000000'
 secondary-color='#000000000000'
 
@@ -202,7 +212,7 @@ recent-files-max-age=-1
 color-shading-type='solid'
 lock-enabled=false
 picture-options='zoom'
-picture-uri='file:///home/free/.local/share/backgrounds/2023-07-16-12-58-54-Wallpaper_Dark_Wide.png'
+picture-uri='file:///home/free/.local/share/backgrounds/2024-03-29-13-52-44-Wallpaper_Dark_Wide.png'
 primary-color='#000000000000'
 secondary-color='#000000000000'
 
@@ -227,6 +237,10 @@ window-size=(1912, 1037)
 migrated=true
 network-monitor-gio-name=''
 
+[org/gnome/file-roller/dialogs/extract]
+recreate-folders=true
+skip-newer=false
+
 [org/gnome/file-roller/listing]
 list-mode='as-folder'
 name-column-width=250
@@ -236,7 +250,7 @@ sort-type='ascending'
 
 [org/gnome/file-roller/ui]
 sidebar-width=200
-window-height=990
+window-height=469
 window-width=954
 
 [org/gnome/gnome-system-monitor]
@@ -245,7 +259,7 @@ maximized=false
 network-total-in-bits=false
 show-dependencies=false
 show-whose-processes='all'
-window-state=(1912, 1037, 26, 23)
+window-state=(954, 1037, 26, 23)
 
 [org/gnome/gnome-system-monitor/disktreenew]
 col-6-visible=true
@@ -281,7 +295,7 @@ search-filter-time-type='last_modified'
 search-view='list-view'
 
 [org/gnome/nautilus/window-state]
-initial-size=(954, 1037)
+initial-size=(1912, 1037)
 maximized=false
 
 [org/gnome/nm-applet/eap/202ce1d2-7306-40ac-b3bb-5b092c0f9734]
@@ -304,6 +318,12 @@ ignore-phase2-ca-cert=false
 ignore-ca-cert=false
 ignore-phase2-ca-cert=false
 
+[org/gnome/portal/filechooser/chromium-browser]
+last-folder-path='/home/free/Downloads'
+
+[org/gnome/portal/filechooser/org.gnome.Settings]
+last-folder-path='/home/free/Pictures'
+
 [org/gnome/settings-daemon/plugins/color]
 night-light-enabled=true
 night-light-schedule-automatic=false
@@ -315,11 +335,11 @@ power-button-action='nothing'
 sleep-inactive-ac-type='nothing'
 
 [org/gnome/shell]
-app-picker-layout=[{'org.gnome.Weather.desktop': <{'position': <0>}>, 'org.gnome.clocks.desktop': <{'position': <1>}>, 'org.gnome.Maps.desktop': <{'position': <2>}>, 'org.gnome.Calculator.desktop': <{'position': <3>}>, '68c075b1-a254-4b7c-ba63-c45f88bc2a58': <{'position': <4>}>, '3fea025e-f5e4-4905-9912-e70e38cd0419': <{'position': <5>}>, '83d8148a-1f0b-4f83-814a-11c33ab8debc': <{'position': <6>}>, 'Utilities': <{'position': <7>}>, 'd737daeb-6dbb-4a5d-9ec7-e674398539ce': <{'position': <8>}>, '7d66e46a-a135-4e42-91bb-d438e499d251': <{'position': <9>}>, '534e2716-83c7-4a2a-9678-8144999213ed': <{'position': <10>}>, '4acaa2d8-d284-4efd-bba3-40f150f1ace5': <{'position': <11>}>, '1e62b69b-d9bb-4e80-be8d-5e9b4d777fc8': <{'position': <12>}>, 'Bisq-hidpi.desktop': <{'position': <13>}>, 'com.obsproject.Studio.desktop': <{'position': <14>}>}]
+app-picker-layout=[{'org.gnome.Weather.desktop': <{'position': <0>}>, 'org.gnome.clocks.desktop': <{'position': <1>}>, 'org.gnome.Maps.desktop': <{'position': <2>}>, 'org.gnome.Calculator.desktop': <{'position': <3>}>, '68c075b1-a254-4b7c-ba63-c45f88bc2a58': <{'position': <4>}>, '3fea025e-f5e4-4905-9912-e70e38cd0419': <{'position': <5>}>, '83d8148a-1f0b-4f83-814a-11c33ab8debc': <{'position': <6>}>, 'Utilities': <{'position': <7>}>, 'd737daeb-6dbb-4a5d-9ec7-e674398539ce': <{'position': <8>}>, '7d66e46a-a135-4e42-91bb-d438e499d251': <{'position': <9>}>, '534e2716-83c7-4a2a-9678-8144999213ed': <{'position': <10>}>, '4acaa2d8-d284-4efd-bba3-40f150f1ace5': <{'position': <11>}>, '1e62b69b-d9bb-4e80-be8d-5e9b4d777fc8': <{'position': <12>}>, '1991ed9f-9b77-48d8-9335-d11c4b691b78': <{'position': <13>}>, 'Bisq-hidpi.desktop': <{'position': <14>}>, 'io.freetubeapp.FreeTube.desktop': <{'position': <15>}>}]
 disable-user-extensions=false
 disabled-extensions=['transparent-top-bar@zhanghai.me']
 enabled-extensions=['appindicatorsupport@rgcjonas.gmail.com', 'dash-to-dock-cosmic-@halfmexicanhalfamazing@gmail.com', 'Vitals@CoreCoding.com', 'dash-to-dock@micxgx.gmail.com', 'transparent-top-bar@ftpix.com', 'just-perfection-desktop@just-perfection', 'pop-shell@system76.com', 'date-menu-formatter@marcinjakubowski.github.com', 'systemd-manager@hardpixel.eu', 'light-style@gnome-shell-extensions.gcampax.github.com']
-favorite-apps=['chromium-browser.desktop', 'org.gnome.Nautilus.desktop', 'Sovran_SystemsOS_Updater.desktop', 'org.gnome.Settings.desktop', 'org.gnome.Software.desktop', 'org.onlyoffice.desktopeditors.desktop', 'org.gnome.Geary.desktop', 'org.gnome.Contacts.desktop', 'org.gnome.Calendar.desktop', 'Bisq.desktop', 'sparrow-desktop.desktop']
+favorite-apps=['chromium-browser.desktop', 'org.gnome.Nautilus.desktop', 'Sovran_SystemsOS_Updater.desktop', 'org.gnome.Settings.desktop', 'org.gnome.Software.desktop', 'org.onlyoffice.desktopeditors.desktop', 'io.freetubeapp.FreeTube.desktop', 'org.gnome.Geary.desktop', 'org.gnome.Contacts.desktop', 'org.gnome.Calendar.desktop', 'Bisq.desktop', 'sparrow-desktop.desktop']
 last-selected-power-profile='performance'
 welcome-dialog-last-shown-version='42.3.1'
 
@@ -401,9 +421,9 @@ locations=@av []
 locations=@av []
 
 [org/gnome/software]
-check-timestamp=int64 1706366003
+check-timestamp=int64 1711745805
 first-run=false
-flatpak-purge-timestamp=int64 1706318646
+flatpak-purge-timestamp=int64 1711753069
 online-updates-timestamp=int64 1675355639
 update-notification-timestamp=int64 1666382024
 
@@ -420,7 +440,7 @@ selected-color=(true, 0.0, 0.0, 0.0, 1.0)
 [org/gtk/gtk4/settings/file-chooser]
 date-format='regular'
 location-mode='path-bar'
-show-hidden=false
+show-hidden=true
 show-size-column=true
 show-type-column=true
 sidebar-width=177
@@ -429,7 +449,7 @@ sort-directories-first=false
 sort-order='ascending'
 type-format='category'
 view-type='list'
-window-size=(938, 374)
+window-size=(1912, 1037)
 
 [org/gtk/settings/file-chooser]
 clock-format='12h'
