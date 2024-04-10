@@ -179,6 +179,7 @@ in
 		dig
 		nextcloud-client
 		ungoogled-chromium
+		libreoffice-fresh
 
 	];
 
