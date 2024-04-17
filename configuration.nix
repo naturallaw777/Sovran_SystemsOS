@@ -146,7 +146,7 @@ in
 		gnomeExtensions.pop-shell
 		gnomeExtensions.just-perfection
 		gnomeExtensions.appindicator
-		#gnomeExtensions.date-menu-formatter
+		gnomeExtensions.date-menu-formatter
 		gnome.gnome-tweaks
 		papirus-icon-theme
 		ranger
