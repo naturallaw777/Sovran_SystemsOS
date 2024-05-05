@@ -16,7 +16,7 @@ let
 			opcache.enable=1;
 			opcache.memory_consumption=512;
 			opcache_revalidate_freq = 240;
-			opcache.max_accelerated_files=4000;
+			opcache.max_accelerated_files=5000;
 			auto_prepend_file = '/var/lib/www/wordpress/wordfence-waf.php'
 			post_max_size = 3G
 			upload_max_filesize = 3G
