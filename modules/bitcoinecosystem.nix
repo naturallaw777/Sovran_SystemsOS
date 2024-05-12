@@ -25,6 +25,12 @@
 		enable = true;
 		tor.enforce = true;
 		tor.proxy = true;
+    extraConfig = ''
+
+    	protocol.option-scid-alias=true
+
+		'';
+
 	};
 
 	services.lightning-loop = {
