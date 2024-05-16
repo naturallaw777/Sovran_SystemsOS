@@ -140,6 +140,7 @@ in
 		librewolf
 		fish
 		htop
+		btop
 		gnomeExtensions.dash-to-dock
 		gnomeExtensions.transparent-top-bar-adjustable-transparency
 		gnomeExtensions.vitals
@@ -165,7 +166,7 @@ in
 		custom-php
 		matrix-synapse-tools.synadm
 		brave
-		ncdu_2
+		dua
 		bitwarden
 		gparted
 		pv
