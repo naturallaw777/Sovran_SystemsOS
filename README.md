@@ -1,7 +1,7 @@
 <br />
 <br />
 
-<center><img src="sovran_systems.png" alt="drawing" width="500"/></center>
+<center><img src="sovran_systems_grey.png" alt="drawing" width="500"/></center>
 
 <br />
 <br />
