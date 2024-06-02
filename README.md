@@ -3,7 +3,7 @@
 
 <img src="sovran_systems_grey.png"
      alt="Sovran Systems Logo"
-     style="float: center;" />
+     style="text-align: center; width:500;" />
 
 <br />
 <br />
