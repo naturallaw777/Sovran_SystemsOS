@@ -1,7 +1,9 @@
 <br />
 <br />
 
-<center><img src="sovran_systems_grey.png" alt="drawing" width="500"/></center>
+<img src="sovran-systems_grey.png"
+     alt="Sovran Systems Logo"
+     style="float: center;" />
 
 <br />
 <br />
