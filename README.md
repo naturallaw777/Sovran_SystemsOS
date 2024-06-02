@@ -2,7 +2,7 @@
 <br />
 
 <p align="center">
-  <img width="500" src="sovran_systems_grey.png">
+  <img width="600" src="sovran_systems_grey.png">
 </p>
 
 <br />
