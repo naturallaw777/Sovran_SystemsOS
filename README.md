@@ -1,9 +1,9 @@
 <br />
 <br />
 
-<img src="sovran_systems_grey.png"
-     alt="Sovran Systems Logo"
-     style="text-align: center; width:500;" />
+<p align="center">
+  <img width="500" height="300" src="sovran-systems_grey.png">
+</p>
 
 <br />
 <br />
