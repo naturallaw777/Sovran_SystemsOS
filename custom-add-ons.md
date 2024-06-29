@@ -2,13 +2,18 @@
 
 Add-ons are extra features you can have installed before your Sovran Pro is shipped to you. 
 
-There is Jitsi Meet that is available to be added on. Jitsi is a video conference software in which you send a web link to a video conference and anyone can join. 
+
+1. There is Jitsi Meet that is available to be added on. Jitsi is a video conference software in which you send a web link to a video conference and anyone can join. 
+
 https://jitsi.org
 
-There is also Bitcoin Knots Node available to be added instead of the regular Bitcoin Node. Bitcoin Knots allows a special filter to block unwanted, unusable, erroneous, yet harmless data on the Bitcoin Block chain.
+
+2. There is also Bitcoin Knots Node available to be added instead of the regular Bitcoin Node. Bitcoin Knots allows a special filter to block unwanted, unusable, erroneous, yet harmless data on the Bitcoin Block chain.
 
 https://bitcoinknots.org
 
+
+3. By default Sovran_SystemsOS runs LND as the default Lightning node software for BTCpayserver. You are now able to run CLN asthe backend to BTCpayserver instead of LND.
 
 
 The code will be installed in the `custom.nix` file.
@@ -112,6 +117,14 @@ The code for Bitcoin Knots is as follows:
 
 ```nix
 services.bitcoind.package = pkgs.bitcoind-knots;
+
+```
+
+
+The code for CLN for BTCpayserver backend is as follows:
+
+```nix
+services.btcpayserver.lightningBackend = mkForce "clightning";
 
 ```
 
