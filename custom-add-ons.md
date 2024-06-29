@@ -13,7 +13,9 @@ https://jitsi.org
 https://bitcoinknots.org
 
 
-3. By default Sovran_SystemsOS runs LND as the default Lightning node software for BTCpayserver. You are now able to run CLN asthe backend to BTCpayserver instead of LND.
+3. By default Sovran_SystemsOS runs LND as the default Lightning node software for BTCpayserver. You are now able to run CLN as the backend to BTCpayserver instead of LND.
+
+https://blockstream.com/lightning/
 
 
 The code will be installed in the `custom.nix` file.
