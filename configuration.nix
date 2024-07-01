@@ -76,9 +76,9 @@ in
 	services.xserver.desktopManager.gnome.enable = true;
 
 	# Configure keymap in X11
-	services.xserver = {
+	services.xserver.xkb = {
 		layout = "us";
-		xkbVariant = "";
+		variant = "";
 	};
 
 	# Enable CUPS to print documents.
@@ -118,8 +118,8 @@ in
 	users.groups.php = {};
 
 	# Enable automatic login for the user.
-	services.xserver.displayManager.autoLogin.enable = true;
-	services.xserver.displayManager.autoLogin.user = "free";
+	services.displayManager.autoLogin.enable = true;
+	services.displayManager.autoLogin.user = "free";
 
 	# Workaround for GNOME autologin: https://github.com/NixOS/nixpkgs/issues/103746#issuecomment-945091229
 	systemd.services."getty@tty1".enable = true;
