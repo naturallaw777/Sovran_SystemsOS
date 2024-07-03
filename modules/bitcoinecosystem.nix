@@ -38,6 +38,9 @@
 		tor.proxy = true;
 		tor.enforce = true;
 		port = 9737;
+		extraConfig = ''
+experimental-offers
+'';
 	};
 	
 	nix-bitcoin.onionServices.clightning.public = true;
