@@ -236,8 +236,8 @@ in
 						root * /var/lib/www/nextcloud
 						php_fastcgi unix//run/phpfpm/mypool.sock
 						file_server
-						redir /.well-known/carddav /remote.php/dav 301
-						redir /.well-known/caldav /remote.php/dav 301
+						redir /.well-known/carddav /remote.php/dav/ 301
+						redir /.well-known/caldav /remote.php/dav/ 301
 						header {
 									Strict-Transport-Security max-age=31536000;
 									}
