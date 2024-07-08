@@ -148,7 +148,7 @@ in
 		gnomeExtensions.just-perfection
 		gnomeExtensions.appindicator
 		gnomeExtensions.date-menu-formatter
-		gnome.gnome-tweaks
+		gnome-tweaks
 		papirus-icon-theme
 		ranger
 		sparrow
@@ -173,18 +173,16 @@ in
 		unzip
 		parted
 		screen
-		gnome.zenity
+		zenity
 		libargon2
-		gnome.gnome-terminal
+		gnome-terminal
 		libreoffice-fresh
 		dig
 		nextcloud-client
 		firefox
+		element-desktop
 
 	];
-
-	nixpkgs.config.permittedInsecurePackages = [ "electron-25.9.0" ];
-
 
 	programs.bash.promptInit = "fish";
 	programs.fish = {
