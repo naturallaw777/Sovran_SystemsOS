@@ -86,6 +86,11 @@ experimental-offers
 		nodes = {
 			clightning = {
 				enable = true;
+				extraConfig = {
+					Settings = {
+						enableOffers = true;
+					};
+				};
 			};
 		
 			lnd = {
