@@ -72,9 +72,6 @@ experimental-offers
 		tor.enforce = true;
 		tor.proxy = true;
 	};
-
-	services.charge-lnd.enable = true;
-
 	
 
 	## RTL
