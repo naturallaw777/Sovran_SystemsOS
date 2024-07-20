@@ -88,7 +88,6 @@ in
 	systemd.enableEmergencyMode = false;
 
 	# Enable sound with pipewire.
-	sound.enable = true;
 	hardware.pulseaudio.enable = false;
 	security.rtkit.enable = true;
 	services.pipewire = {
@@ -124,6 +123,29 @@ in
 	# Workaround for GNOME autologin: https://github.com/NixOS/nixpkgs/issues/103746#issuecomment-945091229
 	systemd.services."getty@tty1".enable = true;
 	systemd.services."autovt@tty1".enable = true;
+
+
+	# Fix the GNOME Desktop Environment Performance
+
+	nixpkgs.config.allowAliases = false;
+
+	nixpkgs.overlays = [
+	# GNOME 46: triple-buffering-v4-46
+		(final: prev: {
+			gnome = prev.gnome.overrideScope (gnomeFinal: gnomePrev: {
+				mutter = gnomePrev.mutter.overrideAttrs (old: {
+					src = pkgs.fetchFromGitLab  {
+						domain = "gitlab.gnome.org";
+						owner = "vanvugt";
+						repo = "mutter";
+						rev = "triple-buffering-v4-46";
+						hash = "sha256-nz1Enw1NjxLEF3JUG0qknJgf4328W/VvdMjJmoOEMYs=";
+					};
+				});
+			});
+		})
+	];
+
 
 	# Allow Flatpak
 	services.flatpak.enable = true;
@@ -326,6 +348,7 @@ in
 
 ####### KEEP AWAKE for DISPLAY and HEADLESS #######
 	services.xserver.displayManager.gdm.autoSuspend = false;
+	services.power-profiles-daemon.enable = false;
 
 
 ####### BACKUP TO INTERNAL DRIVE #######
