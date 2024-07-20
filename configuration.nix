@@ -189,7 +189,7 @@ in
 		matrix-synapse-tools.synadm
 		brave
 		dua
-		bitwarden
+		bitwarden-desktop
 		gparted
 		pv
 		unzip
