@@ -50,7 +50,7 @@ experimental-offers
 		enable = true;
 		local.directory = "/run/media/Second_Drive/BTCEcoandBackup/clightning_db_backup";
 		encrypt = false;
-};
+	};
 
 	
 	
