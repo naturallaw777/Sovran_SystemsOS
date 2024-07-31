@@ -45,6 +45,13 @@ experimental-offers
 	
 	nix-bitcoin.onionServices.clightning.public = true;
 
+
+	services.clightning.replication = {
+		enable = true;
+		local.directory = "/run/media/Second_Drive/BTCEcoandBackup/clightning_db_backup";
+		encrypt = false;
+};
+
 	
 	
 	## LND
@@ -52,9 +59,9 @@ experimental-offers
 		enable = true;
 		tor.enforce = true;
 		tor.proxy = true;
-    extraConfig = ''
+		extraConfig = ''
 
-    	protocol.option-scid-alias=true
+			protocol.option-scid-alias=true
 
 		'';
 	};
