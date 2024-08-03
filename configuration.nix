@@ -19,8 +19,8 @@ let
 			opcache_revalidate_freq = 240;
 			opcache.max_accelerated_files=10000;
 			auto_prepend_file = '/var/lib/www/wordpress/wordfence-waf.php'
-			post_max_size = 3000MB
-			upload_max_filesize = 3000MB
+			post_max_size = 2000MB;
+			upload_max_filesize = 2000MB;
 			opcache.interned_strings_buffer = 32
 			apc.enable_cli=1
 			redis.session.locking_enabled=1
