@@ -10,7 +10,7 @@ let
 		extraConfig = ''
 			display_errors = On
 			display_startup_errors = On
-			max_execution_time = 300
+			max_execution_time = 3000
 			max_input_time = 3000
 			memory_limit = 256MB;
 			max_input_vars = 3000
