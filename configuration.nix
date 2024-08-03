@@ -12,7 +12,7 @@ let
 			display_startup_errors = On
 			max_execution_time = 6000
 			max_input_time = 3000
-			memory_limit = 1000MB;
+			memory_limit = 256MB;
 			max_input_vars = 2000
 			opcache.enable=1;
 			opcache.memory_consumption=512;
