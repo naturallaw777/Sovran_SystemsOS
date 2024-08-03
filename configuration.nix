@@ -10,22 +10,19 @@ let
 		extraConfig = ''
 			display_errors = On
 			display_startup_errors = On
-			max_execution_time = 3000
+			max_execution_time = 10000
 			max_input_time = 3000
-			memory_limit = 256MB;
-			max_input_vars = 3000
+			memory_limit = 512MB;
 			opcache.enable=1;
 			opcache.memory_consumption=512;
 			opcache_revalidate_freq = 240;
 			opcache.max_accelerated_files=10000;
-			post_max_size = 4000MB;
-			upload_max_filesize = 4000MB;
+			post_max_size = 3G
+			upload_max_filesize = 3G
 			opcache.interned_strings_buffer = 32
-			apc.enable_cli=1
 			redis.session.locking_enabled=1
 			redis.session.lock_retries=-1
 			redis.session.lock_wait_time=10000
-
 		'';
 	};
 in
