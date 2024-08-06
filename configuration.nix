@@ -345,8 +345,6 @@ in
 
 ####### KEEP AWAKE for DISPLAY and HEADLESS #######
 	services.xserver.displayManager.gdm.autoSuspend = false;
-	
-	services.power-profiles-daemon.enable = false;
 
 	systemd.sleep.extraConfig = ''
   	AllowSuspend=no
