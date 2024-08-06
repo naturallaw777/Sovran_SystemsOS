@@ -12,7 +12,7 @@ let
 			display_startup_errors = On
 			max_execution_time = 10000
 			max_input_time = 3000
-			memory_limit = 512MB;
+			memory_limit = 1G;
 			opcache.enable=1;
 			opcache.memory_consumption=512;
 			opcache_revalidate_freq = 240;
@@ -345,7 +345,15 @@ in
 
 ####### KEEP AWAKE for DISPLAY and HEADLESS #######
 	services.xserver.displayManager.gdm.autoSuspend = false;
+	
 	services.power-profiles-daemon.enable = false;
+
+	systemd.sleep.extraConfig = ''
+  	AllowSuspend=no
+  	AllowHibernation=no
+  	AllowHybridSleep=no
+  	AllowSuspendThenHibernate=no
+	'';
 
 
 ####### BACKUP TO INTERNAL DRIVE #######
