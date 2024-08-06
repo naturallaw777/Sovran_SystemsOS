@@ -167,6 +167,7 @@ in
 		gnomeExtensions.just-perfection
 		gnomeExtensions.appindicator
 		gnomeExtensions.date-menu-formatter
+		gnomeExtensions.espresso
 		gnome-tweaks
 		papirus-icon-theme
 		ranger
