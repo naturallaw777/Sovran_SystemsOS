@@ -201,6 +201,7 @@ in
 		nextcloud-client
 		firefox
 		element-desktop
+		hx
 
 	];
 
