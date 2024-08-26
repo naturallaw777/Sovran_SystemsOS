@@ -3,6 +3,7 @@
 {
 	
 	## Bitcoind
+	
 	services.bitcoind = {
 		enable = true;
 		dataDir = "/run/media/Second_Drive/BTCEcoandBackup/Bitcoin_Node";
@@ -24,6 +25,7 @@
 	
 
 	## Electrs
+	
 	services.electrs = {
 		enable = true;
 		tor.enforce = true;
@@ -33,6 +35,7 @@
 
 
 	## CLN
+	
 	services.clightning = {
 		enable = true;
 		tor.proxy = true;
@@ -55,6 +58,7 @@ experimental-offers
 	
 	
 	## LND
+	
 	services.lnd = {
 		enable = true;
 		tor.enforce = true;
@@ -82,6 +86,7 @@ experimental-offers
 	
 
 	## RTL
+	
 	services.rtl = {
 		enable = true;
 		tor.enforce = true;
@@ -107,15 +112,8 @@ experimental-offers
 		};
 	};
 
-	
-	## Mempool
-	services.mempool.enable = true;
-
-	nix-bitcoin.onionServices.mempool-frontend.enable = true;
-
-	
-
 	## Lndconnect
+
 	services.lnd.lndconnect = {
 		enable = true;
 		onion = true;
@@ -131,6 +129,7 @@ experimental-offers
 	
 
 	## BTCpay Server
+	
 	services.btcpayserver = {
 		enable = true;
 		};
