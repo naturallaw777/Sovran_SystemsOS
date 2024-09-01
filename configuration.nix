@@ -48,7 +48,7 @@ in
 		device = "LABEL=BTCEcoandBackup";
 		fsType = "ext4";
 		options = [ "nofail" ];
-		};
+	};
 
 	fileSystems."/boot/efi".options = [ "umask=0077" "defaults" ];
 
@@ -190,13 +190,13 @@ in
 
 	programs.nixvim = {
 		enable = true;
-
-    		colorschemes.catppuccin.enable = true;
-    		plugins.lualine.enable = true;
+		colorschemes.catppuccin.enable = true;
+		plugins.lualine.enable = true;
   	};
 
 
 	programs.bash.promptInit = "fish";
+	
 	programs.fish = {
 		enable = true;
 		promptInit = "neofetch";
@@ -241,17 +241,17 @@ in
 			};
 
 			"${personalization.nextcloud_url}" = {
-					extraConfig = ''
-						encode gzip zstd
-						root * /var/lib/www/nextcloud
-						php_fastcgi unix//run/phpfpm/mypool.sock
-						file_server
-						redir /.well-known/carddav /remote.php/dav/ 301
-						redir /.well-known/caldav /remote.php/dav/ 301
-						header {
-									Strict-Transport-Security max-age=31536000;
-									}
-						'';
+				extraConfig = ''
+					encode gzip zstd
+					root * /var/lib/www/nextcloud
+					php_fastcgi unix//run/phpfpm/mypool.sock
+					file_server
+					redir /.well-known/carddav /remote.php/dav/ 301
+					redir /.well-known/caldav /remote.php/dav/ 301
+					header {
+						Strict-Transport-Security max-age=31536000;
+						}
+					'';
 			 };
 
 			"${personalization.matrix_url}" = {
@@ -293,8 +293,8 @@ in
 
 ###### CREATE DATABASE (WORDPRESS, MATRIX_SYNAPSE, AND NEXTCLOUD) #######
 	services.postgresql = {
-			enable = true;
-			};
+		enable = true;
+	};
 
 	
 	services.postgresql.authentication = lib.mkForce ''
@@ -307,9 +307,9 @@ in
 
 
 	services.mysql = {
-			enable = true;
-			package = pkgs.mariadb;
-			};
+		enable = true;
+		package = pkgs.mariadb;
+	};
 
 	
 	services.postgresql.initialScript = pkgs.writeText "begin-init.sql" ''
@@ -360,7 +360,7 @@ backup	/var/lib/	localhost/
 backup	/etc/nixos/	localhost/
 backup	/etc/nix-bitcoin-secrets/	localhost/
 		'';
-	 cronIntervals = {
+	 	cronIntervals = {
 			daily = "50 21 * * *";
 			hourly = "0 * * * *";
 		};
@@ -381,8 +381,8 @@ backup	/etc/nix-bitcoin-secrets/	localhost/
 ####### TOR #######
 	services.tor = {
 		enable = true;
-	client.enable = true;
-	torsocks.enable = true;
+		client.enable = true;
+		torsocks.enable = true;
 	};
 	
 	services.privoxy.enableTor = true;
@@ -415,11 +415,11 @@ backup	/etc/nix-bitcoin-secrets/	localhost/
 ####### Open ports in the firewall #######
 	networking.firewall.allowedTCPPorts = [ 80 443 5349 8448 3050 3051 ];
 	networking.firewall.allowedUDPPorts = [ 80 443 5349 8448 3050 3051 ];
-	networking.firewall.allowedUDPPortRanges = [
-			{ from=49152; to=65535; } # TURN relay
-		];
-
 	
+	networking.firewall.allowedUDPPortRanges = [
+		{ from=49152; to=65535; } # TURN relay
+	];
+
 	networking.firewall.enable = true;
 
 	
