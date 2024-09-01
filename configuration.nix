@@ -188,6 +188,14 @@ in
 
 	];
 
+	programs.nixvim = {
+		enable = true;
+
+    		colorschemes.catppuccin.enable = true;
+    		plugins.lualine.enable = true;
+  	};
+
+
 	programs.bash.promptInit = "fish";
 	programs.fish = {
 		enable = true;

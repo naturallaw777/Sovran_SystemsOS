@@ -11,9 +11,11 @@
 
 		agenix.inputs.darwin.follows = "";
 
+		nixvim.url = "github:nix-community/nixvim";
+
 	};
 
-	outputs = { self, nixpkgs, nix-bitcoin, agenix, ... }: 
+	outputs = { self, nixpkgs, nix-bitcoin, nixvim, agenix, ... }: 
 		
 		{
 		
@@ -31,6 +33,8 @@
 				nix-bitcoin.nixosModules.default
 
 				agenix.nixosModules.default
+
+				nixvim.nixosModules.nixvim
 
  			];
 		};
