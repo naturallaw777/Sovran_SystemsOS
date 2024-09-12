@@ -130,9 +130,13 @@ then press enter.
 
 7. After you have added all the sub-domins into `/var/lib/njalla/njalla.sh`, press `ctrl + s` then press `ctrl + x` to save and exit `nano`.
 
+8. Close the `Terminal`.
+
 ### Setting the Desktop
 
-1. Open the Terminal app and type in: `dconf load / < /home/free/Downloads/Sovran_SystemsOS-Desktop`. Do NOT log in as root.
+1. Open the `Terminal` and type in: `dconf load / < /home/free/Downloads/Sovran_SystemsOS-Desktop`. Do NOT log in as root.
+
+2. Close the `Terminal`.
 
 ### Setting Up Nextcloud and Wordpress
 
@@ -146,7 +150,7 @@ then press enter.
    2. Database username is `ncusr`
    3. Database name is `nextclouddb`
    4. Database password is found by doing this:
-      1. Open the Terminal app and type in or copy and paste:
+      1. Open the `Terminal` again and type in or copy and paste:
 
          ```bash
          ssh root@localhost
@@ -162,7 +166,8 @@ then press enter.
          and press enter.
       3. Your database password will be displayed in the Terminal window.
       4. Type that into the password field
-   5. Now, press install and Nextcloud will be installed. It will take a few minutes. Follow the on screen prompts.
+
+5. Now, press install and Nextcloud will be installed. It will take a few minutes. Follow the on screen prompts.
 
 #### Wordpress
 
@@ -171,50 +176,34 @@ then press enter.
    1. Database username is `wpusr`
    2. Database name is `wordpressdb`
    3. Database password is found by doing this:
-      1. Open the Terminal app and type in or copy and paste:
-
-         ```bash
-         ssh root@localhost
-         ```
-
-         It will as you for a password which is `gosovransystems` as this is the default temporary password from Sovran Systems.
-
-         Now you will be logged in as root.
-      2. Now open the Terminal app and type:
+      1. Staying in the `Terminal` and type in or copy and paste:
 
          `cat /var/lib/secrets/wordpressdb`
 
          and press enter.
       3. Your database password will be displayed in the Terminal window.
       4. Type that into the password field
-   4. Now, press install and Wordpress will be installed. It will take a few minutes. Follow the on screen prompts.
+
+4. Now, press install and Wordpress will be installed. It will take a few minutes. Follow the on screen prompts.
 
 ### Final Install for Coturn and Nextcloud
 
-1. Open the Terminal app and type in or copy and paste:
+1. Staying in the `Terminal` type in or copy and paste:
 
-   ```bash
-   ssh root@localhost
-   ```
-2. It will as you for a password which is `gosovransystems` as this is the default temporary password from Sovran Systems.
-3. Now you will be logged in as root.
-4. Now open the Terminal app and type or copy and paste:
+    ```bash
+    sed -i '$e cat /var/lib/nextcloudaddition/nextcloudaddition' /var/lib/www/nextcloud/config/config.php
 
-   ```bash
-   sed -i '$e cat /var/lib/nextcloudaddition/nextcloudaddition' /var/lib/www/nextcloud/config/config.php
-   
-   chown caddy:php /var/lib/www -R
-   
-   chmod 700 /var/lib/www -R
-   ```
+    chown caddy:php /var/lib/www -R
 
-and press enter.
+    chmod 700 /var/lib/www -R
+    ```
+    and press enter.
 
-1. Now type or copy and paste:
+2. Now type or copy and paste:
 
-```bash
-set DOMAIN $(cat /var/lib/domains/matrix) && cp -n /var/lib/caddy/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory/{$DOMAIN}/{$DOMAIN}.crt /var/lib/coturn/{$DOMAIN}.crt.pem && cp -n /var/lib/caddy/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory/{$DOMAIN}/{$DOMAIN}.key /var/lib/coturn/{$DOMAIN}.key.pem && chown turnserver:turnserver /var/lib/coturn -R && chmod 770 /var/lib/coturn -R  && systemctl restart coturn
-```
+    ```bash
+    set DOMAIN $(cat /var/lib/domains/matrix) && cp -n /var/lib/caddy/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory/{$DOMAIN}/{$DOMAIN}.crt /var/lib/coturn/{$DOMAIN}.crt.pem && cp -n /var/lib/caddy/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory/{$DOMAIN}/{$DOMAIN}.key /var/lib/coturn/{$DOMAIN}.key.pem && chown turnserver:turnserver /var/lib/coturn -R && chmod 770 /var/lib/coturn -R  && systemctl restart coturn
+    ```
 
 and press enter.
 
