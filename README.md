@@ -29,7 +29,7 @@ The write up for install on your own hardware is located here:
 
 https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS/src/branch/main/DIY%20Install%20Sovran_SystemsOS.md
 
-The support chat is located here:
+The DIY support chat is located here:
 
 https://matrix.to/#/%23DIY_Sovran_SystemsOS:anarchyislove.xyz
 
