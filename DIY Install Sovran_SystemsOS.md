@@ -100,7 +100,7 @@ then press enter.
 
 1. Go to port forwarding on your router and open the above mentioned ports to the internal IP (the one you found above) of your new Sovran_SystemsOS machine
 
-### Putting the External IP of your Sovran Pro into your new domain names you just bought at [njal.la](https://njal.la)
+### Putting the External IP of your New DIY Sovran Pro into your new domain names you just bought at [njal.la](https://njal.la)
 
 1. Log into your [njal.la](https://njal.la) account
 2. Make a "dynamic" record for each subdomain
@@ -111,6 +111,7 @@ then press enter.
     ssh root@localhost
     ```
     It will as you for a password which is `gosovransystems` as this is the default temporary password from Sovran Systems. 
+    
     Now you will be logged in as root.
 
 5. Now type:
@@ -150,24 +151,23 @@ then press enter.
    2. Database username is `ncusr`
    3. Database name is `nextclouddb`
    4. Database password is found by doing this:
-      1. Open the `Terminal` again and type in or copy and paste:
+      1. Open the `Terminal` again, then type in or copy and paste:
 
          ```bash
          ssh root@localhost
          ```
-
-         It will as you for a password which is `gosovransystems` as this is the default temporary password from Sovran Systems.
-
          Now you will be logged in as root.
-      2. Now open the Terminal app and type:
+
+      2. Now type:
 
          `cat /var/lib/secrets/nextclouddb`
 
          and press enter.
-      3. Your database password will be displayed in the Terminal window.
+
+      3. Your database password will be displayed in the `Terminal` window.
       4. Type that into the password field
 
-5. Now, press install and Nextcloud will be installed. It will take a few minutes. Follow the on screen prompts.
+5. Now, press `Install` on the Nextcloud website and Nextcloud will be installed. It will take a few minutes. Follow the on screen prompts.
 
 #### Wordpress
 
@@ -175,16 +175,24 @@ then press enter.
 2. Wordpress will ask you to connect the database:
    1. Database username is `wpusr`
    2. Database name is `wordpressdb`
-   3. Database password is found by doing this:
-      1. Staying in the `Terminal` and type in or copy and paste:
+   4. Database password is found by doing this:
+      1. Open the `Terminal` again, then type in or copy and paste:
+
+         ```bash
+         ssh root@localhost
+         ```
+         Now you will be logged in as root.
+
+      2. Now type:
 
          `cat /var/lib/secrets/wordpressdb`
 
          and press enter.
-      3. Your database password will be displayed in the Terminal window.
+
+      3. Your database password will be displayed in the `Terminal` window.
       4. Type that into the password field
 
-4. Now, press install and Wordpress will be installed. It will take a few minutes. Follow the on screen prompts.
+5. Now, press `Install` on the Wordpress website and Wordpress will be installed. It will take a few minutes. Follow the on screen prompts.
 
 ### Final Install for Coturn and Nextcloud
 
@@ -195,7 +203,7 @@ then press enter.
 
     chown caddy:php /var/lib/www -R
 
-    chmod 700 /var/lib/www -R
+    chmod 700 /var/lib/www R
     ```
     and press enter.
 
