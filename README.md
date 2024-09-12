@@ -23,7 +23,17 @@ Connect for Support on Matrix here: https://matrix.to/#/#sovran-systems-support:
 
 ###
 
-## All Is Love. Fear Is Illusion. All Beings Are Free. Truth Can Never Be Destroyed.
+## DIY Install Of Sovran_SystemsOS
+
+The write up for install on your own hardware is located here: 
+
+https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS/src/branch/main/DIY%20Install%20Sovran_SystemsOS.md
+
+The support chat is located here:
+
+https://matrix.to/#/%23DIY_Sovran_SystemsOS:anarchyislove.xyz
+
+## 
 
 Created, Handcrafted, and Headquartered in Southern California – 2022-2024 🏖️.
 
@@ -32,3 +42,5 @@ All Open Source Software Used Falls Under Its Specific Open Source License.
 This Gitea is Proudly Powered by a Sovran Pro 💚.
 
 GNU GPL 3.0+
+
+All Is Love. Fear Is Illusion. All Beings Are Free. Truth Can Never Be Destroyed.
