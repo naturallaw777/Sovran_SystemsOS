@@ -254,16 +254,6 @@ chmod 770 /var/lib/domains -R
 
 #
 
-pushd /etc/nixos
-
-  nix flake update
-
-  nixos-rebuild switch --impure
-
-popd
-
-#
-
 set -x
 
 wget -P /var/lib/www/downloadwp https://wordpress.org/latest.zip
@@ -311,16 +301,6 @@ chmod 770 /run/media/Second_Drive/BTCEcoandBackup/Bitcoin_Node -R
 chown electrs:electrs /run/media/Second_Drive/BTCEcoandBackup/Electrs_Data -R
 
 chmod 770 /run/media/Second_Drive/BTCEcoandBackup/Electrs_Data -R
-
-#
-
-pushd /etc/nixos
-
-  nix flake update
-
-  nixos-rebuild switch --impure
-
-popd
 
 #
 
@@ -421,10 +401,6 @@ echo "free:a" | chpasswd -c SHA512
 chown free:users /home/free -R
 
 chmod 700 /home/free -R
-
-#
-
-sudo -u free flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
 
 #
 
