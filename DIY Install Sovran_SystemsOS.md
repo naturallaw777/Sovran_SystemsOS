@@ -32,8 +32,8 @@
 ## Preparing the Second Internal Drive
 
 1. Install the second NVME internal drive into the USB enclosure, NOT into the Second machine yet.
-2. Plug in the USB enclosure into the first machine with Linux into one of its available USB ports.
-3. **Please Make Sure You Know The Existing Storage Names On This First Linux Machine. IF You Run The Script Below And You Do Not Know What You Are Doing, You Could Potentially Erase Your First Linux Machine's Data. I Am Not Responsibly For Your Errors**
+2. Plug in the USB enclosure into the first machine with Linux OS already installed into one of its available USB ports.
+3. **Please Make Sure You Know The Existing Storage Names On This First Linux Machine. If You Run The Script Below And You Do Not Know What You Are Doing, You Could Potentially Erase Your First Linux Machine's Data. I Am Not Responsibly For Your Errors**
 4. Open a terminal in the first Linux machine and log in as root.
 5. Type in or copy and paste:
 
@@ -53,7 +53,7 @@ then press enter.
 
 ### Procedure One - Installing base NixOS
 
- 1. On the first machine download the latest NixOS <u>minimal</u> (64-bit Intel/AMD) image from here: https://nixos.org/download
+ 1. Still on the first machine with Linux OS already installed, download the latest NixOS <u>minimal</u> (64-bit Intel/AMD) image from here: https://nixos.org/download
  2. Burn that ISO image onto the USB thumb drive.
  3. Insert the newly created USB thumb drive with the ISO image into the second machine (the one you are installing Sovran_SystemsOS).
  4. Reboot the second machine while the USB thumb drive is inserted and boot into the USB thumb drive. This may require you to press the F7 or F12 key at boot. (Also, make sure the second machine has "safe boot" turned off in the UEFI[BIOS]).
