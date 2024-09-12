@@ -107,19 +107,17 @@ then press enter.
 3. Njal.la will now display a `curl` command for each sub-domain.
 4. Open the `Terminal` on your New DIY Sovran Pro and type in or copy and paste:
 
-         ```bash
-         ssh root@localhost
-         ```
-
-It will as you for a password which is `gosovransystems` as this is the default temporary password from Sovran Systems.
-
-Now you will be logged in as root.
+    ```bash
+    ssh root@localhost
+    ```
+    It will as you for a password which is `gosovransystems` as this is the default temporary password from Sovran Systems. 
+    Now you will be logged in as root.
 
 5. Now open the Terminal app and type:
 
     `nano /var/lib/njalla/njalla.sh`
 
-and press enter.
+    and press enter.
 
 
 3. Paste the `curl` command from njal.la's website into `/var/lib/njalla/njalla.sh` with each sub-domain getting a new line. For example:
@@ -127,8 +125,7 @@ and press enter.
    ```bash
    curl "https://njal.la/update/?h=test.testsovransystems.com&k=8n7vk3afj-jkyg37&a=${IP}"
    ```
-
-##### Make sure the default `&auto` from njal.la is replaced by `&a=${IP}` at the end of each `curl` command in the `/var/lib/njalla/njalla.sh` as in the example above.
+   ##### Make sure the default `&auto` from njal.la is replaced by `&a=${IP}` at the end of each `curl` command in the `/var/lib/njalla/njalla.sh` as in the example above.
 
 7. After you have added all the sub-domins into `/var/lib/njalla/njalla.sh`, press `ctrl + s` then press `ctrl + x` to save and exit `nano`.
 
