@@ -5,7 +5,6 @@
 
 GREEN="\e[32m"
 LIGHTBLUE="\e[94m"
-ENDCOLOR="\e[0m"
 
 #
 
@@ -404,6 +403,4 @@ chmod 700 /home/free -R
 
 #
 
-echo -e "${LIGHTBLUE}One last thing, you need to put the Njalla DDNS info from Njalla into njalla.sh.${ENDCOLOR}" \n
-
-echo -e "${GREEN}All Finished! Please Reboot then Enjoy your New Sovran Pro!${ENDCOLOR}" \n
+echo -e "${GREEN}All Finished! Please Reboot then Enjoy your New Sovran Pro!"
