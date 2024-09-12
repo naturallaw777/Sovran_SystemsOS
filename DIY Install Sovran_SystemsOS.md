@@ -78,7 +78,7 @@ then press enter.
 
 ### Procedure Two - Installing Sovran_SystemsOS
 
-1. Now at the basic install of NixOS from step 17, type `root` to log into root and type the password `a` when asked then press enter.
+1. Now at the basic install of NixOS from step `16`, type `root` to log into root and type the password `a` when asked then press enter.
 2. Now you are logged in as `root`.
 3. Now type in or copy and paste:
 
@@ -103,14 +103,34 @@ then press enter.
 ### Putting the External IP of your Sovran Pro into your new domain names you just bought at [njal.la](https://njal.la)
 
 1. Log into your [njal.la](https://njal.la) account
-2. Make a "dynamic" record for each subdomain and copy the `curl` commands after each sub-domain.
-3. Paste the `curl` command from njal.la's website into `/var/lib/njalla/njalla.sh` . For example:
+2. Make a "dynamic" record for each subdomain
+3. Njal.la with then display a `curl` commands for each sub-domain.
+4. Open the `Terminal`on your New DIY Sovran Pro and type in or copy and paste:
+
+         ```bash
+         ssh root@localhost
+         ```
+
+         It will as you for a password which is `gosovransystems` as this is the default temporary password from Sovran Systems.
+
+         Now you will be logged in as root.
+
+5. Now open the Terminal app and type:
+
+         `nano /var/lib/njalla/njalla.sh`
+
+         and press enter.
+
+
+3. Paste the `curl` command from njal.la's website into `/var/lib/njalla/njalla.sh` with each sub-domain getting a new line. For example:
 
    ```bash
    curl "https://njal.la/update/?h=test.testsovransystems.com&k=8n7vk3afj-jkyg37&a=${IP}"
    ```
 
-   ##### Make sure the default `&auto` from njal.la is replaced by `&a=${IP}` at the end of each `curl` command in the `/var/lib/njalla/njalla.sh` as in the example above.
+##### Make sure the default `&auto` from njal.la is replaced by `&a=${IP}` at the end of each `curl` command in the `/var/lib/njalla/njalla.sh` as in the example above.
+
+7. After you have added all the sub-domins into `/var/lib/njalla/njalla.sh`, press `ctrl + s` then press `ctrl + x` to save and exit `nano`.
 
 ### Setting the Desktop
 
