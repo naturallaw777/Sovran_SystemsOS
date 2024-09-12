@@ -32,9 +32,10 @@
 ## Preparing the Second Internal Drive
 
 1. Install the second NVME internal drive into the USB enclosure, NOT into the Second machine yet.
-2. Plug in the USB enclosure into the first machine with Linux installed into one of its available USB ports.
-3. Open a terminal in the first Linux machine and log in as root.
-4. Type in or copy and paste:
+2. Plug in the USB enclosure into the first machine with Linux into one of its available USB ports.
+3. **Please Make Sure You Know The Existing Storage Names On This First Linux Machine. IF You Run The Script Below And You Do Not Know What You Are Doing, You Could Potentially Erase Your First Linux Machine's Data. I Am Not Responsibly For Your Errors**
+4. Open a terminal in the first Linux machine and log in as root.
+5. Type in or copy and paste:
 
 ```bash
 wget https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS/raw/branch/main/for_new_sovran_pros/sdpsp.sh
