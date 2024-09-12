@@ -1,6 +1,6 @@
 # Sovran Systems offers limited support of a DIY install of Sovran_SystemsOS. You can reach out to others in the matrix room https://matrix.to/#/#DIY_Sovran_SystemsOS:anarchyislove.xyz.
 
-# These instructions will change over time due to new software development and Sovran Systems creator finding more efficient ways to install Sovran_SystemsOS. 2-1-2024
+# These instructions will change over time due to new software development and Sovran Systems creator finding more efficient ways to install Sovran_SystemsOS. 9-12-2024
 
 # Also, to fully complete the install, the Bitcoin blockchain will have to download. This could take up to 3 weeks.
 
