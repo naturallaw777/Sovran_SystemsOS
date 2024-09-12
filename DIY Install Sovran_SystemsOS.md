@@ -212,8 +212,7 @@ then press enter.
     ```bash
     set DOMAIN $(cat /var/lib/domains/matrix) && cp -n /var/lib/caddy/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory/{$DOMAIN}/{$DOMAIN}.crt /var/lib/coturn/{$DOMAIN}.crt.pem && cp -n /var/lib/caddy/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory/{$DOMAIN}/{$DOMAIN}.key /var/lib/coturn/{$DOMAIN}.key.pem && chown turnserver:turnserver /var/lib/coturn -R && chmod 770 /var/lib/coturn -R  && systemctl restart coturn
     ```
-
-and press enter.
+    and press enter.
 
 ### Everything now will be installed regarding Sovran_SystemsOS. The remaining setup will be only for the front-end user account creations for BTCpayserver, Vaultwarden, connecting the node to Sparrow wallet and Bisq.
 
