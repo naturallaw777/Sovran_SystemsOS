@@ -104,22 +104,22 @@ then press enter.
 
 1. Log into your [njal.la](https://njal.la) account
 2. Make a "dynamic" record for each subdomain
-3. Njal.la with then display a `curl` commands for each sub-domain.
-4. Open the `Terminal`on your New DIY Sovran Pro and type in or copy and paste:
+3. Njal.la will now display a `curl` command for each sub-domain.
+4. Open the `Terminal` on your New DIY Sovran Pro and type in or copy and paste:
 
          ```bash
          ssh root@localhost
          ```
 
-         It will as you for a password which is `gosovransystems` as this is the default temporary password from Sovran Systems.
+It will as you for a password which is `gosovransystems` as this is the default temporary password from Sovran Systems.
 
-         Now you will be logged in as root.
+Now you will be logged in as root.
 
 5. Now open the Terminal app and type:
 
-         `nano /var/lib/njalla/njalla.sh`
+    `nano /var/lib/njalla/njalla.sh`
 
-         and press enter.
+and press enter.
 
 
 3. Paste the `curl` command from njal.la's website into `/var/lib/njalla/njalla.sh` with each sub-domain getting a new line. For example:
