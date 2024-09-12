@@ -113,17 +113,18 @@ then press enter.
     It will as you for a password which is `gosovransystems` as this is the default temporary password from Sovran Systems. 
     Now you will be logged in as root.
 
-5. Now open the Terminal app and type:
+5. Now type:
 
     `nano /var/lib/njalla/njalla.sh`
 
     and press enter.
 
 
-3. Paste the `curl` command from njal.la's website into `/var/lib/njalla/njalla.sh` with each sub-domain getting a new line. For example:
+3. Paste the `curl` commands from njal.la's website for each sub-domain. Each `curl` command gets a new line. For example:
 
    ```bash
    curl "https://njal.la/update/?h=test.testsovransystems.com&k=8n7vk3afj-jkyg37&a=${IP}"
+   curl "https://njal.la/update/?h=zap.testsovransystems.com&k=8no*73afj-jkygi2ea=${IP}"
    ```
    ##### Make sure the default `&auto` from njal.la is replaced by `&a=${IP}` at the end of each `curl` command in the `/var/lib/njalla/njalla.sh` as in the example above.
 
