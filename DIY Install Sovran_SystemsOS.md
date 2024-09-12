@@ -17,7 +17,7 @@
 - 32GB of RAM or Larger
 - First main NVME internal drive to install Sovran_SystemsOS (500GB or larger)
 - Second NVME internal drive to store the Bitcoin blockchain and the automatic backups (NVME 4TB or larger)
-- Also, the second NVME internal drive needs to be be installed FIRST into a USB enclosure. You will need a NVME USB enclosure. The USB enclosure will be plugged into the first Linux machine.
+- Also, the second NVME internal drive needs to be installed FIRST into a USB enclosure. You will need a NVME USB enclosure. The USB enclosure will be plugged into the first Linux machine.
 
 5. Working Internet connection for both machines
 6. Personalized Domain names already purchased from Njal.la. See the explanation here: https://sovransystems.com/how-to-setup/
