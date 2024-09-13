@@ -44,8 +44,8 @@ wget https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS/raw/branch/ma
 then press enter.
 
 6. Now, type `bash sdpsp.sh` then press enter.
-7. Then the screen will ask for "what block..." which will be the drive in the list that is not mounted, which will be the drive you just plugged in. It might be labeled `nvme0n1`, or `nvme0n2` etc. Type in the drive name and press `enter`.
-8. Then the screen will ask for "what partition...,"which will be whatever you typed into the first prompt, but with a "1" on it. For example, `nvme0n1p1` or `nvme0n2p1`. Type it into the terminal and press `enter`.
+7. Then the screen will ask for "what block..." which will be the drive in the list that is not mounted, which will be the drive you just plugged in. It might be labeled `sdb`, or `sdc` etc. Type in the drive name and press `enter`.
+8. Then the screen will ask for "what partition...,"which will be whatever you typed into the first prompt, but with a "1" on it. For example, `sdb1` or `sdc1`. Type it into the terminal and press `enter`.
 9. Since the script is made to copy the blockchain from another Sovran Pro that already has the full blockchain installed it will throw an error. However, it should complete the setup just fine.
 10. Once complete, remove the second drive from the USB enclosure and install it into your second machine in which you are installing Sovran_SystemsOS.
 
@@ -91,8 +91,7 @@ then press enter.
 5. Next the script will ask for your domain names from Njal.la. Type them in the corresponding prompts and then press enter for each prompt.
 6. Then it will ask for an email for the SSL certificates. Type it in and press enter.
 7. The script is long so it will take some time.
-8. Then it will ask for your root password which is `a` to install Flatpaks.
-9. It will finish by stating `All Finished! Please Reboot then Enjoy your New Sovran Pro!`
+8. It will finish by stating `All Finished! Please Reboot then Enjoy your New Sovran Pro!`
 
 ## Finishing the Install
 
@@ -211,6 +210,13 @@ then press enter.
 
     ```bash
     set DOMAIN $(cat /var/lib/domains/matrix) && cp -n /var/lib/caddy/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory/{$DOMAIN}/{$DOMAIN}.crt /var/lib/coturn/{$DOMAIN}.crt.pem && cp -n /var/lib/caddy/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory/{$DOMAIN}/{$DOMAIN}.key /var/lib/coturn/{$DOMAIN}.key.pem && chown turnserver:turnserver /var/lib/coturn -R && chmod 770 /var/lib/coturn -R  && systemctl restart coturn
+    ```
+    and press enter.
+
+3. Now type or copy and paste:
+
+    ```bash
+    sudo -u free flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
     ```
     and press enter.
 
