@@ -77,14 +77,15 @@ then press enter.
 16. Remove the USB thumb drive from the second computer.
 
 
-### Procedure Three  - Opening The Ports on Your Router - Internal IP
+### Procedure Two  - Opening The Ports on Your Router - Internal IP
 
 1. Go to port forwarding on your router and open the above mentioned ports to the internal IP (the one you found above) of your new Sovran_SystemsOS machine
 
 
-### Procedure Four - Installing Sovran_SystemsOS
+### Procedure Three - Installing Sovran_SystemsOS
 
-1. Now at the basic install of NixOS from step `16`, type `root` to log into root and type the password `a` when asked then press enter.
+
+1. Now at the basic install of NixOS from Procedure One, type `root` to log into root and type the password `a` when asked then press enter.
 2. Now you are logged in as `root`.
 3. Now type in or copy and paste:
 
@@ -105,8 +106,8 @@ then press enter.
 
 ### Putting the External IP of your New DIY Sovran Pro into your new domain names you just bought at [njal.la](https://njal.la)
 
-1. Log into your [njal.la](https://njal.la) account
-2. Make a "dynamic" record for each subdomain
+1. On your New DIY Sovran Pro, log into your [njal.la](https://njal.la) account
+2. Make a "dynamic" record for each subdomain 
 3. Njal.la will now display a `curl` command for each sub-domain.
 4. Open the `Terminal` on your New DIY Sovran Pro and type in or copy and paste:
 
@@ -200,7 +201,7 @@ then press enter.
 
 5. Now, press `Install` on the Wordpress website and Wordpress will be installed. It will take a few minutes. Follow the on screen prompts.
 
-### Final Install for Coturn and Nextcloud
+### Final Install for Coturn, Flatpak, and Nextcloud
 
 1. Staying in the `Terminal` type in or copy and paste:
 
