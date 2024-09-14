@@ -25,7 +25,7 @@ Connect for Support on Matrix here: https://matrix.to/#/#sovran-systems-support:
 
 ## DIY Install Of Sovran_SystemsOS
 
-The write up for install on your own hardware is located here: 
+The write-up to install Sovran_SystemsOS on your own hardware is located here: 
 
 https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS/src/branch/main/DIY%20Install%20Sovran_SystemsOS.md
 
