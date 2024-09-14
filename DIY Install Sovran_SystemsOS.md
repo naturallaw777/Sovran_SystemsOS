@@ -228,7 +228,7 @@ then press enter.
     ```
     and press enter.
 
-    It will ask for your `Administrator` password and to get the password open a new `Terminal` window and type
+    It will ask for your `Administrator` password and to get the password open a new `Terminal` window and type:
     
     ```bash
     ssh root@localhost
