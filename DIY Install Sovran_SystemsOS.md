@@ -69,9 +69,9 @@ then press enter.
 
     the command to install the base NixOS and press enter.
 10. Now, type `bash psp_physical_ram.sh` then press enter.
-11. The script will ask for name of first main internal drive. Type that in and hit enter. It usually will be `nvme0n1`. Basically, it will be the drive without any data and it will not be mounted per the list on the screen.
-12. Then the script will ask for the 'Boot' partition. Type it in and press enter. It will be the SMALLER partition and usually named `nvme0n1p1`.
-13. Then it will ask for the 'Primary' partition. Type it in and press enter. It will be the LARGER partition usually named `nvme0n1p2`.
+11. The script will ask for name of first main internal drive. It usually will be `nvme0n1`. Basically, it will be the drive without any data and it will not be mounted per the list on the screen. Type in the name and press enter on the keyboard.
+12. Then the script will ask for the 'Boot' partition. It will be the SMALLER partition and usually named `nvme0n1p1`. Type in the name and press enter on the keyboard.
+13. Then it will ask for the 'Primary' partition. It will be the LARGER partition usually named `nvme0n1p2`. Type in the name and press enter on the keyboard.
 14. The script will finish installing the base NixOS. At the end it will ask for a root password. Type `a` and press enter and type `a` again to confirm and press enter.
 15. The machine will reboot into a very basic install of NixOS command prompt.
 16. Remove the USB thumb drive from the second computer.
