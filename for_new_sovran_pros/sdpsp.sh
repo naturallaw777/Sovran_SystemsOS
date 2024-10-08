@@ -27,7 +27,7 @@ sudo mkdir -p /mnt/BTCEcoandBackup/Electrs_Data
 
 sudo mkdir -p /mnt/BTCEcoandBackup/NixOS_Snapshot_Backup
 
-sudo mkdir -p /mnt/BTCEcoandBackup/clightning_db_Backup
+sudo mkdir -p /mnt/BTCEcoandBackup/clightning_db_backup
 
 sudo systemctl stop bitcoind electrs nbxplorer btcpayserver lnd rtl lightning-loop lightning-pool
 
