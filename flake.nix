@@ -25,9 +25,7 @@
 		
 		};
 		
-		nixosModules.Sovran_SystemsOS = { pkgs, ... }@attrs: {
-			
-			specialArgs = attrs;
+		nixosModules.Sovran_SystemsOS = { pkgs, bisq1, ... }: {
 			
 			imports = [
 
@@ -40,6 +38,11 @@
 				nixvim.nixosModules.nixvim
 
  			];
+			
+			environment.systemPackages = with pkgs; [
+				bisq1.packages.bisq-desktop
+			];
+
 		};
 	};
 }
