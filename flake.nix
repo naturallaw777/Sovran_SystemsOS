@@ -13,14 +13,19 @@
 
 		nixvim.url = "github:nix-community/nixvim";
 
+		bisq1.url = "github:emmanuelrosa/bisq-for-nixos";
+
 	};
 
-	outputs = { self, nixpkgs, nix-bitcoin, nixvim, agenix, ... }: 
+	outputs = { self, nixpkgs, nix-bitcoin, nixvim, agenix, ... }:@attrs: { 
 		
 		{
 		
 		nixosConfigurations.nixos = nixpkgs.lib.nixosSystem {
+			
 			system ="x86_64-linux";
+			
+			specialArgs = attrs;
 		
 		};
 		
