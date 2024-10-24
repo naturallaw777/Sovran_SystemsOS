@@ -17,15 +17,17 @@
 
 	};
 
-	outputs = { self, nixpkgs, nix-bitcoin, nixvim, agenix, ... }: { 
+	outputs = { self, nixpkgs, nix-bitcoin, nixvim, agenix, ... }@attrs: { 
 		
 		nixosConfigurations.nixos = nixpkgs.lib.nixosSystem {
 			
 			system ="x86_64-linux";
+
+			specialArgs = attrs;
 		
 		};
 		
-		nixosModules.Sovran_SystemsOS = { pkgs, bisq1, ... }: {
+		nixosModules.Sovran_SystemsOS = { pkgs, ... }: {
 		
 			imports = [
 
