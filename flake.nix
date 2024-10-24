@@ -17,9 +17,7 @@
 
 	};
 
-	outputs = { self, nixpkgs, nix-bitcoin, nixvim, agenix, ... }:@attrs: { 
-		
-		{
+	outputs = { self, nixpkgs, nix-bitcoin, nixvim, agenix, ... }@attrs: { 
 		
 		nixosConfigurations.nixos = nixpkgs.lib.nixosSystem {
 			
