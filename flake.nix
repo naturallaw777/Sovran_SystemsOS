@@ -17,7 +17,7 @@
 
 	};
 
-	outputs = { self, nixpkgs, nix-bitcoin, nixvim, agenix, bisq1, ... }: { 
+	outputs = { self, nixpkgs, nix-bitcoin, nixvim, agenix, ... }: { 
 		
 		nixosConfigurations.nixos = nixpkgs.lib.nixosSystem {
 			
@@ -25,8 +25,10 @@
 		
 		};
 		
-		nixosModules.Sovran_SystemsOS = { pkgs, ... }: {
-		
+		nixosModules.Sovran_SystemsOS = { pkgs, ... }@attrs: {
+			
+			specialArgs = attrs;
+			
 			imports = [
 
 				./configuration.nix
