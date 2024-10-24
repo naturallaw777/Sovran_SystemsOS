@@ -25,7 +25,7 @@
 		
 		};
 		
-		nixosModules.Sovran_SystemsOS = { pkgs, bisq1, ... }@inputs: {
+		nixosModules.Sovran_SystemsOS = { pkgs, ... }: {
 
 			imports = [
 
