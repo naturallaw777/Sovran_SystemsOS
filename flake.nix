@@ -17,11 +17,13 @@
 
 	};
 
-	outputs = { self, nixpkgs, nix-bitcoin, nixvim, agenix, ... }: { 
+	outputs = { self, nixpkgs, nix-bitcoin, nixvim, agenix, ... }@attrs: { 
 		
 		nixosConfigurations.nixos = nixpkgs.lib.nixosSystem {
 			
 			system ="x86_64-linux";
+
+			specialArgs = attrs;
 		
 		};
 		
