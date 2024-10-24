@@ -1,4 +1,4 @@
-{ config, pkgs, libs, bisq1, ... }:
+{ config, pkgs, lib, bisq1, ... }:
 
 
 let
