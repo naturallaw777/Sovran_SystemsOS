@@ -1,4 +1,4 @@
-{ config, pkgs, lib, ... }:
+{ config, pkgs, libs, bisq1, ... }:
 
 
 let
@@ -137,9 +137,9 @@ in
 	# $ nix search wget
 	environment.systemPackages = with pkgs; [
 		(callPackage ./modules/systemd-manager_sovran_systems.nix {})
+		bisq1.packages.x86_64-linux.bisq-desktop
 		git
 		wget
-		# librewolf
 		fish
 		htop
 		btop
@@ -155,7 +155,6 @@ in
 		papirus-icon-theme
 		ranger
 		sparrow
-		bisq-desktop
 		neofetch
 		gedit
 		matrix-synapse
