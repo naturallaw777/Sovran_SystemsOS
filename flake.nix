@@ -40,7 +40,7 @@
  			];
 			
 			environment.systemPackages = with pkgs; [
-				bisq1.packages.bisq-desktop
+				bisq1.packages.x86_64-linux.bisq-desktop
 			];
 
 		};
