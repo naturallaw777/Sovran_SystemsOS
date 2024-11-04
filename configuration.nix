@@ -243,7 +243,9 @@ in
 				extraConfig = ''
 					encode gzip zstd
 					root * /var/lib/www/nextcloud
-					php_fastcgi unix//run/phpfpm/mypool.sock
+					php_fastcgi unix//run/phpfpm/mypool.sock {
+						trusted_proxies private_ranges
+					}
 					file_server
 					redir /.well-known/carddav /remote.php/dav/ 301
 					redir /.well-known/caldav /remote.php/dav/ 301
