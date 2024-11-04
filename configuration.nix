@@ -137,6 +137,7 @@ in
 	# $ nix search wget
 	environment.systemPackages = with pkgs; [
 		(callPackage ./modules/systemd-manager_sovran_systems.nix {})
+		(callPackage ./modules/nextcloud_hpbs_default.nix {})
 		git
 		wget
 		fish
