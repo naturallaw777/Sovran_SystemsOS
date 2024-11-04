@@ -43,7 +43,7 @@ in
 				"ff00::/8"
 				];
 		 	url_preview_ip_ranger_whitelist = [ "127.0.0.1" ];
-		 	turn_shared_secret = "${personalization.age.secrets.turn.file}";
+		 	turn_shared_secret = "${personalization.coturn_static_auth_secret}";
     		turn_uris = [
       			"turn:${personalization.matrix_url}:5349?transport=udp"
       			"turn:${personalization.matrix_url}:5349?transport=tcp"
