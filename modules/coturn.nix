@@ -34,16 +34,19 @@ let
 	
 	enable = true;
 	use-auth-secret = true;
-	static-auth-secret = "${personalization.age.secrets.turn.file}";
+	static-auth-secret = "${personalization.coturn_static_auth_secret}";
 	realm = personalization.matrix_url;
 	cert = "/var/lib/coturn/${personalization.matrix_url}.crt.pem";
 	pkey = "/var/lib/coturn/${personalization.matrix_url}.key.pem";
 	min-port = 49152;
 	max-port = 65535;
+	listing-port = 5349;
 	no-cli = true;
 	extraConfig = ''
 		verbose
 		external-ip=${personalization.external_ip_secret}
+		stale-nonce
+		fingerprint
 	'';
 	
 	};
