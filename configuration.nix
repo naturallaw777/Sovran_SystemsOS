@@ -16,10 +16,10 @@ let
 			opcache.enable=1;
 			opcache.memory_consumption=512;
 			opcache_revalidate_freq = 240;
-			opcache.max_accelerated_files=10000;
+			opcache.max_accelerated_files=20000;
 			post_max_size = 3G
 			upload_max_filesize = 3G
-			opcache.interned_strings_buffer = 32
+			opcache.interned_strings_buffer = 64
 			redis.session.locking_enabled=1
 			redis.session.lock_retries=-1
 			redis.session.lock_wait_time=10000
