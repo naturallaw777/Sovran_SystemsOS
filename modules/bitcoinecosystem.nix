@@ -119,9 +119,9 @@ experimental-offers
 		onion = true;
 	};
 
-	services.clightning.plugins.clnrest = {
+	services.clightning-rest = {
 		enable = true;
-			lnconnect = {
+			lndconnect = {
 				enable = true;
 				onion = true;
 			};
