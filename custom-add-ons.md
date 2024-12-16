@@ -17,6 +17,10 @@ https://bitcoinknots.org
 
 https://blockstream.com/lightning/
 
+4. There is Mempool to be added on via a Tor connection.
+
+https://github.com/mempool/mempool
+
 
 The code will be installed in the `custom.nix` file.
 
@@ -111,7 +115,6 @@ systemd.services.jitsi-videobridge-helper = {
     "*/15 * * * * root /run/current-system/sw/bin/bash /var/lib/internal_ip/internal_ip.sh"
 	 ];
   };
-
 ```
 
 
@@ -119,7 +122,6 @@ The code for Bitcoin Knots is as follows:
 
 ```nix
 services.bitcoind.package = pkgs.bitcoind-knots;
-
 ```
 
 
@@ -127,6 +129,11 @@ The code for CLN for BTCpayserver backend is as follows:
 
 ```nix
 services.btcpayserver.lightningBackend = mkForce "clightning";
+```
 
+The code for Mempool is as follows:
+
+```nix
+services.mempool.enable = true;
 ```
 
