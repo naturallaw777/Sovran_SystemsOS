@@ -349,14 +349,14 @@ in
 
 	
 	services.postgresql.initialScript = pkgs.writeText "begin-init.sql" ''
-		CREATE ROLE "ncusr" WITH LOGIN PASSWORD '${config.age.secrets.nextclouddb.path}';
+		CREATE ROLE "ncusr" WITH LOGIN PASSWORD '${personalizatoin.nextclouddb}';
 		CREATE DATABASE "nextclouddb" WITH OWNER "ncusr"
 			TEMPLATE template0
 			LC_COLLATE = "C"
 			LC_CTYPE = "C";
 
 
-		CREATE ROLE "matrix-synapse" WITH LOGIN PASSWORD '${config.age.secrets.matrixdb.path}';
+		CREATE ROLE "matrix-synapse" WITH LOGIN PASSWORD '${personalization.matrixdb}';
 		CREATE DATABASE "matrix-synapse" WITH OWNER "matrix-synapse"
 			TEMPLATE template0
 			LC_COLLATE = "C"
@@ -367,7 +367,7 @@ in
 
 	services.mysql.initialScript = pkgs.writeText "wordpress-init.sql" ''
 		CREATE DATABASE wordpressdb;
-		GRANT ALL ON *.* TO 'wpusr'@'localhost' IDENTIFIED BY '${config.age.secrets.wordpressdb.path}';
+		GRANT ALL ON *.* TO 'wpusr'@'localhost' IDENTIFIED BY '${personalizatoin.wordpressdb}';
 		FLUSH PRIVILEGES;
 	''
 	;
