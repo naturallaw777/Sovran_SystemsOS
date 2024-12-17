@@ -349,7 +349,7 @@ in
 
 	
 	services.postgresql.initialScript = pkgs.writeText "begin-init.sql" ''
-		CREATE ROLE "ncusr" WITH LOGIN PASSWORD '${personalizatoin.nextclouddb}';
+		CREATE ROLE "ncusr" WITH LOGIN PASSWORD '${personalization.nextclouddb}';
 		CREATE DATABASE "nextclouddb" WITH OWNER "ncusr"
 			TEMPLATE template0
 			LC_COLLATE = "C"
@@ -367,7 +367,7 @@ in
 
 	services.mysql.initialScript = pkgs.writeText "wordpress-init.sql" ''
 		CREATE DATABASE wordpressdb;
-		GRANT ALL ON *.* TO 'wpusr'@'localhost' IDENTIFIED BY '${personalizatoin.wordpressdb}';
+		GRANT ALL ON *.* TO 'wpusr'@'localhost' IDENTIFIED BY '${personalization.wordpressdb}';
 		FLUSH PRIVILEGES;
 	''
 	;
