@@ -28,10 +28,14 @@ FILE=/var/lib/beacons/file_fixes_and_new_services/update-agenix/completed
 
 #### MAIN SCRIPT ####
 
-/run/current-system/sw/bin/rm -rf /var/lib/agenix-secrets/nextclouddb.age ; 
-/run/current-system/sw/bin/rm -rf /var/lib/agenix-secrets/wordpressdb.age ;
-/run/current-system/sw/bin/rm -rf /var/lib/agenix-secrets/turn.age ;
-/run/current-system/sw/bin/rm -rf /var/lib/agenix-secrets/matrixdb.age ;
+/run/current-system/sw/bin/rm -rf /var/lib/agenix-secrets/nextclouddb.age
+
+/run/current-system/sw/bin/rm -rf /var/lib/agenix-secrets/wordpressdb.age
+
+/run/current-system/sw/bin/rm -rf /var/lib/agenix-secrets/turn.age
+
+/run/current-system/sw/bin/rm -rf /var/lib/agenix-secrets/matrixdb.age 
+
 /run/current-system/sw/bin/rm -rf /var/lib/agenix-secrets/matrix_reg_secret.age 
 
 
