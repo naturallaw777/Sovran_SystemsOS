@@ -293,6 +293,46 @@ in
 	};
 
 
+
+                                                                                                                                                  
+###### AGENIX #######                                                                                                                             
+                                                                                                                                                  
+        age.identityPaths = [ "/root/.ssh/agenix/agenix-secret-keys" ];                                                                           
+                                                                                                                                                  
+        age.secrets.matrix_reg_secret = {                                                                                                         
+                file = /var/lib/agenix-secrets/matrix_reg_secret.age;                                                                             
+                mode = "770";                                                                                                                     
+                owner = "matrix-synapse";                                                                                                         
+                group = "matrix-synapse";                                                                                                         
+                                                                                                                                                  
+        };   
+        
+	age.secrets.matrixdb = {                                                                                                         
+                file = /var/lib/agenix-secrets/matrixdb.age;                                                                             
+                mode = "770";                                                                                                                     
+                owner = "postgres";                                                                                                         
+                group = "postgres";                                                                                                         
+                                                                                                                                                  
+        };   
+        
+	age.secrets.nexclouddb = {                                                                                                         
+                file = /var/lib/agenix-secrets/nextclouddb.age;                                                                             
+                mode = "770";                                                                                                                     
+                owner = "postgres";                                                                                                         
+                group = "postgres";                                                                                                         
+                                                                                                                                                  
+        };  
+
+	age.secrets.wordpress = {                                                                                                         
+                file = /var/lib/agenix-secrets/wordpress.age;                                                                             
+                mode = "770";                                                                                                                     
+                owner = "mysql";                                                                                                         
+                group = "mysql";                                                                                                         
+                                                                                                                                                  
+        }; 
+
+
+
 ###### CREATE DATABASE (WORDPRESS, MATRIX_SYNAPSE, AND NEXTCLOUD) #######
 	services.postgresql = {
 		enable = true;
@@ -315,14 +355,14 @@ in
 
 	
 	services.postgresql.initialScript = pkgs.writeText "begin-init.sql" ''
-		CREATE ROLE "ncusr" WITH LOGIN PASSWORD '${personalization.age.secrets.nextclouddb.file}';
+		CREATE ROLE "ncusr" WITH LOGIN PASSWORD '${config.age.secrets.nextclouddb.path}';
 		CREATE DATABASE "nextclouddb" WITH OWNER "ncusr"
 			TEMPLATE template0
 			LC_COLLATE = "C"
 			LC_CTYPE = "C";
 
 
-		CREATE ROLE "matrix-synapse" WITH LOGIN PASSWORD '${personalization.age.secrets.matrixdb.file}';
+		CREATE ROLE "matrix-synapse" WITH LOGIN PASSWORD '${config.age.secrets.matrixdb.path}';
 		CREATE DATABASE "matrix-synapse" WITH OWNER "matrix-synapse"
 			TEMPLATE template0
 			LC_COLLATE = "C"
@@ -333,7 +373,7 @@ in
 
 	services.mysql.initialScript = pkgs.writeText "wordpress-init.sql" ''
 		CREATE DATABASE wordpressdb;
-		GRANT ALL ON *.* TO 'wpusr'@'localhost' IDENTIFIED BY '${personalization.age.secrets.wordpressdb.file}';
+		GRANT ALL ON *.* TO 'wpusr'@'localhost' IDENTIFIED BY '${config.age.secrets.wordpressdb.path}';
 		FLUSH PRIVILEGES;
 	''
 	;
