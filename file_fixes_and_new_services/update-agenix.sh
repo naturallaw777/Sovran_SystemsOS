@@ -28,33 +28,28 @@ FILE=/var/lib/beacons/file_fixes_and_new_services/update-agenix/completed
 
 #### MAIN SCRIPT ####
 
-/run/current-system/sw/bin/ssh root@localhost "
-
-	/run/current-system/sw/bin/rm -rf /var/lib/agenix-secrets/nextclouddb.age ; 
-	/run/current-system/sw/bin/rm -rf /var/lib/agenix-secrets/wordpressdb.age ;
-	/run/current-system/sw/bin/rm -rf /var/lib/agenix-secrets/turn.age ;
-	/run/current-system/sw/bin/rm -rf /var/lib/agenix-secrets/matrixdb.age ;
-	/run/current-system/sw/bin/rm -rf /var/lib/agenix-secrets/matrix_reg_secret.age 
-"
+/run/current-system/sw/bin/rm -rf /var/lib/agenix-secrets/nextclouddb.age ; 
+/run/current-system/sw/bin/rm -rf /var/lib/agenix-secrets/wordpressdb.age ;
+/run/current-system/sw/bin/rm -rf /var/lib/agenix-secrets/turn.age ;
+/run/current-system/sw/bin/rm -rf /var/lib/agenix-secrets/matrixdb.age ;
+/run/current-system/sw/bin/rm -rf /var/lib/agenix-secrets/matrix_reg_secret.age 
 
 
-/run/current-system/sw/bin/ssh root@localhost << 'EOF'
+pushd /var/lib/agenix-secrets/
 
-	pushd /var/lib/agenix-secrets/
+		
+	/run/current-system/sw/bin/echo -n $(/run/current-system/sw/bin/cat /var/lib/secrets/wordpressdb) | /run/current-system/sw/bin/nix run github:ryantm/agenix -- -e wordpressdb.age -i /root/.ssh/agenix/agenix-secret-keys
 
-		/run/current-system/sw/bin/echo -n $(/run/current-system/sw/bin/cat /var/lib/secrets/wordpressdb) | /run/current-system/sw/bin/nix run github:ryantm/agenix -- -e wordpressdb.age -i /root/.ssh/agenix/agenix-secret-keys
+	/run/current-system/sw/bin/echo -n $(/run/current-system/sw/bin/cat /var/lib/secrets/nextclouddb) | /run/current-system/sw/bin/nix run github:ryantm/agenix -- -e nextclouddb.age -i /root/.ssh/agenix/agenix-secret-keys
 
-		/run/current-system/sw/bin/echo -n $(/run/current-system/sw/bin/cat /var/lib/secrets/nextclouddb) | /run/current-system/sw/bin/nix run github:ryantm/agenix -- -e nextclouddb.age -i /root/.ssh/agenix/agenix-secret-keys
+	/run/current-system/sw/bin/echo -n $(/run/current-system/sw/bin/cat /var/lib/secrets/matrixdb) | /run/current-system/sw/bin/nix run github:ryantm/agenix -- -e matrixdb.age -i /root/.ssh/agenix/agenix-secret-keys
 
-		/run/current-system/sw/bin/echo -n $(/run/current-system/sw/bin/cat /var/lib/secrets/matrixdb) | /run/current-system/sw/bin/nix run github:ryantm/agenix -- -e matrixdb.age -i /root/.ssh/agenix/agenix-secret-keys
+	/run/current-system/sw/bin/echo -n $(/run/current-system/sw/bin/cat /var/lib/secrets/turn) | /run/current-system/sw/bin/nix run github:ryantm/agenix -- -e turn.age -i /root/.ssh/agenix/agenix-secret-keys
 
-		/run/current-system/sw/bin/echo -n $(/run/current-system/sw/bin/cat /var/lib/secrets/turn) | /run/current-system/sw/bin/nix run github:ryantm/agenix -- -e turn.age -i /root/.ssh/agenix/agenix-secret-keys
+	/run/current-system/sw/bin/echo -n $(/run/current-system/sw/bin/cat /var/lib/secrets/matrix_reg_secret) | /run/current-system/sw/bin/nix run github:ryantm/agenix -- -e matrix_reg_secret.age -i /root/.ssh/agenix/agenix-secret-keys
 
-		/run/current-system/sw/bin/echo -n $(/run/current-system/sw/bin/cat /var/lib/secrets/matrix_reg_secret) | /run/current-system/sw/bin/nix run github:ryantm/agenix -- -e matrix_reg_secret.age -i /root/.ssh/agenix/agenix-secret-keys
 
-	popd
-
-EOF
+popd
 
 
    if [[ $? != 0 ]]; then
