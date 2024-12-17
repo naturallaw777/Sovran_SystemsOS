@@ -304,27 +304,7 @@ in
                 owner = "matrix-synapse";                                                                                                         
                 group = "matrix-synapse";
 	};  
-        
-	age.secrets.matrixdb = {                                                                                                         
-                file = /var/lib/agenix-secrets/matrixdb.age;                                                                             
-                mode = "770";                                                                                                                     
-                owner = "postgres";                                                                                                         
-                group = "postgres";
-	};   
-        
-	age.secrets.nextclouddb = {                                                                                                         
-                file = /var/lib/agenix-secrets/nextclouddb.age;                                                                             
-                mode = "770";                                                                                                                     
-                owner = "postgres";                                                                                                         
-                group = "postgres";
-	};  
-
-	age.secrets.wordpressdb = {                                                                                                         
-                file = /var/lib/agenix-secrets/wordpressdb.age;                                                                             
-                mode = "770";                                                                                                                     
-                owner = "mysql";                                                                                                         
-                group = "mysql";
-	}; 
+             
 
 
 ###### CREATE DATABASE (WORDPRESS, MATRIX_SYNAPSE, AND NEXTCLOUD) #######
@@ -349,14 +329,14 @@ in
 
 	
 	services.postgresql.initialScript = pkgs.writeText "begin-init.sql" ''
-		CREATE ROLE "ncusr" WITH LOGIN PASSWORD '${personalization.nextclouddb}';
+		CREATE ROLE "ncusr" WITH LOGIN PASSWORD '${personalization.age.secrets.nextclouddb.file}';
 		CREATE DATABASE "nextclouddb" WITH OWNER "ncusr"
 			TEMPLATE template0
 			LC_COLLATE = "C"
 			LC_CTYPE = "C";
 
 
-		CREATE ROLE "matrix-synapse" WITH LOGIN PASSWORD '${personalization.matrixdb}';
+		CREATE ROLE "matrix-synapse" WITH LOGIN PASSWORD '${personalization.age.secrets.matrixdb.file}';
 		CREATE DATABASE "matrix-synapse" WITH OWNER "matrix-synapse"
 			TEMPLATE template0
 			LC_COLLATE = "C"
@@ -367,7 +347,7 @@ in
 
 	services.mysql.initialScript = pkgs.writeText "wordpress-init.sql" ''
 		CREATE DATABASE wordpressdb;
-		GRANT ALL ON *.* TO 'wpusr'@'localhost' IDENTIFIED BY '${personalization.wordpressdb}';
+		GRANT ALL ON *.* TO 'wpusr'@'localhost' IDENTIFIED BY '${personalization.age.secrets.wordpressdb.file}';
 		FLUSH PRIVILEGES;
 	''
 	;
