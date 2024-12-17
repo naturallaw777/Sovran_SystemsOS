@@ -44,12 +44,10 @@ in
 				];
 		 	url_preview_ip_ranger_whitelist = [ "127.0.0.1" ];
 		 	turn_shared_secret = "${personalization.coturn_static_auth_secret}";
-    		turn_uris = [
-      			"turn:${personalization.matrix_url}:5349?transport=udp"
-      			"turn:${personalization.matrix_url}:5349?transport=tcp"
-      			"turns:${personalization.matrix_url}:5349?transport=udp"
-      			"turns:${personalization.matrix_url}:5349?transport=tcp"
-          	];
+    			turn_uris = [
+      				"turn:${personalization.matrix_url}:5349?transport=udp"
+      				"turn:${personalization.matrix_url}:5349?transport=tcp"
+			];
 			presence.enabled = true;
 			enable_registration = false;
 			registration_shared_secret = config.age.secrets.matrix_reg_secret.path;
