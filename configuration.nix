@@ -298,7 +298,7 @@ in
 	age.secrets.matrix_reg_secret = {
 
 		file = /var/lib/agenix-secrets/matrix_reg_secret.age;
-		mode = "770";
+		mode = "777";
 		owner = "matrix-synapse";
 		group = "matrix-synapse";
 	};
