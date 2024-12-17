@@ -42,7 +42,7 @@ FILE=/var/lib/beacons/file_fixes_and_new_services/update-agenix/completed
 pushd /var/lib/agenix-secrets/
 
 		
-	/run/current-system/sw/bin/echo -n $(/run/current-system/sw/bin/cat /var/lib/secrets/wordpressdb) | EDITOR='/run/current-system/sw/bin/cp /dev/stdin' run/current-system/sw/bin/nix run github:ryantm/agenix -- -e wordpressdb.age -i /root/.ssh/agenix/agenix-secret-keys
+	/run/current-system/sw/bin/echo -n $(/run/current-system/sw/bin/cat /var/lib/secrets/wordpressdb) | EDITOR='/run/current-system/sw/bin/cp /dev/stdin' /run/current-system/sw/bin/nix run github:ryantm/agenix -- -e wordpressdb.age -i /root/.ssh/agenix/agenix-secret-keys
 
 	/run/current-system/sw/bin/echo -n $(/run/current-system/sw/bin/cat /var/lib/secrets/nextclouddb) | EDITOR='/run/current-system/sw/bin/cp /dev/stdin' /run/current-system/sw/bin/nix run github:ryantm/agenix -- -e nextclouddb.age -i /root/.ssh/agenix/agenix-secret-keys
 
