@@ -306,11 +306,6 @@ in
 	};  
         
 
-	age.secrets.matrixdb.file = /var/lib/agenix-secrets/matrixdb.age;
-	age.secrets.nextclouddb.file = /var/lib/agenix-secrets/nextclouddb.age;
-	age.secrets.wordpressdb.file = /var/lib/agenix-secrets/wordpressdb.age;
-
-
 ###### CREATE DATABASE (WORDPRESS, MATRIX_SYNAPSE, AND NEXTCLOUD) #######
 	services.postgresql = {
 		enable = true;
@@ -333,14 +328,14 @@ in
 
 	
 	services.postgresql.initialScript = pkgs.writeText "begin-init.sql" ''
-		CREATE ROLE "ncusr" WITH LOGIN PASSWORD '${age.secrets.nextclouddb.file}';
+		CREATE ROLE "ncusr" WITH LOGIN PASSWORD '${personalization.age.secrets.nextclouddb.file}';
 		CREATE DATABASE "nextclouddb" WITH OWNER "ncusr"
 			TEMPLATE template0
 			LC_COLLATE = "C"
 			LC_CTYPE = "C";
 
 
-		CREATE ROLE "matrix-synapse" WITH LOGIN PASSWORD '${age.secrets.matrixdb.file}';
+		CREATE ROLE "matrix-synapse" WITH LOGIN PASSWORD '${personalization.age.secrets.matrixdb.file}';
 		CREATE DATABASE "matrix-synapse" WITH OWNER "matrix-synapse"
 			TEMPLATE template0
 			LC_COLLATE = "C"
@@ -351,7 +346,7 @@ in
 
 	services.mysql.initialScript = pkgs.writeText "wordpress-init.sql" ''
 		CREATE DATABASE wordpressdb;
-		GRANT ALL ON *.* TO 'wpusr'@'localhost' IDENTIFIED BY '${age.secrets.wordpressdb.file}';
+		GRANT ALL ON *.* TO 'wpusr'@'localhost' IDENTIFIED BY '${personalization.age.secrets.wordpressdb.file}';
 		FLUSH PRIVILEGES;
 	''
 	;
