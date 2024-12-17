@@ -315,7 +315,7 @@ in
                                                                                                                                                   
         };   
         
-	age.secrets.nexclouddb = {                                                                                                         
+	age.secrets.nextclouddb = {                                                                                                         
                 file = /var/lib/agenix-secrets/nextclouddb.age;                                                                             
                 mode = "770";                                                                                                                     
                 owner = "postgres";                                                                                                         
