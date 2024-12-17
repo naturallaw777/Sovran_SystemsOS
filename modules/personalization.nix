@@ -12,4 +12,13 @@ vaultwarden_url = builtins.readFile /var/lib/domains/vaultwarden;
 external_ip_secret = builtins.readFile /var/lib/secrets/external_ip;
 coturn_static_auth_secret = builtins.readFile /var/lib/secrets/turn;
 
+##
+
+matrixdb = builtins.readFile /var/lib/secrets/matrixdb;
+nextclouddb = builtins.readFile /var/lib/secrets/nextclouddb;
+wordpressdb = builtins.readFile /var/lib/secrets/wordpressdb;
+
+
+
+
 }
