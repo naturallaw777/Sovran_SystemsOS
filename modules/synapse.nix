@@ -52,7 +52,7 @@ in
           	];
 			presence.enabled = true;
 			enable_registration = false;
-			registration_shared_secret = "${personalization.age.secrets.matrix_reg_secret.file}";
+			registration_shared_secret = config.age.secrets.matrix_reg_secret.path;
 			listeners = [
 				{
 					port = 8008;
