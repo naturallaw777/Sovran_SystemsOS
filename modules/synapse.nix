@@ -50,7 +50,7 @@ in
 			];
 			presence.enabled = true;
 			enable_registration = false;
-			registration_shared_secret = services.matrix-synapse.extraConfigFiles = /var/lib/secrets/matrix_reg_secret;
+			registration_shared_secret = config.age.secrets.matrix_reg_secret.path;
 			listeners = [
 				{
 					port = 8008;

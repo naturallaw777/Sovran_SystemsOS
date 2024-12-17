@@ -292,7 +292,18 @@ in
 		};
 	};
 
-        
+###### AGENIX ######
+	age.identityPaths = [ "/root/.ssh/agenix/agenix-secret-keys" ];
+
+	age.secrets.matrix_reg_secret = {
+
+		file = /var/lib/agenix-secrets/matrix_reg_secret.age;
+		mode = "770";
+		owner = "matrix-synapse";
+		group = "matrix-synapse";
+	};
+
+
 
 ###### CREATE DATABASE (WORDPRESS, MATRIX_SYNAPSE, AND NEXTCLOUD) #######
 	services.postgresql = {
