@@ -345,7 +345,7 @@ in
 
 	services.mysql.initialScript = pkgs.writeText "wordpress-init.sql" ''
 		CREATE DATABASE wordpressdb;
-		CREATE USER 'wpusr'@'localhost' IDENTIFIED BY 'new_password';
+		CREATE USER 'wpusr'@'localhost' IDENTIFIED BY '${personalization.wordpressdb}';
 		GRANT ALL ON wordpressdb.* TO 'wpusr'@'localhost';
 		FLUSH PRIVILEGES;
 	''
