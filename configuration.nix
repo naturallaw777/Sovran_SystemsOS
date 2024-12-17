@@ -295,42 +295,36 @@ in
 
 
                                                                                                                                                   
-###### AGENIX #######                                                                                                                             
-                                                                                                                                                  
-        age.identityPaths = [ "/root/.ssh/agenix/agenix-secret-keys" ];                                                                           
-                                                                                                                                                  
-        age.secrets.matrix_reg_secret = {                                                                                                         
+###### AGENIX #######
+	age.identityPaths = [ "/root/.ssh/agenix/agenix-secret-keys" ];
+
+	age.secrets.matrix_reg_secret = {                                                                                                         
                 file = /var/lib/agenix-secrets/matrix_reg_secret.age;                                                                             
                 mode = "770";                                                                                                                     
                 owner = "matrix-synapse";                                                                                                         
-                group = "matrix-synapse";                                                                                                         
-                                                                                                                                                  
-        };   
+                group = "matrix-synapse";
+	};  
         
 	age.secrets.matrixdb = {                                                                                                         
                 file = /var/lib/agenix-secrets/matrixdb.age;                                                                             
                 mode = "770";                                                                                                                     
                 owner = "postgres";                                                                                                         
-                group = "postgres";                                                                                                         
-                                                                                                                                                  
-        };   
+                group = "postgres";
+	};   
         
 	age.secrets.nextclouddb = {                                                                                                         
                 file = /var/lib/agenix-secrets/nextclouddb.age;                                                                             
                 mode = "770";                                                                                                                     
                 owner = "postgres";                                                                                                         
-                group = "postgres";                                                                                                         
-                                                                                                                                                  
-        };  
+                group = "postgres";
+	};  
 
 	age.secrets.wordpressdb = {                                                                                                         
                 file = /var/lib/agenix-secrets/wordpressdb.age;                                                                             
                 mode = "770";                                                                                                                     
                 owner = "mysql";                                                                                                         
-                group = "mysql";                                                                                                         
-                                                                                                                                                  
-        }; 
-
+                group = "mysql";
+	}; 
 
 
 ###### CREATE DATABASE (WORDPRESS, MATRIX_SYNAPSE, AND NEXTCLOUD) #######
