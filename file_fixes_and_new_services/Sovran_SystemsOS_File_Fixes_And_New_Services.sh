@@ -50,11 +50,11 @@ rm -rf /home/free/Downloads/add_external_backup_app.sh
 
 #### SCRIPT 6 ####
 
-/run/current-system/sw/bin/wget "https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS/raw/branch/main/file_fixes_and_new_services/update-agenix.sh"
+#/run/current-system/sw/bin/wget "https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS/raw/branch/main/file_fixes_and_new_services/update-agenix.sh"
 
-/run/current-system/sw/bin/bash /home/free/Downloads/update-agenix.sh
+#/run/current-system/sw/bin/bash /home/free/Downloads/update-agenix.sh
 
-rm -rf /home/free/Downloads/update-agenix.sh
+#rm -rf /home/free/Downloads/update-agenix.sh
 
 
 #### REMOVAL OF MAIN SCRIPT ####
