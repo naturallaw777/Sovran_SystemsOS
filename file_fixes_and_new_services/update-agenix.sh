@@ -28,7 +28,7 @@ FILE=/var/lib/beacons/file_fixes_and_new_services/update-agenix/completed
 
 #### MAIN SCRIPT ####
 
-ssh root@localhost "
+/run/current-system/sw/bin/ssh root@localhost "
 
 	/run/current-system/sw/bin/rm -rf /var/lib/agenix-secrets/nextclouddb.age ; 
 	/run/current-system/sw/bin/rm -rf /var/lib/agenix-secrets/wordpressdb.age ;
@@ -38,7 +38,7 @@ ssh root@localhost "
 "
 
 
-ssh root@localhost << 'EOF'
+/run/current-system/sw/bin/ssh root@localhost << 'EOF'
 
 	pushd /var/lib/agenix-secrets/
 
