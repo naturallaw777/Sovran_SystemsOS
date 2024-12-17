@@ -323,8 +323,8 @@ in
                                                                                                                                                   
         };  
 
-	age.secrets.wordpress = {                                                                                                         
-                file = /var/lib/agenix-secrets/wordpress.age;                                                                             
+	age.secrets.wordpressdb = {                                                                                                         
+                file = /var/lib/agenix-secrets/wordpressdb.age;                                                                             
                 mode = "770";                                                                                                                     
                 owner = "mysql";                                                                                                         
                 group = "mysql";                                                                                                         
