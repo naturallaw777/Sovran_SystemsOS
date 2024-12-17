@@ -14,9 +14,9 @@ coturn_static_auth_secret = builtins.readFile /var/lib/secrets/turn;
 
 ##
 
-age.secrets.matrixdb.file = /var/lib/agenix-secrets/matrixdb.age;
-age.secrets.nextclouddb.file = /var/lib/agenix-secrets/nextclouddb.age;
-age.secrets.wordpressdb.file = /var/lib/agenix-secrets/wordpressdb.age;
+matrixdb = builtins.readFile /var/lib/secrets/matrixdb;
+nextclouddb = builtins.readFile /var/lib/secrets/nextclouddb;
+wordpressdb = builtins.readFile /var/lib/secrets/wordpressdb;
 
 
 }
