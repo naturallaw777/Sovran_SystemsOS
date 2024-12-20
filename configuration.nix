@@ -386,9 +386,12 @@ backup	/etc/nix-bitcoin-secrets/	localhost/
 	services.cron = {
 		enable = true;
 		systemCronJobs = [
+		
 		"*/5 * * * * caddy  /run/current-system/sw/bin/php -f /var/lib/www/nextcloud/cron.php"
 		"*/15 * * * * root  /run/current-system/sw/bin/bash /var/lib/njalla/njalla.sh"
 		"*/15 * * * * root  /run/current-system/sw/bin/bash /var/lib/external_ip/external_ip.sh"
+		"0 0 * * 0 /run/current-system/sw/bin/echo y | docker-user /run/current-system/sw/bin/docker system prune -a"
+		
 		];
 	};
 
