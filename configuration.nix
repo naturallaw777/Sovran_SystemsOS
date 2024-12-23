@@ -25,7 +25,6 @@ let
 			redis.session.locking_enabled=1
 			redis.session.lock_retries=-1
 			redis.session.lock_wait_time=10000
-			auto_prepend_file='/var/lib/www/wordpress/aios-bootstrap.php'
 			
 		'';
 	};
