@@ -5,7 +5,7 @@ let
 	personalization = import ./modules/personalization.nix;
 		
 		
-	custom-php = pkgs.php83.buildEnv {
+	custom-php = pkgs.php.buildEnv {
 		extensions = { enabled, all }: enabled ++ (with all; [ bz2 apcu redis imagick memcached ]);
 		extraConfig = ''
 			
