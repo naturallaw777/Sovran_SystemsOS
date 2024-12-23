@@ -96,11 +96,8 @@ systemd.services.jitsi-videobridge-helper = {
     
 
     ffmpeg = {
-      resolution = "1280x720";
-      framerate = 30;
       video-encode-preset = "ultrafast";
       h264-constant-rate-factor = 40; 
-    
     };
   
   };
