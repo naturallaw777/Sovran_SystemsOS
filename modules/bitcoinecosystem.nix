@@ -132,6 +132,7 @@ experimental-offers
 	
 	services.btcpayserver = {
 		enable = true;
+		package = pkgs.new-btcpaynew.btcpayserver;
 		};
 		
 	services.btcpayserver.lightningBackend = "lnd";

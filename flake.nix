@@ -15,18 +15,50 @@
 
 		bisq1.url = "github:emmanuelrosa/bisq-for-nixos";
 
+		nixpkgs-stable.url = "github:nixos/nixpkgs/nixos-24.11";
+
+		btcpayserver-new.url = "github:Dreaming-Codes/nixpkgs/update-btcpayser";
+
+		
+
 	};
 
-	outputs = { self, nixpkgs, nix-bitcoin, nixvim, agenix, bisq1, ... }: { 
+	outputs = { self, nixpkgs, nix-bitcoin, nixvim, agenix, bisq1, nixpkgs-stable, btcpayserver-new, ... }: 
+
+	let 
+		system = "x86_64-linux";
+
+		overlay-stable = final: prev: {
+
+			stable = import nixpkgs-stable {
+				inherit system;
+				config.allowunfree = true;
+
+			};
+
+		};
+
+		overlay-btcpaynew = final: prev: {
+			new-btcpaynew = import btcpayserver-new {
+				inhert system;
+				config.allowunfree = true;
+			};
+		};
+	in
+
+	{ 
 		
-		nixosConfigurations.nixos = nixpkgs.lib.nixosSystem {
+	nixosConfigurations.nixos = nixpkgs.lib.nixosSystem {
 			
-			system ="x86_64-linux";
-		
+		inherit systems;
+
+
 		};
 		
 		nixosModules.Sovran_SystemsOS = { pkgs, ... }: {
 			
+			({ config, pkgs, ... }: { nixpkgs.overlays = [ overlay-stable overlay-btcpaynew ]; })
+
 			imports = [
 
 				./configuration.nix
