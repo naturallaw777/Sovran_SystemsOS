@@ -1,6 +1,6 @@
 { lib, fetchFromGitHub, nixosTests, rustPlatform }:
 
-rustPlatform.b:uildRustPackage rec {
+rustPlatform.buildRustPackage rec {
   pname = "notify_push";
   version = "1.0.0";
 
