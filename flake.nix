@@ -17,7 +17,7 @@
 
 		nixpkgs-stable.url = "github:nixos/nixpkgs/nixos-24.11";
 
-		btcpayserver-new.url = "github:Dreaming-Codes/nixpkgs/update-btcpayser";
+		btcpayserver-new.url = "github:Dreaming-Codes/nixpkgs/update-btcpayserver";
 
 		
 
