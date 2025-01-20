@@ -39,8 +39,9 @@
 		};
 
 		overlay-btcpaynew = final: prev: {
+			
 			new-btcpaynew = import btcpayserver-new {
-				inhert system;
+				inherit system;
 				config.allowunfree = true;
 			};
 		};
