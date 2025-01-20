@@ -35,7 +35,7 @@ https://matrix.to/#/%23DIY_Sovran_SystemsOS:anarchyislove.xyz
 
 ## 
 
-Created, Handcrafted, and Headquartered in Southern California – 2022-2024 🏖️.
+Created, Handcrafted, and Headquartered in Southern California – 2022-2025 🏖️.
 
 All Open Source Software Used Falls Under Its Specific Open Source License.
 
