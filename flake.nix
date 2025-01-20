@@ -57,10 +57,10 @@
 		};
 		
 		nixosModules.Sovran_SystemsOS = { pkgs, ... }: {
-			
-			({ config, pkgs, ... }: { nixpkgs.overlays = [ overlay-stable overlay-btcpaynew ]; })
 
 			imports = [
+
+				({ config, pkgs, ... }: { nixpkgs.overlays = [ overlay-stable overlay-btcpaynew ]; })
 
 				./configuration.nix
 
