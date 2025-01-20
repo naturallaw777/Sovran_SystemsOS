@@ -228,7 +228,7 @@ in
 ####### CADDY  #######
 	services.caddy = {
 		enable = true;
-		package = pkgs.caddy;
+		package = pkgs.stable.caddy;
 		user = "caddy";
 		group = "root";
 		email = "${personalization.caddy_email_for_acme}";
