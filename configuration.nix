@@ -129,18 +129,11 @@ in
 
 	# Allow unfree packages
 	nixpkgs.config.allowUnfree = true;
-
-	
-	nixpkgs.config.permittedInsecurePackages = [
-		"jitsi-meet-1.0.8043"
-	];
-	
 	
 	# List packages installed in system profile. To search, run:
 	# $ nix search wget
 	environment.systemPackages = with pkgs; [
 		(callPackage ./modules/systemd-manager_sovran_systems.nix {})
-		(callPackage ./modules/nextcloud_hpbs_default.nix {})
 		git
 		wget
 		fish
@@ -228,7 +221,6 @@ in
 ####### CADDY  #######
 	services.caddy = {
 		enable = true;
-		package = pkgs.stable.caddy;
 		user = "caddy";
 		group = "root";
 		email = "${personalization.caddy_email_for_acme}";
