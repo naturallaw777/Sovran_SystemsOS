@@ -129,6 +129,11 @@ in
 
 	# Allow unfree packages
 	nixpkgs.config.allowUnfree = true;
+
+	nixpkgs.config.permittedInsecurePackages = [
+
+		"jitsi-meet-1.0.8043"
+        ];
 	
 	# List packages installed in system profile. To search, run:
 	# $ nix search wget
