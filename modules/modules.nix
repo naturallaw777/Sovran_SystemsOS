@@ -3,7 +3,8 @@
 {
 
 	imports = [	
-
+		
+		./php.nix
 		./synapse.nix
 		./coturn.nix
 		./bitcoinecosystem.nix
