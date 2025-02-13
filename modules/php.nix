@@ -3,7 +3,7 @@
 
 let
 
-	custom-php = pkgs.php.buildEnv {
+	custom-php = pkgs.php82.buildEnv {
 		extensions = { enabled, all }: enabled ++ (with all; [ bz2 apcu redis imagick memcached ]);
 		extraConfig = ''
 			
