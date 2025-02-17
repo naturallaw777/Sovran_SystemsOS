@@ -149,6 +149,7 @@ in
 		firefox
 		element-desktop
 		helix
+		wp-cli
 
 	];
 
