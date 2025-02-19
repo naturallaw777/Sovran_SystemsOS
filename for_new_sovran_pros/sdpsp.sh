@@ -29,13 +29,13 @@ sudo mkdir -p /mnt/BTCEcoandBackup/NixOS_Snapshot_Backup
 
 sudo mkdir -p /mnt/BTCEcoandBackup/clightning_db_backup
 
-sudo systemctl stop bitcoind electrs nbxplorer btcpayserver lnd rtl lightning-loop lightning-pool clightning
+sudo systemctl stop bitcoind electrs nbxplorer btcpayserver lnd rtl lightning-loop clightning
 
 rsync -ar --info=progress2 --info=name0 /run/media/Second_Drive/BTCEcoandBackup/Bitcoin_Node/ /mnt/BTCEcoandBackup/Bitcoin_Node/
 
 rsync -ar --info=progress2 --info=name0 /run/media/Second_Drive/BTCEcoandBackup/Electrs_Data/ /mnt/BTCEcoandBackup/Electrs_Data/
 
-sudo systemctl start bitcoind electrs nbxplorer btcpayserver lnd rtl lightning-loop lightning-pool clightning
+sudo systemctl start bitcoind electrs nbxplorer btcpayserver lnd rtl lightning-loop clightning
 
 sudo chown bitcoin:bitcoin /mnt/BTCEcoandBackup/Bitcoin_Node -R
 
