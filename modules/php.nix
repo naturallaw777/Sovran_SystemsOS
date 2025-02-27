@@ -19,7 +19,7 @@ let
 			post_max_size = 3G
 			upload_max_filesize = 3G
 			apc.enable_cli=1
-			opcache.interned_strings_buffer = 64
+			opcache.interned_strings_buffer = 192
 			redis.session.locking_enabled=1
 			redis.session.lock_retries=-1
 			redis.session.lock_wait_time=10000
