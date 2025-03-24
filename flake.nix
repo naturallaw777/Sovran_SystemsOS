@@ -17,13 +17,9 @@
 
 		nixpkgs-stable.url = "github:nixos/nixpkgs/nixos-24.11";
 
-		btcpayserver-new.url = "github:Dreaming-Codes/nixpkgs/update-btcpayserver";
-
-		
-
 	};
 
-	outputs = { self, nixpkgs, nix-bitcoin, nixvim, agenix, bisq1, nixpkgs-stable, btcpayserver-new, ... }: 
+	outputs = { self, nixpkgs, nix-bitcoin, nixvim, agenix, bisq1, nixpkgs-stable, ... }: 
 
 	let 
 		system = "x86_64-linux";
@@ -38,13 +34,6 @@
 
 		};
 
-		overlay-btcpaynew = final: prev: {
-			
-			new-btcpaynew = import btcpayserver-new {
-				inherit system;
-				config.allowunfree = true;
-			};
-		};
 	in
 
 	{ 
@@ -60,7 +49,7 @@
 
 			imports = [
 
-				({ config, pkgs, ... }: { nixpkgs.overlays = [ overlay-stable overlay-btcpaynew ]; })
+				({ config, pkgs, ... }: { nixpkgs.overlays = [ overlay-stable ]; })
 
 				./configuration.nix
 
