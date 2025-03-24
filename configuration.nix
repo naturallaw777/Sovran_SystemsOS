@@ -131,7 +131,7 @@ in
 		lm_sensors
 		hunspell
 		hunspellDicts.en_US
-		matrix-synapse-tools.synadm
+		synadm
 		brave
 		dua
 		bitwarden-desktop
