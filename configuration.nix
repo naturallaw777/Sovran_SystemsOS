@@ -119,8 +119,6 @@ in
 		gnome-tweaks
 		papirus-icon-theme
 		ranger
-		bisq2
-		sparrow
 		neofetch
 		gedit
 		matrix-synapse
