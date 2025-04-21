@@ -13,13 +13,13 @@
 
 		nixvim.url = "github:nix-community/nixvim";
 
-		bisq1.url = "github:emmanuelrosa/bisq-for-nixos";
+		btc-clients.url = "github:emmanuelrosa/btc-clients-nix";
 
 		nixpkgs-stable.url = "github:nixos/nixpkgs/nixos-24.11";
 
 	};
 
-	outputs = { self, nixpkgs, nix-bitcoin, nixvim, agenix, bisq1, nixpkgs-stable, ... }: 
+	outputs = { self, nixpkgs, nix-bitcoin, nixvim, agenix, btc-clients, nixpkgs-stable, ... }: 
 
 	let 
 		system = "x86_64-linux";
@@ -62,7 +62,11 @@
  			];
 			
 			environment.systemPackages = with pkgs; [
-				bisq1.packages.x86_64-linux.bisq-desktop
+				btc-clients.packages.x86_64-linux.bisq
+				btc-clients.packages.x86_64-linux.bisq2
+				btc-clients.packages.x86_64-linux.sparrow
+
+
 			];
 
 		};
