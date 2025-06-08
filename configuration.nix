@@ -296,7 +296,7 @@ in
 
 
 ####### KEEP AWAKE for DISPLAY and HEADLESS #######
-	services.xserver.displayManager.gdm.autoSuspend = false;
+	services.displayManager.gdm.autoSuspend = false;
 
 	systemd.sleep.extraConfig = ''
   		AllowSuspend=no
