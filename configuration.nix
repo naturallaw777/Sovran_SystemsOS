@@ -109,13 +109,11 @@ in
 		htop
 		btop
 		gnomeExtensions.dash-to-dock
-		gnomeExtensions.transparent-top-bar-adjustable-transparency
 		gnomeExtensions.vitals
 		gnomeExtensions.pop-shell
 		gnomeExtensions.just-perfection
 		gnomeExtensions.appindicator
 		gnomeExtensions.date-menu-formatter
-		gnomeExtensions.espresso
 		gnome-tweaks
 		papirus-icon-theme
 		ranger
@@ -143,10 +141,8 @@ in
 		gnome-terminal
 		libreoffice-fresh
 		dig
-		nextcloud-client
 		firefox
 		element-desktop
-		helix
 		wp-cli
 
 	];
