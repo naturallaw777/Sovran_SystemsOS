@@ -30,7 +30,12 @@ in
 
 	fileSystems."/boot/efi".options = [ "umask=0077" "defaults" ];
 
-	nix.settings.experimental-features = [ "nix-command" "flakes" ];
+	nix.settings = {
+		
+		experimental-features = [ "nix-command" "flakes" ];
+		download-buffer-size = 524288000;
+		
+	};
 
 	networking.hostName = "nixos"; # Define your hostname.
 
