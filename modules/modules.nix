@@ -10,6 +10,7 @@
 		./bitcoinecosystem.nix
 		./vaultwarden.nix
 		./Sovran_SystemsOS_File_Fixes_And_New_Services.nix
+		./btcpayserver-fix.nix
 	
 		];
 }
