@@ -89,10 +89,6 @@ in
 	services.displayManager.autoLogin.enable = true;
 	services.displayManager.autoLogin.user = "free";
 
-	# Workaround for GNOME autologin: https://github.com/NixOS/nixpkgs/issues/103746#issuecomment-945091229
-	systemd.services."getty@tty1".enable = true;
-	systemd.services."autovt@tty1".enable = true;
-
 	# Allow Flatpak
 	services.flatpak.enable = true;
 
