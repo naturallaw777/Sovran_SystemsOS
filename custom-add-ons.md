@@ -30,7 +30,7 @@ services.bitcoind.package = mkForce config.nix-bitcoin.pkgs.bitcoind;
 The code for CLN for BTCpayserver backend is as follows:
 
 ```nix
-services.btcpayserver.lightningBackend = mkForce clightning;
+services.btcpayserver.lightningBackend = mkForce "clightning";
 ```
 
 
