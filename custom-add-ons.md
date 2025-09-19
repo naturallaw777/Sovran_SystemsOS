@@ -24,7 +24,6 @@ The code for Bitcoin Core is as follows:
 
 ```nix
 services.bitcoind.package = mkForce config.nix-bitcoin.pkgs.bitcoind;
-
 ```
 
 
