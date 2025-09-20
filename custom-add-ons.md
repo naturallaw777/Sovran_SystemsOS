@@ -23,14 +23,14 @@ The code will be installed in the `custom.nix` file.
 The code for Bitcoin Core is as follows:
 
 ```nix
-services.bitcoind.package = mkForce config.nix-bitcoin.pkgs.bitcoind;
+services.bitcoind.package = lib.mkForce config.nix-bitcoin.pkgs.bitcoind;
 ```
 
 
 The code for CLN for BTCpayserver backend is as follows:
 
 ```nix
-services.btcpayserver.lightningBackend = mkForce "clightning";
+services.btcpayserver.lightningBackend = lib.mkForce "clightning";
 ```
 
 
