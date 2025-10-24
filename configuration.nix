@@ -145,6 +145,7 @@ in
 		firefox
 		element-desktop
 		wp-cli
+    axel
 
 	];
 
