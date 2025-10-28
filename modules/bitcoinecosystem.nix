@@ -6,6 +6,7 @@
 	
 	services.bitcoind = {
 		enable = true;
+    package = pkgs.stable.bitcoind-knots;
 		dataDir = "/run/media/Second_Drive/BTCEcoandBackup/Bitcoin_Node";
 		txindex = true;
 		tor.proxy = true;
@@ -15,8 +16,6 @@
 			server=1
 		'';
 	};
-
-	systemd.services.bitcoind.wants = [ "network-online.target" ];
 
 	nix-bitcoin.onionServices.bitcoind.enable = true;
 	nix-bitcoin.onionServices.electrs.enable = true;
@@ -41,9 +40,6 @@
 		tor.proxy = true;
 		tor.enforce = true;
 		port = 9737;
-		extraConfig = ''
-experimental-offers
-'';
 	};
 	
 	nix-bitcoin.onionServices.clightning.public = true;
