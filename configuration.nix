@@ -103,13 +103,13 @@ in
 	# List packages installed in system profile. To search, run:
 	# $ nix search wget
 	environment.systemPackages = with pkgs; [
-		(callPackage ./modules/systemd-manager_sovran_systems.nix {})
 		git
 		wget
 		fish
 		htop
 		btop
-		gnomeExtensions.dash-to-dock
+		gnomeExtensions.systemd-manager
+    gnomeExtensions.dash-to-dock
 		gnomeExtensions.vitals
 		gnomeExtensions.pop-shell
 		gnomeExtensions.just-perfection
@@ -372,8 +372,8 @@ backup	/etc/nix-bitcoin-secrets/	localhost/
 	
 
 ####### Open ports in the firewall #######
-	networking.firewall.allowedTCPPorts = [ 80 443 5349 8448 3050 3051 ];
-	networking.firewall.allowedUDPPorts = [ 80 443 5349 8448 3050 3051 ];
+	networking.firewall.allowedTCPPorts = [ 80 443 5349 8448 3051 ];
+	networking.firewall.allowedUDPPorts = [ 80 443 5349 8448 3051 ];
 	
 	networking.firewall.allowedUDPPortRanges = [
 		{ from=49152; to=65535; } # TURN relay

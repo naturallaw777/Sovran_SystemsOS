@@ -1,5 +1,5 @@
 {
-	description = "The Ultimate Sovran_SystemsOS Configuration for the Sovran Pro from Sovran Systems";
+	description = "The Ultimate Sovran_SystemsOS Configuration from Sovran Systems";
 
 	inputs = {
 		
@@ -62,10 +62,10 @@
  			];
 			
 			environment.systemPackages = with pkgs; [
-				btc-clients.packages.x86_64-linux.bisq
+				
+        btc-clients.packages.x86_64-linux.bisq
 				btc-clients.packages.x86_64-linux.bisq2
 				btc-clients.packages.x86_64-linux.sparrow
-
 
 			];
 
