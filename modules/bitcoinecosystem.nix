@@ -6,7 +6,7 @@
 	
 	services.bitcoind = {
 		enable = true;
-    package = pkgs.bitcoind-knots;
+    package = pkgs.stable.bitcoind-knots;
 		dataDir = "/run/media/Second_Drive/BTCEcoandBackup/Bitcoin_Node";
 		txindex = true;
 		tor.proxy = true;
