@@ -1,4 +1,4 @@
-## Custom Add-ons for your Sovran Pro
+## Custom Add-ons for your Sovran Pro or Sovran Pro Max
 
 Add-ons are extra features you can have installed before your Sovran Pro is shipped to you. 
 

@@ -117,9 +117,9 @@ in
 		fish
 		htop
 		btop
-    		gnomeExtensions.transparent-top-bar-adjustable-transparency
+    	gnomeExtensions.transparent-top-bar-adjustable-transparency
 		gnomeExtensions.systemd-manager
-    		gnomeExtensions.dash-to-dock
+    	gnomeExtensions.dash-to-dock
 		gnomeExtensions.vitals
 		gnomeExtensions.pop-shell
 		gnomeExtensions.just-perfection
