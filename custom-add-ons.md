@@ -2,7 +2,7 @@
 
 Add-ons are extra features you can have installed before your Sovran Pro is shipped to you. 
 
-1. Since Sovran_SystemsOS runs Bitcoin Knots by default as opposed to Bitcion Core, you can customize your Sovran Pro or Sovran Pro Max node to run Bitcoin Core.
+1. Since Sovran_SystemsOS runs Bitcoin Knots by default as opposed to Bitcion Core, you can customize your Sovran Pro's Bitcoin node to run Bitcoin Core.
 
 https://github.com/bitcoin/bitcoin
 
