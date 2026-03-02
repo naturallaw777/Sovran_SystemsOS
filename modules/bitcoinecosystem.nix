@@ -6,7 +6,7 @@
 	
 	services.bitcoind = {
 		enable = true;
-    	package = config.nix-bitcoin.pkgs.bitcoind-knots;
+    package = config.nix-bitcoin.pkgs.bitcoind-knots;
 		dataDir = "/run/media/Second_Drive/BTCEcoandBackup/Bitcoin_Node";
 		txindex = true;
 		tor.proxy = true;
@@ -32,7 +32,7 @@
 		};
 
 
-  	## LND
+  ## LND
 	
 	services.lnd = {
 		enable = true;
@@ -46,7 +46,7 @@
 	nix-bitcoin.onionServices.lnd.public = true;
 
 
-  	## LNDconnect
+  ## LNDconnect
 
 	services.lnd.lndconnect = {
 		enable = true;
