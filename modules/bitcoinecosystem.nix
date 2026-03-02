@@ -10,6 +10,7 @@
 		dataDir = "/run/media/Second_Drive/BTCEcoandBackup/Bitcoin_Node";
 		txindex = true;
 		tor.proxy = true;
+    tor.enforce = true;
 		disablewallet = true;
 		extraConfig = ''
 			peerbloomfilters=1
@@ -21,7 +22,6 @@
 	nix-bitcoin.onionServices.electrs.enable = true;
 	nix-bitcoin.onionServices.rtl.enable = true;
 
-	
 
 	## Electrs
 	
@@ -90,6 +90,6 @@
 		name = "free";
 	};
 
-	nix-bitcoin.useVersionLockedPkgs = true;
+	nix-bitcoin.useVersionLockedPkgs = false;
 	
 }
