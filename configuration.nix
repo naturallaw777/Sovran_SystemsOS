@@ -92,15 +92,15 @@ in
 	# Allow Flatpak
 	services.flatpak.enable = true;
 
-        systemd.services.flatpak-repo = {
-    		wantedBy = [ "multi-user.target" ];
-    		after = [ "network-online.target" ];
-    		wants = [ "network-online.target" ];
-    		path = [ pkgs.flatpak ];
-    			script = ''
-      				flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-    			'';
-  	};
+  systemd.services.flatpak-repo = {
+    wantedBy = [ "multi-user.target" ];
+    after = [ "network-online.target" ];
+    wants = [ "network-online.target" ];
+    path = [ pkgs.flatpak ];
+      script = ''
+        flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+    '';
+  };
 
 	# Allow unfree packages
 	nixpkgs.config.allowUnfree = true;
@@ -117,9 +117,9 @@ in
 		fish
 		htop
 		btop
-    		gnomeExtensions.transparent-top-bar-adjustable-transparency
+    gnomeExtensions.transparent-top-bar-adjustable-transparency
 		gnomeExtensions.systemd-manager
-    		gnomeExtensions.dash-to-dock
+    gnomeExtensions.dash-to-dock
 		gnomeExtensions.vitals
 		gnomeExtensions.pop-shell
 		gnomeExtensions.just-perfection
@@ -128,7 +128,7 @@ in
 		gnome-tweaks
 		papirus-icon-theme
 		ranger
-		neofetch
+		fastfetch
 		gedit
 		matrix-synapse
 		openssl
@@ -155,24 +155,22 @@ in
 		firefox
 		element-desktop
 		wp-cli
-    		axel
-
+    axel
 	];
 
 	programs.nixvim = {
 		enable = true;
 		colorschemes.catppuccin.enable = true;
 		plugins.lualine.enable = true;
-  	};
+  };
 
 
 	programs.bash.promptInit = "fish";
 	
 	programs.fish = {
 		enable = true;
-		promptInit = "neofetch";
+		promptInit = "fastfetch";
 	};
-
 
 	####### CADDY  #######
 	services.caddy = {
@@ -252,9 +250,8 @@ in
 		mode = "770";
 		owner = "matrix-synapse";
 		group = "matrix-synapse";
-	};
-
-
+	
+  };
 
 	###### CREATE DATABASE (WORDPRESS, MATRIX_SYNAPSE, AND NEXTCLOUD) #######
 	services.postgresql = {
@@ -302,16 +299,8 @@ in
 	''
 	;
 
-
 	####### KEEP AWAKE for DISPLAY and HEADLESS #######
 	services.displayManager.gdm.autoSuspend = false;
-
-	systemd.sleep.extraConfig = ''
-  		AllowSuspend=no
-  		AllowHibernation=no
-  		AllowHybridSleep=no
-  		AllowSuspendThenHibernate=no
-	'';
 
 
 	####### BACKUP TO INTERNAL DRIVE #######
