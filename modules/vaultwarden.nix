@@ -3,7 +3,8 @@
 let
 	personalization = import ./personalization.nix;
 in
-{
+
+lib.mkIf config.sovran_systemsOS.features.vaultwarden {
 
 	services.vaultwarden = {
 		enable = true;
