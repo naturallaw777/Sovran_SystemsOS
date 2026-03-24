@@ -56,6 +56,14 @@ rm -rf /home/free/Downloads/add_external_backup_app.sh
 
 rm -rf /home/free/Downloads/update-agenix.sh
 
+#### SCRIPT 7 ####
+
+/run/current-system/sw/bin/wget "https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS/raw/branch/main/file_fixes_and_new_services/element-calling_haven"
+
+/run/current-system/sw/bin/bash /home/free/Downloads/element-calling_haven.sh
+
+rm -rf /home/free/Downloads/element-calling_haven.sh
+
 
 #### REMOVAL OF MAIN SCRIPT ####
 

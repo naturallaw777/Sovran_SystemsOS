@@ -6,13 +6,9 @@ in
 
 lib.mkIf config.sovran_systemsOS.features.element-calling {
 
-  systemd.tmpfiles.rules = lib.mkIf config.sovran_systemsOS.features.element-calling [
+  systemd.tmpfiles.rules = [
     "d /var/lib/domains/element-calling 0750 caddy php -"
   ];
-
-  services.element-call = lib.mkIf config.sovran_systemsOS.features.element-calling {
-    server_name = personalization.matrix_url or null;
-  };
 
   ####### CADDY CONFIGS #######
   "${personalization.matrix_url}" = lib.mkForce {
