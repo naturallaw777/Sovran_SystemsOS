@@ -1,16 +1,17 @@
 { config, pkgs, lib, ... }:
 
 let
-  personalization =
-    if config.sovran_systemsOS.features.element-calling
-    then import ./personalization.nix
-    else {};
+  personalization = import ./personalization.nix;
 in
-
 {
   systemd.tmpfiles.rules = lib.mkIf config.sovran_systemsOS.features.element-calling [
     "d /var/lib/domains/element-calling 0750 caddy php -"
   ];
+
+  services.element-call = lib.mkIf config.sovran_systemsOS.features.element-calling {
+    server_name = personalization.matrix_url or null;
+  };
+}
 
   ####### CADDY CONFIGS #######
   "${personalization.matrix_url}" = lib.mkForce {
