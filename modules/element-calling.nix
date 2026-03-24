@@ -8,7 +8,7 @@ lib.mkIf config.sovran_systemsOS.features.element-calling {
 
   ####### SYSTEMD TMPFILES: create directories automatically #######
   systemd.tmpfiles.rules = lib.mkDefault (lib.mkIf config.sovran_systemsOS.features.element-calling [
-    "d /var/lib/domains/element-calling 0750 caddy php -"
+    'd /var/lib/domains/element-calling 0750 caddy php -'
   ]);
 
   ####### CADDY CONFIGS #######
