@@ -5,7 +5,7 @@
     roles = {
       server-desktop = lib.mkOption {
         type = lib.types.bool;
-        default = !config.sovran_sovransystemsOS.roles.desktop && !config.sovran_systemsOS.roles.node;
+        default = !config.sovran_systemsOS.roles.desktop && !config.sovran_systemsOS.roles.node;
       };
       desktop = lib.mkEnableOption "Desktop Role";
       node = lib.mkEnableOption "Bitcoin Node Only Role";

@@ -1,6 +1,6 @@
 { config, pkgs, lib, ... }:
 
-{
+lib.mkIf config.sovran_systemsOS.features.mempool {
 
   services.mempool = {
       enable = true;

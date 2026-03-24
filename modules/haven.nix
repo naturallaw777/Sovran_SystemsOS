@@ -6,7 +6,7 @@ personalization = import ./personalization.nix;
 
 in
 
-{
+lib.mkIf config.sovran_systemsOS.features.haven {
 
 	services.haven = {
 		enable = true;

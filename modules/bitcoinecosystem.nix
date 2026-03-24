@@ -1,6 +1,6 @@
 { config, pkgs, lib, bip110, ... }:
 
-{
+lib.mkIf config.sovran_systemsOS.features.bitcoin {
 	
 	## Bitcoind
 	
