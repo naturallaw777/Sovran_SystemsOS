@@ -9,9 +9,7 @@ lib.mkIf config.sovran_systemsOS.features.element-calling {
   ####### SYSTEMD TMPFILES: create directories automatically #######
   systemd.tmpfiles.rules = [
     # Ensure parent directories exist
-    "d /var/lib/domains 0755 root root -"
-    "d /var/lib/domains/element-calling 0750 caddy php -"
-    "d /var/lib/livekit 0750 root root -"
+    "d /var/lib/domains/element-calling 0750 - - -"
   ];
 
   ####### CADDY CONFIGS #######
@@ -79,7 +77,7 @@ lib.mkIf config.sovran_systemsOS.features.element-calling {
 
   ####### MATRIX-SYNAPSE SETTINGS #######
   services.matrix-synapse = {
-    settings = {
+    settings = lib.mkForce {
       serve_server_wellknown = true;
       public_baseurl = "${personalization.matrix_url}";
 
