@@ -83,7 +83,7 @@ lib.mkIf config.sovran_systemsOS.features.element-calling {
     
       serve_server_wellknown = true;
 
-      public_baseurl = ${personalization.matrix_url};
+      public_baseurl = "${personalization.matrix_url}";
 
       experimental_features = {
         msc3266_enabled = true;
