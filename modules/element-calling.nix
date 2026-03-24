@@ -6,12 +6,15 @@ in
 
 lib.mkIf config.sovran_systemsOS.features.element-calling {
 
-  ####### SYSTEMD TMPFILES #######
-  systemd.tmpfiles.rules = lib.mkIf config.sovran_systemsOS.features.element-calling [
+  ####### SYSTEMD TMPFILES: create directories automatically #######
+  systemd.tmpfiles.rules = [
+    # Ensure parent directories exist
+    "d /var/lib/domains 0755 root root -"
     "d /var/lib/domains/element-calling 0750 caddy php -"
+    "d /var/lib/livekit 0750 root root -"
   ];
 
-  ####### CADDY EXTRA CONFIG #######
+  ####### CADDY CONFIGS #######
   "${personalization.matrix_url}" = lib.mkForce {
     extraConfig = ''
       reverse_proxy /_matrix/* http://localhost:8008
@@ -49,7 +52,6 @@ lib.mkIf config.sovran_systemsOS.features.element-calling {
       rtc.use_external_ip = true;
       rtc.udp_port = "7882-7894";
       room.auto_create = false;
-
       turn = {
         enabled = true;
         domain = "${personalization.matrix_url}";
