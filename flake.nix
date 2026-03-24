@@ -17,9 +17,11 @@
 
 		nixpkgs-stable.url = "github:nixos/nixpkgs/nixos-24.11";
 
+    bip110.url = "github:emmanuelrosa/bitcoin-knots-bip-110-nix";
+
 	};
 
-	outputs = { self, nixpkgs, nix-bitcoin, nixvim, agenix, btc-clients, nixpkgs-stable, ... }: 
+	outputs = { self, nixpkgs, nix-bitcoin, nixvim, agenix, btc-clients, nixpkgs-stable, bip110, ... }: 
 
 	let 
 		system = "x86_64-linux";
