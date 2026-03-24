@@ -1,47 +1,66 @@
 ## Custom Add-ons for your Sovran Pro
 
-Add-ons are extra features you can have installed before your Sovran Pro is shipped to you. 
+Add-ons are extra features you can have installed before your Sovran Pro is shipped to you or you can install them yourself. 
 
 1. Since Sovran_SystemsOS runs Bitcoin Knots by default as opposed to Bitcion Core, you can customize your Sovran Pro's Bitcoin node to run Bitcoin Core.
 
 https://github.com/bitcoin/bitcoin
 
+2. BIP-110 keeps Bitcoin more efficient as Peer to Peer Cash and you can run it along side your Bitocoin node.
 
-2. The Bitcoin Mempool can be added and can be accessed via Tor or on your local network.
+https://github.com/bitcoin/bips/blob/master/bip-0110.mediawiki
+
+3. The Bitcoin Mempool can be added and can be accessed via Tor or on your local network.
 
 https://github.com/mempool/mempool
 
+4. The Haven Relay for NOSTR (NOTES AND OTHER STUFF TRANSMITED BY RELAYS) is a Decenterized Social Media/File Sharing.
 
-The code will be installed in the `custom.nix` file.
+https://github.com/barrydeen/haven
+
+5. You can run the new Element Voice and Video calling backend.
+
+https://github.com/element-hq/element-call
+
+6. You can run the Gnome Remote Desktop to view your desktop from another computer in the nextwork.
+
+https://gitlab.gnome.org/GNOME/gnome-remote-desktop
+
+#### The code will be installed in the `custom.nix` file.
 
 
-The code for Bitcoin Core is as follows:
+1. The code for Bitcoin Core is as follows:
 
 ```nix
-services.bitcoind.package = lib.mkForce config.nix-bitcoin.pkgs.bitcoind;
+sovran_systemsOS.features.bitcoin-core = true;
 ```
 
-
-The code for Mempool is as follows:
+2. The code for BIP-110 is as follows:
 
 ```nix
-services.mempool = {
-    enable = true;
-    frontend.enable = true;
-};
+sovran_systemsOS.features.bip110 = true;
+```
 
-services.mysql.package = lib.mkForce pkgs.mariadb;
+3. The code for Mempool is as follows:
 
-nix-bitcoin.onionServices.mempool-frontend.enable = true;
+```nix
+sovran_systemsOS.features.mempool = true;
+```
 
-services.caddy = {
-    virtualHosts = {
-        ":60847" = {
-            extraConfig = ''
-			    reverse_proxy :60845
-				encode gzip zstd
-			'';
-		};
-    };
-};
+4. The code for Haven Relay is as follows:
+
+```nix
+sovran_systemsOS.features.haven = true;
+```
+
+5. The code for Element Calling is as follows:
+
+```nix
+sovran_systemsOS.features.element-calling = true;
+```
+
+6. The code for Gnome Remote Desktop is as follows:
+
+```nix
+sovran_systemsOS.features.rdp = true;
 ```
