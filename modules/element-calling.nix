@@ -2,8 +2,12 @@
 
 {
 
-  imports = lib.optional config.sovran_systemsOS.features.element-calling
-    ./personalization.nix;
+  let
+    personalization =
+      if config.sovran_systemsOS.features.element-calling
+      then import ./personalization.nix
+      else {};
+  in
 
   systemd.tmpfiles.rules = lib.mkIf config.sovran_systemsOS.features.element-calling [
     "d /var/lib/domains/element-calling 0750 caddy php -"
