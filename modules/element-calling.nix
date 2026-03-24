@@ -6,7 +6,7 @@ personalization = import ./personalization.nix;
 
 in
   
-{
+lib.mkIf config.sovran_systemsOS.features.element-calling {
 
   systemd.tmpfiles.rules = [
     "d /var/lib/domains/element-calling 0750 caddy php -"
