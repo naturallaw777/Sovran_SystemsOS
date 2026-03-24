@@ -6,38 +6,36 @@ in
 
 lib.mkIf config.sovran_systemsOS.features.element-calling {
 
-  systemd.tmpfiles.rules = [
-    "d /var/lib/domains/element-calling 0750 caddy php -"
-  ];
-
   ####### CADDY CONFIGS #######
-  "${personalization.matrix_url}" = lib.mkForce {
-    extraConfig = ''
-      reverse_proxy /_matrix/* http://localhost:8008
-      reverse_proxy /_synapse/client/* http://localhost:8008
-      header /.well-known/matrix/* Content-Type "application/json"
-      header /.well-known/matrix/* Access-Control-Allow-Origin "*"
-      header /.well-known/matrix/* Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
-      header /.well-known/matrix/* Access-Control-Allow-Headers "X-Requested-With, Content-Type, Authorization"
-      respond /.well-known/matrix/client `{ "m.homeserver": {"base_url": "https://${personalization.matrix_url}" }, "org.matrix.msc4143.rtc_foci": [{ "type":"livekit", "livekit_service_url":"https://${personalization.element-calling_url}/livekit/jwt" }] }`
-    '';
-  };
+  services.caddy.virtualHosts = lib.mkForce {
+    "${personalization.matrix_url}" = {
+      extraConfig = ''
+        reverse_proxy /_matrix/* http://localhost:8008
+        reverse_proxy /_synapse/client/* http://localhost:8008
+        header /.well-known/matrix/* Content-Type "application/json"
+        header /.well-known/matrix/* Access-Control-Allow-Origin "*"
+        header /.well-known/matrix/* Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+        header /.well-known/matrix/* Access-Control-Allow-Headers "X-Requested-With, Content-Type, Authorization"
+        respond /.well-known/matrix/client `{ "m.homeserver": {"base_url": "https://${personalization.matrix_url}" }, "org.matrix.msc4143.rtc_foci": [{ "type":"livekit", "livekit_service_url":"https://${personalization.element-calling_url}/livekit/jwt" }] }`
+      '';
+    };
 
-  "${personalization.element-calling_url}" = lib.mkForce {
-    extraConfig = ''
-      handle /livekit/jwt/sfu/get {
-        uri strip_prefix /livekit/jwt
-        reverse_proxy [::1]:8073 {
-          header_up Host {host}
-          header_up X-Forwarded-Server {host}
-          header_up X-Real-IP {remote_host}
-          header_up X-Forwarded-For {remote_host}
+    "${personalization.element-calling_url}" = {
+      extraConfig = ''
+        handle /livekit/jwt/sfu/get {
+          uri strip_prefix /livekit/jwt
+          reverse_proxy [::1]:8073 {
+            header_up Host {host}
+            header_up X-Forwarded-Server {host}
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-For {remote_host}
+          }
         }
-      }
-      handle {
-        reverse_proxy localhost:7880
-      }
-    '';
+        handle {
+          reverse_proxy localhost:7880
+        }
+      '';
+    };
   };
 
   ####### LIVEKIT SERVICE #######
