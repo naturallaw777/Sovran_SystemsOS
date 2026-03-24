@@ -7,7 +7,7 @@ in
 lib.mkIf config.sovran_systemsOS.features.element-calling {
 
   ####### SYSTEMD TMPFILES #######
-  systemd.tmpfiles.rules = [
+  systemd.tmpfiles.rules = lib.mkIf config.sovran_systemsOS.features.element-calling [
     "d /var/lib/domains/element-calling 0750 caddy php -"
   ];
 
