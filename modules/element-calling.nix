@@ -1,6 +1,8 @@
 { config, pkgs, lib, ... }:
 
-imports = lib.optional config.sovran_systemsOS.features.element-calling
+{
+
+  imports = lib.optional config.sovran_systemsOS.features.element-calling
     ./personalization.nix;
 
   systemd.tmpfiles.rules = lib.mkIf config.sovran_systemsOS.features.element-calling [
