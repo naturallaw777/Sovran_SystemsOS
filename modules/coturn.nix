@@ -4,7 +4,7 @@ let
 	personalization = import ./personalization.nix;
 	
 	in
-{
+lib.mkIf config.sovran_systemsOS.features.coturn {
 
 	systemd.services.coturn-helper = {
 	  

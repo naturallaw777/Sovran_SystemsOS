@@ -10,7 +10,7 @@
 let
 	personalization = import ./personalization.nix;
 in
-{
+lib.mkIf config.sovran_systemsOS.features.synapse {
 	services.matrix-synapse = {
 		enable = true;
 		settings = {
