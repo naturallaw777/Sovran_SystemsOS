@@ -1,14 +1,10 @@
 { config, pkgs, lib, ... }:
 
-let
-  personalization = import ./personalization.nix;
-in
+imports = lib.optional config.sovran_systemsOS.features.element-calling
+    ./personalization.nix;
 
-lib.mkIf config.sovran_systemsOS.features.element-calling {
-
-  ####### SYSTEMD TMPFILES: create directories automatically #######
-  systemd.tmpfiles.rules = [
-    ''d /var/lib/domains/element-calling 0750 caddy php -''
+  systemd.tmpfiles.rules = lib.mkIf config.sovran_systemsOS.features.element-calling [
+    "d /var/lib/domains/element-calling 0750 caddy php -"
   ];
 
   ####### CADDY CONFIGS #######
