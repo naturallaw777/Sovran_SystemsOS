@@ -44,6 +44,9 @@
 			
 		inherit system;
 
+    specialArgs = {
+      inherit bip110;
+    };
 
 		};
 		
@@ -64,11 +67,9 @@
  			];
 			
 			environment.systemPackages = with pkgs; [
-				
-        btc-clients.packages.x86_64-linux.bisq
+				btc-clients.packages.x86_64-linux.bisq
 				btc-clients.packages.x86_64-linux.bisq2
 				btc-clients.packages.x86_64-linux.sparrow
-
 			];
 
 		};
