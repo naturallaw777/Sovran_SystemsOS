@@ -11,13 +11,17 @@
 
 # Sovran_SystemsOS
 
-**A declarative, self-hosted operating system built on NixOS.**
+### The Officaly Repository of Sovran_SystemsOS and the Sovran Pro
+
+**A declarative, self-hosted server and desktop operating system built on NixOS by [https://sovransytems.com](Sovran Systems)**
 
 ---
 
 ## Overview
 
 Sovran_SystemsOS is a fully integrated NixOS configuration that transforms a single machine into a personal cloud, communications hub, Bitcoin node, web server, and **daily-use desktop** — all managed declaratively.
+
+**It comes preinstalled on The Sovran Pro***
 
 Every service is pre-wired: reverse proxy routing, database initialization, firewall rules, automated backups, and inter-service communication are handled out of the box. Moreover, you can activate the other custom packages; the system does the rest.
 
@@ -143,7 +147,7 @@ Forward each port to the **private IP address** of your Sovran_SystemsOS machine
 
 ## Installation
 
-### Full Guide
+### Full Guide (A bit outdated as of now... will be working on a smoother DIY soon)
 
 👉 [DIY Install Sovran_SystemsOS](https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS/src/branch/main/DIY%20Install%20Sovran_SystemsOS.md)
 
