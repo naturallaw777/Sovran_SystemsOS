@@ -157,6 +157,10 @@ in
 		element-desktop
 		wp-cli
     axel
+    lk-jwt-service
+    livekit-libwebrtc
+    livekit-cli
+    livekit
 	];
 
 	programs.nixvim = {
