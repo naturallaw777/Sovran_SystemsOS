@@ -67,8 +67,7 @@
           btc-clients.packages.${pkgs.system}.sparrow
         ];
 
-      sovran_systemsOS.bip110.package =
-        bip110.packages.${pkgs.system}.bitcoind-knots-bip-110;
+      sovran_systemsOS.packages.bip110 = bip110.packages.${system}.bitcoind-knots-bip-110;
       };
     };
   };
