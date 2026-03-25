@@ -1,6 +1,8 @@
 ## Custom Add-ons for Sovran_SystemsOS and The Sovran Pro
 
-Add-ons are extra features you can have enabled before your Sovran Pro is shipped to you or you can enable them yourself. 
+Add-ons are extra features you can have enabled before your Sovran Pro is shipped to you or you can enable them yourself.
+
+## The information about each Feature
 
 1. Since Sovran_SystemsOS runs Bitcoin Knots by default as opposed to Bitcion Core, you can customize your Sovran Pro's Bitcoin node to run Bitcoin Core.
 
@@ -29,9 +31,11 @@ https://gitlab.gnome.org/GNOME/gnome-remote-desktop
 
 ---
 
-#### The code (Features) below will be put into the `custom.nix` file located at `/etc/nixos/custom.nix` from the initial setup.
+## The DIY for each Feature
 
-If you would like to enable these features yourself after you have recived your Sovran Pro, then open the *terminal* app and type or paste in
+All code belongs in the `custom.nix` file located at `/etc/nixos/custom.nix`.
+
+If you would like to enable these features yourself after you have received your Sovran Pro, then open the *terminal* app and type or paste in
 
 ```bash
 ssh root@localhost
@@ -46,7 +50,7 @@ nano /etc/nixos/custom.nix
 ```
 Then press enter.
 
-Next type or paste the codes below *(Sovran_SystemsOS Features)* into the termainl/nano window.
+Next type or paste the codes below *(Code for each Feature)* each on their own line into the termainl/nano window right above the last `}`
 
 Once done, press `ctr s` then `ctr x` to save and exit.
 
@@ -64,7 +68,7 @@ reboot
 
 ---
 
-### Sovran_SystemsOS Feature Set (All Features are off by default)
+## The code for each Feature (All Features are disabled by default)
 
 1. The code to enable Bitcoin Core is as follows:
 
