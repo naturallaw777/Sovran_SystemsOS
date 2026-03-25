@@ -10,13 +10,11 @@ lib.mkIf config.sovran_systemsOS.features.rdp {
     freerdp
   ];
 
+  # The NixOS module installs the unit but doesn't enable it — we just need to start it and order it
   systemd.services.gnome-remote-desktop = {
     wantedBy = [ "graphical.target" ];
-    after = [ "graphical.target" ];
-    serviceConfig = {
-      Restart = "on-failure";
-      RestartSec = 5;
-    };
+    after = [ "gnome-remote-desktop-setup.service" ];
+    wants = [ "gnome-remote-desktop-setup.service" ];
   };
 
   systemd.tmpfiles.rules = [
@@ -48,10 +46,29 @@ lib.mkIf config.sovran_systemsOS.features.rdp {
       mkdir -p /var/lib/gnome-remote-desktop/.local/share/gnome-remote-desktop
       chown -R gnome-remote-desktop:gnome-remote-desktop /var/lib/gnome-remote-desktop
 
+      TLS_DIR="/var/lib/gnome-remote-desktop/tls"
       CRED_FILE="/var/lib/gnome-remote-desktop/rdp-credentials"
-      PASSWORD=""
+
+      # Generate TLS certificate if it doesn't exist
+      if [ ! -f "$TLS_DIR/rdp-tls.crt" ]; then
+        mkdir -p "$TLS_DIR"
+        openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 \
+          -sha256 -nodes -days 3650 \
+          -keyout "$TLS_DIR/rdp-tls.key" \
+          -out "$TLS_DIR/rdp-tls.crt" \
+          -subj "/CN=gnome-remote-desktop"
+        chown -R gnome-remote-desktop:gnome-remote-desktop "$TLS_DIR"
+        chmod 600 "$TLS_DIR/rdp-tls.key"
+        chmod 644 "$TLS_DIR/rdp-tls.crt"
+        echo "Generated RDP TLS certificate"
+      fi
+
+      # Configure TLS certificate
+      grdctl --system rdp set-tls-cert "$TLS_DIR/rdp-tls.crt"
+      grdctl --system rdp set-tls-key "$TLS_DIR/rdp-tls.key"
 
       # Generate password on first boot only
+      PASSWORD=""
       if [ ! -f /var/lib/gnome-remote-desktop/rdp-password ]; then
         PASSWORD=$(openssl rand -base64 16)
         echo "$PASSWORD" > /var/lib/gnome-remote-desktop/rdp-password
@@ -83,6 +100,8 @@ lib.mkIf config.sovran_systemsOS.features.rdp {
       # Enable RDP backend and set credentials
       grdctl --system rdp enable
       grdctl --system rdp set-credentials sovran "$PASSWORD"
+
+      echo "GNOME Remote Desktop RDP configured successfully"
     '';
   };
 }
