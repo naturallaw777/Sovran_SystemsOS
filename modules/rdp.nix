@@ -41,6 +41,7 @@ lib.mkIf config.sovran_systemsOS.features.rdp {
       pkgs.polkit
       pkgs.openssl
       pkgs.hostname
+      pkgs.gawk
     ];
     script = ''
       # Ensure directory structure exists
