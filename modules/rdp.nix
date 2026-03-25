@@ -14,6 +14,7 @@ lib.mkIf config.sovran_systemsOS.features.rdp {
 
   environment.systemPackages = with pkgs; [
     freerdp
+    polkit
   ];
 
   systemd.services.gnome-remote-desktop-setup = {
@@ -44,10 +45,10 @@ lib.mkIf config.sovran_systemsOS.features.rdp {
       fi
 
       # Always ensure config is set (safe to re-run)
-      ${pkgs.gnome-remote-desktop}/bin/grdctl rdp set-tls-key "$KEY_FILE"
-      ${pkgs.gnome-remote-desktop}/bin/grdctl rdp set-tls-cert "$CRT_FILE"
-      ${pkgs.gnome-remote-desktop}/bin/grdctl rdp enable
-      ${pkgs.gnome-remote-desktop}/bin/grdctl rdp set-credentials "free" "a"
+      ${pkgs.gnome-remote-desktop}/bin/grdctl --system rdp set-tls-key "$KEY_FILE"
+      ${pkgs.gnome-remote-desktop}/bin/grdctl --system rdp set-tls-cert "$CRT_FILE"
+      ${pkgs.gnome-remote-desktop}/bin/grdctl --system rdp enable
+      ${pkgs.gnome-remote-desktop}/bin/grdctl --system rdp set-credentials "free" "a"
     '';
   };
 }
