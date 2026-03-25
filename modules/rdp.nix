@@ -19,10 +19,18 @@ lib.mkIf config.sovran_systemsOS.features.rdp {
     };
   };
 
+  systemd.tmpfiles.rules = [
+    "d /var/lib/gnome-remote-desktop 0750 gnome-remote-desktop gnome-remote-desktop -"
+    "d /var/lib/gnome-remote-desktop/.local 0750 gnome-remote-desktop gnome-remote-desktop -"
+    "d /var/lib/gnome-remote-desktop/.local/share 0750 gnome-remote-desktop gnome-remote-desktop -"
+    "d /var/lib/gnome-remote-desktop/.local/share/gnome-remote-desktop 0750 gnome-remote-desktop gnome-remote-desktop -"
+  ];
+
   systemd.services.gnome-remote-desktop-setup = {
     description = "Configure GNOME Remote Desktop RDP";
     wantedBy = [ "multi-user.target" ];
     before = [ "gnome-remote-desktop.service" ];
+    after = [ "systemd-tmpfiles-setup.service" ];
     serviceConfig = {
       Type = "oneshot";
       RemainAfterExit = true;
@@ -35,8 +43,8 @@ lib.mkIf config.sovran_systemsOS.features.rdp {
     script = ''
       # Generate a default password file if one doesn't exist
       if [ ! -f /var/lib/gnome-remote-desktop/rdp-password ]; then
-        mkdir -p /var/lib/gnome-remote-desktop
         openssl rand -base64 16 > /var/lib/gnome-remote-desktop/rdp-password
+        chown gnome-remote-desktop:gnome-remote-desktop /var/lib/gnome-remote-desktop/rdp-password
         chmod 600 /var/lib/gnome-remote-desktop/rdp-password
         echo "Generated new RDP password at /var/lib/gnome-remote-desktop/rdp-password"
       fi
