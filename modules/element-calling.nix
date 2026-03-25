@@ -42,7 +42,6 @@ lib.mkIf config.sovran_systemsOS.features.element-calling {
   services.livekit = {
     enable = true;
     openFirewall = true;
-    package = pkgs.livekit;
     settings = {
       rtc.use_external_ip = true;
       rtc.udp_port = "7882-7894";
@@ -68,7 +67,6 @@ lib.mkIf config.sovran_systemsOS.features.element-calling {
 
   services.lk-jwt-service = {
     enable = true;
-    package = pkgs.lk-jwt-service;
     port = 8073;
     livekitUrl = "wss://${personalization.element-calling_url}";
     keyFile = "/var/lib/livekit/livekit_keyFile";
