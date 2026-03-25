@@ -64,6 +64,11 @@ lib.mkIf config.sovran_systemsOS.features.element-calling {
   ];
 
   ####### JWT SERVICE #######
+  
+  environment.systemPackages = with pkgs; [
+    lk-jwt-service 
+  ];
+
   services.lk-jwt-service = {
     enable = true;
     port = 8073;
