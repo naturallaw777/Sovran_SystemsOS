@@ -21,7 +21,7 @@
 
 	};
 
-	outputs = { self, nixpkgs, nix-bitcoin, nixvim, agenix, btc-clients, nixpkgs-stable, bip110, ... }: 
+	outputs = { self, nixpkgs, nix-bitcoin, nixvim, agenix, btc-clients, nixpkgs-stable, bip110, ... }@attrs: 
 
 	let 
 		
@@ -44,6 +44,8 @@
 	  nixosConfigurations.nixos = nixpkgs.lib.nixosSystem {
 			
 		  inherit system;
+
+      specialArgs = attrs;
   
     };
 		
