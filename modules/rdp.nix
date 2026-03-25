@@ -43,16 +43,20 @@ lib.mkIf config.sovran_systemsOS.features.rdp {
       pkgs.hostname
     ];
     script = ''
+      # Ensure directory structure exists
+      mkdir -p /var/lib/gnome-remote-desktop/.local/share/gnome-remote-desktop
+      chown -R gnome-remote-desktop:gnome-remote-desktop /var/lib/gnome-remote-desktop
+
       CRED_FILE="/var/lib/gnome-remote-desktop/rdp-credentials"
       PASSWORD=""
 
       # Generate password on first boot only
-      if [ ! -f "$CRED_FILE" ]; then
+      if [ ! -f /var/lib/gnome-remote-desktop/rdp-password ]; then
         PASSWORD=$(openssl rand -base64 16)
         echo "$PASSWORD" > /var/lib/gnome-remote-desktop/rdp-password
         chmod 600 /var/lib/gnome-remote-desktop/rdp-password
       else
-        PASSWORD=$(grep "Password:" "$CRED_FILE" | awk '{print $2}')
+        PASSWORD=$(cat /var/lib/gnome-remote-desktop/rdp-password)
       fi
 
       # Get current IP address
