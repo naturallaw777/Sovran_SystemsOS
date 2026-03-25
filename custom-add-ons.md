@@ -65,26 +65,19 @@ sovran_systemsOS.features.element-calling = lib.mkForce true;
 ```nix
 sovran_systemsOS.features.rdp = lib.mkForce true;
 ```
-Next in a new termianl window paste this in:
+Next, in a open the terminal app and in the new window paste this in:
 
 ```bash
 ssh root@localhost
 ```
+Press enter
+
 Type in the password if required. It will be the same password to run the Sovran_SystemsOS_Updater app.
 
-Next paste in these commands and make sure you add your own username and password
+Last, paste in this command to see the log in information to log in from any RDP client software (i.e. Remmina) from any computer on your home network
 ```bash
-sudo -u gnome-remote-desktop winpr-makecert -silent -rdp -path /var/lib/gnome-remote-desktop rdp-tls
-grdctl --system rdp set-tls-key /var/lib/gnome-remote-desktop/rdp-tls.key
-grdctl --system rdp set-tls-cert /var/lib/gnome-remote-desktop/rdp-tls.crt
-grdctl --system rdp enable
-grdctl --system rdp set-credentials "custom-username" "custom-password"
+cat /var/lib/gnome-remote-desktop/rdp-credentials
 ```
-Next restart Gnome-Remote-Desktop
-```bash
-systemctl restart gnome-remote-desktop
-```
-Last access Sovran_SystemsOS Desktop from any computer in your nextwork by using any software client that can connectsthrough RDP service.
 
 
 
