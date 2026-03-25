@@ -17,51 +17,58 @@
 
 		nixpkgs-stable.url = "github:nixos/nixpkgs/nixos-24.11";
 
-    bip110.url = "github:emmanuelrosa/bitcoin-knots-bip-110-nix";
+		bip110.url = "github:emmanuelrosa/bitcoin-knots-bip-110-nix";
 
 	};
 
-  outputs = { self, nixpkgs, nix-bitcoin, nixvim, agenix, btc-clients, nixpkgs-stable, bip110, ... }:
+	outputs = { self, nixpkgs, nix-bitcoin, nixvim, agenix, btc-clients, nixpkgs-stable, bip110, ... }:
 
-  let
+	let
 
-    overlay-stable = final: prev: {
-      stable = import nixpkgs-stable {
-        system = prev.stdenv.hostPlatform.system;
-        config.allowUnfree = true;
-      };
-    };
+		overlay-stable = final: prev: {
 
-  in
+			stable = import nixpkgs-stable {
+				system = prev.stdenv.hostPlatform.system;
+				config.allowUnfree = true;
 
-  {
+			};
 
-    nixosConfigurations.nixos = nixpkgs.lib.nixosSystem {
-      system = "x86_64-linux";
-    };
+		};
 
-    nixosModules.Sovran_SystemsOS = { pkgs, lib, config, ... }: {
+	in
 
-      imports = [
-        ({ config, pkgs, ... }: {
-          nixpkgs.overlays = [ overlay-stable ];
-        })
+	{ 
+		
+		nixosConfigurations.nixos = nixpkgs.lib.nixosSystem {
+			
+			modules = [
+				{ nixpkgs.hostPlatform = "x86_64-linux"; }
+			];
+		
+		};
+		
+		nixosModules.Sovran_SystemsOS = { pkgs, lib, config, ... }: {
 
-        ./configuration.nix
-        nix-bitcoin.nixosModules.default
-        agenix.nixosModules.default
-        nixvim.nixosModules.nixvim
-      ];
+			imports = [
+				({ config, pkgs, ... }: {
+					nixpkgs.overlays = [ overlay-stable ];
+				})
 
-      config = {
-        environment.systemPackages = with pkgs; [
-          btc-clients.packages.${pkgs.system}.bisq
-          btc-clients.packages.${pkgs.system}.bisq2
-          btc-clients.packages.${pkgs.system}.sparrow
-        ];
+				./configuration.nix
+				nix-bitcoin.nixosModules.default
+				agenix.nixosModules.default
+				nixvim.nixosModules.nixvim
+			];
 
-        sovran_systemsOS.packages.bip110 = bip110.packages.${pkgs.system}.bitcoind-knots-bip-110;
-      };
-    };
-  };
+			config = {
+				environment.systemPackages = with pkgs; [
+					btc-clients.packages.${pkgs.system}.bisq
+					btc-clients.packages.${pkgs.system}.bisq2
+					btc-clients.packages.${pkgs.system}.sparrow
+				];
+
+				sovran_systemsOS.packages.bip110 = bip110.packages.${pkgs.system}.bitcoind-knots-bip-110;
+			};
+		};
+	};
 }
