@@ -16,7 +16,7 @@ in
     cfg.features.bip110 &&
     cfg.packages.bip110 != null
   ) {
-    services.bitcoind.package = cfg.packages.bip110;
+    services.bitcoind.package = lib.mkForce cfg.packages.bip110;
 
     environment.systemPackages = [
       cfg.packages.bip110
