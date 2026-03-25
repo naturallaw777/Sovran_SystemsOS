@@ -39,40 +39,36 @@
 
 	in
 
-	{ 
+{ 
 		
-	  nixosConfigurations.nixos = nixpkgs.lib.nixosSystem {
+  nixosConfigurations.nixos = nixpkgs.lib.nixosSystem {
 			
-		  inherit system;
+	  inherit system;
   
-    };
+  };
 		
-    nixosModules.Sovran_SystemsOS = { pkgs, ... }: {
+  nixosModules.Sovran_SystemsOS = { pkgs, lib, config, ... }: {
 
-      imports = [
+    imports = [
+      ({ config, pkgs, ... }: {
+        nixpkgs.overlays = [ overlay-stable ];
+      })
 
-        ({ config, pkgs, ... }: { nixpkgs.overlays = [ overlay-stable ]; })
+      ./configuration.nix
+      nix-bitcoin.nixosModules.default
+      agenix.nixosModules.default
+      nixvim.nixosModules.nixvim
+    ];
 
-        ./configuration.nix
-
-        nix-bitcoin.nixosModules.default
-
-        agenix.nixosModules.default
-
-        nixvim.nixosModules.nixvim
-
+    config = {
+      environment.systemPackages = with pkgs; [
+        btc-clients.packages.${pkgs.system}.bisq
+        btc-clients.packages.${pkgs.system}.bisq2
+        btc-clients.packages.${pkgs.system}.sparrow
       ];
 
-      config = {
-        environment.systemPackages = with pkgs; [
-          btc-clients.packages.x86_64-linux.bisq
-          btc-clients.packages.x86_64-linux.bisq2
-          btc-clients.packages.x86_64-linux.sparrow
-        ]
-
-      sovran_systemsOS.bip110.package =
-          bip110.packages.${pkgs.system}.bitcoind-knots-bip-110;
-
+    sovran_systemsOS.bip110.package =
+      bip110.packages.${pkgs.system}.bitcoind-knots-bip-110;
     };
-	};
+  };
 }
