@@ -1,6 +1,9 @@
 { config, pkgs, lib, ... }:
 
-lib.mkIf config.sovran_systemsOS.features.rdp {
+let
+  cfg = config.sovran_systemsOS.features.rdp;
+in
+lib.mkIf cfg {
 
   services.gnome.gnome-remote-desktop.enable = true;
 
@@ -10,23 +13,24 @@ lib.mkIf config.sovran_systemsOS.features.rdp {
     freerdp
   ];
 
+  # Ensure correct directory ownership declaratively
+  systemd.tmpfiles.rules = [
+    "d /var/lib/gnome-remote-desktop 0700 gnome-remote-desktop gnome-remote-desktop -"
+  ];
+
+  # 🔹 Single unified setup service
   systemd.services.gnome-remote-desktop-setup = {
-    description = "GNOME Remote Desktop RDP Setup";
-    
+    description = "GNOME Remote Desktop (TLS + RDP config)";
+
     wantedBy = [ "multi-user.target" ];
 
-    after = [
-      "gnome-remote-desktop.service"
-    ];
-
-    requires = [
-      "gnome-remote-desktop.service"
-    ];
+    # Run AFTER daemon is up, but don't fail if it isn't
+    after = [ "gnome-remote-desktop.service" ];
+    wants = [ "gnome-remote-desktop.service" ];
 
     serviceConfig = {
       Type = "oneshot";
       RemainAfterExit = true;
-
     };
 
     script = ''
@@ -36,49 +40,37 @@ lib.mkIf config.sovran_systemsOS.features.rdp {
       KEY_FILE=$CERT_DIR/rdp-tls.key
       CRT_FILE=$CERT_DIR/rdp-tls.crt
 
+      echo "[GRD] Ensuring TLS cert exists..."
+
       if [ ! -f "$KEY_FILE" ]; then
-        echo "Generating RDP TLS certificate..."
-
-        ${pkgs.freerdp}/bin/winpr-makecert -silent -rdp \
+        ${pkgs.util-linux}/bin/runuser -u gnome-remote-desktop -- \
+          ${pkgs.freerdp}/bin/winpr-makecert -silent -rdp \
           -path "$CERT_DIR" rdp-tls
-
-        chown gnome-remote-desktop:gnome-remote-desktop $CERT_DIR/*
       fi
 
-      # Configure RDP
-      ${pkgs.gnome-remote-desktop}/bin/grdctl --system rdp set-tls-key "$KEY_FILE"
-      ${pkgs.gnome-remote-desktop}/bin/grdctl --system rdp set-tls-cert "$CRT_FILE"
-      ${pkgs.gnome-remote-desktop}/bin/grdctl --system rdp enable
+      echo "[GRD] Waiting for daemon..."
 
-      # Only set credentials if not already set
-      if ! ${pkgs.gnome-remote-desktop}/bin/grdctl rdp show | grep -q "username"; then
+      # Wait for GRD to be responsive (prevents race condition)
+      for i in $(seq 1 10); do
+        if ${pkgs.gnome-remote-desktop}/bin/grdctl rdp show >/dev/null 2>&1; then
+          break
+        fi
+        sleep 1
+      done
+
+      echo "[GRD] Applying configuration..."
+
+      ${pkgs.gnome-remote-desktop}/bin/grdctl rdp set-tls-key "$KEY_FILE"
+      ${pkgs.gnome-remote-desktop}/bin/grdctl rdp set-tls-cert "$CRT_FILE"
+      ${pkgs.gnome-remote-desktop}/bin/grdctl rdp enable
+
+      # Idempotent credential setup
+      if ! ${pkgs.gnome-remote-desktop}/bin/grdctl rdp show | grep -q username; then
         ${pkgs.gnome-remote-desktop}/bin/grdctl rdp set-credentials "free" "a"
       fi
+
+      echo "[GRD] Setup complete"
     '';
   };
-  
-  systemd.services.gnome-remote-desktop-permission = {
-      description = "GNOME Remote Desktop File Permission";
-      
-      wantedBy = [ "multi-user.target" ];
-
-      after = [
-        "gnome-remote-desktop.service"
-      ];
-
-      requires = [
-        "gnome-remote-desktop.service"
-      ];
-
-      serviceConfig = {
-        Type = "oneshot";
-        RemainAfterExit = true;
-
-      };
-
-      script = ''
-        chown gnome-remote-desktop:gnome-remote-desktop /var/lib/gnome-remote-desktop -R
-      '';
-    };
 
 }
