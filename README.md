@@ -95,7 +95,7 @@ No unnecessary services run. No wasted resources.
 | **Messaging** | Element/Matrix Synapse | Federated, decentralized messaging backend |
 | **Video/Voice Calling** | Element Video and Voice Calling | Decentralized Voice Over IP for Matrix with optional TURN/STUN |
 | **Bitcoin** | Bitcoin Core / Knots | **Full node with optional BIP-110 consensus policy** |
-| **Bitcoin Lightning** | LND Full node connected over TOR |
+| **Bitcoin Lightning** | LND | Full LND Node Connected over Tor intergrated into BTCPay Server |
 | **Payments** | BTCPay Server | Self-hosted Bitcoin payment processor |
 | **Explorer** | Mempool | Bitcoin mempool visualizer and block explorer |
 | **Nostr** | Haven | Nostr relay server |
@@ -116,7 +116,7 @@ No unnecessary services run. No wasted resources.
 - **Automated backups** via rsnapshot
 - **Scheduled maintenance** via systemd timers
 - **Database initialization** handled declaratively
-- **Reproducible builds** — the entire system is defined in code and can be rebuilt or migrated to new hardware at any time
+- **Reproducible builds** — the main system is defined in code and can be rebuilt to match most systems
 
 ---
 
@@ -156,7 +156,7 @@ Forward each port to the **private IP address** of your Sovran_SystemsOS machine
 | CPU | 4 cores | 8+ cores |
 | RAM | 16 GB | 32+ GB |
 | Storage | 512 GB SSD + 4 TB SSD | 2GB SSD + 4+ TB SSD (Bitcoin node requires significant disk) |
-| Network | 100Mbs Down 20Mbs Up + No need for DDNS if domains are brought through https://njal.la | 1Gbs Up and 1 Gbs Down + No need for DDNS if domains are brought through https://njal.la  |
+| Network | 100 Mbs Down/20 Mbs Up + No need for DDNS if domains are brought through https://njal.la | 1 Gbs Down/1 Gbs Up + No need for DDNS if domains are brought through https://njal.la  |
 
 ---
 
