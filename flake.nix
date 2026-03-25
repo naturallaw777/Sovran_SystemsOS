@@ -64,15 +64,15 @@
       ];
 
       config = {
-        sovran_systemsOS.bip110.package =
+        environment.systemPackages = with pkgs; [
+          btc-clients.packages.x86_64-linux.bisq
+          btc-clients.packages.x86_64-linux.bisq2
+          btc-clients.packages.x86_64-linux.sparrow
+        ]
+
+      sovran_systemsOS.bip110.package =
           bip110.packages.${pkgs.system}.bitcoind-knots-bip-110;
-      };
-      
-      environment.systemPackages = with pkgs; [
-        btc-clients.packages.x86_64-linux.bisq
-        btc-clients.packages.x86_64-linux.bisq2
-        btc-clients.packages.x86_64-linux.sparrow
-      ];
+
     };
 	};
 }
