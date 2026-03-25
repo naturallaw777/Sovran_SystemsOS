@@ -77,7 +77,11 @@ sudo -u gnome-remote-desktop winpr-makecert -silent -rdp -path /var/lib/gnome-re
 grdctl --system rdp set-tls-key /var/lib/gnome-remote-desktop/rdp-tls.key
 grdctl --system rdp set-tls-cert /var/lib/gnome-remote-desktop/rdp-tls.crt
 grdctl --system rdp enable
-grdctl --system rdp set-credentials "username" "passaword"
+grdctl --system rdp set-credentials "custom-username" "custom-password"
+```
+Next restart Gnome-Remote-Desktop
+```bash
+systemctl restart gnome-remote-desktop
 ```
 Last access Sovran_SystemsOS Desktop from any computer in your nextwork by using any software client that can connectsthrough RDP service.
 
