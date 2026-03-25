@@ -26,6 +26,10 @@
 	let 
 		system = "x86_64-linux";
 
+    specialArgs = {
+      inherit bip110;
+    };
+
 		overlay-stable = final: prev: {
 
 			stable = import nixpkgs-stable {
@@ -43,10 +47,6 @@
 	nixosConfigurations.nixos = nixpkgs.lib.nixosSystem {
 			
 		inherit system;
-
-    specialArgs = {
-      inherit bip110;
-    };
 
 		};
 		

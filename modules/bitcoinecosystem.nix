@@ -1,4 +1,4 @@
-{ config, pkgs, lib, bip110, ... }:
+{ config, pkgs, lib, ... }:
 
 lib.mkIf config.sovran_systemsOS.features.bitcoin {
 	
