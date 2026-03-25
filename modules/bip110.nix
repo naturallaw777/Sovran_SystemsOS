@@ -2,6 +2,6 @@
 
 lib.mkIf config.sovran_systemsOS.features.bip110 {
 
-  services.bitcoind.package = lib.mkForce bip110.packages.x86_64-linux.bitcoind-knots-bip-110;
+  services.bitcoind.package = bip110.packages.x86_64-linux.bitcoind-knots-bip-110;
 
 }
