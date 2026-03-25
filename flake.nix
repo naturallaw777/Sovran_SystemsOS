@@ -67,7 +67,7 @@
         btc-clients.packages.x86_64-linux.bisq
         btc-clients.packages.x86_64-linux.bisq2
         btc-clients.packages.x86_64-linux.sparrow
-        bip110.packages.x86_64-linux.bitcoind-knots-bip-110;
+        bip110.packages.x86_64-linux.bitcoind-knots-bip-110
       ];
     };
 	};
