@@ -107,7 +107,7 @@ lib.mkIf (config.sovran_systemsOS.features.haven && npub != "") {
   ];
 
   systemd.services.haven-whitelist-setup = {
-    description = "Ensure Haven whitelisted_npubs.json exists";
+    description = "Ensure Haven whitelisted_npubs.json is valid";
     wantedBy = [ "multi-user.target" ];
     before = [ "haven.service" ];
     serviceConfig = {
@@ -115,10 +115,14 @@ lib.mkIf (config.sovran_systemsOS.features.haven && npub != "") {
       RemainAfterExit = true;
     };
     script = ''
-      if [ ! -f /var/lib/haven/whitelisted_npubs.json ]; then
-        echo '[]' > /var/lib/haven/whitelisted_npubs.json
-        chown haven:haven /var/lib/haven/whitelisted_npubs.json
-        chmod 770 /var/lib/haven/whitelisted_npubs.json
+      FILE="/var/lib/haven/whitelisted_npubs.json"
+      if [ ! -s "$FILE" ] || ! ${pkgs.jq}/bin/jq empty "$FILE" 2>/dev/null; then
+        echo '[]' > "$FILE"
+        chown haven:haven "$FILE"
+        chmod 770 "$FILE"
+        echo "Wrote valid empty JSON array to $FILE"
+      else
+        echo "$FILE already contains valid JSON, skipping"
       fi
     '';
   };
