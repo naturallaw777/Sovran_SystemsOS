@@ -24,11 +24,8 @@
 	outputs = { self, nixpkgs, nix-bitcoin, nixvim, agenix, btc-clients, nixpkgs-stable, bip110, ... }: 
 
 	let 
-		system = "x86_64-linux";
-
-    specialArgs = {
-      inherit bip110;
-    };
+		
+    system = "x86_64-linux";
 
 		overlay-stable = final: prev: {
 
@@ -48,7 +45,7 @@
 			
 		inherit system;
 
-		};
+    specialArgs = attrs;
 		
 		nixosModules.Sovran_SystemsOS = { pkgs, ... }: {
 
