@@ -10,10 +10,10 @@
 	outputs = { self, Sovran_Systems, ... }@inputs: {
 		
 		nixosConfigurations."nixos" = Sovran_Systems.inputs.nixpkgs.lib.nixosSystem {
-			
-			system = "x86_64-linux";
  			
  			modules = [ 
+
+				{ nixpkgs.hostPlatform = "x86_64-linux"; }
 
  				./hardware-configuration.nix
 
