@@ -79,7 +79,7 @@ grdctl --system rdp set-tls-cert /var/lib/gnome-remote-desktop/rdp-tls.crt
 grdctl --system rdp enable
 grdctl --system rdp set-credentials "username" "passaword"
 ```
-Last access Sovran_SystemsOS Desktop from any computer in your nextwork by using any software that connects thrthrough RDP
+Last access Sovran_SystemsOS Desktop from any computer in your nextwork by using any software client that can connectsthrough RDP service.
 
 
 
