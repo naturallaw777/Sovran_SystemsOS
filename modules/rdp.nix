@@ -3,32 +3,43 @@
 lib.mkIf config.sovran_systemsOS.features.rdp {
 
   services.gnome.gnome-remote-desktop.enable = true;
-  
-  systemd.services.gnome-remote-desktop = { 
-    wantedBy = [ "graphical.target" ]; # for starting the unit automatically at boot
-  };
-  
-  services.displayManager.autoLogin.enable = lib.mkForce false;
-  
+
   networking.firewall.allowedTCPPorts = [ 3389 ];
 
   environment.systemPackages = with pkgs; [
     freerdp
-    polkit
   ];
 
+  # Ensure GNOME remote desktop user exists properly
+  users.users.gnome-remote-desktop = {
+    isSystemUser = true;
+    group = "gnome-remote-desktop";
+  };
+
+  users.groups.gnome-remote-desktop = {};
+
   systemd.services.gnome-remote-desktop-setup = {
-    description = "Initialize GNOME Remote Desktop RDP TLS and config";
+    description = "GNOME Remote Desktop RDP Setup (declarative)";
+    
     wantedBy = [ "multi-user.target" ];
-    after = [ "gnome-remote-desktop.service" ];
+
+    after = [
+      "gnome-remote-desktop.service"
+    ];
+
+    requires = [
+      "gnome-remote-desktop.service"
+    ];
 
     serviceConfig = {
       Type = "oneshot";
+      RemainAfterExit = true;
+
       StateDirectory = "gnome-remote-desktop";
     };
 
     script = ''
-      set -e
+      set -euo pipefail
 
       CERT_DIR=/var/lib/gnome-remote-desktop
       KEY_FILE=$CERT_DIR/rdp-tls.key
@@ -37,18 +48,21 @@ lib.mkIf config.sovran_systemsOS.features.rdp {
       if [ ! -f "$KEY_FILE" ]; then
         echo "Generating RDP TLS certificate..."
 
-        runuser -u gnome-remote-desktop -- \
-          ${pkgs.freerdp}/bin/winpr-makecert -silent -rdp \
+        ${pkgs.freerdp}/bin/winpr-makecert -silent -rdp \
           -path "$CERT_DIR" rdp-tls
-      else
-        echo "TLS key already exists, skipping generation"
+
+        chown gnome-remote-desktop:gnome-remote-desktop $CERT_DIR/*
       fi
 
-      # Always ensure config is set (safe to re-run)
-      ${pkgs.gnome-remote-desktop}/bin/grdctl --system rdp set-tls-key "$KEY_FILE"
-      ${pkgs.gnome-remote-desktop}/bin/grdctl --system rdp set-tls-cert "$CRT_FILE"
-      ${pkgs.gnome-remote-desktop}/bin/grdctl --system rdp enable
-      ${pkgs.gnome-remote-desktop}/bin/grdctl --system rdp set-credentials "free" "a"
+      # Configure RDP (no pkexec, no --system)
+      ${pkgs.gnome-remote-desktop}/bin/grdctl rdp set-tls-key "$KEY_FILE"
+      ${pkgs.gnome-remote-desktop}/bin/grdctl rdp set-tls-cert "$CRT_FILE"
+      ${pkgs.gnome-remote-desktop}/bin/grdctl rdp enable
+
+      # Only set credentials if not already set
+      if ! ${pkgs.gnome-remote-desktop}/bin/grdctl rdp show | grep -q "username"; then
+        ${pkgs.gnome-remote-desktop}/bin/grdctl rdp set-credentials "free" "a"
+      fi
     '';
   };
 }
