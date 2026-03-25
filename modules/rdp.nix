@@ -44,10 +44,10 @@ lib.mkIf config.sovran_systemsOS.features.rdp {
       fi
 
       # Always ensure config is set (safe to re-run)
-      ${pkgs.gnome.gnome-remote-desktop}/bin/grdctl --system rdp set-tls-key "$KEY_FILE"
-      ${pkgs.gnome.gnome-remote-desktop}/bin/grdctl --system rdp set-tls-cert "$CRT_FILE"
-      ${pkgs.gnome.gnome-remote-desktop}/bin/grdctl --system rdp enable
-      ${pkgs.gnome.gnome-remote-desktop}/bin/grdctl --system rdp set-credentials "free" "a"
+      ${pkgs.gnome-remote-desktop}/bin/grdctl --system rdp set-tls-key "$KEY_FILE"
+      ${pkgs.gnome-remote-desktop}/bin/grdctl --system rdp set-tls-cert "$CRT_FILE"
+      ${pkgs.gnome-remote-desktop}/bin/grdctl --system rdp enable
+      ${pkgs.gnome-remote-desktop}/bin/grdctl --system rdp set-credentials "free" "a"
     '';
   };
 }
