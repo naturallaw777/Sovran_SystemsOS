@@ -4,13 +4,22 @@ let
   cfg = config.sovran_systemsOS;
 in
 {
-  config = lib.mkIf (cfg.features.bip110 && cfg.bip110.package != null) {
+  # ✅ Option definition
+  options.sovran_systemsOS.packages.bip110 = lib.mkOption {
+    type = lib.types.nullOr lib.types.package;
+    default = null;
+    description = "BIP110 Bitcoin package";
+  };
 
-    services.bitcoind.package = cfg.bip110.package;
+  # ✅ Implementation
+  config = lib.mkIf (
+    cfg.features.bip110 &&
+    cfg.packages.bip110 != null
+  ) {
+    services.bitcoind.package = cfg.packages.bip110;
 
-    # Optional: also expose it in system packages if desired
     environment.systemPackages = [
-      cfg.bip110.package
+      cfg.packages.bip110
     ];
   };
 }
