@@ -13,7 +13,7 @@
 
 ### The Officaly Repository of Sovran_SystemsOS and the Sovran Pro
 
-**A declarative, self-hosted server and desktop operating system built on NixOS by [Sovran Systems](https://sovransytems.com)**
+**A declarative, self-hosted server and desktop operating system built on NixOS by [Sovran Systems](https://sovransystems.com)**
 
 ---
 
