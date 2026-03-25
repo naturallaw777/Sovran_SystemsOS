@@ -19,7 +19,7 @@ lib.mkIf config.sovran_systemsOS.features.rdp {
   users.groups.gnome-remote-desktop = {};
 
   systemd.services.gnome-remote-desktop-setup = {
-    description = "GNOME Remote Desktop RDP Setup (declarative)";
+    description = "GNOME Remote Desktop RDP Setup";
     
     wantedBy = [ "multi-user.target" ];
 
@@ -35,7 +35,6 @@ lib.mkIf config.sovran_systemsOS.features.rdp {
       Type = "oneshot";
       RemainAfterExit = true;
 
-      StateDirectory = "gnome-remote-desktop";
     };
 
     script = ''
