@@ -2,9 +2,44 @@
 
 let
   personalization = import ./personalization.nix;
+  livekitKeyFile = "/var/lib/livekit/livekit_keyFile";
 in
 
 lib.mkIf config.sovran_systemsOS.features.element-calling {
+
+  ####### LIVEKIT KEY GENERATION #######
+  systemd.tmpfiles.rules = [
+    "d /var/lib/livekit 0750 root root -"
+  ];
+
+  systemd.services.livekit-key-setup = {
+    description = "Generate LiveKit key file if missing";
+    wantedBy = [ "multi-user.target" ];
+    before = [ "livekit.service" "lk-jwt-service.service" ];
+    requires = [];
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+    };
+    path = [ pkgs.openssl ];
+    script = ''
+      if [ ! -f ${livekitKeyFile} ]; then
+        API_KEY="devkey_$(openssl rand -hex 16)"
+        API_SECRET="$(openssl rand -base64 36 | tr -d '\n')"
+        echo "$API_KEY: $API_SECRET" > ${livekitKeyFile}
+        chmod 600 ${livekitKeyFile}
+        echo "LiveKit key file generated at ${livekitKeyFile}"
+      else
+        echo "LiveKit key file already exists, skipping generation"
+      fi
+    '';
+  };
+
+  ####### ENSURE SERVICES START AFTER KEY EXISTS #######
+  systemd.services.livekit.after = [ "livekit-key-setup.service" ];
+  systemd.services.livekit.wants = [ "livekit-key-setup.service" ];
+  systemd.services.lk-jwt-service.after = [ "livekit-key-setup.service" ];
+  systemd.services.lk-jwt-service.wants = [ "livekit-key-setup.service" ];
 
   ####### CADDY CONFIGS #######
   services.caddy.virtualHosts = lib.mkForce {
@@ -42,6 +77,7 @@ lib.mkIf config.sovran_systemsOS.features.element-calling {
   services.livekit = {
     enable = true;
     openFirewall = true;
+    keyFile = livekitKeyFile;
     settings = {
       rtc.use_external_ip = true;
       rtc.udp_port = "7882-7894";
@@ -55,7 +91,6 @@ lib.mkIf config.sovran_systemsOS.features.element-calling {
         key_file = "/var/lib/livekit/${personalization.matrix_url}.key";
       };
     };
-    keyFile = "/var/lib/livekit/livekit_keyFile";
   };
 
   networking.firewall.allowedTCPPorts = [ 7881 ];
@@ -64,12 +99,11 @@ lib.mkIf config.sovran_systemsOS.features.element-calling {
   ];
 
   ####### JWT SERVICE #######
-
   services.lk-jwt-service = {
     enable = true;
     port = 8073;
     livekitUrl = "wss://${personalization.element-calling_url}";
-    keyFile = "/var/lib/livekit/livekit_keyFile";
+    keyFile = livekitKeyFile;
   };
 
   ####### MATRIX-SYNAPSE SETTINGS #######
@@ -77,17 +111,13 @@ lib.mkIf config.sovran_systemsOS.features.element-calling {
     settings = lib.mkForce {
       serve_server_wellknown = true;
       public_baseurl = "${personalization.matrix_url}";
-
       experimental_features = {
         msc3266_enabled = true;
         msc4222_enabled = true;
       };
-
       max_event_delay_duration = "24h";
-
       rc_message = { per_second = 0.5; burst_count = 30; };
       rc_delayed_event_mgmt = { per_second = 1; burst_count = 20; };
-
       push.include_content = false;
       server_name = personalization.matrix_url;
       url_preview_enabled = true;
@@ -95,19 +125,16 @@ lib.mkIf config.sovran_systemsOS.features.element-calling {
       encryption_enabled_by_default_for_room_type = "invite";
       allow_profile_lookup_over_federation = false;
       allow_device_name_lookup_over_federation = false;
-
       url_preview_ip_range_blacklist = [
         "10.0.0.0/8" "100.64.0.0/10" "169.254.0.0/16" "172.16.0.0/12"
         "192.0.0.0/24" "192.0.2.0/24" "192.168.0.0/16" "192.88.99.0/24"
         "198.18.0.0/15" "198.51.100.0/24" "2001:db8::/32" "203.0.113.0/24"
         "224.0.0.0/4" "::1/128" "fc00::/7" "fe80::/10" "fec0::/10" "ff00::/8"
       ];
-
       url_preview_ip_ranger_whitelist = [ "127.0.0.1" ];
       presence.enabled = true;
       enable_registration = false;
       registration_shared_secret = config.age.secrets.matrix_reg_secret.path;
-
       listeners = [
         {
           port = 8008;
