@@ -30,7 +30,8 @@ lib.mkIf config.sovran_systemsOS.features.rdp {
     description = "Configure GNOME Remote Desktop RDP";
     wantedBy = [ "multi-user.target" ];
     before = [ "gnome-remote-desktop.service" ];
-    after = [ "systemd-tmpfiles-setup.service" ];
+    after = [ "systemd-tmpfiles-setup.service" "network-online.target" ];
+    wants = [ "network-online.target" ];
     serviceConfig = {
       Type = "oneshot";
       RemainAfterExit = true;
@@ -39,19 +40,44 @@ lib.mkIf config.sovran_systemsOS.features.rdp {
       pkgs.gnome-remote-desktop
       pkgs.polkit
       pkgs.openssl
+      pkgs.hostname
     ];
     script = ''
-      # Generate a default password file if one doesn't exist
-      if [ ! -f /var/lib/gnome-remote-desktop/rdp-password ]; then
-        openssl rand -base64 16 > /var/lib/gnome-remote-desktop/rdp-password
-        chown gnome-remote-desktop:gnome-remote-desktop /var/lib/gnome-remote-desktop/rdp-password
+      CRED_FILE="/var/lib/gnome-remote-desktop/rdp-credentials"
+      PASSWORD=""
+
+      # Generate password on first boot only
+      if [ ! -f "$CRED_FILE" ]; then
+        PASSWORD=$(openssl rand -base64 16)
+        echo "$PASSWORD" > /var/lib/gnome-remote-desktop/rdp-password
         chmod 600 /var/lib/gnome-remote-desktop/rdp-password
-        echo "Generated new RDP password at /var/lib/gnome-remote-desktop/rdp-password"
+      else
+        PASSWORD=$(grep "Password:" "$CRED_FILE" | awk '{print $2}')
       fi
+
+      # Get current IP address
+      LOCAL_IP=$(hostname -I | awk '{print $1}')
+
+      # Always rewrite the credentials file with the current IP
+      cat > "$CRED_FILE" <<EOF
+      ========================================
+       GNOME Remote Desktop (RDP) Credentials
+      ========================================
+
+       Username: sovran
+       Password: $PASSWORD
+
+       Connect from any RDP client to:
+         $LOCAL_IP:3389
+
+      ========================================
+      EOF
+
+      chmod 600 "$CRED_FILE"
 
       # Enable RDP backend and set credentials
       grdctl --system rdp enable
-      grdctl --system rdp set-credentials sovran "$(cat /var/lib/gnome-remote-desktop/rdp-password)"
+      grdctl --system rdp set-credentials sovran "$PASSWORD"
     '';
   };
 }
