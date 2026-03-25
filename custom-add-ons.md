@@ -51,6 +51,7 @@ sovran_systemsOS.features.mempool = lib.mkForce true;
 
 ```nix
 sovran_systemsOS.features.haven = lib.mkForce true;
+sovran_systemsOS.nostr_npub = "pasteyournpubhere";
 ```
 
 5. The code for Element Calling is as follows:

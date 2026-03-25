@@ -23,5 +23,11 @@
       bitcoin-core = lib.mkEnableOption "Bitcoin Core";
       rdp = lib.mkEnableOption "Gnome Remote Desktop";
     };
+
+    nostr_npub = lib.mkOption {
+      type = lib.types.str;
+      default = "";
+      description = "Nostr public key (npub1...) for Haven relay";
+    };
   };
 }
