@@ -1,7 +1,20 @@
-{ config, lib, pkgs, bip110, ... }:
+{ config, lib, pkgs, ... }:
 
-lib.mkIf config.sovran_systemsOS.features.bip110 {
+let
+  cfg = config.sovran_systemsOS;
+in
+{
+  options.sovran_systemsOS = {
+    features.bip110 = lib.mkEnableOption "Enable BIP110 bitcoind";
 
-  services.bitcoind.package = bip110.packages.x86_64-linux.bitcoind-knots-bip-110;
+    bip110.package = lib.mkOption {
+      type = lib.types.nullOr lib.types.package;
+      default = null;
+      description = "Custom bitcoind package for BIP110";
+    };
+  };
 
+  config = lib.mkIf (cfg.features.bip110 && cfg.bip110.package != null) {
+    services.bitcoind.package = cfg.bip110.package;
+  };
 }
