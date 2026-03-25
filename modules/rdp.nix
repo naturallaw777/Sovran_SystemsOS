@@ -45,6 +45,8 @@ lib.mkIf config.sovran_systemsOS.features.rdp {
       KEY_FILE=$CERT_DIR/rdp-tls.key
       CRT_FILE=$CERT_DIR/rdp-tls.crt
 
+      chown gnome-remote-desktop:gnome-remote-desktop $CERT_DIR/ -R
+
       if [ ! -f "$KEY_FILE" ]; then
         echo "Generating RDP TLS certificate..."
 
@@ -54,10 +56,10 @@ lib.mkIf config.sovran_systemsOS.features.rdp {
         chown gnome-remote-desktop:gnome-remote-desktop $CERT_DIR/*
       fi
 
-      # Configure RDP (no pkexec, no --system)
-      ${pkgs.gnome-remote-desktop}/bin/grdctl rdp set-tls-key "$KEY_FILE"
-      ${pkgs.gnome-remote-desktop}/bin/grdctl rdp set-tls-cert "$CRT_FILE"
-      ${pkgs.gnome-remote-desktop}/bin/grdctl rdp enable
+      # Configure RDP
+      ${pkgs.gnome-remote-desktop}/bin/grdctl --system rdp set-tls-key "$KEY_FILE"
+      ${pkgs.gnome-remote-desktop}/bin/grdctl --system rdp set-tls-cert "$CRT_FILE"
+      ${pkgs.gnome-remote-desktop}/bin/grdctl --system rdp enable
 
       # Only set credentials if not already set
       if ! ${pkgs.gnome-remote-desktop}/bin/grdctl rdp show | grep -q "username"; then
@@ -65,9 +67,5 @@ lib.mkIf config.sovran_systemsOS.features.rdp {
       fi
     '';
   };
-
-  systemd.tmpfiles.rules = [
-  "d /var/lib/gnome-remote-desktop 0700 gnome-remote-desktop gnome-remote-desktop -"
-  ];
 
 }
