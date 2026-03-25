@@ -1,6 +1,6 @@
 { config, pkgs, lib, ... }:
 
-  config.sovran_systemsOS.features.rdp {
+  lib.mkIf config.sovran_systemsOS.features.rdp {
 
     services.gnome.gnome-remote-desktop.enable = true;
 

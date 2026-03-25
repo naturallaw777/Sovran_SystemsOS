@@ -32,44 +32,44 @@ https://gitlab.gnome.org/GNOME/gnome-remote-desktop
 1. The code for Bitcoin Core is as follows:
 
 ```nix
-sovran_systemsOS.features.bitcoin-core = true;
+sovran_systemsOS.features.bitcoin-core = lib.mkForce true;
 ```
 
 2. The code for BIP-110 is as follows:
 
 ```nix
-sovran_systemsOS.features.bip110 = true;
+sovran_systemsOS.features.bip110 = lib.mkForce true;
 ```
 
 3. The code for Mempool is as follows:
 
 ```nix
-sovran_systemsOS.features.mempool = true;
+sovran_systemsOS.features.mempool = lib.mkForce true;
 ```
 
 4. The code for Haven Relay is as follows:
 
 ```nix
-sovran_systemsOS.features.haven = true;
+sovran_systemsOS.features.haven = lib.mkForce true;
 ```
 
 5. The code for Element Calling is as follows:
 
 ```nix
-sovran_systemsOS.features.element-calling = true;
+sovran_systemsOS.features.element-calling = lib.mkForce true;
 ```
 
 6. The code for Gnome Remote Desktop is as follows:
 
 ```nix
-sovran_systemsOS.features.rdp = true;
+sovran_systemsOS.features.rdp = lib.mkForce true;
 ```
 Next in a new termianl window paste this in:
 
 ```bash
 ssh root@localhost
 ```
-Type in password for if required it is the password to run the Sovran_SystemsOS_Updater app
+Type in the password if required. It will be the same password to run the Sovran_SystemsOS_Updater app.
 
 Next paste in these commands and make sure you add your own username and password
 ```bash
