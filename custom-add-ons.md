@@ -64,40 +64,40 @@ reboot
 
 ---
 
-#### Sovran_SystemsOS Feature Set
+### Sovran_SystemsOS Feature Set (All Features are off by default)
 
-1. The code for Bitcoin Core is as follows:
+1. The code to enable Bitcoin Core is as follows:
 
 ```nix
 sovran_systemsOS.features.bitcoin-core = lib.mkForce true;
 ```
 
-2. The code for BIP-110 is as follows:
+2. The code to enable BIP-110 is as follows:
 
 ```nix
 sovran_systemsOS.features.bip110 = lib.mkForce true;
 ```
 
-3. The code for Mempool is as follows:
+3. The code to enable Mempool is as follows:
 
 ```nix
 sovran_systemsOS.features.mempool = lib.mkForce true;
 ```
 
-4. The code for Haven Relay is as follows:
+4. The code to enable Haven Relay is as follows (also Haven will need a new domain to work):
 
 ```nix
 sovran_systemsOS.features.haven = lib.mkForce true;
 sovran_systemsOS.nostr_npub = "pasteyournpubhere";
 ```
 
-5. The code for Element Calling is as follows:
+5. The code to enable Element Calling is as follows (also Element Calling will need a new domain to work):
 
 ```nix
 sovran_systemsOS.features.element-calling = lib.mkForce true;
 ```
 
-6. The code for Gnome Remote Desktop is as follows:
+6. The code to enable Gnome Remote Desktop is as follows:
 
 ```nix
 sovran_systemsOS.features.rdp = lib.mkForce true;
