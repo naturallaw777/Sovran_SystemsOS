@@ -120,6 +120,27 @@ No unnecessary services run. No wasted resources.
 
 ---
 
+### Network Configuration
+
+Sovran_SystemsOS hosts public-facing services (Wordpress, Element/Element Calling, Nextcloud, BTCPayserver, Haven Relay, and Vaultwarden) that require inbound connections from the internet. To make these services accessible outside your local network, you must configure **port forwarding** on your home router.
+
+**Before deploying, ensure you have:**
+
+- Access to your router's administration interface (typically at `192.168.1.1` or `192.168.0.1`)
+- The ability to create port forwarding rules
+- The local/private IP address of the machine running Sovran_SystemsOS
+- The external public IP address of the machine running Sovran_SystemsOS
+
+**Required port forwards (depending on enabled features):**
+
+Forward each port to the **private IP address** of your Sovran_SystemsOS machine. Only forward ports for services you have enabled.
+
+> **Tip:** Assign a static IP or DHCP reservation to your Sovran_SystemsOS machine so the forwarding rules remain valid after reboots.
+
+> **Note:** If your ISP uses CGNAT (Carrier-Grade NAT), standard port forwarding will not work. Contact your ISP to request a public IP address. 
+
+---
+
 ## Installation
 
 ### Full Guide
@@ -135,7 +156,7 @@ No unnecessary services run. No wasted resources.
 | CPU | 4 cores | 8+ cores |
 | RAM | 16 GB | 32+ GB |
 | Storage | 512 GB SSD + 4 TB SSD | 2GB SSD + 4+ TB SSD (Bitcoin node requires significant disk) |
-| Network | Stable broadband | Static IP or DDNS for public-facing services |
+| Network | 100Mbs Down 20Mbs Up + No need for DDNS if domains are brought through https://njal.la | 1Gbs Up and 1 Gbs Down + No need for DDNS if domains are brought through https://njal.la  |
 
 ---
 
