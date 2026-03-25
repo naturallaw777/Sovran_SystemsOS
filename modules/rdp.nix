@@ -65,4 +65,9 @@ lib.mkIf config.sovran_systemsOS.features.rdp {
       fi
     '';
   };
+
+  systemd.tmpfiles.rules = [
+  "d /var/lib/gnome-remote-desktop 0700 gnome-remote-desktop gnome-remote-desktop -"
+  ];
+
 }
