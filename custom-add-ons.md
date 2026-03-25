@@ -26,9 +26,12 @@ https://github.com/element-hq/element-call
 
 https://gitlab.gnome.org/GNOME/gnome-remote-desktop
 
+
+---
+
 #### The code will be installed in the `custom.nix` file located at `/etc/nixos/custom.nix` from the initial setup.
 
-If you would like to add in these features your self, then open the *terminal* app and type or paste in
+If you would like to add in these features yourself, then open the *terminal* app and type or paste in
 
 ```bash
 ssh root@localhost
@@ -43,7 +46,7 @@ nano /etc/nixos/custom.nix
 ```
 Then press enter.
 
-Next type or paste the codes below *(Sovran_SystemsOS Features)* in to the termainl/nano window.
+Next type or paste the codes below *(Sovran_SystemsOS Features)* into the termainl/nano window.
 
 Once done, press `ctr s` then `ctr x` to save and exit.
 
@@ -58,7 +61,10 @@ After it is done bulding, reboot your Sovran Pro typeing or pasting in
 reboot
 ```
 
+
 ---
+
+#### Sovran_SystemsOS Feature Set
 
 1. The code for Bitcoin Core is as follows:
 
