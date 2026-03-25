@@ -41,34 +41,35 @@
 
 	{ 
 		
-	nixosConfigurations.nixos = nixpkgs.lib.nixosSystem {
+	  nixosConfigurations.nixos = nixpkgs.lib.nixosSystem {
 			
-		inherit system;
+		  inherit system;
 
-    specialArgs = attrs;
+      specialArgs = attrs;
+  
+    };
 		
-		nixosModules.Sovran_SystemsOS = { pkgs, ... }: {
+    nixosModules.Sovran_SystemsOS = { pkgs, ... }: {
 
-			imports = [
+      imports = [
 
-				({ config, pkgs, ... }: { nixpkgs.overlays = [ overlay-stable ]; })
+        ({ config, pkgs, ... }: { nixpkgs.overlays = [ overlay-stable ]; })
 
-				./configuration.nix
+        ./configuration.nix
 
-				nix-bitcoin.nixosModules.default
+        nix-bitcoin.nixosModules.default
 
-				agenix.nixosModules.default
+        agenix.nixosModules.default
 
-				nixvim.nixosModules.nixvim
+        nixvim.nixosModules.nixvim
 
- 			];
-			
-			environment.systemPackages = with pkgs; [
-				btc-clients.packages.x86_64-linux.bisq
-				btc-clients.packages.x86_64-linux.bisq2
-				btc-clients.packages.x86_64-linux.sparrow
-			];
-
-		};
+      ];
+      
+      environment.systemPackages = with pkgs; [
+        btc-clients.packages.x86_64-linux.bisq
+        btc-clients.packages.x86_64-linux.bisq2
+        btc-clients.packages.x86_64-linux.sparrow
+      ];
+    };
 	};
 }
