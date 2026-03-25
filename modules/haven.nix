@@ -104,8 +104,27 @@ lib.mkIf (config.sovran_systemsOS.features.haven && npub != "") {
 
   systemd.tmpfiles.rules = [
     "d /var/lib/haven 0750 haven haven -"
-    "f /var/lib/haven/whitelisted_npubs.json 0770 haven haven -"
   ];
+
+  systemd.services.haven-whitelist-setup = {
+    description = "Ensure Haven whitelisted_npubs.json exists";
+    wantedBy = [ "multi-user.target" ];
+    before = [ "haven.service" ];
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+    };
+    script = ''
+      if [ ! -f /var/lib/haven/whitelisted_npubs.json ]; then
+        echo '[]' > /var/lib/haven/whitelisted_npubs.json
+        chown haven:haven /var/lib/haven/whitelisted_npubs.json
+        chmod 770 /var/lib/haven/whitelisted_npubs.json
+      fi
+    '';
+  };
+
+  systemd.services.haven.after = [ "haven-whitelist-setup.service" ];
+  systemd.services.haven.wants = [ "haven-whitelist-setup.service" ];
 
   services.caddy.virtualHosts = {
     "${personalization.haven_url}" = {
