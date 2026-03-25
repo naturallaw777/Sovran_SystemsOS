@@ -10,14 +10,6 @@ lib.mkIf config.sovran_systemsOS.features.rdp {
     freerdp
   ];
 
-  # Ensure GNOME remote desktop user exists properly
-  users.users.gnome-remote-desktop = {
-    isSystemUser = true;
-    group = "gnome-remote-desktop";
-  };
-
-  users.groups.gnome-remote-desktop = {};
-
   systemd.services.gnome-remote-desktop-setup = {
     description = "GNOME Remote Desktop RDP Setup";
     
@@ -44,8 +36,6 @@ lib.mkIf config.sovran_systemsOS.features.rdp {
       KEY_FILE=$CERT_DIR/rdp-tls.key
       CRT_FILE=$CERT_DIR/rdp-tls.crt
 
-      chown gnome-remote-desktop:gnome-remote-desktop $CERT_DIR/ -R
-
       if [ ! -f "$KEY_FILE" ]; then
         echo "Generating RDP TLS certificate..."
 
@@ -66,5 +56,29 @@ lib.mkIf config.sovran_systemsOS.features.rdp {
       fi
     '';
   };
+  
+  systemd.services.gnome-remote-desktop-permission = {
+      description = "GNOME Remote Desktop File Permission";
+      
+      wantedBy = [ "multi-user.target" ];
+
+      after = [
+        "gnome-remote-desktop.service"
+      ];
+
+      requires = [
+        "gnome-remote-desktop.service"
+      ];
+
+      serviceConfig = {
+        Type = "oneshot";
+        RemainAfterExit = true;
+
+      };
+
+      script = ''
+        chown gnome-remote-desktop:gnome-remote-desktop /var/lib/gnome-remote-desktop -R
+      '';
+    };
 
 }
