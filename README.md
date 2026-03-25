@@ -164,5 +164,5 @@ You retain full visibility into every module, every service definition, and ever
 
 ---
 
-**Be Digtially Sovereign**
+**Be Digitally Sovereign**
 
