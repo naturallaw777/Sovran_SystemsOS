@@ -7,6 +7,7 @@
     ./core/role-logic.nix
     ./core/caddy.nix
     ./core/sovran-manage.nix
+    ./core/sovran-manage-domains.nix
 
     # ── Always on (no flag) ───────────────────────────────────
     ./php.nix
