@@ -16,6 +16,9 @@ lib.mkIf (config.sovran_systemsOS.features.haven && npub != "") {
       Type = "oneshot";
       RemainAfterExit = true;
     };
+    unitConfig = {
+      ConditionPathExists = "/var/lib/domains/haven";
+    };
     path = [ pkgs.coreutils ];
     script = ''
       HAVEN=$(cat /var/lib/domains/haven)

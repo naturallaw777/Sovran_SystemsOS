@@ -49,6 +49,9 @@ lib.mkIf config.sovran_systemsOS.features.element-calling {
       Type = "oneshot";
       RemainAfterExit = true;
     };
+    unitConfig = {
+      ConditionPathExists = "/var/lib/domains/element-calling";
+    };
     path = [ pkgs.coreutils ];
     script = ''
       MATRIX=$(cat /var/lib/domains/matrix)
@@ -100,6 +103,9 @@ EOF
       Type = "oneshot";
       RemainAfterExit = true;
     };
+    unitConfig = {
+      ConditionPathExists = "/var/lib/domains/element-calling";
+    };
     path = [ pkgs.coreutils ];
     script = ''
       MATRIX=$(cat /var/lib/domains/matrix)
@@ -150,6 +156,9 @@ EOF
       Type = "oneshot";
       RemainAfterExit = true;
     };
+    unitConfig = {
+      ConditionPathExists = "/var/lib/domains/element-calling";
+    };
     path = [ pkgs.coreutils ];
     script = ''
       ELEMENT_CALLING=$(cat /var/lib/domains/element-calling)
@@ -184,6 +193,9 @@ EOF
     serviceConfig = {
       Type = "oneshot";
       RemainAfterExit = true;
+    };
+    unitConfig = {
+      ConditionPathExists = "/var/lib/domains/element-calling";
     };
     path = [ pkgs.coreutils ];
     script = ''

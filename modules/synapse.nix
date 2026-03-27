@@ -61,6 +61,9 @@ lib.mkIf config.sovran_systemsOS.services.synapse {
       Type = "oneshot";
       RemainAfterExit = true;
     };
+    unitConfig = {
+      ConditionPathExists = "/var/lib/domains/matrix";
+    };
     path = [ pkgs.coreutils ];
     script = ''
       set -euo pipefail

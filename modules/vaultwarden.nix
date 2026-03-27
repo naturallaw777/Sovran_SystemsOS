@@ -11,6 +11,9 @@ lib.mkIf config.sovran_systemsOS.services.vaultwarden {
       Type = "oneshot";
       RemainAfterExit = true;
     };
+    unitConfig = {
+      ConditionPathExists = "/var/lib/domains/vaultwarden";
+    };
     path = [ pkgs.coreutils ];
     script = ''
       VAULTWARDEN=$(cat /var/lib/domains/vaultwarden)
