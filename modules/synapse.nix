@@ -142,4 +142,8 @@ EOF
       ];
     };
   };
+  
+  sovran_systemsOS.domainRequirements = [
+    { name = "matrix"; label = "Matrix Synapse"; example = "matrix.yourdomain.com"; }
+  ];
 }

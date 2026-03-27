@@ -183,4 +183,8 @@ CREDS
   ];
 
   environment.systemPackages = with pkgs; [ unzip ];
+  
+  sovran_systemsOS.domainRequirements = [
+    { name = "nextcloud"; label = "Nextcloud"; example = "cloud.yourdomain.com"; }
+  ];
 }

@@ -153,4 +153,8 @@ EOF
 
   systemd.services.haven.after = [ "haven-whitelist-setup.service" "haven-runtime-config.service" ];
   systemd.services.haven.wants = [ "haven-whitelist-setup.service" "haven-runtime-config.service" ];
+  
+  sovran_systemsOS.domainRequirements = [
+    { name = "haven"; label = "Haven NOSTR Relay"; example = "relay.yourdomain.com"; }
+  ];
 }

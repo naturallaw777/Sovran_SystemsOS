@@ -40,4 +40,7 @@ EOF
   systemd.services.vaultwarden.serviceConfig.EnvironmentFile = lib.mkAfter [
     "/run/vaultwarden/runtime.env"
   ];
+   sovran_systemsOS.domainRequirements = [
+    { name = "vaultwarden"; label = "Vaultwarden"; example = "vault.yourdomain.com"; }
+  ];
 }

@@ -164,4 +164,8 @@ CREDS
   ];
 
   environment.systemPackages = with pkgs; [ wp-cli unzip ];
+  
+  sovran_systemsOS.domainRequirements = [
+    { name = "wordpress"; label = "WordPress"; example = "blog.yourdomain.com"; }
+  ];
 }

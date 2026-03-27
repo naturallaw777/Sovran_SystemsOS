@@ -55,8 +55,22 @@
       btcpayserver = lib.mkOption {
         type = lib.types.bool;
         default = true;
-        description = "Expose BTCPay Server via Caddy (service still runs via nix-bitcoin regardless)";
+        description = "Expose BTCPay Server via Caddy";
       };
+    };
+
+    # ── Domain setup registry ─────────────────────────────────
+    domainRequirements = lib.mkOption {
+      type = lib.types.listOf (lib.types.submodule {
+        options = {
+          name = lib.mkOption { type = lib.types.str; };
+          label = lib.mkOption { type = lib.types.str; };
+          example = lib.mkOption { type = lib.types.str; };
+          needsDDNS = lib.mkOption { type = lib.types.bool; default = true; };
+        };
+      });
+      default = [];
+      description = "Domain requirements registered by each module";
     };
 
     nostr_npub = lib.mkOption {

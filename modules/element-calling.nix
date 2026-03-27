@@ -246,4 +246,7 @@ EOF
       ];
     };
   };
+  sovran_systemsOS.domainRequirements = [
+    { name = "element-calling"; label = "Element Calling (LiveKit)"; example = "call.yourdomain.com"; }
+  ];
 }

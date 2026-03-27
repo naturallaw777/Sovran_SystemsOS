@@ -69,4 +69,8 @@ lib.mkIf config.sovran_systemsOS.services.bitcoin {
   };
 
   nix-bitcoin.useVersionLockedPkgs = false;
+  
+   sovran_systemsOS.domainRequirements = [
+    { name = "btcpayserver"; label = "BTCPay Server"; example = "pay.yourdomain.com"; }
+  ];
 }
