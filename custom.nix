@@ -10,7 +10,7 @@
   #                                                         #
   #  After making changes, rebuild with:                    #
   #                                                         #
-  #    sudo nixos-rebuild switch --flake /etc/nixos#nixos   #
+  #       nixos-rebuild switch --impure                     #
   #                                                         #
   ###########################################################
 
