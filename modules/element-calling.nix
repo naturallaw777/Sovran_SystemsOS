@@ -168,6 +168,7 @@ EOF
     enable = true;
     port = 8073;
     keyFile = livekitKeyFile;
+    livekitUrl = "wss://placeholder.local";  # overridden at runtime by EnvironmentFile
   };
 
   systemd.services.lk-jwt-service.serviceConfig.EnvironmentFile = [
