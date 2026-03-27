@@ -20,13 +20,21 @@
     };
     path = [ pkgs.coreutils ];
     script = ''
-      MATRIX=$(cat /var/lib/domains/matrix)
-      WORDPRESS=$(cat /var/lib/domains/wordpress)
-      NEXTCLOUD=$(cat /var/lib/domains/nextcloud)
-      BTCPAY=$(cat /var/lib/domains/btcpayserver)
-      VAULTWARDEN=$(cat /var/lib/domains/vaultwarden)
-      HAVEN=$(cat /var/lib/domains/haven)
-      ACME_EMAIL=$(cat /var/lib/domains/sslemail)
+      read_domain() {
+        if [ -f "/var/lib/domains/$1" ]; then
+          cat "/var/lib/domains/$1"
+        else
+          echo ""
+        fi
+      }
+
+      MATRIX=$(read_domain matrix)
+      WORDPRESS=$(read_domain wordpress)
+      NEXTCLOUD=$(read_domain nextcloud)
+      BTCPAY=$(read_domain btcpayserver)
+      VAULTWARDEN=$(read_domain vaultwarden)
+      HAVEN=$(read_domain haven)
+      ACME_EMAIL=$(read_domain sslemail)
 
       # Start with global config
       cat > /run/caddy/Caddyfile <<EOF
@@ -35,13 +43,12 @@
 }
 EOF
 
-      # If element-calling is enabled, it wrote a snippet with
-      # enhanced Matrix vhosts (.well-known, element-calling routes)
-      if [ -f /run/caddy/element-calling.snippet ]; then
-        cat /run/caddy/element-calling.snippet >> /run/caddy/Caddyfile
-      else
-        # Fallback: basic Matrix vhosts without element-calling
-        cat >> /run/caddy/Caddyfile <<EOF
+      # ── Matrix ──────────────────────────────────────
+      if [ -n "$MATRIX" ]; then
+        if [ -f /run/caddy/element-calling.snippet ]; then
+          cat /run/caddy/element-calling.snippet >> /run/caddy/Caddyfile
+        else
+          cat >> /run/caddy/Caddyfile <<EOF
 
 $MATRIX {
   reverse_proxy /_matrix/* http://localhost:8008
@@ -52,10 +59,12 @@ $MATRIX:8448 {
   reverse_proxy http://localhost:8008
 }
 EOF
+        fi
       fi
 
-      # Append remaining vhosts
-      cat >> /run/caddy/Caddyfile <<EOF
+      # ── WordPress ───────────────────────────────────
+      if [ -n "$WORDPRESS" ]; then
+        cat >> /run/caddy/Caddyfile <<EOF
 
 $WORDPRESS {
   encode gzip zstd
@@ -63,6 +72,12 @@ $WORDPRESS {
   php_fastcgi unix//run/phpfpm/mypool.sock
   file_server browse
 }
+EOF
+      fi
+
+      # ── Nextcloud ───────────────────────────────────
+      if [ -n "$NEXTCLOUD" ]; then
+        cat >> /run/caddy/Caddyfile <<EOF
 
 $NEXTCLOUD {
   encode gzip zstd
@@ -77,16 +92,34 @@ $NEXTCLOUD {
     Strict-Transport-Security max-age=31536000;
   }
 }
+EOF
+      fi
+
+      # ── BTCPay ──────────────────────────────────────
+      if [ -n "$BTCPAY" ]; then
+        cat >> /run/caddy/Caddyfile <<EOF
 
 $BTCPAY {
   reverse_proxy http://localhost:23000
   encode gzip zstd
 }
+EOF
+      fi
+
+      # ── Vaultwarden ─────────────────────────────────
+      if [ -n "$VAULTWARDEN" ]; then
+        cat >> /run/caddy/Caddyfile <<EOF
 
 $VAULTWARDEN {
   reverse_proxy http://localhost:8777
   encode gzip zstd
 }
+EOF
+      fi
+
+      # ── Haven ───────────────────────────────────────
+      if [ -n "$HAVEN" ]; then
+        cat >> /run/caddy/Caddyfile <<EOF
 
 $HAVEN {
   reverse_proxy localhost:3355 {
@@ -103,6 +136,7 @@ $HAVEN {
   }
 }
 EOF
+      fi
     '';
   };
 }
