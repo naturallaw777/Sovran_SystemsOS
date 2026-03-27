@@ -1,6 +1,10 @@
 { config, pkgs, lib, ... }:
 
 let
+<<<<<<< HEAD
+=======
+  personalization = import ./personalization.nix;
+>>>>>>> 5bee5ad99bb7890df011d88e9928b6944c3565f8
   livekitKeyFile = "/var/lib/livekit/livekit_keyFile";
 in
 
@@ -15,6 +19,10 @@ lib.mkIf config.sovran_systemsOS.features.element-calling {
     description = "Generate LiveKit key file if missing";
     wantedBy = [ "multi-user.target" ];
     before = [ "livekit.service" "lk-jwt-service.service" ];
+<<<<<<< HEAD
+=======
+    requires = [];
+>>>>>>> 5bee5ad99bb7890df011d88e9928b6944c3565f8
     serviceConfig = {
       Type = "oneshot";
       RemainAfterExit = true;
@@ -39,6 +47,7 @@ lib.mkIf config.sovran_systemsOS.features.element-calling {
   systemd.services.lk-jwt-service.after = [ "livekit-key-setup.service" ];
   systemd.services.lk-jwt-service.wants = [ "livekit-key-setup.service" ];
 
+<<<<<<< HEAD
   ####### CADDY SNIPPET — written to /run/caddy for caddy.nix to pick up #######
   systemd.services.element-calling-caddy-config = {
     description = "Generate Element Calling Caddy config snippet";
@@ -58,12 +67,19 @@ lib.mkIf config.sovran_systemsOS.features.element-calling {
 
       cat > /run/caddy/element-calling.snippet <<EOF
       $MATRIX {
+=======
+  ####### CADDY CONFIGS #######
+  services.caddy.virtualHosts = lib.mkForce {
+    "${personalization.matrix_url}" = {
+      extraConfig = ''
+>>>>>>> 5bee5ad99bb7890df011d88e9928b6944c3565f8
         reverse_proxy /_matrix/* http://localhost:8008
         reverse_proxy /_synapse/client/* http://localhost:8008
         header /.well-known/matrix/* Content-Type "application/json"
         header /.well-known/matrix/* Access-Control-Allow-Origin "*"
         header /.well-known/matrix/* Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
         header /.well-known/matrix/* Access-Control-Allow-Headers "X-Requested-With, Content-Type, Authorization"
+<<<<<<< HEAD
         respond /.well-known/matrix/client \`{ "m.homeserver": {"base_url": "https://$MATRIX" }, "org.matrix.msc4143.rtc_foci": [{ "type":"livekit", "livekit_service_url":"https://$ELEMENT_CALLING/livekit/jwt" }] }\`
       }
 
@@ -72,6 +88,14 @@ lib.mkIf config.sovran_systemsOS.features.element-calling {
       }
 
       $ELEMENT_CALLING {
+=======
+        respond /.well-known/matrix/client `{ "m.homeserver": {"base_url": "https://${personalization.matrix_url}" }, "org.matrix.msc4143.rtc_foci": [{ "type":"livekit", "livekit_service_url":"https://${personalization.element-calling_url}/livekit/jwt" }] }`
+      '';
+    };
+
+    "${personalization.element-calling_url}" = {
+      extraConfig = ''
+>>>>>>> 5bee5ad99bb7890df011d88e9928b6944c3565f8
         handle /livekit/jwt/sfu/get {
           uri strip_prefix /livekit/jwt
           reverse_proxy [::1]:8073 {
@@ -84,6 +108,7 @@ lib.mkIf config.sovran_systemsOS.features.element-calling {
         handle {
           reverse_proxy localhost:7880
         }
+<<<<<<< HEAD
       }
       EOF
     '';
@@ -115,6 +140,10 @@ lib.mkIf config.sovran_systemsOS.features.element-calling {
 
       chmod 640 /run/livekit/runtime-config.yaml
     '';
+=======
+      '';
+    };
+>>>>>>> 5bee5ad99bb7890df011d88e9928b6944c3565f8
   };
 
   ####### LIVEKIT SERVICE #######
@@ -128,8 +157,16 @@ lib.mkIf config.sovran_systemsOS.features.element-calling {
       room.auto_create = false;
       turn = {
         enabled = true;
+<<<<<<< HEAD
         tls_port = 5349;
         udp_port = 3478;
+=======
+        domain = "${personalization.matrix_url}";
+        tls_port = 5349;
+        udp_port = 3478;
+        cert_file = "/var/lib/livekit/${personalization.matrix_url}.crt";
+        key_file = "/var/lib/livekit/${personalization.matrix_url}.key";
+>>>>>>> 5bee5ad99bb7890df011d88e9928b6944c3565f8
       };
     };
   };
@@ -140,6 +177,7 @@ lib.mkIf config.sovran_systemsOS.features.element-calling {
   ];
 
   ####### JWT SERVICE #######
+<<<<<<< HEAD
   systemd.services.lk-jwt-service-runtime-config = {
     description = "Generate lk-jwt-service runtime config from domain files";
     before = [ "lk-jwt-service.service" ];
@@ -215,6 +253,29 @@ lib.mkIf config.sovran_systemsOS.features.element-calling {
     extraConfigFiles = [ "/run/matrix-synapse/element-calling-config.yaml" ];
     settings = lib.mkForce {
       push.include_content = false;
+=======
+  services.lk-jwt-service = {
+    enable = true;
+    port = 8073;
+    livekitUrl = "wss://${personalization.element-calling_url}";
+    keyFile = livekitKeyFile;
+  };
+
+  ####### MATRIX-SYNAPSE SETTINGS #######
+  services.matrix-synapse = {
+    settings = lib.mkForce {
+      serve_server_wellknown = true;
+      public_baseurl = "${personalization.matrix_url}";
+      experimental_features = {
+        msc3266_enabled = true;
+        msc4222_enabled = true;
+      };
+      max_event_delay_duration = "24h";
+      rc_message = { per_second = 0.5; burst_count = 30; };
+      rc_delayed_event_mgmt = { per_second = 1; burst_count = 20; };
+      push.include_content = false;
+      server_name = personalization.matrix_url;
+>>>>>>> 5bee5ad99bb7890df011d88e9928b6944c3565f8
       url_preview_enabled = true;
       group_unread_count_by_room = false;
       encryption_enabled_by_default_for_room_type = "invite";
