@@ -44,7 +44,7 @@
 					btc-clients.packages.${pkgs.system}.bisq
 					btc-clients.packages.${pkgs.system}.bisq2
 					btc-clients.packages.${pkgs.system}.sparrow
-				]
+				];
 				sovran_systemsOS.packages.bip110 = bip110.packages.${pkgs.system}.bitcoind-knots-bip-110;
 			};
 		};
