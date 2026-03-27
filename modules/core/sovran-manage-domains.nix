@@ -19,50 +19,100 @@ let
       DDNS_LINE=$(echo "$DDNS_LINE" | sed 's/&a=&a=/\&a=/g')
   '';
 
-  domainPrompts = lib.concatMapStringsSep "\n" (d: ''
-    echo ""
-    echo -e "''${GREEN}── ${d.label} ──''${NC}"
-    EXISTING=""
-    if [ -f "/var/lib/domains/${d.name}" ]; then
-      EXISTING=$(cat "/var/lib/domains/${d.name}")
-      echo -e "  Current: ''${CYAN}$EXISTING''${NC}"
-    fi
-    read -p "  Subdomain (e.g. ${d.example}) or Enter to keep current: " DOMAIN_INPUT
-    DOMAIN="''${DOMAIN_INPUT:-$EXISTING}"
-
-    if [ -n "$DOMAIN" ]; then
-      echo "$DOMAIN" > "/var/lib/domains/${d.name}"
-      echo "  Saved: $DOMAIN"
-      ${lib.optionalString d.needsDDNS ''
-      ${ddnsPrompt}
-        NJALLA_ENTRIES="$NJALLA_ENTRIES
-curl \"$DDNS_LINE\""
+  confirmDomain = name: ''
+    while true; do
+      echo ""
+      echo -e "  ''${YELLOW}You entered:''${NC}"
+      echo -e "    Domain:   ''${CYAN}$DOMAIN''${NC}"
+      if [ -n "''${DDNS_DISPLAY:-}" ]; then
+        echo -e "    DDNS URL: ''${CYAN}$DDNS_DISPLAY''${NC}"
       fi
-      ''}
-    else
-      echo "  Skipped."
-    fi
+      echo ""
+      read -p "  Is this correct? (y/n): " CONFIRM
+      case "$CONFIRM" in
+        [yY])
+          echo "$DOMAIN" > "/var/lib/domains/${name}"
+          echo -e "  ''${GREEN}Saved.''${NC}"
+          break
+          ;;
+        [nN])
+          echo "  Let's try again."
+          REDO=true
+          break
+          ;;
+        *)
+          echo "  Please enter y or n."
+          ;;
+      esac
+    done
+  '';
+
+  domainPrompts = lib.concatMapStringsSep "\n" (d: ''
+    REDO=true
+    while [ "$REDO" = true ]; do
+      REDO=false
+      DDNS_DISPLAY=""
+      echo ""
+      echo -e "''${GREEN}── ${d.label} ──''${NC}"
+      EXISTING=""
+      if [ -f "/var/lib/domains/${d.name}" ]; then
+        EXISTING=$(cat "/var/lib/domains/${d.name}")
+        echo -e "  Current: ''${CYAN}$EXISTING''${NC}"
+      fi
+      read -p "  Subdomain (e.g. ${d.example}) or Enter to keep current: " DOMAIN_INPUT
+      DOMAIN="''${DOMAIN_INPUT:-$EXISTING}"
+
+      if [ -n "$DOMAIN" ]; then
+        ${lib.optionalString d.needsDDNS ''
+        ${ddnsPrompt}
+          DDNS_DISPLAY="$DDNS_LINE"
+          PENDING_NJALLA="curl \"$DDNS_LINE\""
+        fi
+        ''}
+
+        ${confirmDomain d.name}
+
+        if [ "$REDO" = false ] && [ -n "''${PENDING_NJALLA:-}" ]; then
+          NJALLA_ENTRIES="$NJALLA_ENTRIES
+$PENDING_NJALLA"
+          PENDING_NJALLA=""
+        fi
+      else
+        echo "  Skipped."
+      fi
+    done
   '') domains;
 
   missingDomainPrompts = lib.concatMapStringsSep "\n" (d: ''
     if [ ! -f "/var/lib/domains/${d.name}" ]; then
       MISSING=true
-      echo ""
-      echo -e "''${GREEN}── ${d.label} (NEW) ──''${NC}"
-      read -p "  Subdomain (e.g. ${d.example}): " DOMAIN
+      REDO=true
+      while [ "$REDO" = true ]; do
+        REDO=false
+        DDNS_DISPLAY=""
+        echo ""
+        echo -e "''${GREEN}── ${d.label} (NEW) ──''${NC}"
+        read -p "  Subdomain (e.g. ${d.example}): " DOMAIN
 
-      if [ -n "$DOMAIN" ]; then
-        echo "$DOMAIN" > "/var/lib/domains/${d.name}"
-        echo "  Saved: $DOMAIN"
-        ${lib.optionalString d.needsDDNS ''
-        ${ddnsPrompt}
-          NEW_NJALLA_ENTRIES="$NEW_NJALLA_ENTRIES
-curl \"$DDNS_LINE\""
+        if [ -n "$DOMAIN" ]; then
+          ${lib.optionalString d.needsDDNS ''
+          ${ddnsPrompt}
+            DDNS_DISPLAY="$DDNS_LINE"
+            PENDING_NJALLA="curl \"$DDNS_LINE\""
+          fi
+          ''}
+
+          ${confirmDomain d.name}
+
+          if [ "$REDO" = false ] && [ -n "''${PENDING_NJALLA:-}" ]; then
+            NEW_NJALLA_ENTRIES="$NEW_NJALLA_ENTRIES
+$PENDING_NJALLA"
+            PENDING_NJALLA=""
+          fi
+        else
+          echo "  Skipped."
         fi
-        ''}
-      else
-        echo "  Skipped."
-      fi
+      done
     fi
   '') domains;
 
@@ -104,25 +154,74 @@ curl \"$DDNS_LINE\""
     mkdir -p /var/lib/njalla
 
     NJALLA_ENTRIES=""
+    PENDING_NJALLA=""
 
     # ── SSL Email ─────────────────────────────────────
-    echo ""
-    echo -e "''${GREEN}── SSL Certificate Email ──''${NC}"
-    echo "Let's Encrypt needs an email for certificate notifications."
-    EXISTING_EMAIL=""
-    if [ -f "/var/lib/domains/sslemail" ]; then
-      EXISTING_EMAIL=$(cat /var/lib/domains/sslemail)
-      echo -e "  Current: ''${CYAN}$EXISTING_EMAIL''${NC}"
-    fi
-    read -p "  Email address (or Enter to keep current): " EMAIL_INPUT
-    SSL_EMAIL="''${EMAIL_INPUT:-$EXISTING_EMAIL}"
-    if [ -n "$SSL_EMAIL" ]; then
-      echo "$SSL_EMAIL" > /var/lib/domains/sslemail
-      echo "  Saved."
-    fi
+    REDO=true
+    while [ "$REDO" = true ]; do
+      REDO=false
+      echo ""
+      echo -e "''${GREEN}── SSL Certificate Email ──''${NC}"
+      echo "Let's Encrypt needs an email for certificate notifications."
+      EXISTING_EMAIL=""
+      if [ -f "/var/lib/domains/sslemail" ]; then
+        EXISTING_EMAIL=$(cat /var/lib/domains/sslemail)
+        echo -e "  Current: ''${CYAN}$EXISTING_EMAIL''${NC}"
+      fi
+      read -p "  Email address (or Enter to keep current): " EMAIL_INPUT
+      SSL_EMAIL="''${EMAIL_INPUT:-$EXISTING_EMAIL}"
+      if [ -n "$SSL_EMAIL" ]; then
+        while true; do
+          echo ""
+          echo -e "  ''${YELLOW}You entered:''${NC}"
+          echo -e "    Email: ''${CYAN}$SSL_EMAIL''${NC}"
+          echo ""
+          read -p "  Is this correct? (y/n): " CONFIRM
+          case "$CONFIRM" in
+            [yY])
+              echo "$SSL_EMAIL" > /var/lib/domains/sslemail
+              echo -e "  ''${GREEN}Saved.''${NC}"
+              break
+              ;;
+            [nN])
+              echo "  Let's try again."
+              REDO=true
+              break
+              ;;
+            *)
+              echo "  Please enter y or n."
+              ;;
+          esac
+        done
+      fi
+    done
 
     # ── All module domains ────────────────────────────
     ${domainPrompts}
+
+    # ── Final review ──────────────────────────────────
+    echo ""
+    echo -e "''${CYAN}══════════════════════════════════════════════''${NC}"
+    echo -e "''${CYAN}  Review All Entries''${NC}"
+    echo -e "''${CYAN}══════════════════════════════════════════════''${NC}"
+    echo ""
+    echo "  Configured domains:"
+    ${domainSummary}
+    echo ""
+    echo "  DDNS entries:"
+    if [ -n "$NJALLA_ENTRIES" ]; then
+      echo "$NJALLA_ENTRIES"
+    else
+      echo "    (none)"
+    fi
+    echo ""
+    read -p "  Does everything look correct? (y/n): " FINAL_CONFIRM
+    if [ "$FINAL_CONFIRM" != "y" ] && [ "$FINAL_CONFIRM" != "Y" ]; then
+      echo ""
+      echo -e "  ''${YELLOW}Setup cancelled. Run 'sudo sovran-setup-domains' to start over.''${NC}"
+      echo ""
+      exit 1
+    fi
 
     # ── Write njalla.sh ───────────────────────────────
     echo ""
@@ -154,9 +253,6 @@ SCRIPT
     echo -e "''${CYAN}  Setup Complete!''${NC}"
     echo -e "''${CYAN}══════════════════════════════════════════════''${NC}"
     echo ""
-    echo "  Configured domains:"
-    ${domainSummary}
-    echo ""
     echo "  Domain files:   /var/lib/domains/"
     echo "  DDNS script:    /var/lib/njalla/njalla.sh"
     echo "  DDNS cron:      Every 15 minutes (already configured)"
@@ -177,6 +273,7 @@ SCRIPT
 
     MISSING=false
     NEW_NJALLA_ENTRIES=""
+    PENDING_NJALLA=""
 
     echo ""
     echo -e "''${CYAN}══════════════════════════════════════════════''${NC}"
@@ -195,6 +292,30 @@ SCRIPT
       echo -e "''${GREEN}  All domains are already configured. Nothing to do.''${NC}"
       echo ""
       exit 0
+    fi
+
+    # ── Final review ──────────────────────────────────
+    echo ""
+    echo -e "''${CYAN}══════════════════════════════════════════════''${NC}"
+    echo -e "''${CYAN}  Review New Entries''${NC}"
+    echo -e "''${CYAN}══════════════════════════════════════════════''${NC}"
+    echo ""
+    echo "  All configured domains:"
+    ${domainSummary}
+    echo ""
+    echo "  New DDNS entries:"
+    if [ -n "$NEW_NJALLA_ENTRIES" ]; then
+      echo "$NEW_NJALLA_ENTRIES"
+    else
+      echo "    (none)"
+    fi
+    echo ""
+    read -p "  Does everything look correct? (y/n): " FINAL_CONFIRM
+    if [ "$FINAL_CONFIRM" != "y" ] && [ "$FINAL_CONFIRM" != "Y" ]; then
+      echo ""
+      echo -e "  ''${YELLOW}Setup cancelled. Run 'sudo sovran-add-domains' to start over.''${NC}"
+      echo ""
+      exit 1
     fi
 
     # ── Append new entries to njalla.sh ───────────────
@@ -225,7 +346,7 @@ SCRIPT
 
     # ── Summary ───────────────────────────────────────
     echo ""
-    echo -e "''${CYAN}══════════════════════════════════════════════''${NC}"
+    echo -e "''${CYAN}═��════════════════════════════════════════════''${NC}"
     echo -e "''${CYAN}  New Domains Added!''${NC}"
     echo -e "''${CYAN}══════════════════════════════════════════════''${NC}"
     echo ""
@@ -234,7 +355,7 @@ SCRIPT
     echo ""
     echo -e "''${YELLOW}  Rebuilding to activate services with new domains...''${NC}"
     echo ""
-    nixos-rebuild switch --impure --flake /etc/nixos#nixos
+    nixos-rebuild switch --flake /etc/nixos#nixos
   '';
 
   needsSetup = pkgs.writeShellScriptBin "sovran-domains-need-setup" ''
