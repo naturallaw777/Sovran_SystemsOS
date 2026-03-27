@@ -55,10 +55,6 @@
       default = "";
       description = "Nostr public key (npub1...) for Haven relay";
     };
-
-    packages.bip110 = lib.mkOption {
-      type = lib.types.package;
-      description = "BIP-110 bitcoind-knots package";
-    };
   };
+  
 }
