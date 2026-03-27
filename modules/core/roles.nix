@@ -50,11 +50,19 @@
       rdp = lib.mkEnableOption "Gnome Remote Desktop";
     };
 
+    # ── Web exposure (controls Caddy vhosts) ──────────────────
+    web = {
+      btcpayserver = lib.mkOption {
+        type = lib.types.bool;
+        default = true;
+        description = "Expose BTCPay Server via Caddy (service still runs via nix-bitcoin regardless)";
+      };
+    };
+
     nostr_npub = lib.mkOption {
       type = lib.types.str;
       default = "";
       description = "Nostr public key (npub1...) for Haven relay";
     };
   };
-  
 }

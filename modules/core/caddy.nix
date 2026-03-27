@@ -1,5 +1,8 @@
 { config, pkgs, lib, ... }:
 
+let
+  exposeBtcpay = config.sovran_systemsOS.web.btcpayserver;
+in
 {
   services.caddy = {
     enable = true;
@@ -95,7 +98,8 @@ $NEXTCLOUD {
 EOF
       fi
 
-      # ── BTCPay ──────────────────────────────────────
+      # ── BTCPay (only if web exposure is enabled) ────
+      ${if exposeBtcpay then ''
       if [ -n "$BTCPAY" ]; then
         cat >> /run/caddy/Caddyfile <<EOF
 
@@ -105,6 +109,9 @@ $BTCPAY {
 }
 EOF
       fi
+      '' else ''
+      # BTCPay web exposure disabled by sovran_systemsOS.web.btcpayserver = false
+      ''}
 
       # ── Vaultwarden ─────────────────────────────────
       if [ -n "$VAULTWARDEN" ]; then
