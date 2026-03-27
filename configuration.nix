@@ -41,11 +41,10 @@
   i18n.defaultLocale = "en_US.UTF-8";
 
   # ── Desktop ────────────────────────────────────────────────
-  services.xserver.enable = true;
   services.displayManager.gdm.enable = true;
   services.displayManager.gdm.autoSuspend = false;
+  services.displayManager.gdm.wayland = true;
   services.desktopManager.gnome.enable = true;
-  services.xserver.xkb = { layout = "us"; variant = ""; };
   services.printing.enable = true;
   systemd.enableEmergencyMode = false;
 
@@ -166,7 +165,6 @@ backup	/etc/nix-bitcoin-secrets/	localhost/
 
   # ── Tor ────────────────────────────────────────────────────
   services.tor = { enable = true; client.enable = true; torsocks.enable = true; };
-  services.privoxy.enableTor = true;
 
   # ── SSH ────────────────────────────────────────────────────
   services.openssh = {

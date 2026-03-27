@@ -9,7 +9,6 @@
 
     # ── Desktop Only Role ─────────────────────────────────────
     (lib.mkIf config.sovran_systemsOS.roles.desktop {
-      services.xserver.enable = true;
       services.desktopManager.gnome.enable = true;
 
       sovran_systemsOS.services = {
