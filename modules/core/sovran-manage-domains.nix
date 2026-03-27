@@ -3,8 +3,21 @@
 let
   domains = config.sovran_systemsOS.domainRequirements;
 
-  # Build list of domain names for the missing-check script
   domainNamesList = lib.concatMapStringsSep " " (d: d.name) domains;
+
+  ddnsPrompt = ''
+    read -p "  Njal.la DDNS curl command (paste full line, or Enter to skip): " DDNS_LINE
+    if [ -n "$DDNS_LINE" ]; then
+      # Strip any leading "curl " if they pasted the whole command
+      DDNS_LINE="''${DDNS_LINE#curl }"
+      # Strip surrounding quotes
+      DDNS_LINE="''${DDNS_LINE%\"}"
+      DDNS_LINE="''${DDNS_LINE#\"}"
+      # Replace &auto with &a=''${IP} at the end
+      DDNS_LINE="''${DDNS_LINE%auto}&a=''${DOLLAR}{IP}"
+      # Remove any trailing double &a= if they already had &a=
+      DDNS_LINE=$(echo "$DDNS_LINE" | sed 's/&a=&a=/\&a=/g')
+  '';
 
   domainPrompts = lib.concatMapStringsSep "\n" (d: ''
     echo ""
@@ -21,10 +34,9 @@ let
       echo "$DOMAIN" > "/var/lib/domains/${d.name}"
       echo "  Saved: $DOMAIN"
       ${lib.optionalString d.needsDDNS ''
-      read -p "  Njal.la DDNS URL for $DOMAIN (paste full URL, or Enter to skip): " DDNS_URL
-      if [ -n "$DDNS_URL" ]; then
+      ${ddnsPrompt}
         NJALLA_ENTRIES="$NJALLA_ENTRIES
-curl \"''${DDNS_URL%auto}''${DOLLAR}{IP}\""
+curl \"$DDNS_LINE\""
       fi
       ''}
     else
@@ -32,7 +44,6 @@ curl \"''${DDNS_URL%auto}''${DOLLAR}{IP}\""
     fi
   '') domains;
 
-  # Only prompt for domains that don't have a file yet
   missingDomainPrompts = lib.concatMapStringsSep "\n" (d: ''
     if [ ! -f "/var/lib/domains/${d.name}" ]; then
       MISSING=true
@@ -44,10 +55,9 @@ curl \"''${DDNS_URL%auto}''${DOLLAR}{IP}\""
         echo "$DOMAIN" > "/var/lib/domains/${d.name}"
         echo "  Saved: $DOMAIN"
         ${lib.optionalString d.needsDDNS ''
-        read -p "  Njal.la DDNS URL for $DOMAIN (paste full URL, or Enter to skip): " DDNS_URL
-        if [ -n "$DDNS_URL" ]; then
+        ${ddnsPrompt}
           NEW_NJALLA_ENTRIES="$NEW_NJALLA_ENTRIES
-curl \"''${DDNS_URL%auto}''${DOLLAR}{IP}\""
+curl \"$DDNS_LINE\""
         fi
         ''}
       else
@@ -62,7 +72,6 @@ curl \"''${DDNS_URL%auto}''${DOLLAR}{IP}\""
     fi
   '') domains;
 
-  # ── Full setup (first boot) ─────────────────────────────────
   setupScript = pkgs.writeShellScriptBin "sovran-setup-domains" ''
     set -euo pipefail
 
@@ -82,11 +91,11 @@ curl \"''${DDNS_URL%auto}''${DOLLAR}{IP}\""
     echo "  1. Domains/subdomains purchased on https://njal.la"
     echo "  2. For each subdomain, add a Dynamic record in"
     echo "     your Njal.la dashboard."
-    echo "  3. Njal.la will give you a DDNS URL like:"
+    echo "  3. Njal.la will give you a curl command like:"
     echo ""
-    echo -e "     ''${CYAN}https://njal.la/update/?h=sub.domain.com&k=abc123&auto''${NC}"
+    echo -e "     ''${CYAN}curl \"https://njal.la/update/?h=sub.domain.com&k=abc123&auto\"''${NC}"
     echo ""
-    echo "  Have those URLs ready."
+    echo "  Have those curl commands ready."
     echo ""
     read -p "Press Enter to continue..."
 
@@ -157,7 +166,6 @@ SCRIPT
     nixos-rebuild switch --flake /etc/nixos#nixos
   '';
 
-  # ── Add-domain script (existing machines, new features) ─────
   addDomainScript = pkgs.writeShellScriptBin "sovran-add-domains" ''
     set -euo pipefail
 
@@ -229,7 +237,6 @@ SCRIPT
     nixos-rebuild switch --flake /etc/nixos#nixos
   '';
 
-  # ── Check script used by autostart ──────────────────────────
   needsSetup = pkgs.writeShellScriptBin "sovran-domains-need-setup" ''
     # First boot — no setup done at all
     if [ ! -f /var/lib/domains/.setup-complete ]; then
@@ -255,7 +262,6 @@ in
     needsSetup
   ];
 
-  # ── Auto-launch on login if any domains are missing ─────────
   environment.etc."xdg/autostart/sovran-setup-domains.desktop".text = ''
     [Desktop Entry]
     Type=Application
