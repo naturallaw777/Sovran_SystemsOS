@@ -28,6 +28,7 @@
     (lib.mkIf config.sovran_systemsOS.roles.node {
       sovran_systemsOS.services = {
         bitcoin = lib.mkDefault true;
+        bip110 = lib.mkDefault true;
         synapse = lib.mkDefault false;
         vaultwarden = lib.mkDefault false;
         wordpress = lib.mkDefault false;
