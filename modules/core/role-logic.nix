@@ -24,18 +24,20 @@
     })
 
     # ── Bitcoin Node Only Role ────────────────────────────────
-    # Bitcoin ecosystem + mempool, BTCPay runs but not exposed via Caddy
+    # Bitcoin ecosystem + mempool + bip110, BTCPay runs but not exposed via Caddy
     (lib.mkIf config.sovran_systemsOS.roles.node {
       sovran_systemsOS.services = {
         bitcoin = lib.mkDefault true;
-        bip110 = lib.mkDefault true;
         synapse = lib.mkDefault false;
         vaultwarden = lib.mkDefault false;
         wordpress = lib.mkDefault false;
         nextcloud = lib.mkDefault false;
       };
 
-      sovran_systemsOS.features.mempool = lib.mkDefault true;
+      sovran_systemsOS.features = {
+        mempool = lib.mkDefault true;
+        bip110 = lib.mkDefault true;
+      };
 
       sovran_systemsOS.web.btcpayserver = lib.mkDefault false;
     })
