@@ -234,7 +234,7 @@ SCRIPT
     echo ""
     echo -e "''${YELLOW}  Rebuilding to activate services with new domains...''${NC}"
     echo ""
-    nixos-rebuild switch --flake /etc/nixos#nixos
+    nixos-rebuild switch --impure --flake /etc/nixos#nixos
   '';
 
   needsSetup = pkgs.writeShellScriptBin "sovran-domains-need-setup" ''
