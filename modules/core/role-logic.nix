@@ -3,20 +3,11 @@
 {
   config = lib.mkMerge [
 
-    # Server-Desktop Role most services enabled
+    # Server-Desktop Role — services already default to on,
+    # so we only need to set features here
     (lib.mkIf config.sovran_systemsOS.roles.server-desktop {
-      sovran_systemsOS.features = {
-        synapse = true;
-        bitcoin = true;
-        coturn = true;
-        vaultwarden = true;
-        haven = false;
-        mempool = false;
-        bip110 = false;
-        element-calling = false;
-        bitcoin-core = false;
-        rdp = false;
-      };
+      # All services are default=true, nothing to set
+      # All features are default=false, nothing to set
     })
 
     # Desktop role
@@ -25,11 +16,14 @@
       services.desktopManager.gnome.enable = true;
     })
 
-    # Bitcoin node role
+    # Bitcoin node role — only bitcoin, disable other services
     (lib.mkIf config.sovran_systemsOS.roles.node {
-      sovran_systemsOS.features = {
+      sovran_systemsOS.services = {
         bitcoin = true;
-        bip110 = false;
+        synapse = false;
+        vaultwarden = false;
+        wordpress = false;
+        nextcloud = false;
       };
     })
 

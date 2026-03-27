@@ -1,8 +1,10 @@
-{ config, pkgs, lib, ... }:
 {
-  # Only enable what this machine needs
-  sovran_systemsOS.services.wordpress.enable = true;
-  sovran_systemsOS.services.nextcloud.enable = true;
-  sovran_systemsOS.services.synapse.enable = true;
-  # btcpayserver is NOT enabled — no domain file needed, no vhost created
+  # ── Disable services you don't want ─────────────
+  sovran_systemsOS.services.wordpress = false;
+  sovran_systemsOS.services.nextcloud = false;
+
+  # ── Enable features you do want ─────────────────
+  sovran_systemsOS.features.haven = true;
+  sovran_systemsOS.features.element-calling = true;
+  sovran_systemsOS.nostr_npub = "npub1abc123...";
 }

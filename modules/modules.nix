@@ -1,46 +1,30 @@
 { config, pkgs, lib, ... }:
 
 {
-<<<<<<< HEAD
   imports = [
+    # ── Core (always loaded) ──────────────────────────────────
     ./core/roles.nix
     ./core/role-logic.nix
     ./core/caddy.nix
     ./core/sovran-manage.nix
-    ./php.nix
-    ./Sovran_SystemsOS_File_Fixes_And_New_Services.nix
-    ./synapse.nix
-    ./coturn.nix
-    ./wordpress.nix
-    ./nextcloud.nix
-    ./btcpayserver.nix
-=======
- 
-  imports = [
-    
-    ./core/roles.nix
-    ./core/role-logic.nix
+
+    # ── Always on (no flag) ───────────────────────────────────
     ./php.nix
     ./Sovran_SystemsOS_File_Fixes_And_New_Services.nix
 
-    # Always imported feature modules
+    # ── Services (default ON — disable in custom.nix) ─────────
     ./synapse.nix
-    ./coturn.nix
-    ./bitcoinecosystem.nix
->>>>>>> 5bee5ad99bb7890df011d88e9928b6944c3565f8
+    ./wordpress.nix
+    ./nextcloud.nix
     ./vaultwarden.nix
+    ./bitcoinecosystem.nix
+
+    # ── Features (default OFF — enable in custom.nix) ─────────
     ./haven.nix
     ./bip110.nix
     ./element-calling.nix
     ./mempool.nix
     ./bitcoin-core.nix
     ./rdp.nix
-<<<<<<< HEAD
-    ./bitcoinecosystem.nix
   ];
-=======
-
-  ];
-
->>>>>>> 5bee5ad99bb7890df011d88e9928b6944c3565f8
 }

@@ -11,11 +11,37 @@
       node = lib.mkEnableOption "Bitcoin Node Only Role";
     };
 
+    # ── Services (default ON — user can disable in custom.nix) ──
+    services = {
+      synapse = lib.mkOption {
+        type = lib.types.bool;
+        default = true;
+        description = "Matrix Synapse homeserver";
+      };
+      bitcoin = lib.mkOption {
+        type = lib.types.bool;
+        default = true;
+        description = "Bitcoin Ecosystem (bitcoind, electrs, lnd, rtl, btcpay)";
+      };
+      vaultwarden = lib.mkOption {
+        type = lib.types.bool;
+        default = true;
+        description = "Vaultwarden password manager";
+      };
+      wordpress = lib.mkOption {
+        type = lib.types.bool;
+        default = true;
+        description = "WordPress (raw PHP served by Caddy)";
+      };
+      nextcloud = lib.mkOption {
+        type = lib.types.bool;
+        default = true;
+        description = "Nextcloud (raw PHP served by Caddy)";
+      };
+    };
+
+    # ── Features (default OFF — user can enable in custom.nix) ──
     features = {
-      coturn = lib.mkEnableOption "TURN server";
-      synapse = lib.mkEnableOption "Matrix Synapse";
-      bitcoin = lib.mkEnableOption "Bitcoin Ecosystem";
-      vaultwarden = lib.mkEnableOption "Vaultwarden";
       haven = lib.mkEnableOption "Haven NOSTR relay";
       bip110 = lib.mkEnableOption "BIP-110 Bitcoin Better Money";
       mempool = lib.mkEnableOption "Bitcoin Mempool Explorer";
@@ -28,6 +54,11 @@
       type = lib.types.str;
       default = "";
       description = "Nostr public key (npub1...) for Haven relay";
+    };
+
+    packages.bip110 = lib.mkOption {
+      type = lib.types.package;
+      description = "BIP-110 bitcoind-knots package";
     };
   };
 }
