@@ -7,6 +7,7 @@
     ./core/role-logic.nix
     ./core/caddy.nix
     ./core/njalla.nix
+    ./core/ssh-bootstrap.nix
     ./core/sovran-manage-domains.nix
 
     # ── Always on (no flag) ───────────────────────────────────

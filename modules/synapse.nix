@@ -2,9 +2,7 @@
 
 lib.mkIf config.sovran_systemsOS.services.synapse {
 
-  # ── PostgreSQL database for Matrix ──────────────────────────
   services.postgresql = {
-    enable = true;
     ensureDatabases = [ "matrix-synapse" ];
     ensureUsers = [
       {
@@ -14,47 +12,59 @@ lib.mkIf config.sovran_systemsOS.services.synapse {
     ];
   };
 
-  # ── Auto-generate DB password and initialize ────────────────
-  systemd.services.matrix-synapse-db-init = {
-    description = "Initialize Matrix Synapse PostgreSQL database with auto-generated password";
-    after = [ "postgresql.service" ];
-    requires = [ "postgresql.service" ];
-    before = [ "matrix-synapse.service" ];
+  # ── Generate registration secret if missing ─────────────────
+  systemd.services.matrix-synapse-secret-init = {
+    description = "Generate Matrix Synapse registration secret if missing";
     wantedBy = [ "multi-user.target" ];
+    before = [ "matrix-synapse.service" ];
     serviceConfig = {
       Type = "oneshot";
       RemainAfterExit = true;
     };
-    path = [ config.services.postgresql.package pkgs.pwgen pkgs.coreutils ];
+    path = [ pkgs.pwgen pkgs.coreutils ];
     script = ''
-      set -euo pipefail
-
-      SECRET_DIR="/var/lib/secrets"
-      SECRET_FILE="$SECRET_DIR/matrix_db_secret"
-
-      mkdir -p "$SECRET_DIR"
-
+      SECRET_FILE="/var/lib/matrix-synapse/registration-secret"
       if [ ! -f "$SECRET_FILE" ]; then
+        mkdir -p /var/lib/matrix-synapse
         pwgen -s 64 1 > "$SECRET_FILE"
-        chmod 600 "$SECRET_FILE"
         chown matrix-synapse:matrix-synapse "$SECRET_FILE"
-      fi
-
-      DB_PASS=$(cat "$SECRET_FILE")
-
-      psql -U postgres -c "ALTER ROLE \"matrix-synapse\" WITH LOGIN PASSWORD '$DB_PASS';"
-
-      if ! psql -U postgres -lqt | cut -d \| -f 1 | grep -qw "matrix-synapse"; then
-        psql -U postgres -c "CREATE DATABASE \"matrix-synapse\" WITH OWNER \"matrix-synapse\" TEMPLATE template0 LC_COLLATE = 'C' LC_CTYPE = 'C';"
+        chmod 600 "$SECRET_FILE"
+        echo "Generated Matrix registration secret"
+      else
+        echo "Matrix registration secret already exists, skipping"
       fi
     '';
   };
 
-  # ── Generate Synapse runtime config from domain files ───────
-  systemd.services.matrix-synapse-runtime-config = {
-    description = "Generate Matrix Synapse runtime config from domain files";
+  # ── Generate DB password if missing ─────────────────────────
+  systemd.services.matrix-synapse-db-init = {
+    description = "Generate Matrix Synapse DB password if missing";
+    wantedBy = [ "multi-user.target" ];
     before = [ "matrix-synapse.service" ];
-    after = [ "matrix-synapse-db-init.service" ];
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+    };
+    path = [ pkgs.pwgen ];
+    script = ''
+      SECRET_FILE="/var/lib/matrix-synapse/db-password"
+      if [ ! -f "$SECRET_FILE" ]; then
+        mkdir -p /var/lib/matrix-synapse
+        pwgen -s 32 1 > "$SECRET_FILE"
+        chown matrix-synapse:matrix-synapse "$SECRET_FILE"
+        chmod 600 "$SECRET_FILE"
+        echo "Generated new DB password at $SECRET_FILE"
+      else
+        echo "DB password already exists, skipping"
+      fi
+    '';
+  };
+
+  # ── Generate runtime config from domain files ───────────────
+  systemd.services.matrix-synapse-runtime-config = {
+    description = "Generate Synapse runtime config from domain files";
+    before = [ "matrix-synapse.service" ];
+    after = [ "matrix-synapse-db-init.service" "matrix-synapse-secret-init.service" ];
     requiredBy = [ "matrix-synapse.service" ];
     wantedBy = [ "multi-user.target" ];
     serviceConfig = {
@@ -66,70 +76,51 @@ lib.mkIf config.sovran_systemsOS.services.synapse {
     };
     path = [ pkgs.coreutils ];
     script = ''
-      set -euo pipefail
-
       MATRIX=$(cat /var/lib/domains/matrix)
-      RUNTIME_DIR="/run/matrix-synapse"
-      mkdir -p "$RUNTIME_DIR"
 
-      # Include TURN config if coturn secret exists (deployed machines)
-      if [ -f /var/lib/secrets/coturn_static_auth_secret ]; then
-        COTURN_SECRET=$(cat /var/lib/secrets/coturn_static_auth_secret)
-        cat > "$RUNTIME_DIR/runtime-config.yaml" <<EOF
-server_name: "$MATRIX"
-turn_shared_secret: "$COTURN_SECRET"
-turn_uris:
-  - "turn:$MATRIX:5349?transport=udp"
-  - "turn:$MATRIX:5349?transport=tcp"
-EOF
-      else
-        cat > "$RUNTIME_DIR/runtime-config.yaml" <<EOF
-server_name: "$MATRIX"
-EOF
-      fi
+      mkdir -p /run/matrix-synapse
 
-      chown matrix-synapse:matrix-synapse "$RUNTIME_DIR/runtime-config.yaml"
-      chmod 640 "$RUNTIME_DIR/runtime-config.yaml"
+      cat > /run/matrix-synapse/runtime-config.yaml <<EOF
+server_name: "$MATRIX"
+public_baseurl: "https://$MATRIX"
+registration_shared_secret_path: "/var/lib/matrix-synapse/registration-secret"
+EOF
+
+      chown matrix-synapse:matrix-synapse /run/matrix-synapse/runtime-config.yaml
+      chmod 640 /run/matrix-synapse/runtime-config.yaml
     '';
   };
 
   # ── Synapse service ─────────────────────────────────────────
   services.matrix-synapse = {
     enable = true;
-    extraConfigFiles = [ "/run/matrix-synapse/runtime-config.yaml" ];
+    extraConfigFiles = [
+      "/run/matrix-synapse/runtime-config.yaml"
+    ];
     settings = {
-      # server_name, turn_shared_secret, turn_uris injected at runtime
+      database = {
+        name = "psycopg2";
+        args = {
+          host = "localhost";
+          database = "matrix-synapse";
+          user = "matrix-synapse";
+        };
+      };
       push.include_content = false;
+      url_preview_enabled = true;
       group_unread_count_by_room = false;
       encryption_enabled_by_default_for_room_type = "invite";
       allow_profile_lookup_over_federation = false;
       allow_device_name_lookup_over_federation = false;
-      url_preview_enabled = true;
-      max_upload_size = "1024M";
       url_preview_ip_range_blacklist = [
-        "10.0.0.0/8"
-        "100.64.0.0/10"
-        "169.254.0.0/16"
-        "172.16.0.0/12"
-        "192.0.0.0/24"
-        "192.0.2.0/24"
-        "192.168.0.0/16"
-        "192.88.99.0/24"
-        "198.18.0.0/15"
-        "198.51.100.0/24"
-        "2001:db8::/32"
-        "203.0.113.0/24"
-        "224.0.0.0/4"
-        "::1/128"
-        "fc00::/7"
-        "fe80::/10"
-        "fec0::/10"
-        "ff00::/8"
+        "10.0.0.0/8" "100.64.0.0/10" "169.254.0.0/16" "172.16.0.0/12"
+        "192.0.0.0/24" "192.0.2.0/24" "192.168.0.0/16" "192.88.99.0/24"
+        "198.18.0.0/15" "198.51.100.0/24" "2001:db8::/32" "203.0.113.0/24"
+        "224.0.0.0/4" "::1/128" "fc00::/7" "fe80::/10" "fec0::/10" "ff00::/8"
       ];
       url_preview_ip_ranger_whitelist = [ "127.0.0.1" ];
       presence.enabled = true;
       enable_registration = false;
-      registration_shared_secret = config.age.secrets.matrix_reg_secret.path;
       listeners = [
         {
           port = 8008;
@@ -145,7 +136,10 @@ EOF
       ];
     };
   };
-  
+
+  systemd.services.matrix-synapse.after = [ "matrix-synapse-secret-init.service" ];
+  systemd.services.matrix-synapse.wants = [ "matrix-synapse-secret-init.service" ];
+
   sovran_systemsOS.domainRequirements = [
     { name = "matrix"; label = "Matrix Synapse"; example = "matrix.yourdomain.com"; }
   ];
