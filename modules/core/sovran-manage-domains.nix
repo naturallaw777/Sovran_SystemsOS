@@ -330,14 +330,14 @@ $PENDING_NJALLA"
     echo ""
     printf "%b%s%b\n" "$CYAN" "══════════════════════════════════════════════" "$NC"
     printf "%b%s%b\n" "$CYAN" "  New Domains Added!" "$NC"
-    printf "%b%s%b\n" "$CYAN" "════════���═════════════════════════════════════" "$NC"
+    printf "%b%s%b\n" "$CYAN" "══════════════════════════════════════════════" "$NC"
     echo ""
     echo "  All configured domains:"
     ${domainSummary}
     echo ""
     printf "%b%s%b\n" "$YELLOW" "  Rebuilding to activate services with new domains..." "$NC"
     echo ""
-    nixos-rebuild switch --flake /etc/nixos#nixos
+    nixos-rebuild switch --impure
   '';
 
   needsSetup = pkgs.writeShellScriptBin "sovran-domains-need-setup" ''
