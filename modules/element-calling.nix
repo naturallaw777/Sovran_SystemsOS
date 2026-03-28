@@ -39,7 +39,7 @@ lib.mkIf config.sovran_systemsOS.features.element-calling {
   systemd.services.lk-jwt-service.after = [ "livekit-key-setup.service" ];
   systemd.services.lk-jwt-service.wants = [ "livekit-key-setup.service" ];
 
-  ####### CADDY SNIPPET — written to /run/caddy for caddy.nix to pick up #######
+  ####### CADDY SNIPPET #######
   systemd.services.element-calling-caddy-config = {
     description = "Generate Element Calling Caddy config snippet";
     before = [ "caddy-generate-config.service" ];
@@ -145,7 +145,7 @@ EOF
     { from = 7882; to = 7894; }
   ];
 
-  ####### JWT SERVICE #######
+  ####### JWT SERVICE RUNTIME CONFIG #######
   systemd.services.lk-jwt-service-runtime-config = {
     description = "Generate lk-jwt-service runtime config from domain files";
     before = [ "lk-jwt-service.service" ];
@@ -173,11 +173,12 @@ EOF
     '';
   };
 
+  ####### JWT SERVICE #######
   services.lk-jwt-service = {
     enable = true;
     port = 8073;
     keyFile = livekitKeyFile;
-    livekitUrl = "wss://placeholder.local";  # overridden at runtime by EnvironmentFile
+    livekitUrl = "wss://placeholder.local";
   };
 
   systemd.services.lk-jwt-service.serviceConfig.EnvironmentFile = [
@@ -224,40 +225,11 @@ EOF
     '';
   };
 
-  services.matrix-synapse = {
-    extraConfigFiles = [ "/run/matrix-synapse/element-calling-config.yaml" ];
-    settings = lib.mkForce {
-      push.include_content = false;
-      url_preview_enabled = true;
-      group_unread_count_by_room = false;
-      encryption_enabled_by_default_for_room_type = "invite";
-      allow_profile_lookup_over_federation = false;
-      allow_device_name_lookup_over_federation = false;
-      url_preview_ip_range_blacklist = [
-        "10.0.0.0/8" "100.64.0.0/10" "169.254.0.0/16" "172.16.0.0/12"
-        "192.0.0.0/24" "192.0.2.0/24" "192.168.0.0/16" "192.88.99.0/24"
-        "198.18.0.0/15" "198.51.100.0/24" "2001:db8::/32" "203.0.113.0/24"
-        "224.0.0.0/4" "::1/128" "fc00::/7" "fe80::/10" "fec0::/10" "ff00::/8"
-      ];
-      url_preview_ip_ranger_whitelist = [ "127.0.0.1" ];
-      presence.enabled = true;
-      enable_registration = false;
-      registration_shared_secret = config.age.secrets.matrix_reg_secret.path;
-      listeners = [
-        {
-          port = 8008;
-          bind_addresses = [ "::1" ];
-          type = "http";
-          tls = false;
-          x_forwarded = true;
-          resources = [
-            { names = [ "client" ]; compress = true; }
-            { names = [ "federation" ]; compress = false; }
-          ];
-        }
-      ];
-    };
-  };
+  ####### SYNAPSE OVERRIDES (element-calling needs) #######
+  services.matrix-synapse.extraConfigFiles = [
+    "/run/matrix-synapse/element-calling-config.yaml"
+  ];
+
   sovran_systemsOS.domainRequirements = [
     { name = "element-calling"; label = "Element Calling (LiveKit)"; example = "call.yourdomain.com"; }
   ];
