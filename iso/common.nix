@@ -1,4 +1,4 @@
-{ config, pkgs, lib, ... }:
+{ config, pkgs, lib, modulesPath, ... }:
 
 let
   sovranSource = builtins.path { path = ../.; name = "sovran-systemsos"; };
@@ -6,7 +6,7 @@ let
 in
 {
   imports = [
-    "${pkgs.path}/nixos/modules/installer/cd-dvd/installation-cd-graphical-gnome.nix"
+    "${modulesPath}/installer/cd-dvd/installation-cd-graphical-gnome.nix"
     ./branding.nix
   ];
 
