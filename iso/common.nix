@@ -10,7 +10,7 @@ in
     ./branding.nix
   ];
 
-  isoImage.isoName = "Sovran_SystemsOS.iso";
+  image.fileName = "Sovran_SystemsOS.iso";
 
   users.users.free = {
     isNormalUser = true;
