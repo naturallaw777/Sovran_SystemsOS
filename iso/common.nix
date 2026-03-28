@@ -20,7 +20,7 @@ in
   };
 
   services.displayManager.autoLogin.enable = true;
-  services.displayManager.autoLogin.user = "free";
+  services.displayManager.autoLogin.user = lib.mkForce "free";
 
   environment.systemPackages = with pkgs; [
     installer
