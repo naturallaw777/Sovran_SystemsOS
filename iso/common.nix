@@ -21,6 +21,9 @@ in
 
   services.displayManager.autoLogin.enable = true;
   services.displayManager.autoLogin.user = lib.mkForce "free";
+  
+  nix-bitcoin.generateSecrets = true;
+
 
   environment.systemPackages = with pkgs; [
     installer
