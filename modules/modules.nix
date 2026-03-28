@@ -7,7 +7,6 @@
     ./core/role-logic.nix
     ./core/caddy.nix
     ./core/njalla.nix
-    ./core/matrix-secret.nix
     ./core/sovran-manage-domains.nix
 
     # ── Always on (no flag) ───────────────────────────────────
