@@ -6,6 +6,7 @@
     ./core/roles.nix
     ./core/role-logic.nix
     ./core/caddy.nix
+    ./core/njalla.nix
     ./core/sovran-manage.nix
     ./core/sovran-manage-domains.nix
 

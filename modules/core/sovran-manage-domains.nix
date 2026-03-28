@@ -151,7 +151,6 @@ $PENDING_NJALLA"
 
     # ── Create directories ────────────────────────────
     mkdir -p /var/lib/domains
-    mkdir -p /var/lib/njalla
 
     NJALLA_ENTRIES=""
     PENDING_NJALLA=""
@@ -223,18 +222,13 @@ $PENDING_NJALLA"
       exit 1
     fi
 
-    # ── Write njalla.sh ───────────────────────────────
-    echo ""
-    printf "%b%s%b\n" "$GREEN" "── Generating DDNS script ──" "$NC"
-
-    cat > /var/lib/njalla/njalla.sh <<SCRIPT
-#!/usr/bin/env bash
-IP=\$(dig @resolver4.opendns.com myip.opendns.com +short -4)
-$NJALLA_ENTRIES
-SCRIPT
-
-    chmod 700 /var/lib/njalla/njalla.sh
-    echo "  Written to /var/lib/njalla/njalla.sh"
+    # ── Append curl entries to njalla.sh ──────────────
+    if [ -n "$NJALLA_ENTRIES" ]; then
+      echo ""
+      printf "%b%s%b\n" "$GREEN" "── Updating DDNS script ──" "$NC"
+      echo "$NJALLA_ENTRIES" >> /var/lib/njalla/njalla.sh
+      echo "  Appended entries to /var/lib/njalla/njalla.sh"
+    fi
 
     # ── Run DDNS update now ───────────────────────────
     echo ""
@@ -244,7 +238,7 @@ SCRIPT
       echo "  DNS records updated."
     fi
 
-    # ── Mark setup complete ──────────────────────��────
+    # ── Mark setup complete ───────────────────────────
     touch /var/lib/domains/.setup-complete
 
     # ── Summary ───────────────────────────────────────
@@ -283,7 +277,6 @@ SCRIPT
     echo "  Checking for newly enabled features that need domains..."
 
     mkdir -p /var/lib/domains
-    mkdir -p /var/lib/njalla
 
     ${missingDomainPrompts}
 
@@ -322,19 +315,8 @@ SCRIPT
     if [ -n "$NEW_NJALLA_ENTRIES" ]; then
       echo ""
       printf "%b%s%b\n" "$GREEN" "── Updating DDNS script ──" "$NC"
-
-      if [ -f /var/lib/njalla/njalla.sh ]; then
-        echo "$NEW_NJALLA_ENTRIES" >> /var/lib/njalla/njalla.sh
-        echo "  Appended new entries to /var/lib/njalla/njalla.sh"
-      else
-        cat > /var/lib/njalla/njalla.sh <<SCRIPT
-#!/usr/bin/env bash
-IP=\$(dig @resolver4.opendns.com myip.opendns.com +short -4)
-$NEW_NJALLA_ENTRIES
-SCRIPT
-        chmod 700 /var/lib/njalla/njalla.sh
-        echo "  Created /var/lib/njalla/njalla.sh"
-      fi
+      echo "$NEW_NJALLA_ENTRIES" >> /var/lib/njalla/njalla.sh
+      echo "  Appended new entries to /var/lib/njalla/njalla.sh"
 
       echo ""
       read -p "Update Njal.la DNS records now? (y/n): " RUN_NOW
@@ -348,14 +330,14 @@ SCRIPT
     echo ""
     printf "%b%s%b\n" "$CYAN" "══════════════════════════════════════════════" "$NC"
     printf "%b%s%b\n" "$CYAN" "  New Domains Added!" "$NC"
-    printf "%b%s%b\n" "$CYAN" "══════════════════════════════════════════════" "$NC"
+    printf "%b%s%b\n" "$CYAN" "════════���═════════════════════════════════════" "$NC"
     echo ""
     echo "  All configured domains:"
     ${domainSummary}
     echo ""
     printf "%b%s%b\n" "$YELLOW" "  Rebuilding to activate services with new domains..." "$NC"
     echo ""
-    nixos-rebuild switch --impure
+    nixos-rebuild switch --flake /etc/nixos#nixos
   '';
 
   needsSetup = pkgs.writeShellScriptBin "sovran-domains-need-setup" ''
