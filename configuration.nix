@@ -103,7 +103,7 @@
     libargon2 gnome-terminal libreoffice-fresh
     dig firefox element-desktop wp-cli axel
     lk-jwt-service livekit-libwebrtc livekit-cli livekit
-    matrix-synapse
+    matrix-synapse age
   ];
 
   # ── Shell ──────────────────────────────────────────────────
@@ -126,15 +126,6 @@
     '';
   };
 
-  # ── Agenix ─────────────────────────────────────────────────
-  age.identityPaths = [ "/root/.ssh/agenix/agenix-secret-keys" ];
-  age.secrets.matrix_reg_secret = {
-    file = /var/lib/agenix-secrets/matrix_reg_secret.age;
-    mode = "770";
-    owner = "matrix-synapse";
-    group = "matrix-synapse";
-  };
-
   # ── Backups ────────────────────────────────────────────────
   services.rsnapshot = {
     enable = true;
@@ -153,7 +144,7 @@ backup	/etc/nix-bitcoin-secrets/	localhost/
     };
   };
 
-  # ── Cron (base system crons only) ─────────────────────────
+  # ── Cron ───────────────────────────────────────────────────
   services.cron = {
     enable = true;
     systemCronJobs = [
@@ -165,6 +156,7 @@ backup	/etc/nix-bitcoin-secrets/	localhost/
 
   # ── Tor ────────────────────────────────────────────────────
   services.tor = { enable = true; client.enable = true; torsocks.enable = true; };
+  services.privoxy.enableTor = true;
 
   # ── SSH ────────────────────────────────────────────────────
   services.openssh = {
