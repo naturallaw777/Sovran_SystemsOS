@@ -3,15 +3,15 @@
 let
   userName = "free";
   keyPath = "/home/${userName}/.ssh/factory_login";
+  userExists = builtins.hasAttr userName config.users.users;
 in
-{
-  # Ensure SSH dirs exist with correct perms
+lib.mkIf userExists {
+
   systemd.tmpfiles.rules = [
     "d /root/.ssh 0700 root root -"
     "d /home/${userName}/.ssh 0700 ${userName} users -"
   ];
 
-  # Generate keypair if missing (runs once)
   systemd.services.factory-ssh-keygen = {
     description = "Generate factory SSH key for ${userName} if missing";
     wantedBy = [ "multi-user.target" ];
@@ -30,7 +30,6 @@ in
     '';
   };
 
-  # Pull the public key into root's authorized_keys once it exists
   systemd.services.factory-ssh-authorize = {
     description = "Authorize factory SSH key for root";
     wantedBy = [ "multi-user.target" ];
