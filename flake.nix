@@ -3,16 +3,14 @@
 
 	inputs = {
 		nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-		nix-bitcoin.url = "github:fort-nix/nix-bitcoin/release";		
-		agenix.url = "github:ryantm/agenix";
-			agenix.inputs.darwin.follows = "";
+		nix-bitcoin.url = "github:fort-nix/nix-bitcoin/release";
 		nixvim.url = "github:nix-community/nixvim";
 		btc-clients.url = "github:emmanuelrosa/btc-clients-nix";
 		nixpkgs-stable.url = "github:nixos/nixpkgs/nixos-24.11";
 		bip110.url = "github:emmanuelrosa/bitcoin-knots-bip-110-nix";
 	};
 
-	outputs = { self, nixpkgs, nix-bitcoin, nixvim, agenix, btc-clients, nixpkgs-stable, bip110, ... }:
+	outputs = { self, nixpkgs, nix-bitcoin, nixvim, btc-clients, nixpkgs-stable, bip110, ... }:
 
 	let
 		overlay-stable = final: prev: {
@@ -22,8 +20,8 @@
 			};
 		};
 	in
-	{ 
-		
+	{
+
 		nixosConfigurations.nixos = nixpkgs.lib.nixosSystem {
 			modules = [
 				{ nixpkgs.hostPlatform = "x86_64-linux"; }
@@ -36,7 +34,6 @@
 				})
 				./configuration.nix
 				nix-bitcoin.nixosModules.default
-				agenix.nixosModules.default
 				nixvim.nixosModules.nixvim
 			];
 			config = {
