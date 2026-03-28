@@ -3,6 +3,8 @@
 {
   imports = [
     ./modules/modules.nix
+    ./custom.nix
+    ./iso/branding.nix
   ];
 
   # ── Boot ────────────────────────────────────────────────────
