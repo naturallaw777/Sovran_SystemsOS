@@ -37,6 +37,8 @@ in
   services.displayManager.autoLogin.user = lib.mkForce "free";
 
   nix-bitcoin.generateSecrets = lib.mkDefault true;
+  
+  nix.settings.experimental-features = [ "nix-command" "flakes" ]
 
   environment.systemPackages = with pkgs; [
     installerPy
