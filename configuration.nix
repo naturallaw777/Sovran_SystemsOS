@@ -1,10 +1,8 @@
-{ config, pkgs, lib, roleStateFile, customFile, ... }:
+{ config, pkgs, lib, ... }:
 
 {
   imports = [
     ./modules/modules.nix
-    roleStateFile
-    customFile
     ./iso/branding.nix
   ];
 

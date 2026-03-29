@@ -23,12 +23,10 @@
 	{
 		nixosConfigurations.nixos = nixpkgs.lib.nixosSystem {
 			system = "x86_64-linux";
-			specialArgs = {
-				roleStateFile = /etc/nixos/role-state.nix;
-				customFile    = /etc/nixos/custom.nix;
-			};
 			modules = [
 				self.nixosModules.Sovran_SystemsOS
+				/etc/nixos/role-state.nix
+				/etc/nixos/custom.nix
 			];
 		};
 
