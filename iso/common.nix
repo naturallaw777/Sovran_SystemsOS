@@ -17,7 +17,7 @@ in
   users.users.free = {
     isNormalUser = true;
     description = "free";
-    extraGroups = [ "wheel" "networkmanager" ];
+    extraGroups = [ "networkmanager" ];
     initialPassword = "free";
   };
 
@@ -25,7 +25,6 @@ in
   services.displayManager.autoLogin.user = lib.mkForce "free";
   
   nix-bitcoin.generateSecrets = true;
-
 
   environment.systemPackages = with pkgs; [
     installer
@@ -49,7 +48,7 @@ in
     [Desktop Entry]
     Type=Application
     Name=Sovran Guided Installer
-    Exec=${installer}/bin/sovran-install
+    Exec=gnome-terminal -- bash -c "${installer}/bin/sovran-install; exec bash"
     Terminal=false
     X-GNOME-Autostart-enabled=true
   '';
