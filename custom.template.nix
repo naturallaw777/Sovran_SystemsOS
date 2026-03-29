@@ -10,7 +10,7 @@
   #                                                         #
   #  After making changes, rebuild with:                    #
   #                                                         #
-  #       sudo nixos-rebuild switch --impure                #
+  #       nixos-rebuild switch                #
   #                                                         #
   ###########################################################
 

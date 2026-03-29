@@ -3,8 +3,6 @@
 {
   imports = [
     ./modules/modules.nix
-    /etc/nixos/role-state.nix
-    /etc/nixos/custom.nix
     ./iso/branding.nix
   ];
 
