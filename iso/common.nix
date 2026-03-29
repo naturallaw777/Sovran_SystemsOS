@@ -3,8 +3,12 @@
 let
   sovranSource = builtins.path { path = ../.; name = "sovran-systemsos"; };
 
+  pythonEnv = pkgs.python3.withPackages (ps: [ ps.pygobject3 ]);
+
   installerPy = pkgs.writeShellScriptBin "sovran-install" ''
-    exec ${pkgs.python3.withPackages (ps: [ ps.pygobject3 ])}/bin/python3 /etc/sovran/installer.py
+    export GI_TYPELIB_PATH=${pkgs.gtk4}/lib/girepository-1.0:${pkgs.libadwaita}/lib/girepository-1.0:${pkgs.glib}/lib/girepository-1.0:${pkgs.pango}/lib/girepository-1.0:${pkgs.gdk-pixbuf}/lib/girepository-1.0:$GI_TYPELIB_PATH
+    export LD_LIBRARY_PATH=${pkgs.gtk4}/lib:${pkgs.libadwaita}/lib:${pkgs.glib}/lib:$LD_LIBRARY_PATH
+    exec ${pythonEnv}/bin/python3 /etc/sovran/installer.py
   '';
 in
 {
@@ -34,10 +38,13 @@ in
 
   environment.systemPackages = with pkgs; [
     installerPy
-    (python3.withPackages (ps: [ ps.pygobject3 ]))
+    pythonEnv
     gtk4
     libadwaita
     gobject-introspection
+    glib
+    pango
+    gdk-pixbuf
     util-linux
     disko
     parted
