@@ -17,10 +17,12 @@ in
   services.gnome.gnome-initial-setup.enable = false;
   environment.gnome.excludePackages = with pkgs; [ gnome-tour gnome-user-docs ];
 
+  # Allow free user to run installer commands as root without a password
+  security.sudo.wheelNeedsPassword = false;
   users.users.free = {
     isNormalUser = true;
     description = "free";
-    extraGroups = [ "networkmanager" ];
+    extraGroups = [ "networkmanager" "wheel" ];
     initialPassword = "free";
   };
 
@@ -48,11 +50,11 @@ in
   environment.etc."sovran/flake".source = sovranSource;
 
   environment.etc."xdg/autostart/sovran-installer.desktop".text = ''
-    [Desktop Entry]
-    Type=Application
-    Name=Sovran Guided Installer
-    Exec=gnome-terminal -- bash -c "${installer}/bin/sovran-install; exec bash"
-    Terminal=false
-    X-GNOME-Autostart-enabled=true
-  '';
+[Desktop Entry]
+Type=Application
+Name=Sovran Guided Installer
+Exec=gnome-terminal -- bash -c "${installer}/bin/sovran-install; exec bash"
+Terminal=false
+X-GNOME-Autostart-enabled=true
+'';
 }
