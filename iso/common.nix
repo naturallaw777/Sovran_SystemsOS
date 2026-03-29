@@ -35,6 +35,8 @@ in
 
   services.displayManager.autoLogin.enable = true;
   services.displayManager.autoLogin.user = lib.mkForce "free";
+  
+  nix-bitcoin.generateSecrets = lib.mkDefault true;
  
   nix.settings.experimental-features = [ "nix-command" "flakes" ];
 
