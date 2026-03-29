@@ -1,10 +1,10 @@
-{ config, pkgs, lib, ... }:
+{ config, pkgs, lib, roleStateFile, customFile, ... }:
 
 {
   imports = [
     ./modules/modules.nix
-    /etc/nixos/role-state.nix
-    /etc/nixos/custom.nix
+    roleStateFile
+    customFile
     ./iso/branding.nix
   ];
 
