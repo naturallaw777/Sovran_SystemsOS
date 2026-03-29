@@ -3,7 +3,7 @@
 {
   options.sovran_systemsOS = {
     roles = {
-      server-desktop = lib.mkOption {
+      server_plus_desktop = lib.mkOption {
         type = lib.types.bool;
         default = !config.sovran_systemsOS.roles.desktop && !config.sovran_systemsOS.roles.node;
       };

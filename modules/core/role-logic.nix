@@ -3,8 +3,8 @@
 {
   config = lib.mkMerge [
 
-    # ── Server-Desktop Role (default) ─────────────────────────
-    (lib.mkIf config.sovran_systemsOS.roles.server-desktop {
+    # ── Server+Desktop Role (default) ─────────────────────────
+    (lib.mkIf config.sovran_systemsOS.roles.server_plus_desktop {
     })
 
     # ── Desktop Only Role ─────────────────────────────────────
