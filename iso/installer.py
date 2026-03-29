@@ -8,6 +8,7 @@ import os
 import subprocess
 import sys
 import threading
+import time
 
 LOGO = "/etc/sovran/logo.png"
 LOG = "/tmp/sovran-install.log"
@@ -56,6 +57,34 @@ def human_size(nbytes):
         nbytes /= 1024
     return f"{nbytes:.1f} PB"
 
+def check_internet():
+    """Return True if the machine can reach the internet."""
+    try:
+        result = subprocess.run(
+            ["ping", "-c", "1", "-W", "5", "nixos.org"],
+            capture_output=True, text=True
+        )
+        if result.returncode == 0:
+            return True
+    except Exception:
+        pass
+    # Fallback: try a second host in case DNS for nixos.org is down
+    try:
+        result = subprocess.run(
+            ["ping", "-c", "1", "-W", "5", "1.1.1.1"],
+            capture_output=True, text=True
+        )
+        return result.returncode == 0
+    except Exception:
+        return False
+
+def symbolic_icon(name):
+    """Create a crisp symbolic icon suitable for use as an ActionRow prefix."""
+    icon = Gtk.Image.new_from_icon_name(name)
+    icon.set_icon_size(Gtk.IconSize.LARGE)
+    icon.add_css_class("dim-label")
+    return icon
+
 
 # ── Application ────────────────────────────────────────────────────────────────
 
@@ -88,7 +117,11 @@ class InstallerWindow(Adw.ApplicationWindow):
         self.nav = Adw.NavigationView()
         self.set_content(self.nav)
 
-        self.push_welcome()
+        # Check for internet before anything else
+        if check_internet():
+            self.push_welcome()
+        else:
+            self.push_no_internet()
 
     # ── Navigation helpers ─────────────────────────────────────────────────
 
@@ -115,7 +148,7 @@ class InstallerWindow(Adw.ApplicationWindow):
                 break
         self.push_page(title, child)
 
-    # ── Shared widgets ─────────────────────────────────────────────────────
+    # ── Shared widgets ───────────────��─────────────────────────────────────
 
     def make_scrolled_log(self):
         sw = Gtk.ScrolledWindow()
@@ -164,6 +197,55 @@ class InstallerWindow(Adw.ApplicationWindow):
 
         return box
 
+    # ── No Internet Screen ─────────────────────────────────────────────────
+
+    def push_no_internet(self):
+        outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+
+        status = Adw.StatusPage()
+        status.set_title("No Internet Connection")
+        status.set_description(
+            "An active internet connection is required to install Sovran_SystemsOS.\n\n"
+            "Please connect an Ethernet cable or configure Wi-Fi,\n"
+            "then press Retry."
+        )
+        status.set_icon_name("network-offline-symbolic")
+        status.set_vexpand(True)
+        outer.append(status)
+
+        btn_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+        btn_box.set_halign(Gtk.Align.CENTER)
+        btn_box.set_margin_bottom(32)
+
+        retry_btn = Gtk.Button(label="Retry")
+        retry_btn.add_css_class("suggested-action")
+        retry_btn.add_css_class("pill")
+        retry_btn.connect("clicked", self.on_retry_internet)
+        btn_box.append(retry_btn)
+
+        outer.append(btn_box)
+
+        self.push_page("No Internet", outer)
+
+    def on_retry_internet(self, btn):
+        if check_internet():
+            # Pop the no-internet page and proceed to welcome
+            try:
+                self.nav.pop()
+            except Exception:
+                pass
+            self.push_welcome()
+        else:
+            dlg = Adw.MessageDialog()
+            dlg.set_transient_for(self)
+            dlg.set_heading("Still Offline")
+            dlg.set_body(
+                "Could not reach the internet.\n"
+                "Please check your network connection and try again."
+            )
+            dlg.add_response("ok", "OK")
+            dlg.present()
+
     # ── Step 1: Welcome & Role ─────────────────────────────────────────────
 
     def push_welcome(self):
@@ -178,7 +260,7 @@ class InstallerWindow(Adw.ApplicationWindow):
         if os.path.exists(LOGO):
             try:
                 img = Gtk.Image.new_from_file(LOGO)
-                img.set_pixel_size(96)
+                img.set_pixel_size(480)
                 hero.append(img)
             except Exception:
                 pass
@@ -304,20 +386,20 @@ class InstallerWindow(Adw.ApplicationWindow):
         boot_row = Adw.ActionRow()
         boot_row.set_title("Boot Disk")
         boot_row.set_subtitle(f"/dev/{self.boot_disk}  —  {human_size(self.boot_size)}")
-        boot_row.add_prefix(Gtk.Image.new_from_icon_name("drive-harddisk-symbolic"))
+        boot_row.add_prefix(symbolic_icon("drive-harddisk-symbolic"))
         disk_group.add(boot_row)
 
         if self.data_disk:
             data_row = Adw.ActionRow()
             data_row.set_title("Data Disk")
             data_row.set_subtitle(f"/dev/{self.data_disk}  —  {human_size(self.data_size)}")
-            data_row.add_prefix(Gtk.Image.new_from_icon_name("drive-harddisk-symbolic"))
+            data_row.add_prefix(symbolic_icon("drive-harddisk-symbolic"))
             disk_group.add(data_row)
         else:
             no_row = Adw.ActionRow()
             no_row.set_title("Data Disk")
             no_row.set_subtitle("None detected  (requires 2 TB or larger)")
-            no_row.add_prefix(Gtk.Image.new_from_icon_name("drive-harddisk-symbolic"))
+            no_row.add_prefix(symbolic_icon("drive-harddisk-symbolic"))
             disk_group.add(no_row)
 
         outer.append(disk_group)
@@ -407,13 +489,30 @@ class InstallerWindow(Adw.ApplicationWindow):
 
     # ── Worker: partition ─────────────────────────────────────────────────
 
-    run_stream(["sudo", "sgdisk", "--zap-all", boot_path], buf)
-    run_stream(["sudo", "wipefs", "--all", "--force", boot_path], buf)
-    run_stream(["sudo", "partprobe", boot_path], buf)
-
     def do_partition(self, buf):
-        GLib.idle_add(append_text, buf, "=== Partitioning drives ===\n")
         boot_path = f"/dev/{self.boot_disk}"
+
+        # ── Wipe disk(s) to clear stale GPT/MBR data before disko ──
+        GLib.idle_add(append_text, buf, "=== Wiping disk(s) ===\n")
+
+        run_stream(["sudo", "sgdisk", "--zap-all", boot_path], buf)
+        run_stream(["sudo", "wipefs", "--all", "--force", boot_path], buf)
+
+        if self.data_disk:
+            data_path = f"/dev/{self.data_disk}"
+            run_stream(["sudo", "sgdisk", "--zap-all", data_path], buf)
+            run_stream(["sudo", "wipefs", "--all", "--force", data_path], buf)
+
+        # Inform the kernel of the wiped partition tables
+        run_stream(["sudo", "partprobe", boot_path], buf)
+        if self.data_disk:
+            run_stream(["sudo", "partprobe", data_path], buf)
+
+        # Short settle so the kernel finishes re-reading
+        time.sleep(2)
+
+        # ── Now run disko on a clean disk ──
+        GLib.idle_add(append_text, buf, "\n=== Partitioning drives ===\n")
         cmd = [
             "sudo", "disko", "--mode", "disko",
             f"{FLAKE}/iso/disko.nix",
@@ -460,7 +559,7 @@ class InstallerWindow(Adw.ApplicationWindow):
             raise RuntimeError(f"Failed to write role-state.nix: {proc.stderr}")
         run(["sudo", "cp", "/mnt/etc/nixos/custom.template.nix", "/mnt/etc/nixos/custom.nix"])
 
-    # ── Step 4: Ready to install ───────────────────────────────────────────
+    # ── Step 4: Ready to install ────────���──────────────────────────────────
 
     def push_ready(self):
         outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
