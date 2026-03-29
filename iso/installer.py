@@ -2,20 +2,29 @@
 import gi
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
-from gi.repository import Gtk, Adw, GLib, Pango, GdkPixbuf, Gio
-import subprocess
-import threading
+from gi.repository import Gtk, Adw, GLib
+import atexit
 import os
+import subprocess
+import sys
+import threading
 
 LOGO = "/etc/sovran/logo.png"
 LOG = "/tmp/sovran-install.log"
 FLAKE = "/etc/sovran/flake"
 
-logfile = open(LOG, "a")
+try:
+    logfile = open(LOG, "a")
+    atexit.register(logfile.close)
+except OSError:
+    logfile = None
 
 def log(msg):
-    logfile.write(msg + "\n")
-    logfile.flush()
+    if logfile is not None:
+        logfile.write(msg + "\n")
+        logfile.flush()
+    else:
+        print(msg, file=sys.stderr)
 
 def run(cmd):
     log(f"$ {' '.join(cmd)}")
@@ -347,11 +356,10 @@ class InstallerWindow(Adw.ApplicationWindow):
 
     def on_confirm_next(self, btn):
         if self._confirm_entry.get_text().strip() != "ERASE":
-            dlg = Adw.MessageDialog(
-                transient_for=self,
-                heading="Confirmation Required",
-                body="You must type ERASE exactly to proceed."
-            )
+            dlg = Adw.MessageDialog()
+            dlg.set_transient_for(self)
+            dlg.set_heading("Confirmation Required")
+            dlg.set_body("You must type ERASE exactly to proceed.")
             dlg.add_response("ok", "OK")
             dlg.present()
             return
