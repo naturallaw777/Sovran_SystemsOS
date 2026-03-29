@@ -1,4 +1,4 @@
-u#!/usr/bin/env bash
+#!/usr/bin/env bash
 set -euo pipefail
 
 LOG=/tmp/sovran-install.log
@@ -17,7 +17,7 @@ human_size() {
 
 ROLE=$(zenity --list --radiolist \
   --icon="$LOGO" \
-  --width=600 --height=400 \
+  --width=700 --height=450 \
   --title="Welcome to Sovran_SystemsOS Installer" \
   --text="<span font='28' weight='heavy'>Sovran Systems</span>\n<span font='14' style='italic' foreground='#aaaaaa'>Be Digitally Sovereign</span>\n\nPlease select your installation type:" \
   --print-column=2 \
@@ -32,19 +32,18 @@ if [ -z "$ROLE" ]; then
   exit 1
 fi
 
-# Normalize role to clean key
 case "$ROLE" in
   Server*) ROLE="Server+Desktop" ;;
   Desktop*) ROLE="Desktop Only" ;;
   Node*) ROLE="Node (Bitcoin-only)" ;;
 esac
 
-# ── 2. FETCH DISKS ───────────────────────────────���───────────────────────
+# ── 2. FETCH DISKS ───────────────────────────────────────────────────────
 
 mapfile -t DISKS < <(lsblk -b -dno NAME,SIZE,TYPE,RO,TRAN -e 7,11 | awk '$3=="disk" && $4=="0" && $5!="usb" {print $1":"$2}')
 
 if [ "${#DISKS[@]}" -eq 0 ]; then
-  zenity --error --icon="$LOGO" --text="No valid internal drives found. (USB drives are ignored)"
+  zenity --error --icon="$LOGO" --text="No valid internal drives found. USB drives are ignored."
   exit 1
 fi
 
@@ -64,25 +63,25 @@ fi
 
 if [ -n "$DATA_DISK" ] && [ "$DATA_SIZE" -lt "$BYTES_2TB" ]; then
   zenity --warning --icon="$LOGO" --width=500 \
-    --text="A second disk was detected (<b>${DATA_DISK}</b>), but it is smaller than 2TB and will <b>not</b> be used as a data disk."
+    --text="A second disk was detected (${DATA_DISK}), but it is smaller than 2TB and will not be used as a data disk."
   DATA_DISK=""
   DATA_SIZE=""
 fi
 
-SUMMARY="<b>Boot disk:</b> /dev/${BOOT_DISK} ($(human_size "$BOOT_SIZE"))"
+SUMMARY="Boot disk:  /dev/${BOOT_DISK} ($(human_size "$BOOT_SIZE"))"
 if [ -n "$DATA_DISK" ]; then
-  SUMMARY="${SUMMARY}\n<b>Data disk:</b> /dev/${DATA_DISK} ($(human_size "$DATA_SIZE"))"
+  SUMMARY="${SUMMARY}\nData disk:  /dev/${DATA_DISK} ($(human_size "$DATA_SIZE"))"
 else
-  SUMMARY="${SUMMARY}\n<b>Data disk:</b> none detected"
+  SUMMARY="${SUMMARY}\nData disk:  none detected"
 fi
 
 # ── 3. CONFIRM ERASE ─────────────────────────────────────────────────────
 
 CONFIRM=$(zenity --entry \
   --icon="$LOGO" \
-  --width=520 \
+  --width=560 \
   --title="Confirm Installation" \
-  --text="⚠️  <b>This will permanently erase all data on:</b>\n\n${SUMMARY}\n\nType <b>ERASE</b> below to confirm and begin installation.")
+  --text="WARNING: This will permanently erase all data on:\n\n${SUMMARY}\n\nType ERASE below to confirm and begin installation.")
 
 if [ "$CONFIRM" != "ERASE" ]; then
   zenity --error --icon="$LOGO" --text="Installation cancelled. Nothing was changed."
@@ -97,23 +96,23 @@ fi
 
 # ── 4. PARTITION & FORMAT ─────────────────────────────────────────────────
 
-(
-  if [ -n "$DATA_PATH" ]; then
-    sudo disko --mode disko /etc/sovran/flake/iso/disko.nix \
-      --arg device '"'"$BOOT_PATH"'"' \
-      --arg dataDevice '"'"$DATA_PATH"'"'
-  else
-    sudo disko --mode disko /etc/sovran/flake/iso/disko.nix \
-      --arg device '"'"$BOOT_PATH"'"'
-  fi
-  echo "DONE"
-) 2>&1 | zenity --progress --pulsing \
+zenity --info \
   --icon="$LOGO" \
   --title="Preparing Drives" \
-  --text="⏳ Please wait while your drives are being set up...\n\nThis may take a few minutes. Do not turn off your computer." \
-  --width=520 \
-  --auto-close \
-  --no-cancel
+  --text="Please wait while your drives are being set up...\n\nThis may take a few minutes. Do not turn off your computer." \
+  --width=520 &
+ZENITY_WAIT_PID=$!
+
+if [ -n "$DATA_PATH" ]; then
+  sudo disko --mode disko /etc/sovran/flake/iso/disko.nix \
+    --arg device '"'"$BOOT_PATH"'"' \
+    --arg dataDevice '"'"$DATA_PATH"'"'
+else
+  sudo disko --mode disko /etc/sovran/flake/iso/disko.nix \
+    --arg device '"'"$BOOT_PATH"'"'
+fi
+
+kill $ZENITY_WAIT_PID 2>/dev/null || true
 
 # ── 5. COPY CONFIG ────────────────────────────────────────────────────────
 
@@ -131,8 +130,8 @@ IS_DESKTOP="false"
 IS_NODE="false"
 
 case "$ROLE" in
-  "Server+Desktop") IS_SERVER="true" ;;
-  "Desktop Only")   IS_DESKTOP="true" ;;
+  "Server+Desktop")      IS_SERVER="true" ;;
+  "Desktop Only")        IS_DESKTOP="true" ;;
   "Node (Bitcoin-only)") IS_NODE="true" ;;
 esac
 
@@ -155,39 +154,30 @@ for f in /mnt/etc/nixos/role-state.nix /mnt/etc/nixos/custom.nix; do
   if [ ! -f "$f" ]; then
     zenity --error --icon="$LOGO" --width=500 \
       --title="Installation Error" \
-      --text="<b>A required file is missing:</b>\n\n<tt>${f}</tt>\n\nInstallation cannot continue. Please check the log at <tt>${LOG}</tt> and try again."
+      --text="A required file is missing:\n\n${f}\n\nInstallation cannot continue. Please check the log at ${LOG} and try again."
     exit 1
   fi
 done
 
 # ── 8. FINAL INSTALL ─────────────────────────────────────────────────────
 
-sudo nixos-install --root /mnt --flake /mnt/etc/nixos#nixos 2>&1 | \
-  zenity --progress --pulsing \
-    --icon="$LOGO" \
-    --title="Installing Sovran SystemsOS" \
-    --text="⏳ Installing your system...\n\nThis may take 20–40 minutes depending on your internet speed.\nPlease do not turn off your computer." \
-    --width=520 \
-    --auto-close \
-    --no-cancel
+zenity --info \
+  --icon="$LOGO" \
+  --title="Installing Sovran SystemsOS" \
+  --text="Please wait while your system is being installed...\n\nThis may take 20-40 minutes depending on your internet speed.\nDo not turn off your computer." \
+  --width=520 &
+ZENITY_INSTALL_PID=$!
+
+sudo nixos-install --root /mnt --flake /mnt/etc/nixos#nixos
+
+kill $ZENITY_INSTALL_PID 2>/dev/null || true
 
 # ── 9. COMPLETE ───────────────────────────────────────────────────────────
 
 zenity --info \
   --icon="$LOGO" \
   --width=600 \
-  --title="Installation Complete 🎉" \
-  --text="<b><span size='large'>Installation Successful!</span></b>
+  --title="Installation Complete!" \
+  --text="Installation Successful!\n\nPlease write down your login details before rebooting:\n\nUsername: free\nPassword: free\n\nCRITICAL: Do not lose this password or you will be permanently locked out.\n\nAfter rebooting your system will finish setting up and save all app passwords (Nextcloud, Bitcoin, Matrix, etc.) to a secure PDF in your Documents folder.\n\nClick OK to reboot into your new system!"
 
-Please write down your login details before rebooting:
-
-<b>Username:</b> free
-<b>Password:</b> free
-
-🚨 <b>CRITICAL:</b> Do not lose this password — you will be locked out permanently if you forget it.
-
-📁 <b>App Passwords:</b> After rebooting, your system will finish setting up and save all app passwords (Nextcloud, Bitcoin, Matrix, etc.) to a secure PDF in your <b>Documents</b> folder.
-
-Click OK to reboot into your new system!"
-
-sudo rebootdo reboot
+sudo reboot
