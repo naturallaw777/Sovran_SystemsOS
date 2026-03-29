@@ -407,6 +407,10 @@ class InstallerWindow(Adw.ApplicationWindow):
 
     # ── Worker: partition ─────────────────────────────────────────────────
 
+    run_stream(["sudo", "sgdisk", "--zap-all", boot_path], buf)
+    run_stream(["sudo", "wipefs", "--all", "--force", boot_path], buf)
+    run_stream(["sudo", "partprobe", boot_path], buf)
+
     def do_partition(self, buf):
         GLib.idle_add(append_text, buf, "=== Partitioning drives ===\n")
         boot_path = f"/dev/{self.boot_disk}"
