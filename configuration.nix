@@ -3,7 +3,8 @@
 {
   imports = [
     ./modules/modules.nix
-    ./custom.nix
+    /etc/nixos/role-state.nix
+    /etc/nixos/custom.nix
     ./iso/branding.nix
   ];
 
@@ -153,13 +154,11 @@ backup	/etc/nix-bitcoin-secrets/	localhost/
     systemCronJobs = [
       "*/15 * * * * root /run/current-system/sw/bin/bash /var/lib/njalla/njalla.sh"
       "*/15 * * * * root /run/current-system/sw/bin/bash /var/lib/external_ip/external_ip.sh"
-      "0 0 * * 0 docker-user yes | /run/current-system/sw/bin/docker system prune -a"
     ];
   };
 
   # ── Tor ────────────────────────────────────────────────────
   services.tor = { enable = true; client.enable = true; torsocks.enable = true; };
-  services.privoxy.enableTor = true;
 
   # ── SSH ────────────────────────────────────────────────────
   services.openssh = {

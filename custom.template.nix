@@ -10,7 +10,7 @@
   #                                                         #
   #  After making changes, rebuild with:                    #
   #                                                         #
-  #       nixos-rebuild switch --impure                     #
+  #       sudo nixos-rebuild switch --impure                #
   #                                                         #
   ###########################################################
 
@@ -19,25 +19,16 @@
   #  STEP 1: CHOOSE YOUR ROLE
   # ═══════════════════════════════════════════════════════════
   #
-  #  Pick ONE role by uncommenting it. If none is chosen,
-  #  you get the Server-Desktop role by default.
+  #  Your initial role was selected during installation. 
+  #  To CHANGE your role, uncomment exactly ONE of the lines below.
   #
-  #  Server-Desktop (default):
-  #    - Full server + desktop environment
-  #    - All services ON by default
-  #    - All features OFF by default
-  #
-  #  Desktop Only:
-  #    - Desktop environment, no server services
-  #    - All services OFF by default
-  #
-  #  Bitcoin Node Only:
-  #    - Bitcoin ecosystem, mempool, bip110
-  #    - BTCPay runs but is NOT exposed to the web
-  #    - All other services OFF by default
+  #  Server+Desktop: Full server + desktop environment
+  #  Desktop Only: Desktop environment, no server services
+  #  Node (Bitcoin Only): Bitcoin ecosystem
   #
   # ───────────────────────────────────────────────────────────
 
+  # sovran_systemsOS.roles.server_plus_desktop = true;
   # sovran_systemsOS.roles.desktop = true;
   # sovran_systemsOS.roles.node = true;
 
@@ -46,7 +37,7 @@
   #  STEP 2: SERVICES (default: ON)
   # ═══════════════════════════════════════════════════════════
   #
-  #  These are all ON by default in the Server-Desktop role.
+  #  These are all ON by default in the Server+Desktop role.
   #  Set any to "false" to disable it.
   #
   #  ┌─────────────────────┬────────────────────────────────┐
@@ -67,53 +58,41 @@
   #
   # ───────────────────────────────────────────────────────────
 
-  # sovran_systemsOS.services.synapse = false;
-  # sovran_systemsOS.services.bitcoin = false;
-  # sovran_systemsOS.services.vaultwarden = false;
   # sovran_systemsOS.services.wordpress = false;
-  # sovran_systemsOS.services.nextcloud = false;
 
 
   # ═══════════════════════════════════════════════════════════
   #  STEP 3: FEATURES (default: OFF)
   # ═══════════════════════════════════════════════════════════
   #
-  #  These are all OFF by default. Set to "true" to enable.
+  #  These are OFF by default. Set to "true" to enable.
   #
   #  ┌─────────────────────┬────────────────────────────────┐
   #  │ Feature              │ What it does                   │
   #  ├─────────────────────┼────────────────────────────────┤
-  #  │ haven                │ Haven NOSTR relay              │
-  #  │                      │  (requires nostr_npub below)   │
-  #  │ element-calling      │ Element video/audio calls      │
-  #  │                      │  (LiveKit + lk-jwt-service)    │
-  #  │ mempool              │ Bitcoin Mempool Explorer        │
+  #  │ haven                │ Haven NOSTR relay & Blossom    │
   #  │ bip110               │ BIP-110 Bitcoin Better Money   │
-  #  │ bitcoin-core         │ Bitcoin Core (standalone)       │
+  #  │ mempool              │ Mempool.space block explorer   │
+  #  │ element-calling      │ LiveKit server for Matrix      │
   #  │ rdp                  │ GNOME Remote Desktop (RDP)     │
-  #  └─────────────────────┴────────────────────────────────┘
+  #  │ bitcoin-core         │ Bitcoin Core GUI desktop app   │
+  #  └─────────────────────┴─────���──────────────────────────┘
   #
-  #  Example — enable Haven and Element Calling:
+  #  Example — enable element video calling:
   #
-  #    sovran_systemsOS.features.haven = true;
   #    sovran_systemsOS.features.element-calling = true;
   #
   # ───────────────────────────────────────────────────────────
 
-  # sovran_systemsOS.features.haven = true;
   # sovran_systemsOS.features.element-calling = true;
-  # sovran_systemsOS.features.mempool = true;
-  # sovran_systemsOS.features.bip110 = true;
-  # sovran_systemsOS.features.bitcoin-core = true;
-  # sovran_systemsOS.features.rdp = true;
 
 
   # ═══════════════════════════════════════════════════════════
-  #  STEP 4: WEB EXPOSURE (controls Caddy reverse proxy)
+  #  STEP 4: WEB EXPOSURE (default: ON)
   # ═══════════════════════════════════════════════════════════
   #
-  #  These control whether a service gets a public Caddy
-  #  vhost. The service itself still runs regardless.
+  #  Controls whether Caddy serves this application to the web.
+  #  (Does not stop the application itself from running).
   #
   #  ┌─────────────────────┬────────────────────────────────┐
   #  │ Option               │ Default                        │
@@ -145,46 +124,4 @@
 
   # sovran_systemsOS.nostr_npub = "";
 
-
-  # ═══════════════════════════════════════════════════════════
-  #  QUICK REFERENCE — COMMON SETUPS
-  # ═══════════════════════════════════════════════════════════
-  #
-  #  ── Full Server (default, change nothing) ──────────────
-  #
-  #    All services ON, all features OFF.
-  #    Just leave this file as-is.
-  #
-  #
-  #  ── Server without WordPress ───────────────────────────
-  #
-  #    sovran_systemsOS.services.wordpress = false;
-  #
-  #
-  #  ── Server with Haven + Element Calling ────────────────
-  #
-  #    sovran_systemsOS.features.haven = true;
-  #    sovran_systemsOS.features.element-calling = true;
-  #    sovran_systemsOS.nostr_npub = "npub1your_key_here";
-  #
-  #
-  #  ── Bitcoin Node Only ──────────────────────────────────
-  #
-  #    sovran_systemsOS.roles.node = true;
-  #
-  #    (Gives you: bitcoind, electrs, lnd, rtl, btcpay,
-  #     mempool, bip110 — no web services)
-  #
-  #
-  #  ── Desktop Only (no server) ───────────────────────────
-  #
-  #    sovran_systemsOS.roles.desktop = true;
-  #
-  #
-  #  ── Node with BTCPay web access ────────────────────────
-  #
-  #    sovran_systemsOS.roles.node = true;
-  #    sovran_systemsOS.web.btcpayserver = true;
-  #
-  # ═══════════════════════════════════════════════════════════
 }
