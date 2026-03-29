@@ -1,4 +1,4 @@
-{ config, pkgs, lib, ... }:
+{ config, pkgs, lib, modulesPath, ... }:
 
 let
   sovranSource = builtins.path { path = ../.; name = "sovran-systemsos"; };
@@ -6,11 +6,11 @@ let
 in
 {
   imports = [
-    "${pkgs.path}/nixos/modules/installer/cd-dvd/installation-cd-graphical-gnome.nix"
+    "${modulesPath}/installer/cd-dvd/installation-cd-graphical-gnome.nix"
     ./branding.nix
   ];
 
-  isoImage.isoName = "Sovran_SystemsOS.iso";
+  image.fileName = "Sovran_SystemsOS.iso";
 
   users.users.free = {
     isNormalUser = true;
@@ -20,7 +20,10 @@ in
   };
 
   services.displayManager.autoLogin.enable = true;
-  services.displayManager.autoLogin.user = "free";
+  services.displayManager.autoLogin.user = lib.mkForce "free";
+  
+  nix-bitcoin.generateSecrets = true;
+
 
   environment.systemPackages = with pkgs; [
     installer
