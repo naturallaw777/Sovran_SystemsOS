@@ -7,7 +7,7 @@ let
 
   installerPy = pkgs.writeShellScriptBin "sovran-install" ''
     export GI_TYPELIB_PATH=${pkgs.gtk4}/lib/girepository-1.0:${pkgs.libadwaita}/lib/girepository-1.0:${pkgs.glib}/lib/girepository-1.0:${pkgs.pango.out}/lib/girepository-1.0:${pkgs.gdk-pixbuf}/lib/girepository-1.0:${pkgs.graphene}/lib/girepository-1.0:${pkgs.cairo}/lib/girepository-1.0:${pkgs.harfbuzz}/lib/girepository-1.0:${pkgs.gobject-introspection}/lib/girepository-1.0
-    export LD_LIBRARY_PATH=${pkgs.gtk4}/lib:${pkgs.libadwaita}/lib:${pkgs.glib}/lib:${pkgs.pango}/lib:${pkgs.gdk-pixbuf}/lib:${pkgs.graphene}/lib:${pkgs.cairo}/lib:${pkgs.harfbuzz}/lib
+export LD_LIBRARY_PATH=${pkgs.gtk4}/lib:${pkgs.libadwaita}/lib:${pkgs.glib}/lib:${pkgs.pango.out}/lib:${pkgs.gdk-pixbuf}/lib:${pkgs.graphene}/lib:${pkgs.cairo}/lib:${pkgs.harfbuzz}/lib
     export GDK_PIXBUF_MODULE_FILE="${pkgs.gdk-pixbuf}/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache"
     export XDG_DATA_DIRS="${pkgs.gsettings-desktop-schemas}/share/gsettings-schemas/${pkgs.gsettings-desktop-schemas.name}:${pkgs.gtk4}/share:${pkgs.libadwaita}/share:${pkgs.adwaita-icon-theme}/share:${pkgs.hicolor-icon-theme}/share:$XDG_DATA_DIRS"
     exec ${pythonEnv}/bin/python3 /etc/sovran/installer.py
@@ -35,9 +35,7 @@ in
 
   services.displayManager.autoLogin.enable = true;
   services.displayManager.autoLogin.user = lib.mkForce "free";
-
-  nix-bitcoin.generateSecrets = lib.mkDefault true;
-  
+ 
   nix.settings.experimental-features = [ "nix-command" "flakes" ]
 
   environment.systemPackages = with pkgs; [
