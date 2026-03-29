@@ -6,8 +6,8 @@ let
   pythonEnv = pkgs.python3.withPackages (ps: [ ps.pygobject3 ]);
 
   installerPy = pkgs.writeShellScriptBin "sovran-install" ''
-       export GI_TYPELIB_PATH=${pkgs.gtk4}/lib/girepository-1.0:${pkgs.libadwaita}/lib/girepository-1.0:${pkgs.glib}/lib/girepository-1.0:${pkgs.pango}/lib/girepository-1.0:${pkgs.gdk-pixbuf}/lib/girepository-1.0:${pkgs.cairo}/lib/girepository-1.0:${pkgs.harfbuzz}/lib/girepository-1.0:${pkgs.graphene}/lib/girepository-1.0:$GI_TYPELIB_PATH
-    export LD_LIBRARY_PATH=${pkgs.gtk4}/lib:${pkgs.libadwaita}/lib:${pkgs.glib}/lib:${pkgs.cairo}/lib:${pkgs.harfbuzz}/lib:${pkgs.graphene}/lib:$LD_LIBRARY_PATH
+    export GI_TYPELIB_PATH=/run/current-system/sw/lib/girepository-1.0
+    export LD_LIBRARY_PATH=/run/current-system/sw/lib
     exec ${pythonEnv}/bin/python3 /etc/sovran/installer.py
   '';
 in
@@ -45,9 +45,6 @@ in
     glib
     pango
     gdk-pixbuf
-    cairo
-    harfbuzz
-    graphene
     util-linux
     disko
     parted
