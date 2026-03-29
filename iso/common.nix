@@ -13,6 +13,10 @@ in
   image.baseName = lib.mkForce "Sovran_SystemsOS";
   isoImage.splashImage = ./assets/splash-logo.png;
 
+  # Disable GNOME first-run tour and initial setup so the installer autostarts instead
+  services.gnome.gnome-initial-setup.enable = false;
+  environment.gnome.excludePackages = with pkgs; [ gnome-tour gnome-user-docs ];
+
   users.users.free = {
     isNormalUser = true;
     description = "free";
