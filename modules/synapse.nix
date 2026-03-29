@@ -139,6 +139,72 @@ EOF
 
   systemd.services.matrix-synapse.after = [ "matrix-synapse-secret-init.service" ];
   systemd.services.matrix-synapse.wants = [ "matrix-synapse-secret-init.service" ];
+  
+  
+    # ── Auto-generate Admin and Test users ──────────────────────
+  systemd.services.matrix-synapse-create-users = {
+    description = "Create Admin and Test users for Matrix Synapse";
+    wantedBy = [ "multi-user.target" ];
+    after = [ "matrix-synapse.service" ];
+    requires = [ "matrix-synapse.service" ];
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+    };
+    path = [ pkgs.pwgen pkgs.matrix-synapse pkgs.curl pkgs.coreutils pkgs.jq ];
+    script = ''
+      set -euo pipefail
+      
+      # Wait for Synapse to be fully responsive
+      for i in {1..30}; do
+        if curl -s http://localhost:8008/_matrix/client/versions > /dev/null; then
+          break
+        fi
+        sleep 2
+      done
+
+      DOMAIN=$(cat /var/lib/domains/matrix)
+      CREDS_FILE="/var/lib/secrets/matrix-users"
+      SECRET=$(cat /var/lib/matrix-synapse/registration-secret)
+
+      # Only run if we haven't already generated the file
+      if [ ! -f "$CREDS_FILE" ]; then
+        mkdir -p /var/lib/secrets
+        
+        ADMIN_USER="admin"
+        ADMIN_PASS=$(pwgen -s 24 1)
+        
+        TEST_USER="test"
+        TEST_PASS=$(pwgen -s 24 1)
+
+        # Create Admin user
+        register_new_matrix_user -c /run/matrix-synapse/runtime-config.yaml \
+          -u "$ADMIN_USER" -p "$ADMIN_PASS" -a http://localhost:8008
+
+        # Create Test user (non-admin)
+        register_new_matrix_user -c /run/matrix-synapse/runtime-config.yaml \
+          -u "$TEST_USER" -p "$TEST_PASS" --no-admin http://localhost:8008
+
+        # Save the credentials
+        cat > "$CREDS_FILE" << CREDS
+Matrix (Element) Credentials
+════════════════════════════
+Homeserver URL: https://$DOMAIN
+
+[ Admin Account ]
+Username: @$ADMIN_USER:$DOMAIN
+Password: $ADMIN_PASS
+
+[ Test Account ]
+Username: @$TEST_USER:$DOMAIN
+Password: $TEST_PASS
+CREDS
+
+        chmod 600 "$CREDS_FILE"
+        echo "Matrix users created successfully."
+      fi
+    '';
+  };
 
   sovran_systemsOS.domainRequirements = [
     { name = "matrix"; label = "Matrix Synapse"; example = "matrix.yourdomain.com"; }
