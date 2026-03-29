@@ -3,8 +3,10 @@
 let
   sovranSource = builtins.path { path = ../.; name = "sovran-systemsos"; };
 
+  pythonEnv = pkgs.python3.withPackages (ps: [ ps.pygobject3 ]);
+
   installerPy = pkgs.writeShellScriptBin "sovran-install" ''
-    exec ${pkgs.python3}/bin/python3 /etc/sovran/installer.py
+    exec ${pythonEnv}/bin/python3 /etc/sovran/installer.py
   '';
 in
 {
@@ -32,9 +34,15 @@ in
 
   nix-bitcoin.generateSecrets = true;
 
+  # Propagate typelib paths into the GNOME session so autostart apps see them
+  environment.sessionVariables = {
+    GI_TYPELIB_PATH = "/run/current-system/sw/lib/girepository-1.0";
+    LD_LIBRARY_PATH = "/run/current-system/sw/lib";
+  };
+
   environment.systemPackages = with pkgs; [
     installerPy
-    python3Packages.pygobject3
+    pythonEnv
     util-linux
     disko
     parted
