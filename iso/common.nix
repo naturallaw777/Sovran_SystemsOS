@@ -2,7 +2,10 @@
 
 let
   sovranSource = builtins.path { path = ../.; name = "sovran-systemsos"; };
-  installer = pkgs.writeShellScriptBin "sovran-install" (builtins.readFile ./installer.sh);
+
+  installerPy = pkgs.writeShellScriptBin "sovran-install" ''
+    exec ${pkgs.python3.withPackages (ps: [ ps.pygobject3 ])}/bin/python3 /etc/sovran/installer.py
+  '';
 in
 {
   imports = [
@@ -13,11 +16,11 @@ in
   image.baseName = lib.mkForce "Sovran_SystemsOS";
   isoImage.splashImage = ./assets/splash-logo.png;
 
-  # Disable GNOME first-run tour and initial setup so the installer autostarts instead
+  # Disable GNOME first-run tour and initial setup
   services.gnome.gnome-initial-setup.enable = false;
   environment.gnome.excludePackages = with pkgs; [ gnome-tour gnome-user-docs ];
 
-  # Allow free user to run installer commands as root without a password
+  # Passwordless sudo for live ISO session
   security.sudo.wheelNeedsPassword = false;
   users.users.free = {
     isNormalUser = true;
@@ -32,8 +35,10 @@ in
   nix-bitcoin.generateSecrets = true;
 
   environment.systemPackages = with pkgs; [
-    installer
-    zenity
+    installerPy
+    (python3.withPackages (ps: [ ps.pygobject3 ]))
+    gtk3
+    gobject-introspection
     util-linux
     disko
     parted
@@ -46,14 +51,14 @@ in
   ];
 
   environment.etc."sovran/logo.png".source = ./assets/splash-logo.png;
-
   environment.etc."sovran/flake".source = sovranSource;
+  environment.etc."sovran/installer.py".source = ./installer.py;
 
   environment.etc."xdg/autostart/sovran-installer.desktop".text = ''
 [Desktop Entry]
 Type=Application
 Name=Sovran Guided Installer
-Exec=bash -c "DISPLAY=:0 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$(id -u)/bus ${installer}/bin/sovran-install"
+Exec=bash -c "DISPLAY=:0 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$(id -u)/bus ${installerPy}/bin/sovran-install"
 Terminal=false
 X-GNOME-Autostart-enabled=true
 '';
