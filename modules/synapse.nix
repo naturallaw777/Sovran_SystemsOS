@@ -179,11 +179,11 @@ EOF
 
         # Create Admin user
         register_new_matrix_user -c /run/matrix-synapse/runtime-config.yaml \
-          -u "$ADMIN_USER" -p "$ADMIN_PASS" -a -S "$SECRET" http://localhost:8008
+          -u "$ADMIN_USER" -p "$ADMIN_PASS" -a -k "$SECRET" http://localhost:8008
 
         # Create Test user (non-admin)
         register_new_matrix_user -c /run/matrix-synapse/runtime-config.yaml \
-          -u "$TEST_USER" -p "$TEST_PASS" --no-admin -S "$SECRET" http://localhost:8008
+          -u "$TEST_USER" -p "$TEST_PASS" --no-admin -k "$SECRET" http://localhost:8008
 
         # Save the credentials
         cat > "$CREDS_FILE" << CREDS
