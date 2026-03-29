@@ -49,7 +49,7 @@
   services.desktopManager.gnome.enable = true;
   services.printing.enable = true;
   systemd.enableEmergencyMode = false;
-  environment.gnome.excludePackages = [ pkgs.gnome-tour gnome-initial-setup ];
+  environment.gnome.excludePackages = [ pkgs.gnome-tour ];
 
   # ── Audio ──────────────────────────────────────────────────
   services.pulseaudio.enable = false;
