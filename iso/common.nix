@@ -53,7 +53,7 @@ in
 [Desktop Entry]
 Type=Application
 Name=Sovran Guided Installer
-Exec=gnome-terminal -- bash -c "${installer}/bin/sovran-install; exec bash"
+Exec=bash -c "DISPLAY=:0 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$(id -u)/bus ${installer}/bin/sovran-install"
 Terminal=false
 X-GNOME-Autostart-enabled=true
 '';
