@@ -1,41 +1,44 @@
-{ config, pkgs, lib, ... }:
+{ config, pkgs, lib, ... }: 
 
 let
+
   customWallpaper = pkgs.stdenvNoCC.mkDerivation {
     pname = "sovran-systemsos-wallpaper";
     version = "1.0";
     src = pkgs.fetchurl {
       url = "https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS_iso/raw/branch/main/post-install-scripts/Wallpaper_Dark_Wide.png";
-      sha256 = "0609gy0vp92fywl7pcr4y3mg05ca6pwxsnlsax14jd371fj4y7fn"; # Make sure this hash is correct!
+      sha256 = "0609gy0vp92fywl7pcr4y3mg05ca6pwxsnlsax14jd371fj4y7fn";
     };
     dontUnpack = true;
     installPhase = ''
       mkdir -p $out/share/backgrounds/sovran
       cp $src $out/share/backgrounds/sovran/Wallpaper_Dark_Wide.png
-    '';
+      '';
   };
-in
+
+in 
+
 {
-  # 1. Install the wallpaper package
+
   environment.systemPackages = [ customWallpaper ];
 
-  # 2. Enable dconf
   programs.dconf.enable = true;
 
-  # 3. Apply system-wide default GNOME settings
-  programs.dconf.profiles.user.databases = [{
-    settings = with lib.gvariant; {
+  programs.dconf.profiles.user.databases = [
+  {
+    settings = {
+
       "org/gnome/desktop/background" = {
         picture-uri = "file:///run/current-system/sw/share/backgrounds/sovran/Wallpaper_Dark_Wide.png";
         picture-uri-dark = "file:///run/current-system/sw/share/backgrounds/sovran/Wallpaper_Dark_Wide.png";
-        picture-options = "zoom";
+        picture-options = "zoom"; # Options: none, centered, scaled, stretched, zoom, spanned
         primary-color = "#000000";
         secondary-color = "#000000";
       };
 
       "org/gnome/desktop/input-sources" = {
-        sources = [ (mkTuple [ "xkb" "us" ]) ];
-        xkb-options = [ ];
+        sources = [ (lib.gvariant.mkTuple [ "xkb" "us" ]) ];
+        xkb-options = lib.gvariant.mkEmptyArray lib.gvariant.type.string;
       };
 
       "org/gnome/desktop/interface" = {
@@ -61,9 +64,10 @@ in
         migrated-gtk-settings = true;
         search-filter-time-type = "last_modified";
       };
-
+      
       "org/gnome/shell" = {
         disabled-extensions = [ "just-perfection-desktop@just-perfection" ];
+        
         enabled-extensions = [
           "appindicatorsupport@rgcjonas.gmail.com"
           "dash-to-dock-cosmic-@halfmexicanhalfamazing@gmail.com"
@@ -74,6 +78,7 @@ in
           "systemd-manager@hardpixel.eu"
           "light-style@gnome-shell-extensions.gcampax.github.com"
         ];
+
         favorite-apps = [
           "brave-browser.desktop"
           "org.gnome.Settings.desktop"
@@ -87,32 +92,33 @@ in
           "Bisq.desktop"
           "bisq2.desktop"
         ];
+
         welcome-dialog-last-shown-version = "48.4";
       };
 
       "org/gnome/shell/extensions/dash-to-dock" = {
         background-color = "rgb(0,0,0)";
-        background-opacity = 0.5;
+        background-opacity = 0.50000000000000001;
         custom-background-color = true;
-        dash-max-icon-size = 47;
+        dash-max-icon-size = lib.gvariant.mkInt32 47;
         dock-position = "BOTTOM";
-        height-fraction = 0.9;
-        preferred-monitor = -2;
+        height-fraction = 0.90000000000000002;
+        preferred-monitor = lib.gvariant.mkInt32 (-2);
         preferred-monitor-by-connector = "Virtual-1";
         show-trash = false;
         transparency-mode = "FIXED";
       };
 
       "org/gnome/shell/extensions/date-menu-formatter" = {
-        font-size = 12;
+        font-size = lib.gvariant.mkInt32 12;
         pattern = "EEEE,  MMM d  h:mm a";
         text-align = "center";
-        update-level = 1;
+        update-level = lib.gvariant.mkInt32 1;
       };
 
       "org/gnome/shell/extensions/just-perfection" = {
-        support-notifier-showed-version = 34;
-        support-notifier-type = 0;
+        support-notifier-showed-version = lib.gvariant.mkInt32 34;
+        support-notifier-type = lib.gvariant.mkInt32 0;
       };
 
       "org/gnome/shell/extensions/pop-shell" = {
@@ -145,12 +151,16 @@ in
       };
 
       "org/gnome/software" = {
+        check-timestamp = lib.gvariant.mkInt64 1760848349;
         first-run = false;
       };
 
       "org/gtk/gtk4/settings/color-chooser" = {
-        selected-color = mkTuple [ true 0.0 0.0 0.0 1.0 ];
+        selected-color = lib.gvariant.mkTuple [ true 0.0 0.0 0.0 1.0 ];
       };
     };
-  }];
+
+  }
+  ];
+
 }
