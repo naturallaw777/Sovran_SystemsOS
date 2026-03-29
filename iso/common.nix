@@ -10,8 +10,7 @@ in
     ./branding.nix
   ];
 
-  image.fileName = "Sovran_SystemsOS.iso";
-  
+  image.baseName = lib.mkForce "Sovran_SystemsOS";
   isoImage.splashImage = ./assets/splash-logo.png;
 
   users.users.free = {
@@ -23,7 +22,7 @@ in
 
   services.displayManager.autoLogin.enable = true;
   services.displayManager.autoLogin.user = lib.mkForce "free";
-  
+
   nix-bitcoin.generateSecrets = true;
 
   environment.systemPackages = with pkgs; [
@@ -39,7 +38,7 @@ in
     git
     curl
   ];
-  
+
   environment.etc."sovran/logo.png".source = ./assets/splash-logo.png;
 
   environment.etc."sovran/flake".source = sovranSource;
