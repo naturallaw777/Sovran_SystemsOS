@@ -22,8 +22,8 @@
 	in
 	{
 		nixosConfigurations.nixos = nixpkgs.lib.nixosSystem {
-			system = "x86_64-linux";
 			modules = [
+				{ nixpkgs.hostPlatform = "x86_64-linux"; }
 				self.nixosModules.Sovran_SystemsOS
 				/etc/nixos/role-state.nix
 				/etc/nixos/custom.nix
@@ -31,8 +31,8 @@
 		};
 
 		nixosConfigurations.sovran-iso-desktop = nixpkgs.lib.nixosSystem {
-			system = "x86_64-linux";
 			modules = [
+				{ nixpkgs.hostPlatform = "x86_64-linux"; }
 				({ config, pkgs, ... }: { nixpkgs.overlays = [ overlay-stable ]; })
 				./iso/desktop.nix
 				nix-bitcoin.nixosModules.default
@@ -41,8 +41,8 @@
 		};
 
 		nixosConfigurations.sovran-iso-server = nixpkgs.lib.nixosSystem {
-			system = "x86_64-linux";
 			modules = [
+				{ nixpkgs.hostPlatform = "x86_64-linux"; }
 				({ config, pkgs, ... }: { nixpkgs.overlays = [ overlay-stable ]; })
 				./iso/server.nix
 				nix-bitcoin.nixosModules.default
