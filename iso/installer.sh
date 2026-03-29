@@ -82,9 +82,26 @@ if [ -n "$DATA_DISK" ]; then
   DATA_PATH="/dev/${DATA_DISK}"
 fi
 
+# ── 3. PARTITION & FORMAT ─────────────────────────────────────────────────
+
 # Run Disko to partition and format drives
-echo "Running Disko to partition and format drives..."
-disko --mode disko /etc/sovran/flake/iso/disko.nix --argstr device "$BOOT_PATH" --argstr dataDevice "$DATA_PATH"
+# Use --arg (not --argstr) so device paths are passed as Nix string values correctly
+(
+  if [ -n "$DATA_PATH" ]; then
+    disko --mode disko /etc/sovran/flake/iso/disko.nix \
+      --arg device '"'"$BOOT_PATH"'"' \
+      --arg dataDevice '"'"$DATA_PATH"'"'
+  else
+    disko --mode disko /etc/sovran/flake/iso/disko.nix \
+      --arg device '"'"$BOOT_PATH"'"'
+  fi
+) 2>&1 | zenity --progress --pulsing \
+  --window-icon="$LOGO" \
+  --title="Partitioning Drives" \
+  --text="Partitioning and formatting your drives...\n\nThis will take a moment." \
+  --width=500 \
+  --auto-close \
+  --no-cancel
 
 nixos-generate-config --root /mnt
 
@@ -93,7 +110,7 @@ rm -rf /mnt/etc/nixos/*
 cp -a /etc/sovran/flake/* /mnt/etc/nixos/
 cp /tmp/hardware-configuration.nix /mnt/etc/nixos/hardware-configuration.nix
 
-# ── 3. APPLY ROLE STATE & TEMPLATE ───────────────────────────────────────
+# ── 4. APPLY ROLE STATE & TEMPLATE ───────────────────────────────────────
 
 IS_SERVER="false"
 IS_DESKTOP="false"
@@ -119,12 +136,30 @@ EOF
 # Copy the pristine custom.template.nix for the user to edit
 cp /mnt/etc/nixos/custom.template.nix /mnt/etc/nixos/custom.nix
 
+# ── 5. VERIFY FILES BEFORE INSTALL ───────────────────────────────────────
 
-# ── 4. FINAL INSTALL & REBOOT ────────────────────────────────────────────
+# Sanity check: ensure role-state.nix and custom.nix exist before calling nixos-install
+for f in /mnt/etc/nixos/role-state.nix /mnt/etc/nixos/custom.nix; do
+  if [ ! -f "$f" ]; then
+    zenity --error --window-icon="$LOGO" --width=500 \
+      --title="Installation Error" \
+      --text="<b>A required file is missing:</b>\n\n<tt>${f}</tt>\n\nThe installation cannot continue. Please check the log at <tt>${LOG}</tt> and try again."
+    exit 1
+  fi
+done
 
-nixos-install --root /mnt --flake /mnt/etc/nixos#nixos
+# ── 6. FINAL INSTALL & REBOOT ────────────────────────────────────────────
 
-zenity --warning --width=600 --title="INSTALLATION COMPLETE! 🚨 PLEASE READ" --text="<b><span size='large'>Installation Successful!</span></b>
+nixos-install --root /mnt --flake /mnt/etc/nixos#nixos 2>&1 | \
+  zenity --progress --pulsing \
+    --window-icon="$LOGO" \
+    --title="Installing Sovran SystemsOS" \
+    --text="Installing your system...\n\nThis may take 20–40 minutes depending on your internet speed.\nPlease do not turn off your computer." \
+    --width=500 \
+    --auto-close \
+    --no-cancel
+
+zenity --info --width=600 --title="INSTALLATION COMPLETE! 🎉 PLEASE READ" --text="<b><span size='large'>Installation Successful!</span></b>
 
 Before you reboot, please write down your main login details:
 
