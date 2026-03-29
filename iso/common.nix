@@ -16,11 +16,9 @@ in
   image.baseName = lib.mkForce "Sovran_SystemsOS";
   isoImage.splashImage = ./assets/splash-logo.png;
 
-  # Disable GNOME first-run tour and initial setup
   services.gnome.gnome-initial-setup.enable = false;
   environment.gnome.excludePackages = with pkgs; [ gnome-tour gnome-user-docs ];
 
-  # Passwordless sudo for live ISO session
   security.sudo.wheelNeedsPassword = false;
   users.users.free = {
     isNormalUser = true;
@@ -37,7 +35,8 @@ in
   environment.systemPackages = with pkgs; [
     installerPy
     (python3.withPackages (ps: [ ps.pygobject3 ]))
-    gtk3
+    gtk4
+    libadwaita
     gobject-introspection
     util-linux
     disko
