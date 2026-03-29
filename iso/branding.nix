@@ -8,4 +8,5 @@ in
   boot.plymouth.theme = "sovran";
   boot.plymouth.themePackages = [ theme ];
   boot.kernelParams = [ "quiet" "splash" ];
+  boot.initrd.systemd.enable = true;
 }

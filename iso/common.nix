@@ -11,6 +11,8 @@ in
   ];
 
   image.fileName = "Sovran_SystemsOS.iso";
+  
+  isoImage.splashImage = ./assets/splash-logo.png;
 
   users.users.free = {
     isNormalUser = true;
@@ -29,6 +31,7 @@ in
     installer
     zenity
     util-linux
+    disko
     parted
     dosfstools
     e2fsprogs
@@ -37,6 +40,8 @@ in
     git
     curl
   ];
+  
+  environment.etc."sovran/logo.png".source = ./assets/splash-logo.png;
 
   environment.etc."sovran/flake".source = sovranSource;
 
