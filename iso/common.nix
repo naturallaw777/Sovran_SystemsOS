@@ -6,8 +6,8 @@ let
   pythonEnv = pkgs.python3.withPackages (ps: [ ps.pygobject3 ]);
 
   installerPy = pkgs.writeShellScriptBin "sovran-install" ''
-    export GI_TYPELIB_PATH=${pkgs.gtk4}/lib/girepository-1.0:${pkgs.libadwaita}/lib/girepository-1.0:${pkgs.glib}/lib/girepository-1.0:${pkgs.pango}/lib/girepository-1.0:${pkgs.gdk-pixbuf}/lib/girepository-1.0:$GI_TYPELIB_PATH
-    export LD_LIBRARY_PATH=${pkgs.gtk4}/lib:${pkgs.libadwaita}/lib:${pkgs.glib}/lib:$LD_LIBRARY_PATH
+    export GI_TYPELIB_PATH=${pkgs.gtk4}/lib/girepository-1.0:${pkgs.libadwaita}/lib/girepository-1.0:${pkgs.glib}/lib/girepository-1.0:${pkgs.pango}/lib/girepository-1.0:${pkgs.gdk-pixbuf}/lib/girepository-1.0:${pkgs.graphene}/lib/girepository-1.0:${pkgs.cairo}/lib/girepository-1.0:${pkgs.harfbuzz}/lib/girepository-1.0
+    export LD_LIBRARY_PATH=${pkgs.gtk4}/lib:${pkgs.libadwaita}/lib:${pkgs.glib}/lib:${pkgs.pango}/lib:${pkgs.gdk-pixbuf}/lib:${pkgs.graphene}/lib:${pkgs.cairo}/lib:${pkgs.harfbuzz}/lib
     exec ${pythonEnv}/bin/python3 /etc/sovran/installer.py
   '';
 in
@@ -45,6 +45,9 @@ in
     glib
     pango
     gdk-pixbuf
+    graphene
+    cairo
+    harfbuzz
     util-linux
     disko
     parted
@@ -64,7 +67,7 @@ in
 [Desktop Entry]
 Type=Application
 Name=Sovran Guided Installer
-Exec=bash -c "DISPLAY=:0 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$(id -u)/bus ${installerPy}/bin/sovran-install"
+Exec=${installerPy}/bin/sovran-install
 Terminal=false
 X-GNOME-Autostart-enabled=true
 '';
