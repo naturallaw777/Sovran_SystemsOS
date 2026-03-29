@@ -5,9 +5,6 @@ let
 
   pythonEnv = pkgs.python3.withPackages (ps: [ ps.pygobject3 ]);
 
-  installerPy = pkgs.writeShellScriptBin "sovran-install" ''
-    exec ${pythonEnv}/bin/python3 /etc/sovran/installer.py
-  '';
 in
 {
   imports = [
@@ -34,15 +31,11 @@ in
 
   nix-bitcoin.generateSecrets = true;
 
-  # Propagate typelib paths into the GNOME session so autostart apps see them
-  environment.sessionVariables = {
-    GI_TYPELIB_PATH = "/run/current-system/sw/lib/girepository-1.0";
-    LD_LIBRARY_PATH = "/run/current-system/sw/lib";
-  };
-
   environment.systemPackages = with pkgs; [
-    installerPy
     pythonEnv
+    libadwaita
+    gtk4
+    gobject-introspection
     util-linux
     disko
     parted
@@ -54,6 +47,12 @@ in
     curl
   ];
 
+  # libadwaita and gtk4 typelibs into the session
+  environment.sessionVariables = {
+    GI_TYPELIB_PATH = "${pkgs.libadwaita}/lib/girepository-1.0:${pkgs.gtk4}/lib/girepository-1.0:${pkgs.glib}/lib/girepository-1.0:${pkgs.pango}/lib/girepository-1.0:${pkgs.gdk-pixbuf}/lib/girepository-1.0:${pkgs.graphene}/lib/girepository-1.0";
+    LD_LIBRARY_PATH = "${pkgs.libadwaita}/lib:${pkgs.gtk4}/lib:${pkgs.glib}/lib:${pkgs.pango}/lib:${pkgs.gdk-pixbuf}/lib:${pkgs.graphene}/lib";
+  };
+
   environment.etc."sovran/logo.png".source = ./assets/splash-logo.png;
   environment.etc."sovran/flake".source = sovranSource;
   environment.etc."sovran/installer.py".source = ./installer.py;
@@ -62,7 +61,7 @@ in
 [Desktop Entry]
 Type=Application
 Name=Sovran Guided Installer
-Exec=${installerPy}/bin/sovran-install
+Exec=${pythonEnv}/bin/python3 /etc/sovran/installer.py
 Terminal=false
 X-GNOME-Autostart-enabled=true
 '';
