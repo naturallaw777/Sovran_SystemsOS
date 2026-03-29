@@ -36,7 +36,7 @@ in
   services.displayManager.autoLogin.enable = true;
   services.displayManager.autoLogin.user = lib.mkForce "free";
  
-  nix.settings.experimental-features = [ "nix-command" "flakes" ]
+  nix.settings.experimental-features = [ "nix-command" "flakes" ];
 
   environment.systemPackages = with pkgs; [
     installerPy
