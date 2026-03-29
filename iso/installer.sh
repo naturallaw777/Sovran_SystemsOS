@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+u#!/usr/bin/env bash
 set -euo pipefail
 
 LOG=/tmp/sovran-install.log
@@ -6,7 +6,6 @@ exec > >(tee -a "$LOG") 2>&1
 
 export PATH=/run/current-system/sw/bin:$PATH
 
-# Changed to 2TB cutoff
 BYTES_2TB=$((2 * 1024 * 1024 * 1024 * 1024))
 LOGO="/etc/sovran/logo.png"
 
@@ -18,23 +17,30 @@ human_size() {
 
 ROLE=$(zenity --list --radiolist \
   --icon="$LOGO" \
-  --width=1000 --height=400 \
-  --title="Welcome to Sovran SystemsOS" \
-  --text="<span font='36' weight='heavy'>Sovran Systems</span>\n<span font='16' style='italic' foreground='#aaaaaa'>Be Digitally Sovereign</span>\n\nPlease select your preferred installation type:" \
-  --print-column=3 \
-  --column="Select" --column="Logo" --column="Role" --column="Description" \
-  TRUE "🖥️" "Server+Desktop" "Gives you the full Sovereign Experience. A beautiful, easy-to-use, powerful daily driver desktop computer plus your very own cloud, website, secure messaging, video calling, password manager, and full Bitcoin node with Bitcoin Lightning and non-KYC buying and selling." \
-  FALSE "💻" "Desktop Only" "The same beautiful, easy-to-use desktop experience, but just the desktop without the background server applications." \
-  FALSE "₿" "Node (Bitcoin-only)" "Full Bitcoin node with Bitcoin Lightning and non-KYC buying and selling." || true)
+  --width=600 --height=400 \
+  --title="Welcome to Sovran_SystemsOS Installer" \
+  --text="<span font='28' weight='heavy'>Sovran Systems</span>\n<span font='14' style='italic' foreground='#aaaaaa'>Be Digitally Sovereign</span>\n\nPlease select your installation type:" \
+  --print-column=2 \
+  --column="Select" --column="Role" \
+  TRUE  "Server + Desktop — Full sovereign experience: desktop, cloud, messaging, Bitcoin node." \
+  FALSE "Desktop Only — Beautiful desktop without background server applications." \
+  FALSE "Node Only — Full Bitcoin node with Lightning and non-KYC buying and selling." \
+  || true)
 
 if [ -z "$ROLE" ]; then
   zenity --error --icon="$LOGO" --text="Installation cancelled."
   exit 1
 fi
 
-# ── 2. FETCH DISKS ───────────────────────────────────────────────────────
+# Normalize role to clean key
+case "$ROLE" in
+  Server*) ROLE="Server+Desktop" ;;
+  Desktop*) ROLE="Desktop Only" ;;
+  Node*) ROLE="Node (Bitcoin-only)" ;;
+esac
 
-# Filter out USB drives and loop/cdrom devices so it doesn't try to install to the installation media
+# ── 2. FETCH DISKS ───────────────────────────────���───────────────────────
+
 mapfile -t DISKS < <(lsblk -b -dno NAME,SIZE,TYPE,RO,TRAN -e 7,11 | awk '$3=="disk" && $4=="0" && $5!="usb" {print $1":"$2}')
 
 if [ "${#DISKS[@]}" -eq 0 ]; then
@@ -56,23 +62,30 @@ if [ "${#DISKS_SORTED[@]}" -ge 2 ]; then
   DATA_SIZE="${DISKS_SORTED[-1]##*:}"
 fi
 
-# Updated to check against 2TB
 if [ -n "$DATA_DISK" ] && [ "$DATA_SIZE" -lt "$BYTES_2TB" ]; then
-  zenity --warning --icon="$LOGO" --text="Second disk detected (${DATA_DISK}), but it is smaller than 2TB.\n\nIt will NOT be used."
+  zenity --warning --icon="$LOGO" --width=500 \
+    --text="A second disk was detected (<b>${DATA_DISK}</b>), but it is smaller than 2TB and will <b>not</b> be used as a data disk."
   DATA_DISK=""
   DATA_SIZE=""
 fi
 
-SUMMARY="Boot disk: /dev/${BOOT_DISK} ($(human_size "$BOOT_SIZE"))"
+SUMMARY="<b>Boot disk:</b> /dev/${BOOT_DISK} ($(human_size "$BOOT_SIZE"))"
 if [ -n "$DATA_DISK" ]; then
-  SUMMARY="${SUMMARY}\nData disk: /dev/${DATA_DISK} ($(human_size "$DATA_SIZE"))"
+  SUMMARY="${SUMMARY}\n<b>Data disk:</b> /dev/${DATA_DISK} ($(human_size "$DATA_SIZE"))"
 else
-  SUMMARY="${SUMMARY}\nData disk: none"
+  SUMMARY="${SUMMARY}\n<b>Data disk:</b> none detected"
 fi
 
-CONFIRM=$(zenity --entry --icon="$LOGO" --text="WARNING: This will ERASE ALL DATA on:\n\n${SUMMARY}\n\nType ERASE to continue.")
+# ── 3. CONFIRM ERASE ─────────────────────────────────────────────────────
+
+CONFIRM=$(zenity --entry \
+  --icon="$LOGO" \
+  --width=520 \
+  --title="Confirm Installation" \
+  --text="⚠️  <b>This will permanently erase all data on:</b>\n\n${SUMMARY}\n\nType <b>ERASE</b> below to confirm and begin installation.")
+
 if [ "$CONFIRM" != "ERASE" ]; then
-  zenity --error --icon="$LOGO" --text="Install cancelled."
+  zenity --error --icon="$LOGO" --text="Installation cancelled. Nothing was changed."
   exit 1
 fi
 
@@ -82,10 +95,8 @@ if [ -n "$DATA_DISK" ]; then
   DATA_PATH="/dev/${DATA_DISK}"
 fi
 
-# ── 3. PARTITION & FORMAT ─────────────────────────────────────────────────
+# ── 4. PARTITION & FORMAT ─────────────────────────────────────────────────
 
-# Run Disko to partition and format drives
-# Use --arg (not --argstr) so device paths are passed as Nix string values correctly
 (
   if [ -n "$DATA_PATH" ]; then
     sudo disko --mode disko /etc/sovran/flake/iso/disko.nix \
@@ -95,13 +106,16 @@ fi
     sudo disko --mode disko /etc/sovran/flake/iso/disko.nix \
       --arg device '"'"$BOOT_PATH"'"'
   fi
+  echo "DONE"
 ) 2>&1 | zenity --progress --pulsing \
   --icon="$LOGO" \
-  --title="Partitioning Drives" \
-  --text="Partitioning and formatting your drives...\n\nThis will take a moment." \
-  --width=500 \
+  --title="Preparing Drives" \
+  --text="⏳ Please wait while your drives are being set up...\n\nThis may take a few minutes. Do not turn off your computer." \
+  --width=520 \
   --auto-close \
   --no-cancel
+
+# ── 5. COPY CONFIG ────────────────────────────────────────────────────────
 
 sudo nixos-generate-config --root /mnt
 
@@ -110,7 +124,7 @@ sudo rm -rf /mnt/etc/nixos/*
 sudo cp -a /etc/sovran/flake/* /mnt/etc/nixos/
 sudo cp /tmp/hardware-configuration.nix /mnt/etc/nixos/hardware-configuration.nix
 
-# ── 4. APPLY ROLE STATE & TEMPLATE ───────────────────────────────────────
+# ── 6. APPLY ROLE STATE & TEMPLATE ───────────────────────────────────────
 
 IS_SERVER="false"
 IS_DESKTOP="false"
@@ -118,7 +132,7 @@ IS_NODE="false"
 
 case "$ROLE" in
   "Server+Desktop") IS_SERVER="true" ;;
-  "Desktop Only") IS_DESKTOP="true" ;;
+  "Desktop Only")   IS_DESKTOP="true" ;;
   "Node (Bitcoin-only)") IS_NODE="true" ;;
 esac
 
@@ -133,43 +147,47 @@ sudo tee /mnt/etc/nixos/role-state.nix > /dev/null <<EOF
 }
 EOF
 
-# Copy the pristine custom.template.nix for the user to edit
 sudo cp /mnt/etc/nixos/custom.template.nix /mnt/etc/nixos/custom.nix
 
-# ── 5. VERIFY FILES BEFORE INSTALL ───────────────────────────────────────
+# ── 7. VERIFY FILES ───────────────────────────────────────────────────────
 
-# Sanity check: ensure role-state.nix and custom.nix exist before calling nixos-install
 for f in /mnt/etc/nixos/role-state.nix /mnt/etc/nixos/custom.nix; do
   if [ ! -f "$f" ]; then
     zenity --error --icon="$LOGO" --width=500 \
       --title="Installation Error" \
-      --text="<b>A required file is missing:</b>\n\n<tt>${f}</tt>\n\nThe installation cannot continue. Please check the log at <tt>${LOG}</tt> and try again."
+      --text="<b>A required file is missing:</b>\n\n<tt>${f}</tt>\n\nInstallation cannot continue. Please check the log at <tt>${LOG}</tt> and try again."
     exit 1
   fi
 done
 
-# ── 6. FINAL INSTALL & REBOOT ────────────────────────────────────────────
+# ── 8. FINAL INSTALL ─────────────────────────────────────────────────────
 
 sudo nixos-install --root /mnt --flake /mnt/etc/nixos#nixos 2>&1 | \
   zenity --progress --pulsing \
     --icon="$LOGO" \
     --title="Installing Sovran SystemsOS" \
-    --text="Installing your system...\n\nThis may take 20–40 minutes depending on your internet speed.\nPlease do not turn off your computer." \
-    --width=500 \
+    --text="⏳ Installing your system...\n\nThis may take 20–40 minutes depending on your internet speed.\nPlease do not turn off your computer." \
+    --width=520 \
     --auto-close \
     --no-cancel
 
-zenity --info --width=600 --title="INSTALLATION COMPLETE! 🎉 PLEASE READ" --text="<b><span size='large'>Installation Successful!</span></b>
+# ── 9. COMPLETE ───────────────────────────────────────────────────────────
 
-Before you reboot, please write down your main login details:
+zenity --info \
+  --icon="$LOGO" \
+  --width=600 \
+  --title="Installation Complete 🎉" \
+  --text="<b><span size='large'>Installation Successful!</span></b>
+
+Please write down your login details before rebooting:
 
 <b>Username:</b> free
 <b>Password:</b> free
 
-🚨 <b>CRITICAL:</b> Do not lose this password! If you forget this, you will be permanently locked out of your computer.
+🚨 <b>CRITICAL:</b> Do not lose this password — you will be locked out permanently if you forget it.
 
-📁 <b>Other Passwords:</b> Once the system reboots, it will finish building your forts and generate all the passwords for your apps (Nextcloud, Bitcoin, Matrix, etc.). It will save them in a secure PDF in your <b>Documents</b> folder.
+📁 <b>App Passwords:</b> After rebooting, your system will finish setting up and save all app passwords (Nextcloud, Bitcoin, Matrix, etc.) to a secure PDF in your <b>Documents</b> folder.
 
 Click OK to reboot into your new system!"
 
-sudo reboot
+sudo rebootdo reboot
