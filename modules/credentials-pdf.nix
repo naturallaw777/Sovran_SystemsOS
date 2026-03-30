@@ -61,7 +61,11 @@
       Type = "oneshot";
     };
     
-    path = [ pkgs.pandoc pkgs.typst pkgs.coreutils ];
+    path = [ pkgs.pandoc pkgs.typst pkgs.coreutils pkgs.liberation_ttf ];
+    
+    environment = {    
+    	TYPST_FONT_PATHS = "${pkgs.liberation_ttf}/share/fonts";
+    };
     
     script = ''
       set -euo pipefail
