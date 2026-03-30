@@ -56,15 +56,17 @@
   # ── 3. Generate the Magic Keys PDF ─────────────────────────
   systemd.services.generate-credentials-pdf = {
     description = "Generate Magic Keys PDF for Sovran_SystemsOS";
-    # We remove RemainAfterExit so this service can be triggered over and over again!
     serviceConfig = {
       Type = "oneshot";
+      # Prevent rapid re-triggering
+      RateLimitIntervalSec = 30;
+      RateLimitBurstSec = 1;
     };
     
     path = [ pkgs.pandoc pkgs.typst pkgs.coreutils pkgs.liberation_ttf ];
     
     environment = {    
-    	TYPST_FONT_PATHS = "${pkgs.liberation_ttf}/share/fonts";
+      TYPST_FONT_PATHS = "${pkgs.liberation_ttf}/share/fonts";
     };
     
     script = ''
@@ -72,6 +74,29 @@
 
       # Give it a tiny delay so multiple files being created at once don't trigger it 10 times in a row
       sleep 3
+
+      # ── Deduplication: only rebuild if inputs actually changed ──
+      HASH_FILE="/var/lib/secrets/.credentials-pdf-hash"
+
+      # Collect the content of all possible input files into one hash
+      CURRENT_HASH=$(cat \
+        /var/lib/secrets/root-password \
+        /etc/nix-bitcoin-secrets/rtl-password \
+        /var/lib/tor/onion/rtl/hostname \
+        /var/lib/tor/onion/electrs/hostname \
+        /var/lib/tor/onion/bitcoind/hostname \
+        /var/lib/secrets/matrix-users \
+        /var/lib/gnome-remote-desktop/rdp-credentials \
+        /var/lib/secrets/nextcloud-admin \
+        /var/lib/secrets/wordpress-admin \
+        /var/lib/domains/vaultwarden \
+        /var/lib/domains/btcpayserver \
+        2>/dev/null | sha256sum | cut -d' ' -f1)
+
+      if [ -f "$HASH_FILE" ] && [ "$(cat "$HASH_FILE")" = "$CURRENT_HASH" ]; then
+        echo "No input changes detected, skipping PDF regeneration."
+        exit 0
+      fi
 
       DOC_DIR="/home/free/Documents"
       mkdir -p "$DOC_DIR"
@@ -229,9 +254,11 @@ BITCOIN
       
       # Convert the Markdown text into a beautiful PDF!
       pandoc "$FILE" -o "$DOC_DIR/Sovran_SystemsOS_Magic_Keys.pdf" --pdf-engine=typst \
-      	-V mainfont="Liberation Sans" \
-      	-V monofont="Liberation Mono"
+        -V mainfont="Liberation Sans" \
+        -V monofont="Liberation Mono"
 
+      # Save the hash so we don't rebuild again for the same inputs
+      echo "$CURRENT_HASH" > "$HASH_FILE"
       
       # Make sure the 'free' user owns the file so they can open it
       chown -R free:users "$DOC_DIR"
