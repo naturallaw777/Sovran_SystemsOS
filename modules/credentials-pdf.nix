@@ -83,8 +83,8 @@
       fi
       
       cat << 'EOF' > "$FILE"
-      ---
-      ---
+---
+---
 # Your Sovran SystemsOS Magic Keys! 🗝️
 
 Welcome to your new computer! We have built a lot of cool secret forts (services) for you. To get into your forts, you need your magic keys (passwords). 
@@ -228,7 +228,10 @@ BITCOIN
       fi
       
       # Convert the Markdown text into a beautiful PDF!
-      pandoc "$FILE" -o "$DOC_DIR/Sovran_SystemsOS_Magic_Keys.pdf" --pdf-engine=typst
+      pandoc "$FILE" -o "$DOC_DIR/Sovran_SystemsOS_Magic_Keys.pdf" --pdf-engine=typst \
+      	-V mainfont="Liberation Sans" \
+      	-V monofont="Liberation Mono"
+
       
       # Make sure the 'free' user owns the file so they can open it
       chown -R free:users "$DOC_DIR"
