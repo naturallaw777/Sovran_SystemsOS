@@ -79,6 +79,8 @@
       fi
       
       cat << 'EOF' > "$FILE"
+      ---
+      ---
 # Your Sovran SystemsOS Magic Keys! 🗝️
 
 Welcome to your new computer! We have built a lot of cool secret forts (services) for you. To get into your forts, you need your magic keys (passwords). 
@@ -114,7 +116,7 @@ Type this exact command into the terminal:
 When it asks for a passphrase, type:
 - **Terminal Password:** `gosovransystems`
 
----
+***
 EOF
 
       # --- BITCOIN ECOSYSTEM ---
@@ -157,7 +159,7 @@ Open the **Tor Browser** and go to this website. Use this password to log in:
 *This is the heartbeat of your node. It uses this address to talk to other Bitcoiners securely.*
 - **Tor Address:** \`$BITCOIN_ONION\`
 
----
+***
 BITCOIN
       fi
 
@@ -168,7 +170,7 @@ BITCOIN
         echo '```text' >> "$FILE"
         cat /var/lib/secrets/matrix-users >> "$FILE"
         echo '```' >> "$FILE"
-        echo "---" >> "$FILE"
+        echo "***" >> "$FILE"
       fi
       
       # --- GNOME RDP ---
@@ -178,7 +180,7 @@ BITCOIN
         echo '```text' >> "$FILE"
         cat /var/lib/gnome-remote-desktop/rdp-credentials >> "$FILE"
         echo '```' >> "$FILE"
-        echo "---" >> "$FILE"
+        echo "***" >> "$FILE"
       fi
       
       # --- NEXTCLOUD ---
@@ -188,7 +190,7 @@ BITCOIN
         echo '```text' >> "$FILE"
         cat /var/lib/secrets/nextcloud-admin >> "$FILE"
         echo '```' >> "$FILE"
-        echo "---" >> "$FILE"
+        echo "***" >> "$FILE"
       fi
       
       # --- WORDPRESS ---
@@ -198,7 +200,7 @@ BITCOIN
         echo '```text' >> "$FILE"
         cat /var/lib/secrets/wordpress-admin >> "$FILE"
         echo '```' >> "$FILE"
-        echo "---" >> "$FILE"
+        echo "***" >> "$FILE"
       fi
       
       # --- VAULTWARDEN ---
@@ -208,7 +210,7 @@ BITCOIN
         echo "This keeps all your other passwords safe! Go to this website to use it:" >> "$FILE"
         echo "- **Website:** https://$DOMAIN" >> "$FILE"
         echo "*(Note: You get to make up your own Master Password the very first time you visit this website!)*" >> "$FILE"
-        echo "---" >> "$FILE"
+        echo "***" >> "$FILE"
       fi
 
       # --- BTCPAY SERVER ---
@@ -218,7 +220,7 @@ BITCOIN
         echo "This lets you accept Bitcoin like a real shop! Go to this website to set it up:" >> "$FILE"
         echo "- **Website:** https://$DOMAIN" >> "$FILE"
         echo "*(Note: You get to make up your own Admin Password the very first time you visit this website!)*" >> "$FILE"
-        echo "---" >> "$FILE"
+        echo "***" >> "$FILE"
       fi
       
       # Convert the Markdown text into a beautiful PDF!
