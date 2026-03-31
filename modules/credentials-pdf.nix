@@ -53,8 +53,7 @@ in
       DOC_DIR="/home/free/Documents"
       OUTPUT="$DOC_DIR/Sovran_SystemsOS_Magic_Keys.pdf"
       FILE="/tmp/magic_keys.md"
-      QR_DIR="/tmp/magic_keys_qr"
-      mkdir -p "$DOC_DIR" "$QR_DIR"
+      mkdir -p "$DOC_DIR"
 
       # ── Read secrets (default to placeholder if missing) ──
       read_secret() { if [ -f "$1" ]; then cat "$1"; else echo "$2"; fi; }
@@ -65,8 +64,8 @@ in
       ELECTRS_ONION=$(read_secret /var/lib/tor/onion/electrs/hostname "Not generated yet")
       BITCOIN_ONION=$(read_secret /var/lib/tor/onion/bitcoind/hostname "Not generated yet")
 
-      # ── Generate Zeus QR code if lndconnect URL is available ──
-      ZEUS_QR=""
+      # ── Generate Zeus QR code as text if lndconnect URL is available ──
+      ZEUS_QR_TEXT=""
       ZEUS_URL=""
       if command -v lndconnect >/dev/null 2>&1; then
         ZEUS_URL=$(lndconnect --url 2>/dev/null || true)
@@ -75,8 +74,7 @@ in
       fi
 
       if [ -n "$ZEUS_URL" ]; then
-        qrencode -o "$QR_DIR/zeus-qr.png" -s 8 -m 2 "$ZEUS_URL"
-        ZEUS_QR="$QR_DIR/zeus-qr.png"
+        ZEUS_QR_TEXT=$(qrencode -t ANSIUTF8 "$ZEUS_URL" 2>/dev/null || true)
       fi
 
       # ── Build the Markdown document ──
@@ -140,8 +138,8 @@ BITCOIN
       fi
 
       # --- ZEUS MOBILE WALLET QR CODE ---
-      if [ -n "$ZEUS_QR" ] && [ -f "$ZEUS_QR" ]; then
-        cat >> "$FILE" << ZEUS
+      if [ -n "$ZEUS_QR_TEXT" ]; then
+        cat >> "$FILE" << 'ZEUSHEADER'
 
 ## 📱 Connect Zeus Mobile Wallet
 
@@ -151,86 +149,7 @@ Take your Bitcoin Lightning node anywhere in the world! Scan this QR code with t
 2. Open Zeus and tap **"Scan Node Config"**
 3. Point your phone's camera at this QR code:
 
-![Zeus Connection QR Code]($ZEUS_QR)
-
-That's it! You're now mobile. Send and receive Bitcoin anywhere in the world, powered by your very own node! ⚡
-ZEUS
-      fi
-
-      # --- MATRIX / ELEMENT ---
-      if [ -f "/var/lib/secrets/matrix-users" ]; then
-        echo "" >> "$FILE"
-        echo "## 💬 Your Private Chat (Matrix / Element)" >> "$FILE"
-        echo "This is your very own private messaging app! Log in using an app like Element with these details:" >> "$FILE"
-        echo '```text' >> "$FILE"
-        cat /var/lib/secrets/matrix-users >> "$FILE"
-        echo '```' >> "$FILE"
-      fi
-
-      # --- GNOME RDP ---
-      if [ -f "/var/lib/gnome-remote-desktop/rdp-credentials" ]; then
-        echo "" >> "$FILE"
-        echo "## 🌎 Connect from Far Away (Remote Desktop)" >> "$FILE"
-        echo "This lets you control your computer screen from another device!" >> "$FILE"
-        echo '```text' >> "$FILE"
-        cat /var/lib/gnome-remote-desktop/rdp-credentials >> "$FILE"
-        echo '```' >> "$FILE"
-      fi
-
-      # --- NEXTCLOUD ---
-      if [ -f "/var/lib/secrets/nextcloud-admin" ]; then
-        echo "" >> "$FILE"
-        echo "## ☁️ Your Personal Cloud (Nextcloud)" >> "$FILE"
-        echo "This is like your own private Google Drive!" >> "$FILE"
-        echo '```text' >> "$FILE"
-        cat /var/lib/secrets/nextcloud-admin >> "$FILE"
-        echo '```' >> "$FILE"
-      fi
-
-      # --- WORDPRESS ---
-      if [ -f "/var/lib/secrets/wordpress-admin" ]; then
-        echo "" >> "$FILE"
-        echo "## 📝 Your Website (WordPress)" >> "$FILE"
-        echo "This is your very own website where you can write blogs or make pages." >> "$FILE"
-        echo '```text' >> "$FILE"
-        cat /var/lib/secrets/wordpress-admin >> "$FILE"
-        echo '```' >> "$FILE"
-      fi
-
-      # --- VAULTWARDEN ---
-      if [ -f "/var/lib/domains/vaultwarden" ]; then
-        DOMAIN=$(cat /var/lib/domains/vaultwarden)
-        VW_ADMIN_TOKEN="Not found"
-        if [ -f "/var/lib/secrets/vaultwarden/vaultwarden.env" ]; then
-          VW_ADMIN_TOKEN=$(grep -oP 'ADMIN_TOKEN=\K.*' /var/lib/secrets/vaultwarden/vaultwarden.env || echo "Not found")
-        fi
-        echo "" >> "$FILE"
-        echo "## 🔐 Your Password Manager (Vaultwarden)" >> "$FILE"
-        echo "This keeps all your other passwords safe! Go to this website to use it:" >> "$FILE"
-        echo "- **Website:** https://$DOMAIN" >> "$FILE"
-        echo "- **Admin Panel:** https://$DOMAIN/admin" >> "$FILE"
-        echo "- **Admin Token:** \`$VW_ADMIN_TOKEN\`" >> "$FILE"
-        echo "" >> "$FILE"
-        echo "*(Create your own account on the main page. Use the Admin Token to access the admin panel and manage your server.)*" >> "$FILE"
-      fi
-
-      # --- BTCPAY SERVER ---
-      if [ -f "/var/lib/domains/btcpayserver" ]; then
-        DOMAIN=$(cat /var/lib/domains/btcpayserver)
-        echo "" >> "$FILE"
-        echo "## ₿ Your Bitcoin Store (BTCPay Server)" >> "$FILE"
-        echo "This lets you accept Bitcoin like a real shop!" >> "$FILE"
-        echo "- **Website:** https://$DOMAIN" >> "$FILE"
-        echo "*(You make up your own Admin Password the first time you visit!)*" >> "$FILE"
-      fi
-
-      # ── Generate PDF ──
-      pandoc "$FILE" -o "$OUTPUT" --pdf-engine=typst \
-        -V mainfont="Liberation Sans" \
-        -V monofont="Liberation Mono"
-
-      chown free:users "$OUTPUT"
-      rm -rf "$FILE" "$QR_DIR"
-    '';
-  };
-}
+```text
+ZEUSHEADER
+        echo "$ZEUS_QR_TEXT" >> "$FILE"
+        cat >> "$FILE" << 'ZEUSFOOTER'
