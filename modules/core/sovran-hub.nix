@@ -29,8 +29,6 @@ let
       { name = "BTCPayserver";       unit = "btcpayserver.service";     type = "system"; })
     ++ (lib.optional cfg.services.synapse
       { name = "Matrix-Synapse";     unit = "matrix-synapse.service";   type = "system"; })
-    ++ (lib.optional cfg.services.synapse
-      { name = "Coturn";             unit = "coturn.service";           type = "system"; })
     ++ (lib.optional cfg.services.vaultwarden
       { name = "VaultWarden";        unit = "vaultwarden.service";      type = "system"; })
     ++ (lib.optional cfg.services.nextcloud
@@ -45,11 +43,8 @@ let
       { name = "LiveKit";            unit = "livekit.service";          type = "system"; })
     # Always-on infrastructure
     ++ [
-      { name = "Caddy";      unit = "caddy.service";       type = "system"; }
-      { name = "Tor";         unit = "tor.service";         type = "system"; }
-      { name = "PostgreSQL";  unit = "postgresql.service";  type = "system"; }
-      { name = "Fail2Ban";   unit = "fail2ban.service";     type = "system"; }
-      { name = "SSH";         unit = "sshd.service";        type = "system"; }
+      { name = "Caddy"; unit = "caddy.service"; type = "system"; }
+      { name = "Tor";   unit = "tor.service";   type = "system"; }
     ];
 
   # ── Generate the config.json at build time ──

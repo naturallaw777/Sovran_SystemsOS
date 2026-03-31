@@ -31,7 +31,7 @@ in
       "org/gnome/desktop/background" = {
         picture-uri = "file:///run/current-system/sw/share/backgrounds/sovran/Wallpaper_Dark_Wide.png";
         picture-uri-dark = "file:///run/current-system/sw/share/backgrounds/sovran/Wallpaper_Dark_Wide.png";
-        picture-options = "zoom"; # Options: none, centered, scaled, stretched, zoom, spanned
+        picture-options = "zoom";
         primary-color = "#000000";
         secondary-color = "#000000";
       };
