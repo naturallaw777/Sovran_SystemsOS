@@ -16,10 +16,8 @@ from .service_tile import ServiceTile
 
 APP_ID = "com.sovransystems.hub"
 
-# Initialize libadwaita BEFORE any widget creation
 Adw.init()
 
-# Category display order and labels
 CATEGORY_ORDER = [
     ("infrastructure", "Infrastructure"),
     ("bitcoin-base",   "Bitcoin Base"),
@@ -34,6 +32,51 @@ ROLE_LABELS = {
     "desktop":             "Desktop Only",
     "node":                "Bitcoin Node",
 }
+
+# XDG paths for autostart control
+AUTOSTART_DIR = os.path.join(
+    os.environ.get("XDG_CONFIG_HOME", os.path.expanduser("~/.config")),
+    "autostart",
+)
+USER_AUTOSTART_FILE = os.path.join(AUTOSTART_DIR, "sovran-hub.desktop")
+SYSTEM_AUTOSTART_FILE = "/etc/xdg/autostart/sovran-hub.desktop"
+
+
+def get_autostart_enabled() -> bool:
+    """Check if autostart is enabled for the current user."""
+    # If user has their own copy, check its X-GNOME-Autostart-enabled
+    if os.path.isfile(USER_AUTOSTART_FILE):
+        try:
+            with open(USER_AUTOSTART_FILE, "r") as f:
+                for line in f:
+                    if line.strip().lower() == "x-gnome-autostart-enabled=false":
+                        return False
+                    if line.strip().lower() == "hidden=true":
+                        return False
+            return True
+        except Exception:
+            return True
+    # No user override — system file controls it
+    return os.path.isfile(SYSTEM_AUTOSTART_FILE)
+
+
+def set_autostart_enabled(enabled: bool):
+    """Enable or disable autostart by writing a user-level desktop file."""
+    os.makedirs(AUTOSTART_DIR, exist_ok=True)
+
+    if enabled:
+        # Remove the user override so the system file takes effect
+        if os.path.isfile(USER_AUTOSTART_FILE):
+            os.remove(USER_AUTOSTART_FILE)
+    else:
+        # Write a user override that disables autostart
+        with open(USER_AUTOSTART_FILE, "w") as f:
+            f.write("[Desktop Entry]\n")
+            f.write("Type=Application\n")
+            f.write("Name=Sovran_SystemsOS Hub\n")
+            f.write("Exec=sovran-hub\n")
+            f.write("X-GNOME-Autostart-enabled=false\n")
+            f.write("Hidden=true\n")
 
 
 class SovranHubWindow(Adw.ApplicationWindow):
@@ -66,6 +109,43 @@ class SovranHubWindow(Adw.ApplicationWindow):
         )
         refresh_btn.connect("clicked", lambda _b: self._refresh_all())
         header.pack_end(refresh_btn)
+
+        # ── Settings menu ────────────────────────────────────────
+        menu_btn = Gtk.MenuButton(
+            icon_name="open-menu-symbolic",
+            tooltip_text="Settings",
+        )
+        popover = Gtk.Popover()
+        menu_box = Gtk.Box(
+            orientation=Gtk.Orientation.VERTICAL,
+            spacing=8,
+            margin_top=12,
+            margin_bottom=12,
+            margin_start=12,
+            margin_end=12,
+        )
+
+        autostart_row = Gtk.Box(
+            orientation=Gtk.Orientation.HORIZONTAL,
+            spacing=12,
+        )
+        autostart_label = Gtk.Label(
+            label="Start at login",
+            hexpand=True,
+            halign=Gtk.Align.START,
+        )
+        self._autostart_switch = Gtk.Switch(
+            valign=Gtk.Align.CENTER,
+            active=get_autostart_enabled(),
+        )
+        self._autostart_switch.connect("state-set", self._on_autostart_toggled)
+        autostart_row.append(autostart_label)
+        autostart_row.append(self._autostart_switch)
+        menu_box.append(autostart_row)
+
+        popover.set_child(menu_box)
+        menu_btn.set_popover(popover)
+        header.pack_end(menu_btn)
 
         self._main_box = Gtk.Box(
             orientation=Gtk.Orientation.VERTICAL,
@@ -111,7 +191,6 @@ class SovranHubWindow(Adw.ApplicationWindow):
         method = self._config.get("command_method", "systemctl")
         services = self._config.get("services", [])
 
-        # Group services by category
         grouped = {}
         for entry in services:
             cat = entry.get("category", "other")
@@ -122,7 +201,6 @@ class SovranHubWindow(Adw.ApplicationWindow):
             if not entries:
                 continue
 
-            # Section header
             section_label = Gtk.Label(
                 label=cat_label,
                 css_classes=["title-4"],
@@ -171,6 +249,10 @@ class SovranHubWindow(Adw.ApplicationWindow):
             self._main_box.append(flowbox)
 
         GLib.idle_add(self._refresh_all)
+
+    def _on_autostart_toggled(self, switch, state):
+        set_autostart_enabled(state)
+        return False
 
     def _refresh_all(self):
         for t in self._tiles:

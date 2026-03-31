@@ -90,7 +90,7 @@ let
       # ── Generated config ───────────────────────────────────────
       cp ${generatedConfig} $out/lib/sovran-hub/config.json
 
-      # ── Icons (SVG + PNG) ──────────────────────────────────────
+      # ── Icons (SVG + PNG) ───────────────���──────────────────────
       install -d $out/share/sovran-hub/icons
       cp icons/* $out/share/sovran-hub/icons/ 2>/dev/null || true
 
@@ -109,19 +109,33 @@ sys.exit(SovranHubApp().run(sys.argv))
 LAUNCHER
       chmod +x $out/bin/sovran-hub
 
-      # ── Desktop file ───────────────────────────────────────────
+      # ── Desktop file (for app launcher + dock) ─────────────────
       install -d $out/share/applications
-      cat > $out/share/applications/Sovran_SystemsOS_Hub.desktop <<DESKTOP
+      cat > $out/share/applications/sovran-hub.desktop <<DESKTOP
 [Desktop Entry]
 Type=Application
 Name=Sovran_SystemsOS Hub
 Comment=Manage Sovran_SystemsOS systemd services
 Exec=$out/bin/sovran-hub
-Icon=system-run-symbolic
+Icon=utilities-system-monitor-symbolic
 Terminal=false
 Categories=System;Monitor;
 StartupWMClass=com.sovransystems.hub
 DESKTOP
+
+      # ── Autostart desktop file ─────────────────────────────────
+      install -d $out/etc/xdg/autostart
+      cat > $out/etc/xdg/autostart/sovran-hub.desktop <<AUTOSTART
+[Desktop Entry]
+Type=Application
+Name=Sovran_SystemsOS Hub
+Comment=Manage Sovran_SystemsOS systemd services
+Exec=$out/bin/sovran-hub
+Icon=utilities-system-monitor-symbolic
+Terminal=false
+X-GNOME-Autostart-enabled=true
+AutostartCondition=unless-exists sovran-hub-no-autostart
+AUTOSTART
 
       runHook postInstall
     '';
@@ -136,5 +150,15 @@ in
 {
   config = {
     environment.systemPackages = [ sovran-hub ];
+
+    # ── XDG autostart: link the system-wide autostart file ─────
+    environment.etc."xdg/autostart/sovran-hub.desktop".source =
+      "${sovran-hub}/etc/xdg/autostart/sovran-hub.desktop";
+
+    # ── GNOME dock: add to favorites ───────────────────────────
+    services.xserver.desktopManager.gnome.extraGSettingsOverrides = ''
+      [org.gnome.shell]
+      favorite-apps=['org.gnome.Nautilus.desktop', 'sovran-hub.desktop', 'org.gnome.Console.desktop', 'firefox.desktop']
+    '';
   };
 }
