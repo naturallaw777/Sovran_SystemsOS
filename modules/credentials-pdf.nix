@@ -42,6 +42,7 @@
         "/var/lib/gnome-remote-desktop"
         "/var/lib/domains"
         "/etc/nix-bitcoin-secrets"
+        "/home/free/Documents"
       ];
       # Watch for these specific Tor links to be generated
       PathExists = [
@@ -77,6 +78,7 @@
 
       # ── Deduplication: only rebuild if inputs actually changed ──
       HASH_FILE="/var/lib/secrets/.credentials-pdf-hash"
+      OUTPUT_PDF="/home/free/Documents/Sovran_SystemsOS_Magic_Keys.pdf"
 
       # Collect the content of all possible input files into one hash
       CURRENT_HASH=$(cat \
@@ -93,8 +95,9 @@
         /var/lib/domains/btcpayserver \
         2>/dev/null | sha256sum | cut -d' ' -f1)
 
-      if [ -f "$HASH_FILE" ] && [ "$(cat "$HASH_FILE")" = "$CURRENT_HASH" ]; then
-        echo "No input changes detected, skipping PDF regeneration."
+      # Skip rebuild only if the PDF exists AND inputs haven't changed
+      if [ -f "$OUTPUT_PDF" ] && [ -f "$HASH_FILE" ] && [ "$(cat "$HASH_FILE")" = "$CURRENT_HASH" ]; then
+        echo "No input changes detected and PDF exists, skipping regeneration."
         exit 0
       fi
 
