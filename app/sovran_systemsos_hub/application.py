@@ -45,6 +45,8 @@ SYSTEM_AUTOSTART_FILE = "/etc/xdg/autostart/sovran-hub.desktop"
 
 DOWNLOADS_DIR = os.path.join(os.path.expanduser("~"), "Downloads")
 
+FLAKE_DIR = "/etc/nixos"
+
 UPDATE_COMMAND = [
     "ssh", "-o", "StrictHostKeyChecking=no", "-o", "BatchMode=yes",
     "root@localhost",
@@ -56,6 +58,9 @@ REBOOT_COMMAND = [
     "root@localhost",
     "reboot",
 ]
+
+# How often to check for updates (seconds) — every 30 minutes
+UPDATE_CHECK_INTERVAL = 1800
 
 
 def get_autostart_enabled() -> bool:
@@ -88,6 +93,58 @@ def set_autostart_enabled(enabled: bool):
             f.write("Hidden=true\n")
 
 
+def _get_local_rev():
+    """Get the local HEAD commit of the flake repo."""
+    try:
+        result = subprocess.run(
+            ["git", "-C", FLAKE_DIR, "rev-parse", "HEAD"],
+            capture_output=True, text=True, timeout=10,
+        )
+        if result.returncode == 0:
+            return result.stdout.strip()
+    except Exception:
+        pass
+    return None
+
+
+def _get_remote_rev():
+    """Fetch and get the remote HEAD commit without pulling."""
+    try:
+        # Fetch latest refs from origin
+        subprocess.run(
+            ["git", "-C", FLAKE_DIR, "fetch", "--quiet", "origin"],
+            capture_output=True, text=True, timeout=30,
+        )
+        # Get the remote branch HEAD
+        result = subprocess.run(
+            ["git", "-C", FLAKE_DIR, "rev-parse", "origin/HEAD"],
+            capture_output=True, text=True, timeout=10,
+        )
+        if result.returncode == 0:
+            return result.stdout.strip()
+
+        # Fallback: try origin/main or origin/master
+        for branch in ["origin/main", "origin/master"]:
+            result = subprocess.run(
+                ["git", "-C", FLAKE_DIR, "rev-parse", branch],
+                capture_output=True, text=True, timeout=10,
+            )
+            if result.returncode == 0:
+                return result.stdout.strip()
+    except Exception:
+        pass
+    return None
+
+
+def check_for_updates() -> bool:
+    """Return True if remote has new commits ahead of local."""
+    local = _get_local_rev()
+    remote = _get_remote_rev()
+    if local and remote and local != remote:
+        return True
+    return False
+
+
 class UpdateDialog(Adw.Window):
     """Modal window that streams the system update output."""
 
@@ -105,12 +162,10 @@ class UpdateDialog(Adw.Window):
 
         header = Adw.HeaderBar()
 
-        # ── Close button (disabled during update) ────────────────
         self._close_btn = Gtk.Button(label="Close", sensitive=False)
         self._close_btn.connect("clicked", lambda _b: self.close())
         header.pack_end(self._close_btn)
 
-        # ── Reboot button (hidden until update succeeds) ─────────
         self._reboot_btn = Gtk.Button(
             label="Reboot",
             css_classes=["destructive-action"],
@@ -120,7 +175,6 @@ class UpdateDialog(Adw.Window):
         self._reboot_btn.connect("clicked", self._on_reboot_clicked)
         header.pack_end(self._reboot_btn)
 
-        # ── Save error report button (hidden until failure) ──────
         self._save_btn = Gtk.Button(
             label="Save Error Report",
             css_classes=["warning"],
@@ -279,6 +333,7 @@ class SovranHubWindow(Adw.ApplicationWindow):
         )
         self._config = config
         self._tiles = []
+        self._update_available = False
 
         css_path = os.environ.get("SOVRAN_HUB_CSS", "")
         if css_path and os.path.isfile(css_path):
@@ -292,14 +347,22 @@ class SovranHubWindow(Adw.ApplicationWindow):
         header = Adw.HeaderBar()
         header.set_title_widget(self._build_title_box())
 
-        # ── Update button (left side, prominent) ─────────────────
-        update_btn = Gtk.Button(
+        # ── Update button (left side) ────────────────────────────
+        self._update_btn = Gtk.Button(
             label="Update System",
             css_classes=["suggested-action"],
-            tooltip_text="Update Sovran_SystemsOS (flake update + rebuild + flatpak)",
+            tooltip_text="System is up to date",
         )
-        update_btn.connect("clicked", self._on_update_clicked)
-        header.pack_start(update_btn)
+        self._update_btn.connect("clicked", self._on_update_clicked)
+        header.pack_start(self._update_btn)
+
+        # ── Update badge (dot indicator, hidden by default) ──────
+        self._badge = Gtk.Label(
+            label=" ●",
+            css_classes=["update-badge"],
+            visible=False,
+        )
+        header.pack_start(self._badge)
 
         # ── Refresh button ───────────────────────────────────────
         refresh_btn = Gtk.Button(
@@ -368,6 +431,10 @@ class SovranHubWindow(Adw.ApplicationWindow):
         interval = config.get("refresh_interval", 5)
         if interval and interval > 0:
             GLib.timeout_add_seconds(interval, self._auto_refresh)
+
+        # ── Kick off first update check, then repeat ─────────────
+        GLib.timeout_add_seconds(5, self._check_for_updates_once)
+        GLib.timeout_add_seconds(UPDATE_CHECK_INTERVAL, self._periodic_update_check)
 
     def _build_title_box(self):
         role = self._config.get("role", "server_plus_desktop")
@@ -449,9 +516,46 @@ class SovranHubWindow(Adw.ApplicationWindow):
 
         GLib.idle_add(self._refresh_all)
 
+    # ── Update availability check ────────────────────────────────
+
+    def _check_for_updates_once(self):
+        thread = threading.Thread(target=self._do_update_check, daemon=True)
+        thread.start()
+        return False  # run once
+
+    def _periodic_update_check(self):
+        thread = threading.Thread(target=self._do_update_check, daemon=True)
+        thread.start()
+        return True  # keep repeating
+
+    def _do_update_check(self):
+        available = check_for_updates()
+        GLib.idle_add(self._set_update_indicator, available)
+
+    def _set_update_indicator(self, available):
+        self._update_available = available
+        if available:
+            self._update_btn.set_label("Update Available")
+            self._update_btn.set_css_classes(["destructive-action"])
+            self._update_btn.set_tooltip_text("A new version of Sovran_SystemsOS is available!")
+            self._badge.set_visible(True)
+        else:
+            self._update_btn.set_label("Update System")
+            self._update_btn.set_css_classes(["suggested-action"])
+            self._update_btn.set_tooltip_text("System is up to date")
+            self._badge.set_visible(False)
+
+    # ── Callbacks ────────────────────────────────────────────────
+
     def _on_update_clicked(self, _btn):
         dialog = UpdateDialog(self)
+        dialog.connect("close-request", lambda _w: self._after_update())
         dialog.present()
+
+    def _after_update(self):
+        # Re-check after dialog closes
+        GLib.timeout_add_seconds(3, self._check_for_updates_once)
+        return False
 
     def _on_autostart_toggled(self, switch, state):
         set_autostart_enabled(state)
