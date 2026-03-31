@@ -2,6 +2,32 @@
 
 lib.mkIf config.sovran_systemsOS.services.vaultwarden {
 
+  # ── Generate ADMIN_TOKEN if missing ─────────────────────────
+  systemd.services.vaultwarden-secret-init = {
+    description = "Generate Vaultwarden ADMIN_TOKEN if missing";
+    wantedBy = [ "multi-user.target" ];
+    before = [ "vaultwarden.service" ];
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+    };
+    path = [ pkgs.openssl pkgs.coreutils ];
+    script = ''
+      SECRET_DIR="/var/lib/secrets/vaultwarden"
+      SECRET_FILE="$SECRET_DIR/vaultwarden.env"
+
+      if [ ! -f "$SECRET_FILE" ]; then
+        mkdir -p "$SECRET_DIR"
+        echo -n "ADMIN_TOKEN=$(openssl rand -base64 48)" > "$SECRET_FILE"
+        chmod 600 "$SECRET_FILE"
+        echo "Generated Vaultwarden ADMIN_TOKEN"
+      else
+        echo "Vaultwarden ADMIN_TOKEN already exists, skipping"
+      fi
+    '';
+  };
+
+  # ── Generate runtime config from domain files ───────────────
   systemd.services.vaultwarden-runtime-config = {
     description = "Generate Vaultwarden runtime config from domain files";
     before = [ "vaultwarden.service" ];
@@ -43,7 +69,8 @@ EOF
   systemd.services.vaultwarden.serviceConfig.EnvironmentFile = lib.mkAfter [
     "/run/vaultwarden/runtime.env"
   ];
-   sovran_systemsOS.domainRequirements = [
+
+  sovran_systemsOS.domainRequirements = [
     { name = "vaultwarden"; label = "Vaultwarden"; example = "vault.yourdomain.com"; }
   ];
 }
