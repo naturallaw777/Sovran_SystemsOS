@@ -89,7 +89,6 @@
   environment.systemPackages = with pkgs; [
     git wget fish htop btop
     gnomeExtensions.transparent-top-bar-adjustable-transparency
-    gnomeExtensions.systemd-manager
     gnomeExtensions.dash-to-dock
     gnomeExtensions.vitals
     gnomeExtensions.pop-shell

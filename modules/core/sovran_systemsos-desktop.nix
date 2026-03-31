@@ -75,7 +75,6 @@ in
           "dash-to-dock@micxgx.gmail.com"
           "pop-shell@system76.com"
           "date-menu-formatter@marcinjakubowski.github.com"
-          "systemd-manager@hardpixel.eu"
           "light-style@gnome-shell-extensions.gcampax.github.com"
         ];
 
@@ -84,7 +83,7 @@ in
           "org.gnome.Settings.desktop"
           "org.gnome.Nautilus.desktop"
           "Sovran_SystemsOS_Updater.desktop"
-          "Sovran_SystemsOS_Hub.desktop"
+          "sovran-hub.desktop"
           "org.gnome.Software.desktop"
           "org.gnome.Geary.desktop"
           "org.gnome.Contacts.desktop"
@@ -124,23 +123,6 @@ in
 
       "org/gnome/shell/extensions/pop-shell" = {
         tile-by-default = true;
-      };
-
-      "org/gnome/shell/extensions/systemd-manager" = {
-        command-method = "systemctl";
-        systemd = [
-          "{\"name\":\"Bitcoind\",\"service\":\"bitcoind.service\",\"type\":\"system\"}"
-          "{\"name\":\"Electrs\",\"service\":\"electrs.service\",\"type\":\"system\"}"
-          "{\"name\":\"CLN\",\"service\":\"clightning.service\",\"type\":\"system\"}"
-          "{\"name\":\"LND\",\"service\":\"lnd.service\",\"type\":\"system\"}"
-          "{\"name\":\"Ride The Lightning\",\"service\":\"rtl.service\",\"type\":\"system\"}"
-          "{\"name\":\"BTCPayserver\",\"service\":\"btcpayserver.service\",\"type\":\"system\"}"
-          "{\"name\":\"Matrix-Synapse\",\"service\":\"matrix-synapse.service\",\"type\":\"system\"}"
-          "{\"name\":\"Coturn\",\"service\":\"coturn.service\",\"type\":\"system\"}"
-          "{\"name\":\"VaultWarden\",\"service\":\"vaultwarden.service\",\"type\":\"system\"}"
-          "{\"name\":\"Caddy\",\"service\":\"caddy.service\",\"type\":\"system\"}"
-          "{\"name\":\"Tor\",\"service\":\"tor.service\",\"type\":\"system\"}"
-        ];
       };
 
       "org/gnome/shell/extensions/vitals" = {
