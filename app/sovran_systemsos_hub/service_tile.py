@@ -22,7 +22,8 @@ ICON_EXTENSIONS = [".svg", ".png"]
 
 class ServiceTile(Gtk.Box):
 
-    def __init__(self, name, unit, scope="system", method="systemctl", icon_name="", **kw):
+    def __init__(self, name, unit, scope="system", method="systemctl",
+                 icon_name="", enabled=True, **kw):
         super().__init__(
             orientation=Gtk.Orientation.VERTICAL,
             spacing=6,
@@ -37,6 +38,7 @@ class ServiceTile(Gtk.Box):
         self._unit = unit
         self._scope = scope
         self._method = method
+        self._enabled = enabled
 
         self._logo = Gtk.Image(pixel_size=48, margin_top=12, halign=Gtk.Align.CENTER)
         self._set_logo(icon_name)
@@ -70,7 +72,14 @@ class ServiceTile(Gtk.Box):
         controls.append(restart_btn)
         self.append(controls)
 
-        # No self.refresh() here — the application calls it via GLib.idle_add
+        # If the feature is disabled in custom.nix, lock the tile immediately
+        if not self._enabled:
+            self._switch.set_active(False)
+            self._switch.set_sensitive(False)
+            self._status_label.set_label("○ disabled")
+            self._status_label.set_css_classes(["caption", "disabled-label"])
+            self._logo.set_opacity(0.35)
+            self.set_tooltip_text(f"{name} is not enabled in custom.nix")
 
     def _set_logo(self, icon_name):
         if icon_name and ICON_DIR:
@@ -87,6 +96,10 @@ class ServiceTile(Gtk.Box):
         self._logo.set_from_icon_name("system-run-symbolic")
 
     def refresh(self):
+        # Don't poll systemctl for disabled features
+        if not self._enabled:
+            return
+
         active = systemctl.is_active(self._unit, self._scope)
         is_on = active == "active"
         is_loading = active in LOADING_STATES
@@ -111,10 +124,14 @@ class ServiceTile(Gtk.Box):
             self._status_label.set_css_classes(["caption", "dim-label"])
 
     def _on_toggled(self, switch, state):
+        if not self._enabled:
+            return True  # block the toggle
         systemctl.run_action("start" if state else "stop", self._unit, self._scope, self._method)
         GLib.timeout_add(1500, self.refresh)
         return False
 
     def _on_restart(self, _btn):
+        if not self._enabled:
+            return
         systemctl.run_action("restart", self._unit, self._scope, self._method)
         GLib.timeout_add(1500, self.refresh)
