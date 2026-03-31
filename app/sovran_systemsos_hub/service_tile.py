@@ -19,6 +19,9 @@ LOADING_STATES = {"reloading", "activating", "deactivating", "maintenance"}
 # Icon directory injected by the Nix derivation via environment variable
 ICON_DIR = os.environ.get("SOVRAN_HUB_ICONS", "")
 
+# Supported icon extensions in priority order
+ICON_EXTENSIONS = [".svg", ".png"]
+
 
 class ServiceTile(Gtk.Box):
     """A square tile showing a service logo, name, status, toggle, and restart."""
@@ -106,16 +109,26 @@ class ServiceTile(Gtk.Box):
         self.refresh()
 
     def _set_logo(self, icon_name: str):
-        """Set the tile logo from a PNG in the icons dir, or fall back to a symbolic icon."""
+        """Set the tile logo from an SVG or PNG in the icons dir."""
         if icon_name and ICON_DIR:
-            png_path = os.path.join(ICON_DIR, f"{icon_name}.png")
-            if os.path.isfile(png_path):
-                pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_scale(
-                    png_path, 48, 48, True
-                )
-                texture = Gdk.Texture.new_for_pixbuf(pixbuf)
-                self._logo.set_from_paintable(texture)
-                return
+            for ext in ICON_EXTENSIONS:
+                icon_path = os.path.join(ICON_DIR, f"{icon_name}{ext}")
+                if os.path.isfile(icon_path):
+                    if ext == ".svg":
+                        # GTK4 handles SVGs natively via GdkPixbuf
+                        pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_scale(
+                            icon_path, 48, 48, True
+                        )
+                        texture = Gdk.Texture.new_for_pixbuf(pixbuf)
+                        self._logo.set_from_paintable(texture)
+                    else:
+                        # PNG path
+                        pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_scale(
+                            icon_path, 48, 48, True
+                        )
+                        texture = Gdk.Texture.new_for_pixbuf(pixbuf)
+                        self._logo.set_from_paintable(texture)
+                    return
 
         # Fallback: themed symbolic icon
         self._logo.set_from_icon_name("system-run-symbolic")

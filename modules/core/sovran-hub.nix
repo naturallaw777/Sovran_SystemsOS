@@ -67,6 +67,7 @@ let
       pkgs.libadwaita
       pkgs.gobject-introspection
       pkgs.gdk-pixbuf
+      pkgs.librsvg
     ];
 
     propagatedBuildInputs = [
@@ -85,7 +86,7 @@ let
       cp style.css $out/lib/sovran-hub/style.css
 
       # Copy logos from the repo (no fetchurl needed)
-      cp icons/*.png $out/share/sovran-hub/icons/
+      cp icons/* $out/share/sovran-hub/icons/ 2>/dev/null || true
 
       # Install the generated config
       cp ${generatedConfig} $out/lib/sovran-hub/config.json
