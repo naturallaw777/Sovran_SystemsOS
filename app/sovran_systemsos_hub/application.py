@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import socket
 import subprocess
 import threading
 import urllib.request
@@ -67,6 +68,8 @@ REBOOT_COMMAND = [
 UPDATE_CHECK_INTERVAL = 1800
 
 
+# ── Autostart helpers ────────────────────────────────────────────
+
 def get_autostart_enabled() -> bool:
     if os.path.isfile(USER_AUTOSTART_FILE):
         try:
@@ -97,8 +100,9 @@ def set_autostart_enabled(enabled: bool):
             f.write("Hidden=true\n")
 
 
+# ── Update check helpers ────────────────────────────────────────
+
 def _get_locked_info():
-    """Read the locked revision and branch of Sovran_Systems from flake.lock."""
     try:
         with open(FLAKE_LOCK_PATH, "r") as f:
             lock = json.load(f)
@@ -116,7 +120,6 @@ def _get_locked_info():
 
 
 def _get_remote_rev(branch=None):
-    """Query Gitea API for the latest commit SHA on the given branch."""
     try:
         url = GITEA_API_BASE + "?limit=1"
         if branch:
@@ -133,7 +136,6 @@ def _get_remote_rev(branch=None):
 
 
 def check_for_updates() -> bool:
-    """Return True if remote has new commits ahead of locked flake."""
     locked_rev, branch = _get_locked_info()
     remote_rev = _get_remote_rev(branch)
     if locked_rev and remote_rev:
@@ -141,8 +143,57 @@ def check_for_updates() -> bool:
     return False
 
 
+# ── IP address helpers ───────────────────────────────────────────
+
+def _get_internal_ip():
+    """Get the primary LAN IP address."""
+    try:
+        # Connect to a public IP (doesn't actually send data)
+        # to determine which interface would be used
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.settimeout(2)
+        s.connect(("1.1.1.1", 80))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except Exception:
+        pass
+    # Fallback: hostname -I
+    try:
+        result = subprocess.run(
+            ["hostname", "-I"],
+            capture_output=True, text=True, timeout=5,
+        )
+        if result.returncode == 0:
+            parts = result.stdout.strip().split()
+            if parts:
+                return parts[0]
+    except Exception:
+        pass
+    return "unavailable"
+
+
+def _get_external_ip():
+    """Get the public IP via a lightweight HTTP service."""
+    for url in [
+        "https://api.ipify.org",
+        "https://ifconfig.me/ip",
+        "https://icanhazip.com",
+    ]:
+        try:
+            req = urllib.request.Request(url, method="GET")
+            with urllib.request.urlopen(req, timeout=8) as resp:
+                ip = resp.read().decode().strip()
+                if ip and len(ip) < 46:
+                    return ip
+        except Exception:
+            continue
+    return "unavailable"
+
+
+# ── UpdateDialog ─────────────────────────────────────────────────
+
 class UpdateDialog(Adw.Window):
-    """Modal window that streams the system update output."""
 
     def __init__(self, parent):
         super().__init__(
@@ -318,6 +369,8 @@ class UpdateDialog(Adw.Window):
                 self._append_text(f"\n✗ Reboot failed: {e}\n")
 
 
+# ── Main Window ──────────────────────────────────────────────────
+
 class SovranHubWindow(Adw.ApplicationWindow):
 
     def __init__(self, app, config):
@@ -401,21 +454,32 @@ class SovranHubWindow(Adw.ApplicationWindow):
         menu_btn.set_popover(popover)
         header.pack_end(menu_btn)
 
+        # ── Main content area ────────────────────────────────────
         self._main_box = Gtk.Box(
             orientation=Gtk.Orientation.VERTICAL,
             spacing=0,
         )
 
+        # ── IP Address Banner ────────────────────────────────────
+        self._ip_bar = self._build_ip_bar()
+        self._main_box.append(self._ip_bar)
+
         scrolled = Gtk.ScrolledWindow(
             hscrollbar_policy=Gtk.PolicyType.NEVER,
             vscrollbar_policy=Gtk.PolicyType.AUTOMATIC,
             vexpand=True,
-            child=self._main_box,
         )
+
+        self._tiles_box = Gtk.Box(
+            orientation=Gtk.Orientation.VERTICAL,
+            spacing=0,
+        )
+        scrolled.set_child(self._tiles_box)
+        self._main_box.append(scrolled)
 
         toolbar_view = Adw.ToolbarView()
         toolbar_view.add_top_bar(header)
-        toolbar_view.set_content(scrolled)
+        toolbar_view.set_content(self._main_box)
         self.set_content(toolbar_view)
 
         self._build_tiles()
@@ -426,6 +490,93 @@ class SovranHubWindow(Adw.ApplicationWindow):
 
         GLib.timeout_add_seconds(5, self._check_for_updates_once)
         GLib.timeout_add_seconds(UPDATE_CHECK_INTERVAL, self._periodic_update_check)
+
+        # Fetch IPs in background
+        GLib.timeout_add_seconds(1, self._fetch_ips_once)
+
+    # ── IP Address Bar ───────────────────────────────────────────
+
+    def _build_ip_bar(self):
+        bar = Gtk.Box(
+            orientation=Gtk.Orientation.HORIZONTAL,
+            spacing=24,
+            halign=Gtk.Align.CENTER,
+            margin_top=12,
+            margin_bottom=4,
+            margin_start=24,
+            margin_end=24,
+            css_classes=["ip-bar"],
+        )
+
+        # Internal IP
+        internal_box = Gtk.Box(
+            orientation=Gtk.Orientation.HORIZONTAL,
+            spacing=6,
+        )
+        internal_icon = Gtk.Image(
+            icon_name="network-wired-symbolic",
+            pixel_size=16,
+            css_classes=["dim-label"],
+        )
+        internal_label = Gtk.Label(
+            label="Internal:",
+            css_classes=["caption", "dim-label"],
+        )
+        self._internal_ip_label = Gtk.Label(
+            label="…",
+            css_classes=["caption", "ip-value"],
+            selectable=True,
+        )
+        internal_box.append(internal_icon)
+        internal_box.append(internal_label)
+        internal_box.append(self._internal_ip_label)
+
+        # Separator
+        sep = Gtk.Separator(
+            orientation=Gtk.Orientation.VERTICAL,
+        )
+
+        # External IP
+        external_box = Gtk.Box(
+            orientation=Gtk.Orientation.HORIZONTAL,
+            spacing=6,
+        )
+        external_icon = Gtk.Image(
+            icon_name="network-server-symbolic",
+            pixel_size=16,
+            css_classes=["dim-label"],
+        )
+        external_label = Gtk.Label(
+            label="External:",
+            css_classes=["caption", "dim-label"],
+        )
+        self._external_ip_label = Gtk.Label(
+            label="…",
+            css_classes=["caption", "ip-value"],
+            selectable=True,
+        )
+        external_box.append(external_icon)
+        external_box.append(external_label)
+        external_box.append(self._external_ip_label)
+
+        bar.append(internal_box)
+        bar.append(sep)
+        bar.append(external_box)
+
+        return bar
+
+    def _fetch_ips_once(self):
+        thread = threading.Thread(target=self._do_fetch_ips, daemon=True)
+        thread.start()
+        return False
+
+    def _do_fetch_ips(self):
+        internal = _get_internal_ip()
+        GLib.idle_add(self._internal_ip_label.set_label, internal)
+        external = _get_external_ip()
+        GLib.idle_add(self._external_ip_label.set_label, external)
+
+    # ── Title box ────────────────────────────────────────────────
 
     def _build_title_box(self):
         role = self._config.get("role", "server_plus_desktop")
@@ -443,6 +594,8 @@ class SovranHubWindow(Adw.ApplicationWindow):
             css_classes=["caption", "dim-label"],
         ))
         return box
+
+    # ── Service tiles ────────────────────────────────────────────
 
     def _build_tiles(self):
         method = self._config.get("command_method", "systemctl")
@@ -466,7 +619,7 @@ class SovranHubWindow(Adw.ApplicationWindow):
                 margin_bottom=4,
                 margin_start=24,
             )
-            self._main_box.append(section_label)
+            self._tiles_box.append(section_label)
 
             sep = Gtk.Separator(
                 orientation=Gtk.Orientation.HORIZONTAL,
@@ -474,7 +627,7 @@ class SovranHubWindow(Adw.ApplicationWindow):
                 margin_end=24,
                 margin_bottom=8,
             )
-            self._main_box.append(sep)
+            self._tiles_box.append(sep)
 
             flowbox = Gtk.FlowBox(
                 max_children_per_line=4,
@@ -503,9 +656,11 @@ class SovranHubWindow(Adw.ApplicationWindow):
                 flowbox.append(tile)
                 self._tiles.append(tile)
 
-            self._main_box.append(flowbox)
+            self._tiles_box.append(flowbox)
 
         GLib.idle_add(self._refresh_all)
+
+    # ── Update check ─────────────────────────────────────────────
 
     def _check_for_updates_once(self):
         thread = threading.Thread(target=self._do_update_check, daemon=True)
@@ -533,6 +688,8 @@ class SovranHubWindow(Adw.ApplicationWindow):
             self._update_btn.set_css_classes(["suggested-action"])
             self._update_btn.set_tooltip_text("System is up to date")
             self._badge.set_visible(False)
+
+    # ── Callbacks ────────────────────────────────────────────────
 
     def _on_update_clicked(self, _btn):
         dialog = UpdateDialog(self)

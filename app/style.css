@@ -22,3 +22,13 @@
     font-size: 1.2em;
     font-weight: bold;
 }
+.ip-bar {
+    padding: 8px 16px;
+    border-radius: 8px;
+    background: alpha(@card_bg_color, 0.5);
+}
+.ip-value {
+    font-family: monospace;
+    font-weight: bold;
+    color: @accent_color;
+}
