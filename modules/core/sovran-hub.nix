@@ -1,9 +1,9 @@
 # modules/core/sovran-hub.nix
 #
 # Declarative NixOS module that:
-#   1. Fetches high-quality PNG logos for each service
-#   2. Builds the Sovran_SystemsOS_Hub GTK4 app as a Nix derivation
-#   3. Generates its config.json from existing sovran_systemsOS options
+#   1. Builds the Sovran_SystemsOS_Hub GTK4 app as a Nix derivation
+#   2. Generates its config.json from existing sovran_systemsOS options
+#   3. Uses logos committed directly in the repo (no fetchurl hashes)
 #   4. Installs a .desktop file so it appears in GNOME Activities
 
 { config, pkgs, lib, ... }:
@@ -11,97 +11,7 @@
 let
   cfg = config.sovran_systemsOS;
 
-  # ── Fetch service logos ──────────────────────────────────────
-  #
-  # Each logo is fetched once at build time and placed in a
-  # single directory as <icon-key>.png so the Python app can
-  # load them by name.
-
-  logos = {
-    bitcoind = pkgs.fetchurl {
-      url = "https://upload.wikimedia.org/wikipedia/commons/thumb/4/46/Bitcoin.svg/240px-Bitcoin.svg.png";
-      sha256 = "0000000000000000000000000000000000000000000000000000";  # replace after first build
-      name = "bitcoind.png";
-    };
-    electrs = pkgs.fetchurl {
-      url = "https://raw.githubusercontent.com/nicehash/electrumx-client/master/electrum-logo.png";
-      sha256 = "0000000000000000000000000000000000000000000000000000";
-      name = "electrs.png";
-    };
-    lnd = pkgs.fetchurl {
-      url = "https://raw.githubusercontent.com/lightningnetwork/lnd/master/logo.png";
-      sha256 = "0000000000000000000000000000000000000000000000000000";
-      name = "lnd.png";
-    };
-    rtl = pkgs.fetchurl {
-      url = "https://raw.githubusercontent.com/Ride-The-Lightning/RTL/master/src/assets/images/rtl-logo.png";
-      sha256 = "0000000000000000000000000000000000000000000000000000";
-      name = "rtl.png";
-    };
-    btcpayserver = pkgs.fetchurl {
-      url = "https://raw.githubusercontent.com/btcpayserver/btcpayserver/master/BTCPayServer/wwwroot/img/logo.png";
-      sha256 = "sha256-5yKCvEZ7df61fSQWYx2WqVx4F3v+VxqAsMSUZ2sheeI=";
-      name = "btcpayserver.png";
-    };
-    synapse = pkgs.fetchurl {
-      url = "https://raw.githubusercontent.com/nicehash/element-web/develop/res/themes/element/img/logos/element-logo.png";
-      sha256 = "0000000000000000000000000000000000000000000000000000";
-      name = "synapse.png";
-    };
-    vaultwarden = pkgs.fetchurl {
-      url = "https://raw.githubusercontent.com/dani-garcia/vaultwarden/main/resources/vaultwarden-icon.png";
-      sha256 = "0000000000000000000000000000000000000000000000000000";
-      name = "vaultwarden.png";
-    };
-    nextcloud = pkgs.fetchurl {
-      url = "https://upload.wikimedia.org/wikipedia/commons/thumb/6/60/Nextcloud_Logo.svg/240px-Nextcloud_Logo.svg.png";
-      sha256 = "0000000000000000000000000000000000000000000000000000";
-      name = "nextcloud.png";
-    };
-    wordpress = pkgs.fetchurl {
-      url = "https://s.w.org/style/images/about/WordPress-logotype-wmark.png";
-      sha256 = "0000000000000000000000000000000000000000000000000000";
-      name = "wordpress.png";
-    };
-    haven = pkgs.fetchurl {
-      url = "https://raw.githubusercontent.com/nicehash/nostr-rs-relay/master/logo.png";
-      sha256 = "0000000000000000000000000000000000000000000000000000";
-      name = "haven.png";
-    };
-    mempool = pkgs.fetchurl {
-      url = "https://raw.githubusercontent.com/nicehash/mempool/master/frontend/src/resources/mempool-space-logo.png";
-      sha256 = "0000000000000000000000000000000000000000000000000000";
-      name = "mempool.png";
-    };
-    livekit = pkgs.fetchurl {
-      url = "https://avatars.githubusercontent.com/u/70location?s=200";
-      sha256 = "0000000000000000000000000000000000000000000000000000";
-      name = "livekit.png";
-    };
-    caddy = pkgs.fetchurl {
-      url = "https://caddyserver.com/resources/images/caddy-logo.png";
-      sha256 = "0000000000000000000000000000000000000000000000000000";
-      name = "caddy.png";
-    };
-    tor = pkgs.fetchurl {
-      url = "https://upload.wikimedia.org/wikipedia/commons/thumb/1/15/Tor-logo-2011-flat.svg/240px-Tor-logo-2011-flat.svg.png";
-      sha256 = "0000000000000000000000000000000000000000000000000000";
-      name = "tor.png";
-    };
-  };
-
-  # Bundle all logos into a single derivation directory
-  logoDir = pkgs.runCommand "sovran-hub-icons" {} ''
-    mkdir -p $out
-    ${lib.concatStringsSep "\n" (lib.mapAttrsToList (key: src:
-      "cp ${src} $out/${key}.png"
-    ) logos)}
-  '';
-
   # ── Build the list of monitored units from NixOS option state ──
-  #
-  # Each entry now includes an "icon" key that matches a filename
-  # in the logoDir (without extension).
 
   monitoredServices =
     (lib.optional cfg.services.bitcoin
@@ -174,11 +84,11 @@ let
       # Copy CSS
       cp style.css $out/lib/sovran-hub/style.css
 
+      # Copy logos from the repo (no fetchurl needed)
+      cp icons/*.png $out/share/sovran-hub/icons/
+
       # Install the generated config
       cp ${generatedConfig} $out/lib/sovran-hub/config.json
-
-      # Install logos
-      cp -r ${logoDir}/* $out/share/sovran-hub/icons/
 
       # Create the launcher script
       cat > $out/bin/sovran-hub <<'LAUNCHER'
