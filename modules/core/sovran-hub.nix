@@ -40,7 +40,7 @@ let
     };
     btcpayserver = pkgs.fetchurl {
       url = "https://raw.githubusercontent.com/btcpayserver/btcpayserver/master/BTCPayServer/wwwroot/img/logo.png";
-      sha256 = "0000000000000000000000000000000000000000000000000000";
+      sha256 = "sha256-5yKCvEZ7df61fSQWYx2WqVx4F3v+VxqAsMSUZ2sheeI=";
       name = "btcpayserver.png";
     };
     synapse = pkgs.fetchurl {
