@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 import threading
+import urllib.request
 from datetime import datetime
 
 import gi
@@ -45,7 +47,10 @@ SYSTEM_AUTOSTART_FILE = "/etc/xdg/autostart/sovran-hub.desktop"
 
 DOWNLOADS_DIR = os.path.join(os.path.expanduser("~"), "Downloads")
 
-FLAKE_DIR = "/etc/nixos"
+FLAKE_LOCK_PATH = "/etc/nixos/flake.lock"
+FLAKE_INPUT_NAME = "Sovran_Systems"
+
+GITEA_API_BASE = "https://git.sovransystems.com/api/v1/repos/Sovran_Systems/Sovran_SystemsOS/commits"
 
 UPDATE_COMMAND = [
     "ssh", "-o", "StrictHostKeyChecking=no", "-o", "BatchMode=yes",
@@ -59,7 +64,6 @@ REBOOT_COMMAND = [
     "reboot",
 ]
 
-# How often to check for updates (seconds) — every 30 minutes
 UPDATE_CHECK_INTERVAL = 1800
 
 
@@ -93,55 +97,47 @@ def set_autostart_enabled(enabled: bool):
             f.write("Hidden=true\n")
 
 
-def _get_local_rev():
-    """Get the local HEAD commit of the flake repo."""
+def _get_locked_info():
+    """Read the locked revision and branch of Sovran_Systems from flake.lock."""
     try:
-        result = subprocess.run(
-            ["git", "-C", FLAKE_DIR, "rev-parse", "HEAD"],
-            capture_output=True, text=True, timeout=10,
-        )
-        if result.returncode == 0:
-            return result.stdout.strip()
+        with open(FLAKE_LOCK_PATH, "r") as f:
+            lock = json.load(f)
+        nodes = lock.get("nodes", {})
+        node = nodes.get(FLAKE_INPUT_NAME, {})
+        locked = node.get("locked", {})
+        rev = locked.get("rev")
+        branch = locked.get("ref")
+        if not branch:
+            branch = node.get("original", {}).get("ref")
+        return rev, branch
     except Exception:
         pass
-    return None
+    return None, None
 
 
-def _get_remote_rev():
-    """Fetch and get the remote HEAD commit without pulling."""
+def _get_remote_rev(branch=None):
+    """Query Gitea API for the latest commit SHA on the given branch."""
     try:
-        # Fetch latest refs from origin
-        subprocess.run(
-            ["git", "-C", FLAKE_DIR, "fetch", "--quiet", "origin"],
-            capture_output=True, text=True, timeout=30,
-        )
-        # Get the remote branch HEAD
-        result = subprocess.run(
-            ["git", "-C", FLAKE_DIR, "rev-parse", "origin/HEAD"],
-            capture_output=True, text=True, timeout=10,
-        )
-        if result.returncode == 0:
-            return result.stdout.strip()
-
-        # Fallback: try origin/main or origin/master
-        for branch in ["origin/main", "origin/master"]:
-            result = subprocess.run(
-                ["git", "-C", FLAKE_DIR, "rev-parse", branch],
-                capture_output=True, text=True, timeout=10,
-            )
-            if result.returncode == 0:
-                return result.stdout.strip()
+        url = GITEA_API_BASE + "?limit=1"
+        if branch:
+            url += f"&sha={branch}"
+        req = urllib.request.Request(url, method="GET")
+        req.add_header("Accept", "application/json")
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            data = json.loads(resp.read().decode())
+            if isinstance(data, list) and len(data) > 0:
+                return data[0].get("sha")
     except Exception:
         pass
     return None
 
 
 def check_for_updates() -> bool:
-    """Return True if remote has new commits ahead of local."""
-    local = _get_local_rev()
-    remote = _get_remote_rev()
-    if local and remote and local != remote:
-        return True
+    """Return True if remote has new commits ahead of locked flake."""
+    locked_rev, branch = _get_locked_info()
+    remote_rev = _get_remote_rev(branch)
+    if locked_rev and remote_rev:
+        return locked_rev != remote_rev
     return False
 
 
@@ -347,7 +343,6 @@ class SovranHubWindow(Adw.ApplicationWindow):
         header = Adw.HeaderBar()
         header.set_title_widget(self._build_title_box())
 
-        # ── Update button (left side) ────────────────────────────
         self._update_btn = Gtk.Button(
             label="Update System",
             css_classes=["suggested-action"],
@@ -356,7 +351,6 @@ class SovranHubWindow(Adw.ApplicationWindow):
         self._update_btn.connect("clicked", self._on_update_clicked)
         header.pack_start(self._update_btn)
 
-        # ── Update badge (dot indicator, hidden by default) ──────
         self._badge = Gtk.Label(
             label=" ●",
             css_classes=["update-badge"],
@@ -364,7 +358,6 @@ class SovranHubWindow(Adw.ApplicationWindow):
         )
         header.pack_start(self._badge)
 
-        # ── Refresh button ───────────────────────────────────────
         refresh_btn = Gtk.Button(
             icon_name="view-refresh-symbolic",
             tooltip_text="Refresh now",
@@ -372,7 +365,6 @@ class SovranHubWindow(Adw.ApplicationWindow):
         refresh_btn.connect("clicked", lambda _b: self._refresh_all())
         header.pack_end(refresh_btn)
 
-        # ── Settings menu ────────────────────────────────────────
         menu_btn = Gtk.MenuButton(
             icon_name="open-menu-symbolic",
             tooltip_text="Settings",
@@ -432,7 +424,6 @@ class SovranHubWindow(Adw.ApplicationWindow):
         if interval and interval > 0:
             GLib.timeout_add_seconds(interval, self._auto_refresh)
 
-        # ── Kick off first update check, then repeat ─────────────
         GLib.timeout_add_seconds(5, self._check_for_updates_once)
         GLib.timeout_add_seconds(UPDATE_CHECK_INTERVAL, self._periodic_update_check)
 
@@ -516,17 +507,15 @@ class SovranHubWindow(Adw.ApplicationWindow):
 
         GLib.idle_add(self._refresh_all)
 
-    # ── Update availability check ────────────────────────────────
-
     def _check_for_updates_once(self):
         thread = threading.Thread(target=self._do_update_check, daemon=True)
         thread.start()
-        return False  # run once
+        return False
 
     def _periodic_update_check(self):
         thread = threading.Thread(target=self._do_update_check, daemon=True)
         thread.start()
-        return True  # keep repeating
+        return True
 
     def _do_update_check(self):
         available = check_for_updates()
@@ -545,15 +534,12 @@ class SovranHubWindow(Adw.ApplicationWindow):
             self._update_btn.set_tooltip_text("System is up to date")
             self._badge.set_visible(False)
 
-    # ── Callbacks ────────────────────────────────────────────────
-
     def _on_update_clicked(self, _btn):
         dialog = UpdateDialog(self)
         dialog.connect("close-request", lambda _w: self._after_update())
         dialog.present()
 
     def _after_update(self):
-        # Re-check after dialog closes
         GLib.timeout_add_seconds(3, self._check_for_updates_once)
         return False
 
