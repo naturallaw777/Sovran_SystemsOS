@@ -1,50 +1,42 @@
-# modules/core/sovran-hub.nix
-#
-# Declarative NixOS module that:
-#   1. Builds the Sovran_SystemsOS_Hub GTK4 app as a Nix derivation
-#   2. Generates its config.json from existing sovran_systemsOS options
-#   3. Uses logos committed directly in the repo (no fetchurl hashes)
-#   4. Installs a .desktop file so it appears in GNOME Activities
-
-{ config, pkgs, lib, ... }:
+{ config, lib, pkgs, ... }:
 
 let
   cfg = config.sovran_systemsOS;
 
-  # ── Build the list of monitored units from NixOS option state ──
-
   monitoredServices =
-    (lib.optional cfg.services.bitcoin
-      { name = "Bitcoind";           unit = "bitcoind.service";         type = "system"; icon = "bitcoind"; })
-    ++ (lib.optional cfg.services.bitcoin
-      { name = "Electrs";            unit = "electrs.service";          type = "system"; icon = "electrs"; })
-    ++ (lib.optional cfg.services.bitcoin
-      { name = "LND";                unit = "lnd.service";              type = "system"; icon = "lnd"; })
-    ++ (lib.optional cfg.services.bitcoin
-      { name = "Ride The Lightning"; unit = "rtl.service";              type = "system"; icon = "rtl"; })
-    ++ (lib.optional cfg.services.bitcoin
-      { name = "BTCPayserver";       unit = "btcpayserver.service";     type = "system"; icon = "btcpayserver"; })
-    ++ (lib.optional cfg.services.synapse
-      { name = "Matrix-Synapse";     unit = "matrix-synapse.service";   type = "system"; icon = "synapse"; })
-    ++ (lib.optional cfg.services.vaultwarden
-      { name = "VaultWarden";        unit = "vaultwarden.service";      type = "system"; icon = "vaultwarden"; })
-    ++ (lib.optional cfg.services.nextcloud
-      { name = "Nextcloud";          unit = "phpfpm-nextcloud.service"; type = "system"; icon = "nextcloud"; })
-    ++ (lib.optional cfg.services.wordpress
-      { name = "WordPress";          unit = "phpfpm-wordpress.service"; type = "system"; icon = "wordpress"; })
-    ++ (lib.optional cfg.features.haven
-      { name = "Haven Relay";        unit = "haven-relay.service";      type = "system"; icon = "haven"; })
-    ++ (lib.optional cfg.features.mempool
-      { name = "Mempool";            unit = "mempool.service";          type = "system"; icon = "mempool"; })
-    ++ (lib.optional cfg.features.element-calling
-      { name = "LiveKit";            unit = "livekit.service";          type = "system"; icon = "livekit"; })
-    # Always-on infrastructure
-    ++ [
+    [
       { name = "Caddy"; unit = "caddy.service"; type = "system"; icon = "caddy"; }
       { name = "Tor";   unit = "tor.service";   type = "system"; icon = "tor";   }
+    ]
+    ++ lib.optionals cfg.services.bitcoin [
+      { name = "Bitcoind";           unit = "bitcoind.service";     type = "system"; icon = "bitcoind"; }
+      { name = "Electrs";            unit = "electrs.service";      type = "system"; icon = "electrs"; }
+      { name = "LND";                unit = "lnd.service";          type = "system"; icon = "lnd"; }
+      { name = "Ride The Lightning"; unit = "rtl.service";          type = "system"; icon = "rtl"; }
+      { name = "BTCPayserver";       unit = "btcpayserver.service"; type = "system"; icon = "btcpayserver"; }
+    ]
+    ++ lib.optionals cfg.services.synapse [
+      { name = "Matrix-Synapse"; unit = "matrix-synapse.service"; type = "system"; icon = "synapse"; }
+    ]
+    ++ lib.optionals cfg.services.vaultwarden [
+      { name = "VaultWarden"; unit = "vaultwarden.service"; type = "system"; icon = "vaultwarden"; }
+    ]
+    ++ lib.optionals cfg.services.nextcloud [
+      { name = "Nextcloud"; unit = "phpfpm-nextcloud.service"; type = "system"; icon = "nextcloud"; }
+    ]
+    ++ lib.optionals cfg.services.wordpress [
+      { name = "WordPress"; unit = "phpfpm-wordpress.service"; type = "system"; icon = "wordpress"; }
+    ]
+    ++ lib.optionals cfg.features.haven [
+      { name = "Haven Relay"; unit = "haven-relay.service"; type = "system"; icon = "haven"; }
+    ]
+    ++ lib.optionals cfg.features.mempool [
+      { name = "Mempool"; unit = "mempool.service"; type = "system"; icon = "mempool"; }
+    ]
+    ++ lib.optionals cfg.features.element-calling [
+      { name = "LiveKit"; unit = "livekit.service"; type = "system"; icon = "livekit"; }
     ];
 
-  # ── Generate the config.json at build time ──
   generatedConfig = pkgs.writeText "sovran-hub-config.json"
     (builtins.toJSON {
       refresh_interval = 5;
@@ -52,7 +44,6 @@ let
       services         = monitoredServices;
     });
 
-  # ── Package the Python GTK4 app ──
   sovran-hub = pkgs.python3Packages.buildPythonApplication {
     pname   = "sovran-systemsos-hub";
     version = "1.0.0";
@@ -60,54 +51,51 @@ let
 
     src = ../../app;
 
-    nativeBuildInputs = [ pkgs.wrapGAppsHook4 ];
-
-    buildInputs = [
-      pkgs.gtk4
-      pkgs.libadwaita
-      pkgs.gobject-introspection
-      pkgs.gdk-pixbuf
-      pkgs.librsvg
+    nativeBuildInputs = with pkgs; [
+      wrapGAppsHook4
+      gobject-introspection
     ];
 
-    propagatedBuildInputs = [
-      pkgs.python3Packages.pygobject3
+    buildInputs = with pkgs; [
+      gtk4
+      libadwaita
+      gdk-pixbuf
+      librsvg
+    ];
+
+    propagatedBuildInputs = with pkgs.python3Packages; [
+      pygobject3
     ];
 
     dontBuild = true;
 
     installPhase = ''
-      mkdir -p $out/bin $out/lib/sovran-hub $out/share/applications $out/share/sovran-hub/icons
+      runHook preInstall
 
-      # Copy Python source
+      install -d $out/lib/sovran-hub
       cp -r sovran_systemsos_hub $out/lib/sovran-hub/
-
-      # Copy CSS
       cp style.css $out/lib/sovran-hub/style.css
-
-      # Copy logos from the repo (no fetchurl needed)
-      cp icons/* $out/share/sovran-hub/icons/ 2>/dev/null || true
-
-      # Install the generated config
       cp ${generatedConfig} $out/lib/sovran-hub/config.json
 
-      # Create the launcher script
-      cat > $out/bin/sovran-hub <<'LAUNCHER'
-#!/usr/bin/env python3
-import sys, os
-sys.path.insert(0, os.path.join("@out@", "lib", "sovran-hub"))
-os.environ["SOVRAN_HUB_CONFIG"] = os.path.join("@out@", "lib", "sovran-hub", "config.json")
-os.environ["SOVRAN_HUB_ICONS"]  = os.path.join("@out@", "share", "sovran-hub", "icons")
-os.environ["SOVRAN_HUB_CSS"]    = os.path.join("@out@", "lib", "sovran-hub", "style.css")
+      install -d $out/share/sovran-hub/icons
+      cp icons/* $out/share/sovran-hub/icons/ 2>/dev/null || true
+
+      install -d $out/bin
+      cat > $out/bin/sovran-hub <<LAUNCHER
+#!${pkgs.python3}/bin/python3
+import os, sys
+base = os.path.join("$out", "lib", "sovran-hub")
+sys.path.insert(0, base)
+os.environ["SOVRAN_HUB_CONFIG"] = os.path.join(base, "config.json")
+os.environ["SOVRAN_HUB_ICONS"]  = os.path.join("$out", "share", "sovran-hub", "icons")
+os.environ["SOVRAN_HUB_CSS"]    = os.path.join(base, "style.css")
 from sovran_systemsos_hub.application import SovranHubApp
 sys.exit(SovranHubApp().run(sys.argv))
 LAUNCHER
-
-      substituteInPlace $out/bin/sovran-hub --replace "@out@" "$out"
       chmod +x $out/bin/sovran-hub
 
-      # Desktop file
-      cat > $out/share/applications/Sovran_SystemsOS_Hub.desktop <<EOF
+      install -d $out/share/applications
+      cat > $out/share/applications/Sovran_SystemsOS_Hub.desktop <<DESKTOP
 [Desktop Entry]
 Type=Application
 Name=Sovran_SystemsOS Hub
@@ -117,11 +105,13 @@ Icon=system-run-symbolic
 Terminal=false
 Categories=System;Monitor;
 StartupWMClass=com.sovransystems.hub
-EOF
+DESKTOP
+
+      runHook postInstall
     '';
 
     meta = {
-      description = "Sovran_SystemsOS Hub — GTK4 app to manage systemd services";
+      description = "Sovran_SystemsOS Hub — GTK4 systemd service manager";
       mainProgram = "sovran-hub";
     };
   };

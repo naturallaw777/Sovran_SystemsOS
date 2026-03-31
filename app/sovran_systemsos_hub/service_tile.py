@@ -10,31 +10,19 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 gi.require_version("Gdk", "4.0")
 
-from gi.repository import Adw, Gdk, GdkPixbuf, GLib, Gtk  # noqa: E402
+from gi.repository import Adw, Gdk, GdkPixbuf, GLib, Gtk
 
-from . import systemctl  # noqa: E402
+from . import systemctl
 
 LOADING_STATES = {"reloading", "activating", "deactivating", "maintenance"}
 
-# Icon directory injected by the Nix derivation via environment variable
 ICON_DIR = os.environ.get("SOVRAN_HUB_ICONS", "")
-
-# Supported icon extensions in priority order
 ICON_EXTENSIONS = [".svg", ".png"]
 
 
 class ServiceTile(Gtk.Box):
-    """A square tile showing a service logo, name, status, toggle, and restart."""
 
-    def __init__(
-        self,
-        name: str,
-        unit: str,
-        scope: str = "system",
-        method: str = "systemctl",
-        icon_name: str = "",
-        **kwargs,
-    ):
+    def __init__(self, name, unit, scope="system", method="systemctl", icon_name="", **kw):
         super().__init__(
             orientation=Gtk.Orientation.VERTICAL,
             spacing=6,
@@ -43,136 +31,84 @@ class ServiceTile(Gtk.Box):
             width_request=140,
             height_request=160,
             css_classes=["card", "sovran-tile"],
-            margin_top=6,
-            margin_bottom=6,
-            margin_start=6,
-            margin_end=6,
-            **kwargs,
+            margin_top=6, margin_bottom=6, margin_start=6, margin_end=6,
+            **kw,
         )
-
         self._unit = unit
         self._scope = scope
         self._method = method
-        self._name = name
 
-        # ── Logo ──
-        self._logo = Gtk.Image(
-            pixel_size=48,
-            margin_top=12,
-            halign=Gtk.Align.CENTER,
-            css_classes=["sovran-tile-icon"],
-        )
+        self._logo = Gtk.Image(pixel_size=48, margin_top=12, halign=Gtk.Align.CENTER)
         self._set_logo(icon_name)
         self.append(self._logo)
 
-        # ── Service name ──
-        label = Gtk.Label(
-            label=name,
-            css_classes=["heading"],
-            halign=Gtk.Align.CENTER,
-            ellipsize=3,  # PANGO_ELLIPSIZE_END
-            max_width_chars=14,
-        )
-        self.append(label)
+        self.append(Gtk.Label(
+            label=name, css_classes=["heading"],
+            halign=Gtk.Align.CENTER, ellipsize=3, max_width_chars=14,
+        ))
 
-        # ── Status label ──
-        self._status_label = Gtk.Label(
-            css_classes=["caption"],
-            halign=Gtk.Align.CENTER,
-        )
+        self._status_label = Gtk.Label(css_classes=["caption"], halign=Gtk.Align.CENTER)
         self.append(self._status_label)
 
-        # ── Controls row (switch + restart) ──
         controls = Gtk.Box(
             orientation=Gtk.Orientation.HORIZONTAL,
-            spacing=8,
-            halign=Gtk.Align.CENTER,
-            margin_bottom=8,
+            spacing=8, halign=Gtk.Align.CENTER, margin_bottom=8,
         )
-
         self._switch = Gtk.Switch(valign=Gtk.Align.CENTER)
         self._switch.connect("state-set", self._on_toggled)
         controls.append(self._switch)
 
         restart_btn = Gtk.Button(
-            icon_name="view-refresh-symbolic",
-            valign=Gtk.Align.CENTER,
-            tooltip_text="Restart",
-            css_classes=["flat", "circular"],
+            icon_name="view-refresh-symbolic", valign=Gtk.Align.CENTER,
+            tooltip_text="Restart", css_classes=["flat", "circular"],
         )
         restart_btn.connect("clicked", self._on_restart)
         controls.append(restart_btn)
-
         self.append(controls)
 
-        # Initial state
         self.refresh()
 
-    def _set_logo(self, icon_name: str):
-        """Set the tile logo from an SVG or PNG in the icons dir."""
+    def _set_logo(self, icon_name):
         if icon_name and ICON_DIR:
             for ext in ICON_EXTENSIONS:
-                icon_path = os.path.join(ICON_DIR, f"{icon_name}{ext}")
-                if os.path.isfile(icon_path):
-                    if ext == ".svg":
-                        # GTK4 handles SVGs natively via GdkPixbuf
-                        pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_scale(
-                            icon_path, 48, 48, True
-                        )
-                        texture = Gdk.Texture.new_for_pixbuf(pixbuf)
-                        self._logo.set_from_paintable(texture)
-                    else:
-                        # PNG path
-                        pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_scale(
-                            icon_path, 48, 48, True
-                        )
-                        texture = Gdk.Texture.new_for_pixbuf(pixbuf)
-                        self._logo.set_from_paintable(texture)
+                path = os.path.join(ICON_DIR, f"{icon_name}{ext}")
+                if os.path.isfile(path):
+                    pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_scale(path, 48, 48, True)
+                    texture = Gdk.Texture.new_for_pixbuf(pixbuf)
+                    self._logo.set_from_paintable(texture)
                     return
-
-        # Fallback: themed symbolic icon
         self._logo.set_from_icon_name("system-run-symbolic")
 
-    # ── public API ──
-
     def refresh(self):
-        """Poll systemctl and update the tile."""
-        active_state = systemctl.is_active(self._unit, self._scope)
-        enabled_state = systemctl.is_enabled(self._unit, self._scope)
+        active = systemctl.is_active(self._unit, self._scope)
+        enabled = systemctl.is_enabled(self._unit, self._scope)
+        is_on = active == "active"
+        is_loading = active in LOADING_STATES
+        is_failed = active == "failed"
 
-        is_active = active_state == "active"
-        is_loading = active_state in LOADING_STATES
-        is_failed = active_state == "failed"
-
-        # Block the handler so we don't trigger a start/stop
         self._switch.handler_block_by_func(self._on_toggled)
-        self._switch.set_active(is_active)
+        self._switch.set_active(is_on)
         self._switch.handler_unblock_by_func(self._on_toggled)
-
         self._switch.set_sensitive(not is_loading)
 
-        # Status text + color
         if is_failed:
             self._status_label.set_label("● failed")
             self._status_label.set_css_classes(["caption", "error"])
-        elif is_active:
+        elif is_on:
             self._status_label.set_label("● running")
             self._status_label.set_css_classes(["caption", "success"])
         elif is_loading:
-            self._status_label.set_label(f"● {active_state}")
+            self._status_label.set_label(f"● {active}")
             self._status_label.set_css_classes(["caption", "warning"])
         else:
-            self._status_label.set_label(f"● {active_state}")
+            self._status_label.set_label(f"● {active}")
             self._status_label.set_css_classes(["caption", "dim-label"])
 
-    # ── signal handlers ──
-
-    def _on_toggled(self, switch: Gtk.Switch, state: bool) -> bool:
-        action = "start" if state else "stop"
-        systemctl.run_action(action, self._unit, self._scope, self._method)
+    def _on_toggled(self, switch, state):
+        systemctl.run_action("start" if state else "stop", self._unit, self._scope, self._method)
         GLib.timeout_add(1500, self.refresh)
         return False
 
-    def _on_restart(self, _btn: Gtk.Button):
+    def _on_restart(self, _btn):
         systemctl.run_action("restart", self._unit, self._scope, self._method)
         GLib.timeout_add(1500, self.refresh)
