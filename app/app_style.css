@@ -1,0 +1,27 @@
+/* Sovran_SystemsOS Hub — tile styling */
+
+.sovran-tile {
+    border-radius: 16px;
+    padding: 8px;
+    min-width: 140px;
+    min-height: 160px;
+    transition: box-shadow 200ms ease-in-out;
+}
+
+.sovran-tile:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+.sovran-tile-icon {
+    margin-top: 8px;
+    margin-bottom: 2px;
+}
+
+/* Status dot colors */
+.success {
+    color: #2ec27e;
+}
+
+.warning {
+    color: #e5a50a;
+}
