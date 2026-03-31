@@ -10,6 +10,7 @@
     ./core/ssh-bootstrap.nix
     ./core/sovran-manage-domains.nix
     ./core/sovran_systemsos-desktop.nix
+    ./core/systemd-manager-app.nix
 
     # ── Always on (no flag) ───────────────────────────────────
     ./php.nix

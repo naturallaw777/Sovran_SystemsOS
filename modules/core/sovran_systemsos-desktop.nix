@@ -91,6 +91,7 @@ in
           "sparrow-desktop.desktop"
           "Bisq.desktop"
           "bisq2.desktop"
+          "systemd-manager-gtk.desktop"
         ];
 
         welcome-dialog-last-shown-version = "48.4";
