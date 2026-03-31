@@ -84,6 +84,7 @@ in
           "org.gnome.Settings.desktop"
           "org.gnome.Nautilus.desktop"
           "Sovran_SystemsOS_Updater.desktop"
+          "Sovran_SystemsOS_Hub.desktop"
           "org.gnome.Software.desktop"
           "org.gnome.Geary.desktop"
           "org.gnome.Contacts.desktop"
