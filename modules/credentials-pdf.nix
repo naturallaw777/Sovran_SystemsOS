@@ -43,7 +43,15 @@ in
       Type = "oneshot";
     };
 
-    path = [ pkgs.pandoc pkgs.typst pkgs.coreutils pkgs.qrencode fonts ];
+    path = [
+      pkgs.pandoc
+      pkgs.typst
+      pkgs.coreutils
+      pkgs.qrencode
+      pkgs.gnugrep
+      fonts
+      "/run/current-system/sw"
+    ];
 
     environment = {
       TYPST_FONT_PATHS = "${fonts}/share/fonts";
