@@ -2,7 +2,6 @@
 
 let
   fonts = pkgs.liberation_ttf;
-  backticks = "'\"\`\`\`\"'";
 in
 {
   # ── 1. Auto-Generate Root Password (Runs once) ─────────────
@@ -53,8 +52,9 @@ in
     script = ''
       DOC_DIR="/home/free/Documents"
       OUTPUT="$DOC_DIR/Sovran_SystemsOS_Magic_Keys.pdf"
-      FILE="/tmp/magic_keys.md"
-      mkdir -p "$DOC_DIR"
+      WORK_DIR="/tmp/magic_keys_build"
+      FILE="$WORK_DIR/magic_keys.md"
+      mkdir -p "$DOC_DIR" "$WORK_DIR"
 
       FENCE='```'
 
@@ -67,9 +67,9 @@ in
       ELECTRS_ONION=$(read_secret /var/lib/tor/onion/electrs/hostname "Not generated yet")
       BITCOIN_ONION=$(read_secret /var/lib/tor/onion/bitcoind/hostname "Not generated yet")
 
-      # ── Generate Zeus QR code as text if lndconnect URL is available ──
-      ZEUS_QR_TEXT=""
+      # ── Generate Zeus QR code PNG if lndconnect URL is available ──
       ZEUS_URL=""
+      HAS_ZEUS_QR=""
       if command -v lndconnect >/dev/null 2>&1; then
         ZEUS_URL=$(lndconnect --url 2>/dev/null || true)
       elif command -v lnconnect-clnrest >/dev/null 2>&1; then
@@ -77,7 +77,7 @@ in
       fi
 
       if [ -n "$ZEUS_URL" ]; then
-        ZEUS_QR_TEXT=$(qrencode -t UTF8 "$ZEUS_URL" 2>/dev/null || true)
+        qrencode -o "$WORK_DIR/zeus-qr.png" -s 10 -m 2 -l H "$ZEUS_URL" 2>/dev/null && HAS_ZEUS_QR="1"
       fi
 
       # ── Build the Markdown document ──
@@ -141,7 +141,7 @@ BITCOIN
       fi
 
       # --- ZEUS MOBILE WALLET QR CODE ---
-      if [ -n "$ZEUS_QR_TEXT" ]; then
+      if [ "$HAS_ZEUS_QR" = "1" ]; then
         echo "" >> "$FILE"
         echo "## 📱 Connect Zeus Mobile Wallet" >> "$FILE"
         echo "" >> "$FILE"
@@ -151,9 +151,7 @@ BITCOIN
         echo "2. Open Zeus and tap **\"Scan Node Config\"**" >> "$FILE"
         echo "3. Point your phone's camera at this QR code:" >> "$FILE"
         echo "" >> "$FILE"
-        echo "$FENCE" >> "$FILE"
-        echo "$ZEUS_QR_TEXT" >> "$FILE"
-        echo "$FENCE" >> "$FILE"
+        echo "![Zeus Connection QR Code](zeus-qr.png)" >> "$FILE"
         echo "" >> "$FILE"
         echo "That's it! You're now mobile. Send and receive Bitcoin anywhere in the world, powered by your very own node! ⚡" >> "$FILE"
       elif [ -n "$ZEUS_URL" ]; then
@@ -242,11 +240,12 @@ BITCOIN
 
       # ── Generate PDF ──
       pandoc "$FILE" -o "$OUTPUT" --pdf-engine=typst \
+        --resource-path="$WORK_DIR" \
         -V mainfont="Liberation Sans" \
         -V monofont="Liberation Mono"
 
       chown free:users "$OUTPUT"
-      rm -f "$FILE"
+      rm -rf "$WORK_DIR"
     '';
   };
 }
