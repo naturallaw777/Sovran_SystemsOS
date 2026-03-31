@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import os
+import subprocess
+import threading
 
 import gi
 
@@ -33,7 +35,6 @@ ROLE_LABELS = {
     "node":                "Bitcoin Node",
 }
 
-# XDG paths for autostart control
 AUTOSTART_DIR = os.path.join(
     os.environ.get("XDG_CONFIG_HOME", os.path.expanduser("~/.config")),
     "autostart",
@@ -41,10 +42,14 @@ AUTOSTART_DIR = os.path.join(
 USER_AUTOSTART_FILE = os.path.join(AUTOSTART_DIR, "sovran-hub.desktop")
 SYSTEM_AUTOSTART_FILE = "/etc/xdg/autostart/sovran-hub.desktop"
 
+UPDATE_COMMAND = [
+    "ssh", "-o", "StrictHostKeyChecking=no", "-o", "BatchMode=yes",
+    "root@localhost",
+    "cd /etc/nixos && nix flake update && nixos-rebuild switch && flatpak update -y",
+]
+
 
 def get_autostart_enabled() -> bool:
-    """Check if autostart is enabled for the current user."""
-    # If user has their own copy, check its X-GNOME-Autostart-enabled
     if os.path.isfile(USER_AUTOSTART_FILE):
         try:
             with open(USER_AUTOSTART_FILE, "r") as f:
@@ -56,20 +61,15 @@ def get_autostart_enabled() -> bool:
             return True
         except Exception:
             return True
-    # No user override — system file controls it
     return os.path.isfile(SYSTEM_AUTOSTART_FILE)
 
 
 def set_autostart_enabled(enabled: bool):
-    """Enable or disable autostart by writing a user-level desktop file."""
     os.makedirs(AUTOSTART_DIR, exist_ok=True)
-
     if enabled:
-        # Remove the user override so the system file takes effect
         if os.path.isfile(USER_AUTOSTART_FILE):
             os.remove(USER_AUTOSTART_FILE)
     else:
-        # Write a user override that disables autostart
         with open(USER_AUTOSTART_FILE, "w") as f:
             f.write("[Desktop Entry]\n")
             f.write("Type=Application\n")
@@ -77,6 +77,121 @@ def set_autostart_enabled(enabled: bool):
             f.write("Exec=sovran-hub\n")
             f.write("X-GNOME-Autostart-enabled=false\n")
             f.write("Hidden=true\n")
+
+
+class UpdateDialog(Adw.Window):
+    """Modal window that streams the system update output."""
+
+    def __init__(self, parent):
+        super().__init__(
+            title="Sovran_SystemsOS Update",
+            default_width=700,
+            default_height=500,
+            modal=True,
+            transient_for=parent,
+        )
+
+        self._process = None
+
+        header = Adw.HeaderBar()
+
+        self._close_btn = Gtk.Button(label="Close", sensitive=False)
+        self._close_btn.connect("clicked", lambda _b: self.close())
+        header.pack_end(self._close_btn)
+
+        self._spinner = Gtk.Spinner(spinning=True)
+        header.pack_start(self._spinner)
+
+        self._status_label = Gtk.Label(
+            label="Updating…",
+            css_classes=["title-4"],
+            halign=Gtk.Align.CENTER,
+            margin_top=8,
+            margin_bottom=4,
+        )
+
+        self._textview = Gtk.TextView(
+            editable=False,
+            cursor_visible=False,
+            monospace=True,
+            wrap_mode=Gtk.WrapMode.WORD_CHAR,
+            top_margin=8,
+            bottom_margin=8,
+            left_margin=12,
+            right_margin=12,
+        )
+        self._buffer = self._textview.get_buffer()
+
+        scrolled = Gtk.ScrolledWindow(
+            hscrollbar_policy=Gtk.PolicyType.AUTOMATIC,
+            vscrollbar_policy=Gtk.PolicyType.AUTOMATIC,
+            vexpand=True,
+            child=self._textview,
+        )
+
+        content = Gtk.Box(
+            orientation=Gtk.Orientation.VERTICAL,
+            spacing=0,
+        )
+        content.append(self._status_label)
+        content.append(scrolled)
+
+        toolbar_view = Adw.ToolbarView()
+        toolbar_view.add_top_bar(header)
+        toolbar_view.set_content(content)
+        self.set_content(toolbar_view)
+
+        self._start_update()
+
+    def _append_text(self, text):
+        end_iter = self._buffer.get_end_iter()
+        self._buffer.insert(end_iter, text)
+        # Auto-scroll to bottom
+        mark = self._buffer.create_mark(None, self._buffer.get_end_iter(), False)
+        self._textview.scroll_mark_onscreen(mark)
+        self._buffer.delete_mark(mark)
+
+    def _start_update(self):
+        self._append_text("$ ssh root@localhost 'cd /etc/nixos && nix flake update && nixos-rebuild switch && flatpak update -y'\n\n")
+        thread = threading.Thread(target=self._run_update, daemon=True)
+        thread.start()
+
+    def _run_update(self):
+        try:
+            self._process = subprocess.Popen(
+                UPDATE_COMMAND,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                bufsize=1,
+            )
+
+            for line in self._process.stdout:
+                GLib.idle_add(self._append_text, line)
+
+            self._process.wait()
+            rc = self._process.returncode
+
+            if rc == 0:
+                GLib.idle_add(self._on_finished, True, "Update complete!")
+            else:
+                GLib.idle_add(self._on_finished, False, f"Update failed (exit code {rc})")
+
+        except Exception as e:
+            GLib.idle_add(self._on_finished, False, f"Error: {e}")
+
+    def _on_finished(self, success, message):
+        self._spinner.set_spinning(False)
+        self._close_btn.set_sensitive(True)
+
+        if success:
+            self._status_label.set_label("✓ " + message)
+            self._status_label.set_css_classes(["title-4", "success"])
+        else:
+            self._status_label.set_label("✗ " + message)
+            self._status_label.set_css_classes(["title-4", "error"])
+
+        self._append_text(f"\n{'─' * 50}\n{message}\n")
 
 
 class SovranHubWindow(Adw.ApplicationWindow):
@@ -103,6 +218,16 @@ class SovranHubWindow(Adw.ApplicationWindow):
         header = Adw.HeaderBar()
         header.set_title_widget(self._build_title_box())
 
+        # ── Update button (left side, prominent) ─────────────────
+        update_btn = Gtk.Button(
+            label="Update System",
+            css_classes=["suggested-action"],
+            tooltip_text="Update Sovran_SystemsOS (flake update + rebuild + flatpak)",
+        )
+        update_btn.connect("clicked", self._on_update_clicked)
+        header.pack_start(update_btn)
+
+        # ── Refresh button ───────────────────────────────────────
         refresh_btn = Gtk.Button(
             icon_name="view-refresh-symbolic",
             tooltip_text="Refresh now",
@@ -249,6 +374,10 @@ class SovranHubWindow(Adw.ApplicationWindow):
             self._main_box.append(flowbox)
 
         GLib.idle_add(self._refresh_all)
+
+    def _on_update_clicked(self, _btn):
+        dialog = UpdateDialog(self)
+        dialog.present()
 
     def _on_autostart_toggled(self, switch, state):
         set_autostart_enabled(state)
