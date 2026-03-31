@@ -34,7 +34,7 @@ let
       { name = "Mempool"; unit = "mempool.service"; type = "system"; icon = "mempool"; }
     ]
     ++ lib.optionals cfg.features.element-calling [
-      { name = "LiveKit"; unit = "livekit.service"; type = "system"; icon = "livekit"; }
+      { name = "Element-Call"; unit = "livekit.service"; type = "system"; icon = "livekit"; }
     ];
 
   generatedConfig = pkgs.writeText "sovran-hub-config.json"
