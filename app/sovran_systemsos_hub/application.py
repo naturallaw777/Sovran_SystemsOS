@@ -19,6 +19,21 @@ APP_ID = "com.sovransystems.hub"
 # Initialize libadwaita BEFORE any widget creation
 Adw.init()
 
+# Category display order and labels
+CATEGORY_ORDER = [
+    ("infrastructure", "Infrastructure"),
+    ("bitcoin",        "Bitcoin"),
+    ("communication",  "Communication"),
+    ("apps",           "Self-Hosted Apps"),
+    ("nostr",          "Nostr"),
+]
+
+ROLE_LABELS = {
+    "server_plus_desktop": "Server + Desktop",
+    "desktop":             "Desktop Only",
+    "node":                "Bitcoin Node",
+}
+
 
 class SovranHubWindow(Adw.ApplicationWindow):
 
@@ -27,7 +42,7 @@ class SovranHubWindow(Adw.ApplicationWindow):
             application=app,
             title="Sovran_SystemsOS Hub",
             default_width=680,
-            default_height=700,
+            default_height=780,
         )
         self._config = config
         self._tiles = []
@@ -42,6 +57,18 @@ class SovranHubWindow(Adw.ApplicationWindow):
             )
 
         header = Adw.HeaderBar()
+
+        # Show active role in header
+        role = config.get("role", "server_plus_desktop")
+        role_label = ROLE_LABELS.get(role, role)
+        role_tag = Gtk.Label(
+            label=role_label,
+            css_classes=["caption", "role-badge"],
+        )
+        header.set_title_widget(
+            self._build_title_box(role_label)
+        )
+
         refresh_btn = Gtk.Button(
             icon_name="view-refresh-symbolic",
             tooltip_text="Refresh now",
@@ -49,26 +76,17 @@ class SovranHubWindow(Adw.ApplicationWindow):
         refresh_btn.connect("clicked", lambda _b: self._refresh_all())
         header.pack_end(refresh_btn)
 
-        self._flowbox = Gtk.FlowBox(
-            max_children_per_line=4,
-            min_children_per_line=2,
-            selection_mode=Gtk.SelectionMode.NONE,
-            homogeneous=True,
-            row_spacing=12,
-            column_spacing=12,
-            margin_top=16,
-            margin_bottom=16,
-            margin_start=16,
-            margin_end=16,
-            halign=Gtk.Align.CENTER,
-            valign=Gtk.Align.START,
+        # Main vertical layout
+        self._main_box = Gtk.Box(
+            orientation=Gtk.Orientation.VERTICAL,
+            spacing=0,
         )
 
         scrolled = Gtk.ScrolledWindow(
             hscrollbar_policy=Gtk.PolicyType.NEVER,
             vscrollbar_policy=Gtk.PolicyType.AUTOMATIC,
             vexpand=True,
-            child=self._flowbox,
+            child=self._main_box,
         )
 
         toolbar_view = Adw.ToolbarView()
@@ -82,19 +100,85 @@ class SovranHubWindow(Adw.ApplicationWindow):
         if interval and interval > 0:
             GLib.timeout_add_seconds(interval, self._auto_refresh)
 
+    def _build_title_box(self, role_label):
+        box = Gtk.Box(
+            orientation=Gtk.Orientation.VERTICAL,
+            halign=Gtk.Align.CENTER,
+        )
+        box.append(Gtk.Label(
+            label="Sovran_SystemsOS Hub",
+            css_classes=["title"],
+        ))
+        box.append(Gtk.Label(
+            label=role_label,
+            css_classes=["caption", "dim-label"],
+        ))
+        return box
+
     def _build_tiles(self):
         method = self._config.get("command_method", "systemctl")
-        for entry in self._config.get("services", []):
-            tile = ServiceTile(
-                name=entry.get("name", entry["unit"]),
-                unit=entry["unit"],
-                scope=entry.get("type", "system"),
-                method=method,
-                icon_name=entry.get("icon", ""),
-                enabled=entry.get("enabled", True),
+        services = self._config.get("services", [])
+
+        # Group services by category
+        grouped = {}
+        for entry in services:
+            cat = entry.get("category", "other")
+            grouped.setdefault(cat, []).append(entry)
+
+        for cat_key, cat_label in CATEGORY_ORDER:
+            entries = grouped.get(cat_key, [])
+            if not entries:
+                continue
+
+            # Section header
+            section_label = Gtk.Label(
+                label=cat_label,
+                css_classes=["title-4"],
+                halign=Gtk.Align.START,
+                margin_top=20,
+                margin_bottom=4,
+                margin_start=24,
             )
-            self._flowbox.append(tile)
-            self._tiles.append(tile)
+            self._main_box.append(section_label)
+
+            # Separator
+            sep = Gtk.Separator(
+                orientation=Gtk.Orientation.HORIZONTAL,
+                margin_start=24,
+                margin_end=24,
+                margin_bottom=8,
+            )
+            self._main_box.append(sep)
+
+            # FlowBox for this category
+            flowbox = Gtk.FlowBox(
+                max_children_per_line=4,
+                min_children_per_line=2,
+                selection_mode=Gtk.SelectionMode.NONE,
+                homogeneous=True,
+                row_spacing=12,
+                column_spacing=12,
+                margin_top=4,
+                margin_bottom=8,
+                margin_start=16,
+                margin_end=16,
+                halign=Gtk.Align.CENTER,
+                valign=Gtk.Align.START,
+            )
+
+            for entry in entries:
+                tile = ServiceTile(
+                    name=entry.get("name", entry["unit"]),
+                    unit=entry["unit"],
+                    scope=entry.get("type", "system"),
+                    method=method,
+                    icon_name=entry.get("icon", ""),
+                    enabled=entry.get("enabled", True),
+                )
+                flowbox.append(tile)
+                self._tiles.append(tile)
+
+            self._main_box.append(flowbox)
 
         # Defer first status poll so the window renders immediately
         GLib.idle_add(self._refresh_all)

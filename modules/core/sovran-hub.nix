@@ -3,38 +3,54 @@
 let
   cfg = config.sovran_systemsOS;
 
+  # ── Determine Bitcoin implementation label ───────────────────
+  bitcoinImplName =
+    if cfg.features.bitcoin-core then "Bitcoin Core"
+    else if cfg.features.bip110 then "Bitcoin Knots + BIP110"
+    else "Bitcoin Knots";
+
   monitoredServices =
-    # ── Always-on infrastructure ───────────────────────────────
+    # ── Infrastructure (always present) ────────────────────────
     [
-      { name = "Caddy"; unit = "caddy.service"; type = "system"; icon = "caddy"; enabled = true; }
-      { name = "Tor";   unit = "tor.service";   type = "system"; icon = "tor";   enabled = true; }
+      { name = "Caddy";  unit = "caddy.service"; type = "system"; icon = "caddy"; enabled = true;  category = "infrastructure"; }
+      { name = "Tor";    unit = "tor.service";    type = "system"; icon = "tor";   enabled = true;  category = "infrastructure"; }
     ]
-    # ── Bitcoin ecosystem ──────────────────────────────────────
+    # ── Bitcoin Ecosystem ──────────────────────────────────────
     ++ [
-      { name = "Bitcoind";           unit = "bitcoind.service";     type = "system"; icon = "bitcoind";      enabled = cfg.services.bitcoin; }
-      { name = "Electrs";            unit = "electrs.service";      type = "system"; icon = "electrs";       enabled = cfg.services.bitcoin; }
-      { name = "LND";                unit = "lnd.service";          type = "system"; icon = "lnd";           enabled = cfg.services.bitcoin; }
-      { name = "Ride The Lightning"; unit = "rtl.service";          type = "system"; icon = "rtl";           enabled = cfg.services.bitcoin; }
-      { name = "BTCPayserver";       unit = "btcpayserver.service"; type = "system"; icon = "btcpayserver";  enabled = cfg.services.bitcoin; }
+      { name = bitcoinImplName;    unit = "bitcoind.service";     type = "system"; icon = "bitcoind";      enabled = cfg.services.bitcoin;  category = "bitcoin"; }
+      { name = "Electrs";          unit = "electrs.service";      type = "system"; icon = "electrs";       enabled = cfg.services.bitcoin;  category = "bitcoin"; }
+      { name = "LND";              unit = "lnd.service";          type = "system"; icon = "lnd";           enabled = cfg.services.bitcoin;  category = "bitcoin"; }
+      { name = "Ride The Lightning"; unit = "rtl.service";        type = "system"; icon = "rtl";           enabled = cfg.services.bitcoin;  category = "bitcoin"; }
+      { name = "BTCPayserver";     unit = "btcpayserver.service"; type = "system"; icon = "btcpayserver";  enabled = cfg.services.bitcoin;  category = "bitcoin"; }
+      { name = "Mempool";          unit = "mempool.service";      type = "system"; icon = "mempool";       enabled = cfg.features.mempool;  category = "bitcoin"; }
     ]
-    # ── Other services ─────────────────────────────────────────
+    # ── Communication ──────────────────────────────────────────
     ++ [
-      { name = "Matrix-Synapse"; unit = "matrix-synapse.service";   type = "system"; icon = "synapse";      enabled = cfg.services.synapse; }
-      { name = "VaultWarden";    unit = "vaultwarden.service";      type = "system"; icon = "vaultwarden";  enabled = cfg.services.vaultwarden; }
-      { name = "Nextcloud";      unit = "phpfpm-nextcloud.service"; type = "system"; icon = "nextcloud";    enabled = cfg.services.nextcloud; }
-      { name = "WordPress";      unit = "phpfpm-wordpress.service"; type = "system"; icon = "wordpress";    enabled = cfg.services.wordpress; }
+      { name = "Matrix-Synapse"; unit = "matrix-synapse.service"; type = "system"; icon = "synapse";  enabled = cfg.services.synapse;          category = "communication"; }
+      { name = "Element-Call";   unit = "livekit.service";        type = "system"; icon = "livekit";  enabled = cfg.features.element-calling;  category = "communication"; }
     ]
-    # ── Optional features ──────────────────────────────────────
+    # ── Self-Hosted Apps ───────────────────────────────────────
     ++ [
-      { name = "Haven Relay";  unit = "haven-relay.service"; type = "system"; icon = "haven";   enabled = cfg.features.haven; }
-      { name = "Mempool";      unit = "mempool.service";     type = "system"; icon = "mempool"; enabled = cfg.features.mempool; }
-      { name = "Element-Call"; unit = "livekit.service";     type = "system"; icon = "livekit"; enabled = cfg.features.element-calling; }
+      { name = "VaultWarden"; unit = "vaultwarden.service";      type = "system"; icon = "vaultwarden"; enabled = cfg.services.vaultwarden; category = "apps"; }
+      { name = "Nextcloud";   unit = "phpfpm-nextcloud.service"; type = "system"; icon = "nextcloud";   enabled = cfg.services.nextcloud;   category = "apps"; }
+      { name = "WordPress";   unit = "phpfpm-wordpress.service"; type = "system"; icon = "wordpress";   enabled = cfg.services.wordpress;   category = "apps"; }
+    ]
+    # ── Nostr / Relay ──────────────────────────────────────────
+    ++ [
+      { name = "Haven Relay"; unit = "haven-relay.service"; type = "system"; icon = "haven"; enabled = cfg.features.haven; category = "nostr"; }
     ];
+
+  # ── Determine active role name ───────────────────────────────
+  activeRole =
+    if cfg.roles.desktop then "desktop"
+    else if cfg.roles.node then "node"
+    else "server_plus_desktop";
 
   generatedConfig = pkgs.writeText "sovran-hub-config.json"
     (builtins.toJSON {
       refresh_interval = 5;
       command_method   = "systemctl";
+      role             = activeRole;
       services         = monitoredServices;
     });
 
@@ -66,7 +82,7 @@ let
     installPhase = ''
       runHook preInstall
 
-      # ── Python source ───────────────────────────────���─────────
+      # ── Python source ─────────────────────────────────────────
       install -d $out/lib/sovran-hub
       cp -r sovran_systemsos_hub $out/lib/sovran-hub/
 
