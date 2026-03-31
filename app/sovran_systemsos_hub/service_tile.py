@@ -10,7 +10,7 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 gi.require_version("Gdk", "4.0")
 
-from gi.repository import Adw, Gdk, GdkPixbuf, GLib, Gtk
+from gi.repository import Gdk, GdkPixbuf, GLib, Gtk
 
 from . import systemctl
 
@@ -47,7 +47,11 @@ class ServiceTile(Gtk.Box):
             halign=Gtk.Align.CENTER, ellipsize=3, max_width_chars=14,
         ))
 
-        self._status_label = Gtk.Label(css_classes=["caption"], halign=Gtk.Align.CENTER)
+        self._status_label = Gtk.Label(
+            label="● …",
+            css_classes=["caption", "dim-label"],
+            halign=Gtk.Align.CENTER,
+        )
         self.append(self._status_label)
 
         controls = Gtk.Box(
@@ -66,22 +70,24 @@ class ServiceTile(Gtk.Box):
         controls.append(restart_btn)
         self.append(controls)
 
-        self.refresh()
+        # No self.refresh() here — the application calls it via GLib.idle_add
 
     def _set_logo(self, icon_name):
         if icon_name and ICON_DIR:
             for ext in ICON_EXTENSIONS:
                 path = os.path.join(ICON_DIR, f"{icon_name}{ext}")
                 if os.path.isfile(path):
-                    pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_scale(path, 48, 48, True)
-                    texture = Gdk.Texture.new_for_pixbuf(pixbuf)
-                    self._logo.set_from_paintable(texture)
-                    return
+                    try:
+                        pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_scale(path, 48, 48, True)
+                        texture = Gdk.Texture.new_for_pixbuf(pixbuf)
+                        self._logo.set_from_paintable(texture)
+                        return
+                    except Exception:
+                        break
         self._logo.set_from_icon_name("system-run-symbolic")
 
     def refresh(self):
         active = systemctl.is_active(self._unit, self._scope)
-        enabled = systemctl.is_enabled(self._unit, self._scope)
         is_on = active == "active"
         is_loading = active in LOADING_STATES
         is_failed = active == "failed"
