@@ -1,7 +1,6 @@
 { config, pkgs, lib, ... }:
 
 let
-  # All dependencies in one place
   fonts = pkgs.liberation_ttf;
 in
 {
@@ -44,7 +43,7 @@ in
       Type = "oneshot";
     };
 
-    path = [ pkgs.pandoc pkgs.typst pkgs.coreutils fonts ];
+    path = [ pkgs.pandoc pkgs.typst pkgs.coreutils pkgs.qrencode fonts ];
 
     environment = {
       TYPST_FONT_PATHS = "${fonts}/share/fonts";
@@ -54,7 +53,8 @@ in
       DOC_DIR="/home/free/Documents"
       OUTPUT="$DOC_DIR/Sovran_SystemsOS_Magic_Keys.pdf"
       FILE="/tmp/magic_keys.md"
-      mkdir -p "$DOC_DIR"
+      QR_DIR="/tmp/magic_keys_qr"
+      mkdir -p "$DOC_DIR" "$QR_DIR"
 
       # ── Read secrets (default to placeholder if missing) ──
       read_secret() { if [ -f "$1" ]; then cat "$1"; else echo "$2"; fi; }
@@ -64,6 +64,20 @@ in
       RTL_ONION=$(read_secret /var/lib/tor/onion/rtl/hostname "Not generated yet")
       ELECTRS_ONION=$(read_secret /var/lib/tor/onion/electrs/hostname "Not generated yet")
       BITCOIN_ONION=$(read_secret /var/lib/tor/onion/bitcoind/hostname "Not generated yet")
+
+      # ── Generate Zeus QR code if lndconnect URL is available ──
+      ZEUS_QR=""
+      ZEUS_URL=""
+      if command -v lndconnect >/dev/null 2>&1; then
+        ZEUS_URL=$(lndconnect --url 2>/dev/null || true)
+      elif command -v lnconnect-clnrest >/dev/null 2>&1; then
+        ZEUS_URL=$(lnconnect-clnrest --url 2>/dev/null || true)
+      fi
+
+      if [ -n "$ZEUS_URL" ]; then
+        qrencode -o "$QR_DIR/zeus-qr.png" -s 8 -m 2 "$ZEUS_URL"
+        ZEUS_QR="$QR_DIR/zeus-qr.png"
+      fi
 
       # ── Build the Markdown document ──
       cat > "$FILE" << ENDOFFILE
@@ -125,6 +139,24 @@ Open the **Tor Browser** and go to this website. Use this password to log in:
 BITCOIN
       fi
 
+      # --- ZEUS MOBILE WALLET QR CODE ---
+      if [ -n "$ZEUS_QR" ] && [ -f "$ZEUS_QR" ]; then
+        cat >> "$FILE" << ZEUS
+
+## 📱 Connect Zeus Mobile Wallet
+
+Take your Bitcoin Lightning node anywhere in the world! Scan this QR code with the **Zeus** app on your phone to instantly connect your mobile wallet to your Lightning node.
+
+1. Download **Zeus** from the App Store or Google Play
+2. Open Zeus and tap **"Scan Node Config"**
+3. Point your phone's camera at this QR code:
+
+![Zeus Connection QR Code]($ZEUS_QR)
+
+That's it! You're now mobile. Send and receive Bitcoin anywhere in the world, powered by your very own node! ⚡
+ZEUS
+      fi
+
       # --- MATRIX / ELEMENT ---
       if [ -f "/var/lib/secrets/matrix-users" ]; then
         echo "" >> "$FILE"
@@ -168,11 +200,18 @@ BITCOIN
       # --- VAULTWARDEN ---
       if [ -f "/var/lib/domains/vaultwarden" ]; then
         DOMAIN=$(cat /var/lib/domains/vaultwarden)
+        VW_ADMIN_TOKEN="Not found"
+        if [ -f "/var/lib/secrets/vaultwarden/vaultwarden.env" ]; then
+          VW_ADMIN_TOKEN=$(grep -oP 'ADMIN_TOKEN=\K.*' /var/lib/secrets/vaultwarden/vaultwarden.env || echo "Not found")
+        fi
         echo "" >> "$FILE"
         echo "## 🔐 Your Password Manager (Vaultwarden)" >> "$FILE"
-        echo "This keeps all your other passwords safe!" >> "$FILE"
+        echo "This keeps all your other passwords safe! Go to this website to use it:" >> "$FILE"
         echo "- **Website:** https://$DOMAIN" >> "$FILE"
-        echo "*(You make up your own Master Password the first time you visit!)*" >> "$FILE"
+        echo "- **Admin Panel:** https://$DOMAIN/admin" >> "$FILE"
+        echo "- **Admin Token:** \`$VW_ADMIN_TOKEN\`" >> "$FILE"
+        echo "" >> "$FILE"
+        echo "*(Create your own account on the main page. Use the Admin Token to access the admin panel and manage your server.)*" >> "$FILE"
       fi
 
       # --- BTCPAY SERVER ---
@@ -191,7 +230,7 @@ BITCOIN
         -V monofont="Liberation Mono"
 
       chown free:users "$OUTPUT"
-      rm -f "$FILE"
+      rm -rf "$FILE" "$QR_DIR"
     '';
   };
 }
