@@ -125,7 +125,7 @@ class ServiceTile(Gtk.Box):
 
     def _on_toggled(self, switch, state):
         if not self._enabled:
-            return True  # block the toggle
+            return True
         systemctl.run_action("start" if state else "stop", self._unit, self._scope, self._method)
         GLib.timeout_add(1500, self.refresh)
         return False
