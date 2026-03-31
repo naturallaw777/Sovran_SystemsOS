@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import subprocess
 import threading
+from datetime import datetime
 
 import gi
 
@@ -42,10 +43,18 @@ AUTOSTART_DIR = os.path.join(
 USER_AUTOSTART_FILE = os.path.join(AUTOSTART_DIR, "sovran-hub.desktop")
 SYSTEM_AUTOSTART_FILE = "/etc/xdg/autostart/sovran-hub.desktop"
 
+DOWNLOADS_DIR = os.path.join(os.path.expanduser("~"), "Downloads")
+
 UPDATE_COMMAND = [
     "ssh", "-o", "StrictHostKeyChecking=no", "-o", "BatchMode=yes",
     "root@localhost",
     "cd /etc/nixos && nix flake update && nixos-rebuild switch && flatpak update -y",
+]
+
+REBOOT_COMMAND = [
+    "ssh", "-o", "StrictHostKeyChecking=no", "-o", "BatchMode=yes",
+    "root@localhost",
+    "reboot",
 ]
 
 
@@ -85,19 +94,41 @@ class UpdateDialog(Adw.Window):
     def __init__(self, parent):
         super().__init__(
             title="Sovran_SystemsOS Update",
-            default_width=700,
-            default_height=500,
+            default_width=900,
+            default_height=700,
             modal=True,
             transient_for=parent,
         )
 
         self._process = None
+        self._full_log = ""
 
         header = Adw.HeaderBar()
 
+        # ── Close button (disabled during update) ────────────────
         self._close_btn = Gtk.Button(label="Close", sensitive=False)
         self._close_btn.connect("clicked", lambda _b: self.close())
         header.pack_end(self._close_btn)
+
+        # ── Reboot button (hidden until update succeeds) ─────────
+        self._reboot_btn = Gtk.Button(
+            label="Reboot",
+            css_classes=["destructive-action"],
+            tooltip_text="Reboot the system now",
+            visible=False,
+        )
+        self._reboot_btn.connect("clicked", self._on_reboot_clicked)
+        header.pack_end(self._reboot_btn)
+
+        # ── Save error report button (hidden until failure) ──────
+        self._save_btn = Gtk.Button(
+            label="Save Error Report",
+            css_classes=["warning"],
+            tooltip_text="Save full log to ~/Downloads",
+            visible=False,
+        )
+        self._save_btn.connect("clicked", self._on_save_report)
+        header.pack_start(self._save_btn)
 
         self._spinner = Gtk.Spinner(spinning=True)
         header.pack_start(self._spinner)
@@ -106,8 +137,8 @@ class UpdateDialog(Adw.Window):
             label="Updating…",
             css_classes=["title-4"],
             halign=Gtk.Align.CENTER,
-            margin_top=8,
-            margin_bottom=4,
+            margin_top=12,
+            margin_bottom=8,
         )
 
         self._textview = Gtk.TextView(
@@ -144,15 +175,18 @@ class UpdateDialog(Adw.Window):
         self._start_update()
 
     def _append_text(self, text):
+        self._full_log += text
         end_iter = self._buffer.get_end_iter()
         self._buffer.insert(end_iter, text)
-        # Auto-scroll to bottom
         mark = self._buffer.create_mark(None, self._buffer.get_end_iter(), False)
         self._textview.scroll_mark_onscreen(mark)
         self._buffer.delete_mark(mark)
 
     def _start_update(self):
-        self._append_text("$ ssh root@localhost 'cd /etc/nixos && nix flake update && nixos-rebuild switch && flatpak update -y'\n\n")
+        self._append_text(
+            "$ ssh root@localhost 'cd /etc/nixos && nix flake update "
+            "&& nixos-rebuild switch && flatpak update -y'\n\n"
+        )
         thread = threading.Thread(target=self._run_update, daemon=True)
         thread.start()
 
@@ -187,11 +221,51 @@ class UpdateDialog(Adw.Window):
         if success:
             self._status_label.set_label("✓ " + message)
             self._status_label.set_css_classes(["title-4", "success"])
+            self._reboot_btn.set_visible(True)
         else:
             self._status_label.set_label("✗ " + message)
             self._status_label.set_css_classes(["title-4", "error"])
+            self._save_btn.set_visible(True)
 
-        self._append_text(f"\n{'─' * 50}\n{message}\n")
+        self._append_text(f"\n{'─' * 60}\n{message}\n")
+
+    def _on_save_report(self, _btn):
+        os.makedirs(DOWNLOADS_DIR, exist_ok=True)
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        filename = f"sovran-update-error-{timestamp}.log"
+        filepath = os.path.join(DOWNLOADS_DIR, filename)
+        try:
+            with open(filepath, "w") as f:
+                f.write(f"Sovran_SystemsOS Update Error Report\n")
+                f.write(f"Date: {datetime.now().isoformat()}\n")
+                f.write(f"{'═' * 60}\n\n")
+                f.write(self._full_log)
+            self._save_btn.set_label(f"Saved: {filename}")
+            self._save_btn.set_sensitive(False)
+            self._append_text(f"\n✓ Error report saved to ~/Downloads/{filename}\n")
+        except Exception as e:
+            self._append_text(f"\n✗ Failed to save report: {e}\n")
+
+    def _on_reboot_clicked(self, _btn):
+        dialog = Adw.MessageDialog(
+            transient_for=self,
+            heading="Reboot Now?",
+            body="The system will restart immediately. Save any open work first.",
+        )
+        dialog.add_response("cancel", "Cancel")
+        dialog.add_response("reboot", "Reboot")
+        dialog.set_response_appearance("reboot", Adw.ResponseAppearance.DESTRUCTIVE)
+        dialog.set_default_response("cancel")
+        dialog.set_close_response("cancel")
+        dialog.connect("response", self._on_reboot_confirmed)
+        dialog.present()
+
+    def _on_reboot_confirmed(self, dialog, response):
+        if response == "reboot":
+            try:
+                subprocess.Popen(REBOOT_COMMAND)
+            except Exception as e:
+                self._append_text(f"\n✗ Reboot failed: {e}\n")
 
 
 class SovranHubWindow(Adw.ApplicationWindow):
