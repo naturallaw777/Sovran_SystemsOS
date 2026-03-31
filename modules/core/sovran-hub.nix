@@ -3,31 +3,30 @@
 let
   cfg = config.sovran_systemsOS;
 
-  # ── Determine Bitcoin implementation label ───────────────────
-  bitcoinImplName =
-    if cfg.features.bitcoin-core then "Bitcoin Core"
-    else if cfg.features.bip110 then "Bitcoin Knots + BIP110"
-    else "Bitcoin Knots";
-
   monitoredServices =
     # ── Infrastructure (always present) ────────────────────────
     [
-      { name = "Caddy";  unit = "caddy.service"; type = "system"; icon = "caddy"; enabled = true;  category = "infrastructure"; }
-      { name = "Tor";    unit = "tor.service";    type = "system"; icon = "tor";   enabled = true;  category = "infrastructure"; }
+      { name = "Caddy"; unit = "caddy.service"; type = "system"; icon = "caddy"; enabled = true;  category = "infrastructure"; }
+      { name = "Tor";   unit = "tor.service";   type = "system"; icon = "tor";   enabled = true;  category = "infrastructure"; }
     ]
-    # ── Bitcoin Ecosystem ──────────────────────────────────────
+    # ── Bitcoin Base (node implementations) ────────────────────
     ++ [
-      { name = bitcoinImplName;    unit = "bitcoind.service";     type = "system"; icon = "bitcoind";      enabled = cfg.services.bitcoin;  category = "bitcoin"; }
-      { name = "Electrs";          unit = "electrs.service";      type = "system"; icon = "electrs";       enabled = cfg.services.bitcoin;  category = "bitcoin"; }
-      { name = "LND";              unit = "lnd.service";          type = "system"; icon = "lnd";           enabled = cfg.services.bitcoin;  category = "bitcoin"; }
-      { name = "Ride The Lightning"; unit = "rtl.service";        type = "system"; icon = "rtl";           enabled = cfg.services.bitcoin;  category = "bitcoin"; }
-      { name = "BTCPayserver";     unit = "btcpayserver.service"; type = "system"; icon = "btcpayserver";  enabled = cfg.services.bitcoin;  category = "bitcoin"; }
-      { name = "Mempool";          unit = "mempool.service";      type = "system"; icon = "mempool";       enabled = cfg.features.mempool;  category = "bitcoin"; }
+      { name = "Bitcoin Knots";          unit = "bitcoind.service"; type = "system"; icon = "bitcoind";      enabled = cfg.services.bitcoin && !cfg.features.bitcoin-core && !cfg.features.bip110; category = "bitcoin-base"; }
+      { name = "Bitcoin Core";           unit = "bitcoind.service"; type = "system"; icon = "bitcoin-core";  enabled = cfg.features.bitcoin-core;  category = "bitcoin-base"; }
+      { name = "Bitcoin Knots + BIP110"; unit = "bitcoind.service"; type = "system"; icon = "bip110";        enabled = cfg.features.bip110;        category = "bitcoin-base"; }
+    ]
+    # ── Bitcoin Apps (services on top of the node) ─────────────
+    ++ [
+      { name = "Electrs";            unit = "electrs.service";      type = "system"; icon = "electrs";      enabled = cfg.services.bitcoin;  category = "bitcoin-apps"; }
+      { name = "LND";                unit = "lnd.service";          type = "system"; icon = "lnd";          enabled = cfg.services.bitcoin;  category = "bitcoin-apps"; }
+      { name = "Ride The Lightning"; unit = "rtl.service";          type = "system"; icon = "rtl";          enabled = cfg.services.bitcoin;  category = "bitcoin-apps"; }
+      { name = "BTCPayserver";       unit = "btcpayserver.service"; type = "system"; icon = "btcpayserver"; enabled = cfg.services.bitcoin;  category = "bitcoin-apps"; }
+      { name = "Mempool";            unit = "mempool.service";      type = "system"; icon = "mempool";      enabled = cfg.features.mempool;  category = "bitcoin-apps"; }
     ]
     # ── Communication ──────────────────────────────────────────
     ++ [
-      { name = "Matrix-Synapse"; unit = "matrix-synapse.service"; type = "system"; icon = "synapse";  enabled = cfg.services.synapse;          category = "communication"; }
-      { name = "Element-Call";   unit = "livekit.service";        type = "system"; icon = "livekit";  enabled = cfg.features.element-calling;  category = "communication"; }
+      { name = "Matrix-Synapse"; unit = "matrix-synapse.service"; type = "system"; icon = "synapse"; enabled = cfg.services.synapse;          category = "communication"; }
+      { name = "Element-Call";   unit = "livekit.service";        type = "system"; icon = "livekit"; enabled = cfg.features.element-calling;  category = "communication"; }
     ]
     # ── Self-Hosted Apps ───────────────────────────────────────
     ++ [
@@ -40,7 +39,6 @@ let
       { name = "Haven Relay"; unit = "haven-relay.service"; type = "system"; icon = "haven"; enabled = cfg.features.haven; category = "nostr"; }
     ];
 
-  # ── Determine active role name ───────────────────────────────
   activeRole =
     if cfg.roles.desktop then "desktop"
     else if cfg.roles.node then "node"

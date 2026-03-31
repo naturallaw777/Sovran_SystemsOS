@@ -22,7 +22,8 @@ Adw.init()
 # Category display order and labels
 CATEGORY_ORDER = [
     ("infrastructure", "Infrastructure"),
-    ("bitcoin",        "Bitcoin"),
+    ("bitcoin-base",   "Bitcoin Base"),
+    ("bitcoin-apps",   "Bitcoin Apps"),
     ("communication",  "Communication"),
     ("apps",           "Self-Hosted Apps"),
     ("nostr",          "Nostr"),
@@ -57,17 +58,7 @@ class SovranHubWindow(Adw.ApplicationWindow):
             )
 
         header = Adw.HeaderBar()
-
-        # Show active role in header
-        role = config.get("role", "server_plus_desktop")
-        role_label = ROLE_LABELS.get(role, role)
-        role_tag = Gtk.Label(
-            label=role_label,
-            css_classes=["caption", "role-badge"],
-        )
-        header.set_title_widget(
-            self._build_title_box(role_label)
-        )
+        header.set_title_widget(self._build_title_box())
 
         refresh_btn = Gtk.Button(
             icon_name="view-refresh-symbolic",
@@ -76,7 +67,6 @@ class SovranHubWindow(Adw.ApplicationWindow):
         refresh_btn.connect("clicked", lambda _b: self._refresh_all())
         header.pack_end(refresh_btn)
 
-        # Main vertical layout
         self._main_box = Gtk.Box(
             orientation=Gtk.Orientation.VERTICAL,
             spacing=0,
@@ -100,7 +90,9 @@ class SovranHubWindow(Adw.ApplicationWindow):
         if interval and interval > 0:
             GLib.timeout_add_seconds(interval, self._auto_refresh)
 
-    def _build_title_box(self, role_label):
+    def _build_title_box(self):
+        role = self._config.get("role", "server_plus_desktop")
+        role_label = ROLE_LABELS.get(role, role)
         box = Gtk.Box(
             orientation=Gtk.Orientation.VERTICAL,
             halign=Gtk.Align.CENTER,
@@ -141,7 +133,6 @@ class SovranHubWindow(Adw.ApplicationWindow):
             )
             self._main_box.append(section_label)
 
-            # Separator
             sep = Gtk.Separator(
                 orientation=Gtk.Orientation.HORIZONTAL,
                 margin_start=24,
@@ -150,7 +141,6 @@ class SovranHubWindow(Adw.ApplicationWindow):
             )
             self._main_box.append(sep)
 
-            # FlowBox for this category
             flowbox = Gtk.FlowBox(
                 max_children_per_line=4,
                 min_children_per_line=2,
@@ -180,7 +170,6 @@ class SovranHubWindow(Adw.ApplicationWindow):
 
             self._main_box.append(flowbox)
 
-        # Defer first status poll so the window renders immediately
         GLib.idle_add(self._refresh_all)
 
     def _refresh_all(self):
