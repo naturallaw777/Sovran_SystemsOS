@@ -238,9 +238,9 @@ BITCOIN
         echo "*(You make up your own Admin Password the first time you visit!)*" >> "$FILE"
       fi
 
-      # ── Generate PDF ──
-      pandoc "$FILE" -o "$OUTPUT" --pdf-engine=typst \
-        --resource-path="$WORK_DIR" \
+      # ── Generate PDF (cd into work dir so Typst finds images) ──
+      cd "$WORK_DIR"
+      pandoc magic_keys.md -o "$OUTPUT" --pdf-engine=typst \
         -V mainfont="Liberation Sans" \
         -V monofont="Liberation Mono"
 
