@@ -19,8 +19,7 @@ LOADING_STATES = {"reloading", "activating", "deactivating", "maintenance"}
 ICON_DIR = os.environ.get("SOVRAN_HUB_ICONS", "")
 ICON_EXTENSIONS = [".svg", ".png"]
 
-TILE_WIDTH = 148
-TILE_HEIGHT = 170
+TILE_SIZE = 140
 
 
 class ServiceTile(Gtk.Box):
@@ -29,14 +28,17 @@ class ServiceTile(Gtk.Box):
                  icon_name="", enabled=True, **kw):
         super().__init__(
             orientation=Gtk.Orientation.VERTICAL,
-            spacing=4,
+            spacing=2,
             halign=Gtk.Align.CENTER,
             valign=Gtk.Align.START,
-            width_request=TILE_WIDTH,
-            height_request=TILE_HEIGHT,
             css_classes=["card", "sovran-tile"],
             **kw,
         )
+        # Force exact tile dimensions
+        self.set_size_request(TILE_SIZE, TILE_SIZE + 30)
+        self.set_hexpand(False)
+        self.set_vexpand(False)
+
         self._unit = unit
         self._scope = scope
         self._method = method
@@ -44,28 +46,30 @@ class ServiceTile(Gtk.Box):
 
         # ── Icon ─────────────────────────────────────────────────
         self._logo = Gtk.Image(
-            pixel_size=40,
-            margin_top=16,
+            pixel_size=36,
+            margin_top=14,
             halign=Gtk.Align.CENTER,
         )
         self._set_logo(icon_name)
         self.append(self._logo)
 
-        # ── Name label (wraps, max 2 lines) ──────────────────────
+        # ── Name label (wraps within tile width) ─────────────────
         self._name_label = Gtk.Label(
             label=name,
-            css_classes=["heading"],
+            css_classes=["heading", "tile-name"],
             halign=Gtk.Align.CENTER,
             justify=Gtk.Justification.CENTER,
             wrap=True,
             wrap_mode=Pango.WrapMode.WORD_CHAR,
-            max_width_chars=16,
             lines=2,
             ellipsize=Pango.EllipsizeMode.END,
-            margin_start=8,
-            margin_end=8,
+            margin_start=6,
+            margin_end=6,
             margin_top=4,
         )
+        # Clamp the label width so it wraps inside the tile
+        self._name_label.set_size_request(TILE_SIZE - 16, -1)
+        self._name_label.set_max_width_chars(1)  # forces natural width to be small
         self.append(self._name_label)
 
         # ── Status label ─────────────────────────────────────────
@@ -73,11 +77,11 @@ class ServiceTile(Gtk.Box):
             label="● …",
             css_classes=["caption", "dim-label"],
             halign=Gtk.Align.CENTER,
-            margin_top=2,
+            margin_top=1,
         )
         self.append(self._status_label)
 
-        # ── Spacer to push controls to bottom ────────────────────
+        # ── Spacer ───────────────────────────────────────────────
         spacer = Gtk.Box(vexpand=True)
         self.append(spacer)
 
@@ -86,7 +90,7 @@ class ServiceTile(Gtk.Box):
             orientation=Gtk.Orientation.HORIZONTAL,
             spacing=8,
             halign=Gtk.Align.CENTER,
-            margin_bottom=12,
+            margin_bottom=10,
         )
         self._switch = Gtk.Switch(valign=Gtk.Align.CENTER)
         self._switch.connect("state-set", self._on_toggled)
@@ -117,7 +121,7 @@ class ServiceTile(Gtk.Box):
                 path = os.path.join(ICON_DIR, f"{icon_name}{ext}")
                 if os.path.isfile(path):
                     try:
-                        pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_scale(path, 40, 40, True)
+                        pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_scale(path, 36, 36, True)
                         texture = Gdk.Texture.new_for_pixbuf(pixbuf)
                         self._logo.set_from_paintable(texture)
                         return

@@ -632,7 +632,7 @@ class SovranHubWindow(Adw.ApplicationWindow):
                 max_children_per_line=4,
                 min_children_per_line=2,
                 selection_mode=Gtk.SelectionMode.NONE,
-                homogeneous=True,
+                homogeneous=False,
                 row_spacing=12,
                 column_spacing=12,
                 margin_top=4,

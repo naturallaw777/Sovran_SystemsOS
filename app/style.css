@@ -1,14 +1,18 @@
 .sovran-tile {
     border-radius: 16px;
     padding: 0px;
-    min-width: 148px;
-    max-width: 148px;
+    min-width: 140px;
+    max-width: 140px;
     min-height: 170px;
     max-height: 170px;
+    overflow: hidden;
     transition: box-shadow 200ms ease-in-out;
 }
 .sovran-tile:hover {
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+.tile-name {
+    font-size: 0.8em;
 }
 .success        { color: #2ec27e; }
 .warning        { color: #e5a50a; }
