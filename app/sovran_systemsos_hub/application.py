@@ -577,7 +577,7 @@ class SovranHubWindow(Adw.ApplicationWindow):
 
     # ── Service tiles ────────────────────────────────────────────
 
-        def _build_tiles(self):
+    def _build_tiles(self):
         method = self._config.get("command_method", "systemctl")
         services = self._config.get("services", [])
 
