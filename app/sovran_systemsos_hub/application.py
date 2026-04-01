@@ -67,6 +67,8 @@ REBOOT_COMMAND = [
 
 UPDATE_CHECK_INTERVAL = 1800
 
+TILE_GRID_WIDTH = 640
+
 
 # ── Autostart helpers ────────────────────────────────────────────
 
@@ -146,10 +148,7 @@ def check_for_updates() -> bool:
 # ── IP address helpers ───────────────────────────────────────────
 
 def _get_internal_ip():
-    """Get the primary LAN IP address."""
     try:
-        # Connect to a public IP (doesn't actually send data)
-        # to determine which interface would be used
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s.settimeout(2)
         s.connect(("1.1.1.1", 80))
@@ -158,7 +157,6 @@ def _get_internal_ip():
         return ip
     except Exception:
         pass
-    # Fallback: hostname -I
     try:
         result = subprocess.run(
             ["hostname", "-I"],
@@ -174,7 +172,6 @@ def _get_internal_ip():
 
 
 def _get_external_ip():
-    """Get the public IP via a lightweight HTTP service."""
     for url in [
         "https://api.ipify.org",
         "https://ifconfig.me/ip",
@@ -491,7 +488,6 @@ class SovranHubWindow(Adw.ApplicationWindow):
         GLib.timeout_add_seconds(5, self._check_for_updates_once)
         GLib.timeout_add_seconds(UPDATE_CHECK_INTERVAL, self._periodic_update_check)
 
-        # Fetch IPs in background
         GLib.timeout_add_seconds(1, self._fetch_ips_once)
 
     # ── IP Address Bar ───────────────────────────────────────────
@@ -508,7 +504,6 @@ class SovranHubWindow(Adw.ApplicationWindow):
             css_classes=["ip-bar"],
         )
 
-        # Internal IP
         internal_box = Gtk.Box(
             orientation=Gtk.Orientation.HORIZONTAL,
             spacing=6,
@@ -531,12 +526,8 @@ class SovranHubWindow(Adw.ApplicationWindow):
         internal_box.append(internal_label)
         internal_box.append(self._internal_ip_label)
 
-        # Separator
-        sep = Gtk.Separator(
-            orientation=Gtk.Orientation.VERTICAL,
-        )
+        sep = Gtk.Separator(orientation=Gtk.Orientation.VERTICAL)
 
-        # External IP
         external_box = Gtk.Box(
             orientation=Gtk.Orientation.HORIZONTAL,
             spacing=6,
@@ -629,6 +620,14 @@ class SovranHubWindow(Adw.ApplicationWindow):
             )
             self._tiles_box.append(sep)
 
+            # Fixed-width container — tiles stay centered and compact
+            container = Gtk.Box(
+                orientation=Gtk.Orientation.VERTICAL,
+                halign=Gtk.Align.CENTER,
+                css_classes=["tiles-container"],
+            )
+            container.set_size_request(TILE_GRID_WIDTH, -1)
+
             flowbox = Gtk.FlowBox(
                 max_children_per_line=4,
                 min_children_per_line=2,
@@ -656,7 +655,8 @@ class SovranHubWindow(Adw.ApplicationWindow):
                 flowbox.append(tile)
                 self._tiles.append(tile)
 
-            self._tiles_box.append(flowbox)
+            container.append(flowbox)
+            self._tiles_box.append(container)
 
         GLib.idle_add(self._refresh_all)
 
@@ -680,7 +680,7 @@ class SovranHubWindow(Adw.ApplicationWindow):
         self._update_available = available
         if available:
             self._update_btn.set_label("Update Available")
-            self._update_btn.set_css_classes(["destructive-action"])
+            self._update_btn.set_css_classes(["update-available"])
             self._update_btn.set_tooltip_text("A new version of Sovran_SystemsOS is available!")
             self._badge.set_visible(True)
         else:

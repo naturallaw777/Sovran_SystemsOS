@@ -18,9 +18,16 @@
     font-size: 0.75em;
 }
 .update-badge {
-    color: #e01b24;
+    color: #2ec27e;
     font-size: 1.2em;
     font-weight: bold;
+}
+.update-available {
+    background: #2ec27e;
+    color: white;
+}
+.update-available:hover {
+    background: #26a269;
 }
 .ip-bar {
     padding: 8px 16px;
@@ -31,4 +38,8 @@
     font-family: monospace;
     font-weight: bold;
     color: @accent_color;
+}
+.tiles-container {
+    margin-left: auto;
+    margin-right: auto;
 }
