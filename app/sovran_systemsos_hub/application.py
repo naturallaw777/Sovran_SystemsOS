@@ -67,7 +67,7 @@ REBOOT_COMMAND = [
 
 UPDATE_CHECK_INTERVAL = 1800
 
-TILE_GRID_WIDTH = 640
+TILE_GRID_WIDTH = 820
 
 
 # ── Autostart helpers ────────────────────────────────────────────
@@ -495,10 +495,10 @@ class SovranHubWindow(Adw.ApplicationWindow):
     def _build_ip_bar(self):
         bar = Gtk.Box(
             orientation=Gtk.Orientation.HORIZONTAL,
-            spacing=24,
+            spacing=28,
             halign=Gtk.Align.CENTER,
-            margin_top=12,
-            margin_bottom=4,
+            margin_top=14,
+            margin_bottom=6,
             margin_start=24,
             margin_end=24,
             css_classes=["ip-bar"],
@@ -506,20 +506,20 @@ class SovranHubWindow(Adw.ApplicationWindow):
 
         internal_box = Gtk.Box(
             orientation=Gtk.Orientation.HORIZONTAL,
-            spacing=6,
+            spacing=8,
         )
         internal_icon = Gtk.Image(
             icon_name="network-wired-symbolic",
-            pixel_size=16,
+            pixel_size=18,
             css_classes=["dim-label"],
         )
         internal_label = Gtk.Label(
             label="Internal:",
-            css_classes=["caption", "dim-label"],
+            css_classes=["ip-label", "dim-label"],
         )
         self._internal_ip_label = Gtk.Label(
             label="…",
-            css_classes=["caption", "ip-value"],
+            css_classes=["ip-value"],
             selectable=True,
         )
         internal_box.append(internal_icon)
@@ -530,20 +530,20 @@ class SovranHubWindow(Adw.ApplicationWindow):
 
         external_box = Gtk.Box(
             orientation=Gtk.Orientation.HORIZONTAL,
-            spacing=6,
+            spacing=8,
         )
         external_icon = Gtk.Image(
             icon_name="network-server-symbolic",
-            pixel_size=16,
+            pixel_size=18,
             css_classes=["dim-label"],
         )
         external_label = Gtk.Label(
             label="External:",
-            css_classes=["caption", "dim-label"],
+            css_classes=["ip-label", "dim-label"],
         )
         self._external_ip_label = Gtk.Label(
             label="…",
-            css_classes=["caption", "ip-value"],
+            css_classes=["ip-value"],
             selectable=True,
         )
         external_box.append(external_icon)
@@ -556,17 +556,6 @@ class SovranHubWindow(Adw.ApplicationWindow):
 
         return bar
 
-    def _fetch_ips_once(self):
-        thread = threading.Thread(target=self._do_fetch_ips, daemon=True)
-        thread.start()
-        return False
-
-    def _do_fetch_ips(self):
-        internal = _get_internal_ip()
-        GLib.idle_add(self._internal_ip_label.set_label, internal)
-        external = _get_external_ip()
-        GLib.idle_add(self._external_ip_label.set_label, external)
-
     # ── Title box ────────────────────────────────────────────────
 
     def _build_title_box(self):
@@ -578,17 +567,17 @@ class SovranHubWindow(Adw.ApplicationWindow):
         )
         box.append(Gtk.Label(
             label="Sovran_SystemsOS Hub",
-            css_classes=["title"],
+            css_classes=["hub-title"],
         ))
         box.append(Gtk.Label(
             label=role_label,
-            css_classes=["caption", "dim-label"],
+            css_classes=["role-badge", "dim-label"],
         ))
         return box
 
     # ── Service tiles ────────────────────────────────────────────
 
-    def _build_tiles(self):
+        def _build_tiles(self):
         method = self._config.get("command_method", "systemctl")
         services = self._config.get("services", [])
 
@@ -602,7 +591,6 @@ class SovranHubWindow(Adw.ApplicationWindow):
             if not entries:
                 continue
 
-            # Fixed-width container for label + separator + tiles
             container = Gtk.Box(
                 orientation=Gtk.Orientation.VERTICAL,
                 halign=Gtk.Align.CENTER,
@@ -612,10 +600,10 @@ class SovranHubWindow(Adw.ApplicationWindow):
 
             section_label = Gtk.Label(
                 label=cat_label,
-                css_classes=["title-4"],
+                css_classes=["section-header"],
                 halign=Gtk.Align.START,
-                margin_top=20,
-                margin_bottom=4,
+                margin_top=24,
+                margin_bottom=6,
                 margin_start=16,
             )
             container.append(section_label)
@@ -624,7 +612,7 @@ class SovranHubWindow(Adw.ApplicationWindow):
                 orientation=Gtk.Orientation.HORIZONTAL,
                 margin_start=16,
                 margin_end=16,
-                margin_bottom=8,
+                margin_bottom=10,
             )
             container.append(sep)
 
@@ -633,10 +621,10 @@ class SovranHubWindow(Adw.ApplicationWindow):
                 min_children_per_line=2,
                 selection_mode=Gtk.SelectionMode.NONE,
                 homogeneous=False,
-                row_spacing=12,
-                column_spacing=12,
+                row_spacing=14,
+                column_spacing=14,
                 margin_top=4,
-                margin_bottom=8,
+                margin_bottom=10,
                 margin_start=16,
                 margin_end=16,
                 halign=Gtk.Align.START,

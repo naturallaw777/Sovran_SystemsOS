@@ -1,50 +1,82 @@
+/* ── Tile (locked dimensions) ──────────────────────────────── */
 .sovran-tile {
-    border-radius: 16px;
+    border-radius: 18px;
     padding: 0px;
-    min-width: 140px;
-    max-width: 140px;
-    min-height: 170px;
-    max-height: 170px;
+    min-width: 180px;
+    max-width: 180px;
+    min-height: 210px;
+    max-height: 210px;
     overflow: hidden;
     transition: box-shadow 200ms ease-in-out;
 }
 .sovran-tile:hover {
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
 }
+
+/* ── Tile text ─────────────────────────────────────────────── */
 .tile-name {
-    font-size: 0.8em;
+    font-size: 1.0em;
+    font-weight: bold;
 }
+.tile-status {
+    font-size: 0.9em;
+}
+
+/* ── Section headers ───────────────────────────────────────── */
+.section-header {
+    font-size: 1.3em;
+    font-weight: bold;
+}
+
+/* ── Status colors ─────────────────────────────────────────── */
 .success        { color: #2ec27e; }
 .warning        { color: #e5a50a; }
 .error          { color: #e01b24; }
 .disabled-label { color: #888888; font-style: italic; }
+
+/* ── Header / role ─────────────────────────────────────────── */
+.hub-title {
+    font-size: 1.2em;
+    font-weight: bold;
+}
 .role-badge {
     padding: 2px 8px;
     border-radius: 4px;
-    font-size: 0.75em;
+    font-size: 0.85em;
 }
+
+/* ── Update indicator ──────────────────────────────────────── */
 .update-badge {
     color: #2ec27e;
-    font-size: 1.2em;
+    font-size: 1.3em;
     font-weight: bold;
 }
 .update-available {
     background: #2ec27e;
     color: white;
+    font-size: 1.0em;
 }
 .update-available:hover {
     background: #26a269;
 }
+
+/* ── IP bar ────────────────────────────────────────────────── */
 .ip-bar {
-    padding: 8px 16px;
-    border-radius: 8px;
+    padding: 10px 20px;
+    border-radius: 10px;
     background: alpha(@card_bg_color, 0.5);
+}
+.ip-label {
+    font-size: 0.95em;
 }
 .ip-value {
     font-family: monospace;
     font-weight: bold;
+    font-size: 1.0em;
     color: @accent_color;
 }
+
+/* ── Grid container ────────────────────────────────────────── */
 .tiles-container {
     margin-left: auto;
     margin-right: auto;

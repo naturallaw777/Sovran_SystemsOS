@@ -19,7 +19,11 @@ LOADING_STATES = {"reloading", "activating", "deactivating", "maintenance"}
 ICON_DIR = os.environ.get("SOVRAN_HUB_ICONS", "")
 ICON_EXTENSIONS = [".svg", ".png"]
 
-TILE_SIZE = 140
+# ── Locked tile dimensions ───────────────────────────────────────
+TILE_W = 180
+TILE_H = 210
+ICON_PX = 48
+LABEL_W = TILE_W - 24   # 12px padding each side
 
 
 class ServiceTile(Gtk.Box):
@@ -34,8 +38,7 @@ class ServiceTile(Gtk.Box):
             css_classes=["card", "sovran-tile"],
             **kw,
         )
-        # Force exact tile dimensions
-        self.set_size_request(TILE_SIZE, TILE_SIZE + 30)
+        self.set_size_request(TILE_W, TILE_H)
         self.set_hexpand(False)
         self.set_vexpand(False)
 
@@ -46,38 +49,37 @@ class ServiceTile(Gtk.Box):
 
         # ── Icon ─────────────────────────────────────────────────
         self._logo = Gtk.Image(
-            pixel_size=36,
-            margin_top=14,
+            pixel_size=ICON_PX,
+            margin_top=18,
             halign=Gtk.Align.CENTER,
         )
         self._set_logo(icon_name)
         self.append(self._logo)
 
-        # ── Name label (wraps within tile width) ─────────────────
+        # ── Name label ───────────────────────────────────────────
         self._name_label = Gtk.Label(
             label=name,
-            css_classes=["heading", "tile-name"],
+            css_classes=["tile-name"],
             halign=Gtk.Align.CENTER,
             justify=Gtk.Justification.CENTER,
             wrap=True,
             wrap_mode=Pango.WrapMode.WORD_CHAR,
             lines=2,
             ellipsize=Pango.EllipsizeMode.END,
-            margin_start=6,
-            margin_end=6,
-            margin_top=4,
+            margin_start=12,
+            margin_end=12,
+            margin_top=6,
         )
-        # Clamp the label width so it wraps inside the tile
-        self._name_label.set_size_request(TILE_SIZE - 16, -1)
-        self._name_label.set_max_width_chars(1)  # forces natural width to be small
+        self._name_label.set_size_request(LABEL_W, -1)
+        self._name_label.set_max_width_chars(1)
         self.append(self._name_label)
 
         # ── Status label ─────────────────────────────────────────
         self._status_label = Gtk.Label(
             label="● …",
-            css_classes=["caption", "dim-label"],
+            css_classes=["caption", "tile-status", "dim-label"],
             halign=Gtk.Align.CENTER,
-            margin_top=1,
+            margin_top=2,
         )
         self.append(self._status_label)
 
@@ -85,12 +87,12 @@ class ServiceTile(Gtk.Box):
         spacer = Gtk.Box(vexpand=True)
         self.append(spacer)
 
-        # ── Controls ─────────────────────────────────────────────
+        # ── Controls ───────────────���─────────────────────────────
         controls = Gtk.Box(
             orientation=Gtk.Orientation.HORIZONTAL,
-            spacing=8,
+            spacing=10,
             halign=Gtk.Align.CENTER,
-            margin_bottom=10,
+            margin_bottom=14,
         )
         self._switch = Gtk.Switch(valign=Gtk.Align.CENTER)
         self._switch.connect("state-set", self._on_toggled)
@@ -106,12 +108,11 @@ class ServiceTile(Gtk.Box):
         controls.append(restart_btn)
         self.append(controls)
 
-        # If the feature is disabled in custom.nix, lock the tile
         if not self._enabled:
             self._switch.set_active(False)
             self._switch.set_sensitive(False)
             self._status_label.set_label("○ disabled")
-            self._status_label.set_css_classes(["caption", "disabled-label"])
+            self._status_label.set_css_classes(["caption", "tile-status", "disabled-label"])
             self._logo.set_opacity(0.35)
             self.set_tooltip_text(f"{name} is not enabled in custom.nix")
 
@@ -121,7 +122,8 @@ class ServiceTile(Gtk.Box):
                 path = os.path.join(ICON_DIR, f"{icon_name}{ext}")
                 if os.path.isfile(path):
                     try:
-                        pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_scale(path, 36, 36, True)
+                        pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_scale(
+                            path, ICON_PX, ICON_PX, True)
                         texture = Gdk.Texture.new_for_pixbuf(pixbuf)
                         self._logo.set_from_paintable(texture)
                         return
@@ -145,16 +147,16 @@ class ServiceTile(Gtk.Box):
 
         if is_failed:
             self._status_label.set_label("● failed")
-            self._status_label.set_css_classes(["caption", "error"])
+            self._status_label.set_css_classes(["caption", "tile-status", "error"])
         elif is_on:
             self._status_label.set_label("● running")
-            self._status_label.set_css_classes(["caption", "success"])
+            self._status_label.set_css_classes(["caption", "tile-status", "success"])
         elif is_loading:
             self._status_label.set_label(f"● {active}")
-            self._status_label.set_css_classes(["caption", "warning"])
+            self._status_label.set_css_classes(["caption", "tile-status", "warning"])
         else:
             self._status_label.set_label(f"● {active}")
-            self._status_label.set_css_classes(["caption", "dim-label"])
+            self._status_label.set_css_classes(["caption", "tile-status", "dim-label"])
 
     def _on_toggled(self, switch, state):
         if not self._enabled:
