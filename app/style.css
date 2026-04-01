@@ -1,8 +1,10 @@
 .sovran-tile {
     border-radius: 16px;
-    padding: 8px;
-    min-width: 140px;
-    min-height: 160px;
+    padding: 0px;
+    min-width: 148px;
+    max-width: 148px;
+    min-height: 170px;
+    max-height: 170px;
     transition: box-shadow 200ms ease-in-out;
 }
 .sovran-tile:hover {

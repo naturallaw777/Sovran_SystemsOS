@@ -10,7 +10,7 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 gi.require_version("Gdk", "4.0")
 
-from gi.repository import Gdk, GdkPixbuf, GLib, Gtk
+from gi.repository import Gdk, GdkPixbuf, GLib, Gtk, Pango
 
 from . import systemctl
 
@@ -19,6 +19,9 @@ LOADING_STATES = {"reloading", "activating", "deactivating", "maintenance"}
 ICON_DIR = os.environ.get("SOVRAN_HUB_ICONS", "")
 ICON_EXTENSIONS = [".svg", ".png"]
 
+TILE_WIDTH = 148
+TILE_HEIGHT = 170
+
 
 class ServiceTile(Gtk.Box):
 
@@ -26,13 +29,12 @@ class ServiceTile(Gtk.Box):
                  icon_name="", enabled=True, **kw):
         super().__init__(
             orientation=Gtk.Orientation.VERTICAL,
-            spacing=6,
+            spacing=4,
             halign=Gtk.Align.CENTER,
-            valign=Gtk.Align.CENTER,
-            width_request=140,
-            height_request=160,
+            valign=Gtk.Align.START,
+            width_request=TILE_WIDTH,
+            height_request=TILE_HEIGHT,
             css_classes=["card", "sovran-tile"],
-            margin_top=6, margin_bottom=6, margin_start=6, margin_end=6,
             **kw,
         )
         self._unit = unit
@@ -40,39 +42,67 @@ class ServiceTile(Gtk.Box):
         self._method = method
         self._enabled = enabled
 
-        self._logo = Gtk.Image(pixel_size=48, margin_top=12, halign=Gtk.Align.CENTER)
+        # ── Icon ─────────────────────────────────────────────────
+        self._logo = Gtk.Image(
+            pixel_size=40,
+            margin_top=16,
+            halign=Gtk.Align.CENTER,
+        )
         self._set_logo(icon_name)
         self.append(self._logo)
 
-        self.append(Gtk.Label(
-            label=name, css_classes=["heading"],
-            halign=Gtk.Align.CENTER, ellipsize=3, max_width_chars=14,
-        ))
+        # ── Name label (wraps, max 2 lines) ──────────────────────
+        self._name_label = Gtk.Label(
+            label=name,
+            css_classes=["heading"],
+            halign=Gtk.Align.CENTER,
+            justify=Gtk.Justification.CENTER,
+            wrap=True,
+            wrap_mode=Pango.WrapMode.WORD_CHAR,
+            max_width_chars=16,
+            lines=2,
+            ellipsize=Pango.EllipsizeMode.END,
+            margin_start=8,
+            margin_end=8,
+            margin_top=4,
+        )
+        self.append(self._name_label)
 
+        # ── Status label ─────────────────────────────────────────
         self._status_label = Gtk.Label(
             label="● …",
             css_classes=["caption", "dim-label"],
             halign=Gtk.Align.CENTER,
+            margin_top=2,
         )
         self.append(self._status_label)
 
+        # ── Spacer to push controls to bottom ────────────────────
+        spacer = Gtk.Box(vexpand=True)
+        self.append(spacer)
+
+        # ── Controls ─────────────────────────────────────────────
         controls = Gtk.Box(
             orientation=Gtk.Orientation.HORIZONTAL,
-            spacing=8, halign=Gtk.Align.CENTER, margin_bottom=8,
+            spacing=8,
+            halign=Gtk.Align.CENTER,
+            margin_bottom=12,
         )
         self._switch = Gtk.Switch(valign=Gtk.Align.CENTER)
         self._switch.connect("state-set", self._on_toggled)
         controls.append(self._switch)
 
         restart_btn = Gtk.Button(
-            icon_name="view-refresh-symbolic", valign=Gtk.Align.CENTER,
-            tooltip_text="Restart", css_classes=["flat", "circular"],
+            icon_name="view-refresh-symbolic",
+            valign=Gtk.Align.CENTER,
+            tooltip_text="Restart",
+            css_classes=["flat", "circular"],
         )
         restart_btn.connect("clicked", self._on_restart)
         controls.append(restart_btn)
         self.append(controls)
 
-        # If the feature is disabled in custom.nix, lock the tile immediately
+        # If the feature is disabled in custom.nix, lock the tile
         if not self._enabled:
             self._switch.set_active(False)
             self._switch.set_sensitive(False)
@@ -87,7 +117,7 @@ class ServiceTile(Gtk.Box):
                 path = os.path.join(ICON_DIR, f"{icon_name}{ext}")
                 if os.path.isfile(path):
                     try:
-                        pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_scale(path, 48, 48, True)
+                        pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_scale(path, 40, 40, True)
                         texture = Gdk.Texture.new_for_pixbuf(pixbuf)
                         self._logo.set_from_paintable(texture)
                         return
@@ -96,7 +126,6 @@ class ServiceTile(Gtk.Box):
         self._logo.set_from_icon_name("system-run-symbolic")
 
     def refresh(self):
-        # Don't poll systemctl for disabled features
         if not self._enabled:
             return
 
