@@ -66,7 +66,6 @@ REBOOT_COMMAND = [
 ]
 
 UPDATE_CHECK_INTERVAL = 1800
-
 TILE_GRID_WIDTH = 820
 
 
@@ -374,8 +373,8 @@ class SovranHubWindow(Adw.ApplicationWindow):
         super().__init__(
             application=app,
             title="Sovran_SystemsOS Hub",
-            default_width=680,
-            default_height=780,
+            default_width=860,
+            default_height=800,
         )
         self._config = config
         self._tiles = []
@@ -487,7 +486,6 @@ class SovranHubWindow(Adw.ApplicationWindow):
 
         GLib.timeout_add_seconds(5, self._check_for_updates_once)
         GLib.timeout_add_seconds(UPDATE_CHECK_INTERVAL, self._periodic_update_check)
-
         GLib.timeout_add_seconds(1, self._fetch_ips_once)
 
     # ── IP Address Bar ───────────────────────────────────────────
@@ -515,7 +513,7 @@ class SovranHubWindow(Adw.ApplicationWindow):
         )
         internal_label = Gtk.Label(
             label="Internal:",
-            css_classes=["ip-label", "dim-label"],
+            css_classes=["dim-label"],
         )
         self._internal_ip_label = Gtk.Label(
             label="…",
@@ -539,7 +537,7 @@ class SovranHubWindow(Adw.ApplicationWindow):
         )
         external_label = Gtk.Label(
             label="External:",
-            css_classes=["ip-label", "dim-label"],
+            css_classes=["dim-label"],
         )
         self._external_ip_label = Gtk.Label(
             label="…",
@@ -555,6 +553,17 @@ class SovranHubWindow(Adw.ApplicationWindow):
         bar.append(external_box)
 
         return bar
+
+    def _fetch_ips_once(self):
+        thread = threading.Thread(target=self._do_fetch_ips, daemon=True)
+        thread.start()
+        return False
+
+    def _do_fetch_ips(self):
+        internal = _get_internal_ip()
+        GLib.idle_add(self._internal_ip_label.set_label, internal)
+        external = _get_external_ip()
+        GLib.idle_add(self._external_ip_label.set_label, external)
 
     # ── Title box ────────────────────────────────────────────────
 

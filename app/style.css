@@ -1,12 +1,9 @@
-/* ── Tile (locked dimensions) ──────────────────────────────── */
+/* ── Tile (locked dimensions via GTK min-width/height only) ── */
 .sovran-tile {
     border-radius: 18px;
     padding: 0px;
     min-width: 180px;
-    max-width: 180px;
     min-height: 210px;
-    max-height: 210px;
-    overflow: hidden;
     transition: box-shadow 200ms ease-in-out;
 }
 .sovran-tile:hover {
@@ -15,16 +12,13 @@
 
 /* ── Tile text ─────────────────────────────────────────────── */
 .tile-name {
-    font-size: 1.0em;
     font-weight: bold;
 }
 .tile-status {
-    font-size: 0.9em;
 }
 
 /* ── Section headers ───────────────────────────────────────── */
 .section-header {
-    font-size: 1.3em;
     font-weight: bold;
 }
 
@@ -36,25 +30,21 @@
 
 /* ── Header / role ─────────────────────────────────────────── */
 .hub-title {
-    font-size: 1.2em;
     font-weight: bold;
 }
 .role-badge {
     padding: 2px 8px;
     border-radius: 4px;
-    font-size: 0.85em;
 }
 
 /* ── Update indicator ──────────────────────────────────────── */
 .update-badge {
     color: #2ec27e;
-    font-size: 1.3em;
     font-weight: bold;
 }
 .update-available {
     background: #2ec27e;
     color: white;
-    font-size: 1.0em;
 }
 .update-available:hover {
     background: #26a269;
@@ -66,13 +56,9 @@
     border-radius: 10px;
     background: alpha(@card_bg_color, 0.5);
 }
-.ip-label {
-    font-size: 0.95em;
-}
 .ip-value {
     font-family: monospace;
     font-weight: bold;
-    font-size: 1.0em;
     color: @accent_color;
 }
 
