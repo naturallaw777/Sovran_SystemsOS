@@ -602,31 +602,31 @@ class SovranHubWindow(Adw.ApplicationWindow):
             if not entries:
                 continue
 
-            section_label = Gtk.Label(
-                label=cat_label,
-                css_classes=["title-4"],
-                halign=Gtk.Align.START,
-                margin_top=20,
-                margin_bottom=4,
-                margin_start=24,
-            )
-            self._tiles_box.append(section_label)
-
-            sep = Gtk.Separator(
-                orientation=Gtk.Orientation.HORIZONTAL,
-                margin_start=24,
-                margin_end=24,
-                margin_bottom=8,
-            )
-            self._tiles_box.append(sep)
-
-            # Fixed-width container — tiles stay centered and compact
+            # Fixed-width container for label + separator + tiles
             container = Gtk.Box(
                 orientation=Gtk.Orientation.VERTICAL,
                 halign=Gtk.Align.CENTER,
                 css_classes=["tiles-container"],
             )
             container.set_size_request(TILE_GRID_WIDTH, -1)
+
+            section_label = Gtk.Label(
+                label=cat_label,
+                css_classes=["title-4"],
+                halign=Gtk.Align.START,
+                margin_top=20,
+                margin_bottom=4,
+                margin_start=8,
+            )
+            container.append(section_label)
+
+            sep = Gtk.Separator(
+                orientation=Gtk.Orientation.HORIZONTAL,
+                margin_start=8,
+                margin_end=8,
+                margin_bottom=8,
+            )
+            container.append(sep)
 
             flowbox = Gtk.FlowBox(
                 max_children_per_line=4,
