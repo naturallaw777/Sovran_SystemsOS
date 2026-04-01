@@ -588,7 +588,7 @@ class SovranHubWindow(Adw.ApplicationWindow):
 
     # ── Service tiles ────────────────────────────────────────────
 
-    def _build_tiles(self):
+        def _build_tiles(self):
         method = self._config.get("command_method", "systemctl")
         services = self._config.get("services", [])
 
@@ -616,14 +616,14 @@ class SovranHubWindow(Adw.ApplicationWindow):
                 halign=Gtk.Align.START,
                 margin_top=20,
                 margin_bottom=4,
-                margin_start=8,
+                margin_start=16,
             )
             container.append(section_label)
 
             sep = Gtk.Separator(
                 orientation=Gtk.Orientation.HORIZONTAL,
-                margin_start=8,
-                margin_end=8,
+                margin_start=16,
+                margin_end=16,
                 margin_bottom=8,
             )
             container.append(sep)
@@ -639,7 +639,7 @@ class SovranHubWindow(Adw.ApplicationWindow):
                 margin_bottom=8,
                 margin_start=16,
                 margin_end=16,
-                halign=Gtk.Align.CENTER,
+                halign=Gtk.Align.START,
                 valign=Gtk.Align.START,
             )
 
