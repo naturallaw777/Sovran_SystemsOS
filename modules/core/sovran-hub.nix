@@ -52,6 +52,61 @@ let
       services         = monitoredServices;
     });
 
+  # ── Update wrapper script ──────────────────────────────────────
+  update-script = pkgs.writeShellScript "sovran-hub-update.sh" ''
+    set -uo pipefail
+    export PATH="${lib.makeBinPath [ pkgs.nix pkgs.nixos-rebuild pkgs.git pkgs.flatpak pkgs.coreutils ]}:$PATH"
+
+    LOG="/var/log/sovran-hub-update.log"
+
+    # Truncate the log and redirect ALL output (stdout + stderr) into it
+    : > "$LOG"
+    exec > >(tee -a "$LOG") 2>&1
+
+    echo "══════════════════════════════════════════════════"
+    echo "  Sovran_SystemsOS Update — $(date)"
+    echo "══════════════════════════════════════════════════"
+    echo ""
+
+    RC=0
+
+    echo "── Step 1/3: nix flake update ────────────────────"
+    if ! nix flake update --flake /etc/nixos --print-build-logs 2>&1; then
+      echo "[ERROR] nix flake update failed"
+      RC=1
+    fi
+    echo ""
+
+    if [ "$RC" -eq 0 ]; then
+      echo "── Step 2/3: nixos-rebuild switch ──────────────────"
+      if ! nixos-rebuild switch --flake /etc/nixos --print-build-logs 2>&1; then
+        echo "[ERROR] nixos-rebuild switch failed"
+        RC=1
+      fi
+      echo ""
+    fi
+
+    if [ "$RC" -eq 0 ]; then
+      echo "── Step 3/3: flatpak update ────────────────────────"
+      if ! flatpak update -y 2>&1; then
+        echo "[WARNING] flatpak update failed (non-fatal)"
+      fi
+      echo ""
+    fi
+
+    if [ "$RC" -eq 0 ]; then
+      echo "══════════════════════════════════════════════════"
+      echo "  ✓ Update completed successfully"
+      echo "══════════════════════════════════════════════════"
+    else
+      echo "══════════════════════════════════════════════════"
+      echo "  ✗ Update failed — see errors above"
+      echo "══════════════════════════════════════════════════"
+    fi
+
+    exit "$RC"
+  '';
+
   sovran-hub-web = pkgs.python3Packages.buildPythonApplication {
     pname   = "sovran-systemsos-hub-web";
     version = "1.0.0";
@@ -133,13 +188,9 @@ in
     systemd.services.sovran-hub-update = {
       description = "Sovran_SystemsOS System Update";
       serviceConfig = {
-        Type           = "oneshot";
-        ExecStart      = "${pkgs.bash}/bin/bash -c 'cd /etc/nixos && nix flake update 2>&1 && nixos-rebuild switch 2>&1 && flatpak update -y 2>&1'";
-        StandardOutput = "journal";
-        StandardError  = "journal";
-        SyslogIdentifier = "sovran-hub-update";
+        Type       = "oneshot";
+        ExecStart  = "${update-script}";
       };
-      path = [ pkgs.nix pkgs.nixos-rebuild pkgs.git pkgs.flatpak ];
     };
 
     # ── Open firewall port ─────────────────────────────────────
