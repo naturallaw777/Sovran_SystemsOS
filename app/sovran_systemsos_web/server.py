@@ -24,9 +24,9 @@ FLAKE_LOCK_PATH = "/etc/nixos/flake.lock"
 FLAKE_INPUT_NAME = "Sovran_Systems"
 GITEA_API_BASE = "https://git.sovransystems.com/api/v1/repos/Sovran_Systems/Sovran_SystemsOS/commits"
 
-UPDATE_UNIT = "sovran-hub-update.service"
-UPDATE_LOG  = "/var/log/sovran-hub-update.log"
-UPDATE_LOCK = "/run/sovran-hub-update.lock"
+UPDATE_LOG    = "/var/log/sovran-hub-update.log"
+UPDATE_STATUS = "/var/log/sovran-hub-update.status"
+UPDATE_UNIT   = "sovran-hub-update.service"
 
 REBOOT_COMMAND = ["reboot"]
 
@@ -156,51 +156,15 @@ def _get_external_ip() -> str:
     return "unavailable"
 
 
-# ── Update unit helpers ──────────────────────────────────────────
+# ── Update helpers (file-based, no systemctl) ────────────────────
 
-def _update_is_active() -> bool:
-    """Return True if the update unit is currently running."""
-    r = subprocess.run(
-        ["systemctl", "is-active", "--quiet", UPDATE_UNIT],
-        capture_output=True,
-    )
-    return r.returncode == 0
-
-
-def _update_result() -> str:
-    """Return 'success', 'failed', or 'unknown'."""
-    r = subprocess.run(
-        ["systemctl", "show", "-p", "Result", "--value", UPDATE_UNIT],
-        capture_output=True, text=True,
-    )
-    val = r.stdout.strip()
-    if val == "success":
-        return "success"
-    elif val:
-        return "failed"
-    return "unknown"
-
-
-def _update_lock_exists() -> bool:
-    """Check if the file-based update lock exists (survives server restart)."""
-    return os.path.exists(UPDATE_LOCK)
-
-
-def _create_update_lock():
-    """Create the lock file to indicate an update is in progress."""
+def _read_update_status() -> str:
+    """Read the status file. Returns RUNNING, SUCCESS, FAILED, or IDLE."""
     try:
-        with open(UPDATE_LOCK, "w") as f:
-            f.write(str(os.getpid()))
-    except OSError:
-        pass
-
-
-def _remove_update_lock():
-    """Remove the lock file."""
-    try:
-        os.unlink(UPDATE_LOCK)
+        with open(UPDATE_STATUS, "r") as f:
+            return f.read().strip()
     except FileNotFoundError:
-        pass
+        return "IDLE"
 
 
 def _read_log(offset: int = 0) -> tuple[str, int]:
@@ -208,10 +172,9 @@ def _read_log(offset: int = 0) -> tuple[str, int]:
     Returns (new_text, new_offset)."""
     try:
         with open(UPDATE_LOG, "rb") as f:
-            f.seek(0, 2)  # seek to end
+            f.seek(0, 2)
             size = f.tell()
             if offset > size:
-                # Log was truncated (new run), start over
                 offset = 0
             f.seek(offset)
             chunk = f.read()
@@ -351,8 +314,8 @@ async def api_updates_run():
     """Kick off the detached update systemd unit."""
     loop = asyncio.get_event_loop()
 
-    running = await loop.run_in_executor(None, _update_is_active)
-    if running:
+    status = await loop.run_in_executor(None, _read_update_status)
+    if status == "RUNNING":
         return {"ok": True, "status": "already_running"}
 
     # Reset failed state if any
@@ -361,9 +324,6 @@ async def api_updates_run():
         stdout=asyncio.subprocess.DEVNULL,
         stderr=asyncio.subprocess.DEVNULL,
     )
-
-    # Create a file-based lock that survives server restarts
-    _create_update_lock()
 
     proc = await asyncio.create_subprocess_exec(
         "systemctl", "start", "--no-block", UPDATE_UNIT,
@@ -377,38 +337,17 @@ async def api_updates_run():
 
 @app.get("/api/updates/status")
 async def api_updates_status(offset: int = 0):
-    """Poll endpoint: returns running state, result, and new log content."""
+    """Poll endpoint: reads status file + log file. No systemctl needed."""
     loop = asyncio.get_event_loop()
 
-    active = await loop.run_in_executor(None, _update_is_active)
-    result = await loop.run_in_executor(None, _update_result)
-    lock_exists = _update_lock_exists()
+    status = await loop.run_in_executor(None, _read_update_status)
     new_log, new_offset = await loop.run_in_executor(None, _read_log, offset)
 
-    # If the unit is active, it's definitely still running
-    if active:
-        return {
-            "running": True,
-            "result": "pending",
-            "log": new_log,
-            "offset": new_offset,
-        }
+    running = (status == "RUNNING")
+    result = "pending" if running else status.lower()
 
-    # If the lock file exists but the unit is not active, the update
-    # finished (or the server just restarted after nixos-rebuild switch).
-    # The lock file persists across server restarts because it's on disk.
-    if lock_exists:
-        _remove_update_lock()
-        return {
-            "running": False,
-            "result": result,
-            "log": new_log,
-            "offset": new_offset,
-        }
-
-    # No lock, not active — nothing happening
     return {
-        "running": False,
+        "running": running,
         "result": result,
         "log": new_log,
         "offset": new_offset,

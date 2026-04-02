@@ -72,7 +72,7 @@ async function apiFetch(path, options = {}) {
   return res.json();
 }
 
-// ── Render: initial build ────────────────────────��────────────────
+// ── Render: initial build ─────────────────────────────────────────
 
 function buildTiles(services, categoryLabels) {
   _servicesCache = services;
@@ -341,24 +341,28 @@ async function pollUpdateStatus() {
       if ($modalStatus) $modalStatus.textContent = "Updating…";
     }
 
-    // Append any new log content
+    // Append new log content
     if (data.log) {
       appendLog(data.log);
     }
     _updateLogOffset = data.offset;
 
-    // Check if finished
-    if (!data.running) {
-      _updateFinished = true;
-      stopUpdatePoll();
-      if (data.result === "success") {
-        onUpdateDone(true);
-      } else {
-        onUpdateDone(false);
-      }
+    // RUNNING → keep polling
+    if (data.running) {
+      return;
+    }
+
+    // Finished — check result
+    _updateFinished = true;
+    stopUpdatePoll();
+
+    if (data.result === "success") {
+      onUpdateDone(true);
+    } else {
+      onUpdateDone(false);
     }
   } catch (err) {
-    // Server is likely restarting during nixos-rebuild switch — keep polling
+    // Server is restarting during nixos-rebuild switch — keep polling
     if (!_serverWasDown) {
       _serverWasDown = true;
       appendLog("\n[Server restarting — waiting for it to come back…]\n");
