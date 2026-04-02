@@ -85,6 +85,14 @@ function escHtml(str) {
     .replace(/'/g, "&#39;");
 }
 
+function linkify(str) {
+  const escaped = escHtml(str);
+  return escaped.replace(
+    /(https?:\/\/[^\s<]+)/g,
+    '<a href="$1" target="_blank" rel="noopener noreferrer" class="creds-link">$1</a>'
+  );
+}
+
 // ── Fetch wrappers ────────────────────────────────────────────────
 
 async function apiFetch(path, options = {}) {
@@ -269,7 +277,7 @@ async function loadNetwork() {
     if ($internalIp) $internalIp.textContent = data.internal_ip || "—";
     if ($externalIp) $externalIp.textContent = data.external_ip || "—";
   } catch (_) {
-    if ($internalIp) $internalIp.textContent = "��";
+    if ($internalIp) $internalIp.textContent = "—";
     if ($externalIp) $externalIp.textContent = "—";
   }
 }
@@ -310,11 +318,12 @@ async function openCredsModal(unit, name) {
     let html = "";
     for (const cred of data.credentials) {
       const id = "cred-" + Math.random().toString(36).substring(2, 8);
+      const displayValue = linkify(cred.value);
       html += `
         <div class="creds-row">
           <div class="creds-label">${escHtml(cred.label)}</div>
           <div class="creds-value-wrap">
-            <div class="creds-value" id="${id}">${escHtml(cred.value)}</div>
+            <div class="creds-value" id="${id}">${displayValue}</div>
             <button class="creds-copy-btn" data-target="${id}">Copy</button>
           </div>
         </div>

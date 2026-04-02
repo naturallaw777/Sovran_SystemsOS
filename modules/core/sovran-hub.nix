@@ -35,14 +35,18 @@ let
       ]; }
       { name = "LND";                unit = "lnd.service";          type = "system"; icon = "lnd";          enabled = cfg.services.bitcoin;  category = "bitcoin-apps"; credentials = []; }
       { name = "Ride The Lightning"; unit = "rtl.service";          type = "system"; icon = "rtl";          enabled = cfg.services.bitcoin;  category = "bitcoin-apps"; credentials = [
-        { label = "URL"; file = "/var/lib/tor/onion/rtl/hostname"; prefix = "http://"; }
+        { label = "Tor Access"; file = "/var/lib/tor/onion/rtl/hostname"; prefix = "http://"; }
+        { label = "Local Network"; file = "/var/lib/secrets/internal-ip"; prefix = "http://"; suffix = ":3050"; }
         { label = "Password"; file = "/etc/nix-bitcoin-secrets/rtl-password"; }
       ]; }
       { name = "BTCPayserver";       unit = "btcpayserver.service"; type = "system"; icon = "btcpayserver"; enabled = cfg.services.bitcoin;  category = "bitcoin-apps"; credentials = [
         { label = "URL"; file = "/var/lib/domains/btcpayserver"; prefix = "https://"; }
         { label = "Note"; value = "Create your admin account on first visit"; }
       ]; }
-      { name = "Mempool";            unit = "mempool.service";      type = "system"; icon = "mempool";      enabled = cfg.features.mempool;  category = "bitcoin-apps"; credentials = []; }
+      { name = "Mempool";            unit = "mempool.service";      type = "system"; icon = "mempool";      enabled = cfg.features.mempool;  category = "bitcoin-apps"; credentials = [
+        { label = "Tor Access"; file = "/var/lib/tor/onion/mempool-frontend/hostname"; prefix = "http://"; }
+        { label = "Local Network"; file = "/var/lib/secrets/internal-ip"; prefix = "http://"; suffix = ":60847"; }
+      ]; }
     ]
     # ── Communication ──────────────────────────────────────────
     ++ [
@@ -205,6 +209,37 @@ LAUNCHER
 in
 {
   config = {
+    # ── Save internal IP for hub credentials ────────────────────
+    systemd.services.save-internal-ip = {
+      description = "Save internal IP address for hub credentials";
+      wantedBy = [ "multi-user.target" ];
+      after = [ "network-online.target" ];
+      wants = [ "network-online.target" ];
+      serviceConfig = {
+        Type = "oneshot";
+        RemainAfterExit = true;
+      };
+      path = [ pkgs.iproute2 pkgs.coreutils pkgs.hostname ];
+      script = ''
+        mkdir -p /var/lib/secrets
+        IP=$(hostname -I | awk '{print $1}')
+        if [ -n "$IP" ]; then
+          echo "$IP" > /var/lib/secrets/internal-ip
+          chmod 644 /var/lib/secrets/internal-ip
+        fi
+      '';
+    };
+
+    # ── Refresh IP periodically (in case DHCP changes it) ──────
+    systemd.timers.save-internal-ip = {
+      wantedBy = [ "timers.target" ];
+      timerConfig = {
+        OnBootSec = "30s";
+        OnUnitActiveSec = "15min";
+        Unit = "save-internal-ip.service";
+      };
+    };
+
     # ── Web server as a systemd service ────────────────────────
     systemd.services.sovran-hub-web = {
       description = "Sovran_SystemsOS Hub Web Interface";

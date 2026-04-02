@@ -780,7 +780,7 @@ button.btn-reboot:hover:not(:disabled) {
     justify-content: center;
   }
   .service-tile {
-    width: 160px;
+ :   width: 160px;
     min-height: 200px;
   }
   .reboot-card {
@@ -790,4 +790,18 @@ button.btn-reboot:hover:not(:disabled) {
   .creds-dialog {
     margin: 0 12px;
   }
+
+/* ── Credential links ─────────────────────────────────────── */
+.creds-link {
+  color: #58a6ff;
+  text-decoration: none;
+  word-break: break-all;
+}
+.creds-link:hover {
+  text-decoration: underline;
+  color: #79c0ff;
+}
+
+
+
 }
