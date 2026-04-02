@@ -7,6 +7,7 @@ import json
 import os
 import socket
 import subprocess
+import time
 import urllib.request
 
 from fastapi import FastAPI, HTTPException
@@ -68,6 +69,12 @@ if os.path.isdir(_ICONS_DIR):
     )
 
 templates = Jinja2Templates(directory=os.path.join(_BASE_DIR, "templates"))
+
+# ── Track when we started an update ──────────────────────────────
+# This timestamp lets us know that an update was recently kicked off,
+# so we don't prematurely declare it finished if the unit hasn't
+# transitioned to "active" yet.
+_update_started_at: float = 0.0
 
 # ── Update check helpers ─────────────────────────────────────────
 
@@ -164,6 +171,15 @@ def _update_is_active() -> bool:
         capture_output=True,
     )
     return r.returncode == 0
+
+
+def _update_state() -> str:
+    """Return the ActiveState of the update unit."""
+    r = subprocess.run(
+        ["systemctl", "show", "-p", "ActiveState", "--value", UPDATE_UNIT],
+        capture_output=True, text=True,
+    )
+    return r.stdout.strip()
 
 
 def _update_result() -> str:
@@ -326,6 +342,7 @@ async def api_reboot():
 @app.post("/api/updates/run")
 async def api_updates_run():
     """Kick off the detached update systemd unit."""
+    global _update_started_at
     loop = asyncio.get_event_loop()
 
     running = await loop.run_in_executor(None, _update_is_active)
@@ -338,6 +355,9 @@ async def api_updates_run():
         stdout=asyncio.subprocess.DEVNULL,
         stderr=asyncio.subprocess.DEVNULL,
     )
+
+    # Record the start time so we can handle the race condition
+    _update_started_at = time.monotonic()
 
     proc = await asyncio.create_subprocess_exec(
         "systemctl", "start", "--no-block", UPDATE_UNIT,
@@ -352,14 +372,33 @@ async def api_updates_run():
 @app.get("/api/updates/status")
 async def api_updates_status(offset: int = 0):
     """Poll endpoint: returns running state, result, and new log content."""
+    global _update_started_at
     loop = asyncio.get_event_loop()
 
-    running = await loop.run_in_executor(None, _update_is_active)
+    active = await loop.run_in_executor(None, _update_is_active)
+    state = await loop.run_in_executor(None, _update_state)
     result = await loop.run_in_executor(None, _update_result)
     new_log, new_offset = await loop.run_in_executor(None, _read_log, offset)
 
+    # Race condition guard: if we just started the unit and it hasn't
+    # transitioned to "activating"/"active" yet, report it as still running.
+    # Give it up to 10 seconds to appear as active.
+    if not active and _update_started_at > 0:
+        elapsed = time.monotonic() - _update_started_at
+        if elapsed < 10 and state in ("inactive", ""):
+            # Unit hasn't started yet — tell the frontend it's still running
+            return {
+                "running": True,
+                "result": "pending",
+                "log": new_log,
+                "offset": new_offset,
+            }
+        else:
+            # Either it finished or the grace period expired
+            _update_started_at = 0.0
+
     return {
-        "running": running,
+        "running": active,
         "result": result,
         "log": new_log,
         "offset": new_offset,
