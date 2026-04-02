@@ -14,6 +14,10 @@ let
         { label = "Root Password"; file = "/var/lib/secrets/root-password"; }
         { label = "SSH Local Access"; value = "ssh root@localhost  /  Passphrase: gosovransystems"; }
       ]; }
+
+      { name = "Remote Desktop (RDP)"; unit = "gnome-remote-desktop.service"; type = "system"; icon = "rdp"; enabled = cfg.features.rdp; category = "apps"; credentials = [
+        { label = "Credentials"; file = "/var/lib/gnome-remote-desktop/rdp-credentials"; multiline = true; }
+      ]; }
     ]
     # ── Bitcoin Base (node implementations) ────────────────────
     ++ [
