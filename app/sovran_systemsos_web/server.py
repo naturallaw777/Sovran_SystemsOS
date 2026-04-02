@@ -27,14 +27,11 @@ FLAKE_INPUT_NAME = "Sovran_Systems"
 GITEA_API_BASE = "https://git.sovransystems.com/api/v1/repos/Sovran_Systems/Sovran_SystemsOS/commits"
 
 REBOOT_COMMAND = [
-    "ssh", "-o", "StrictHostKeyChecking=no", "-o", "BatchMode=yes",
-    "root@localhost",
     "reboot",
 ]
 
 UPDATE_COMMAND = [
-    "ssh", "-o", "StrictHostKeyChecking=no", "-o", "BatchMode=yes",
-    "root@localhost",
+    "bash", "-c",
     "cd /etc/nixos && nix flake update && nixos-rebuild switch && flatpak update -y",
 ]
 
