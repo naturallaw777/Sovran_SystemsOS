@@ -2,8 +2,6 @@
 
 lib.mkIf config.sovran_systemsOS.features.rdp {
 
-  services.gnome-remote-desktop.enable = true;
-
   users.users.gnome-remote-desktop = {
     isSystemUser = true;
     group = "gnome-remote-desktop";
