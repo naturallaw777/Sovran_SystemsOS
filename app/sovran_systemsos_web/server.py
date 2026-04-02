@@ -167,6 +167,15 @@ def _read_update_status() -> str:
         return "IDLE"
 
 
+def _write_update_status(status: str):
+    """Write to the status file."""
+    try:
+        with open(UPDATE_STATUS, "w") as f:
+            f.write(status)
+    except OSError:
+        pass
+
+
 def _read_log(offset: int = 0) -> tuple[str, int]:
     """Read the update log file from the given byte offset.
     Returns (new_text, new_offset)."""
@@ -317,6 +326,14 @@ async def api_updates_run():
     status = await loop.run_in_executor(None, _read_update_status)
     if status == "RUNNING":
         return {"ok": True, "status": "already_running"}
+
+    # Clear stale status and log BEFORE starting the unit
+    _write_update_status("RUNNING")
+    try:
+        with open(UPDATE_LOG, "w") as f:
+            f.write("")
+    except OSError:
+        pass
 
     # Reset failed state if any
     await asyncio.create_subprocess_exec(
