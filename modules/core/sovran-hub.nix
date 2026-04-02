@@ -14,9 +14,11 @@ let
         { label = "Root Password"; file = "/var/lib/secrets/root-password"; }
         { label = "SSH Local Access"; value = "ssh root@localhost  /  Passphrase: gosovransystems"; }
       ]; }
-
-      { name = "Remote Desktop (RDP)"; unit = "gnome-remote-desktop.service"; type = "system"; icon = "rdp"; enabled = cfg.features.rdp; category = "apps"; credentials = [
-        { label = "Credentials"; file = "/var/lib/gnome-remote-desktop/rdp-credentials"; multiline = true; }
+      { name = "Remote Desktop"; unit = "gnome-remote-desktop.service"; type = "system"; icon = "rdp"; enabled = cfg.features.rdp; category = "infrastructure"; credentials = [
+        { label = "Username"; file = "/var/lib/gnome-remote-desktop/rdp-username"; }
+        { label = "Password"; file = "/var/lib/gnome-remote-desktop/rdp-password"; }
+        { label = "Address";  file = "/var/lib/secrets/internal-ip"; suffix = ":3389"; }
+        { label = "How to Connect"; value = "1. Install an RDP client (e.g. Remmina, Microsoft Remote Desktop)\n2. Create a new RDP connection\n3. Enter the Address above as the host\n4. Enter the Username and Password above\n5. Connect — you will see your desktop remotely"; }
       ]; }
     ]
     # ── Bitcoin Base (node implementations) ────────────────────
@@ -182,7 +184,7 @@ let
       # ── Generated config ───────────────────────────────────────
       cp ${generatedConfig} $out/lib/sovran-hub-web/config.json
 
-      # ── Icons (SVG) ────────────────────────────────────────────
+      # ── Icons (SVG) ──────────────────��─────────────────────────
       install -d $out/share/sovran-hub/icons
       cp icons/* $out/share/sovran-hub/icons/ 2>/dev/null || true
 
