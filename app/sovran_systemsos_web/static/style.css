@@ -1,0 +1,530 @@
+/* Sovran_SystemsOS Hub — Web UI Stylesheet
+   Dark theme matching the Adwaita dark aesthetic */
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --bg-color:        #1e1e2e;
+  --surface-color:   #2a2a3c;
+  --card-color:      #313244;
+  --border-color:    #45475a;
+  --text-primary:    #cdd6f4;
+  --text-secondary:  #a6adc8;
+  --text-dim:        #6c7086;
+  --accent-color:    #89b4fa;
+  --green:           #2ec27e;
+  --yellow:          #e5a50a;
+  --red:             #e01b24;
+  --grey:            #888888;
+  --radius-card:     18px;
+  --radius-btn:      8px;
+  --shadow-card:     0 2px 8px rgba(0,0,0,0.4);
+  --shadow-hover:    0 6px 20px rgba(0,0,0,0.6);
+}
+
+html, body {
+  height: 100%;
+}
+
+body {
+  font-family: 'Cantarell', 'Inter', 'Segoe UI', sans-serif;
+  background-color: var(--bg-color);
+  color: var(--text-primary);
+  line-height: 1.5;
+  min-height: 100vh;
+}
+
+/* ── Header bar ─────────────────────────────────────────────────── */
+
+.header-bar {
+  background-color: var(--surface-color);
+  border-bottom: 1px solid var(--border-color);
+  padding: 10px 24px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.header-bar .title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  flex: 1;
+}
+
+.role-badge {
+  background-color: var(--accent-color);
+  color: #1e1e2e;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 20px;
+  letter-spacing: 0.03em;
+}
+
+/* ── Buttons ────────────────────────────────────────────────────── */
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  outline: none;
+  transition: opacity 0.15s, box-shadow 0.15s, background-color 0.15s;
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.btn {
+  padding: 7px 16px;
+  border-radius: var(--radius-btn);
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.btn-primary {
+  background-color: var(--accent-color);
+  color: #1e1e2e;
+}
+
+.btn-primary:hover:not(:disabled) {
+  opacity: 0.88;
+}
+
+.btn-update {
+  background-color: var(--green);
+  color: #fff;
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-update:hover:not(:disabled) {
+  background-color: #27ae6e;
+}
+
+.update-badge {
+  display: none;
+  width: 10px;
+  height: 10px;
+  background-color: var(--yellow);
+  border-radius: 50%;
+  animation: pulse-badge 1.4s ease-in-out infinite;
+}
+
+.update-badge.visible {
+  display: inline-block;
+}
+
+@keyframes pulse-badge {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.5; transform: scale(1.35); }
+}
+
+.btn-icon {
+  background: none;
+  color: var(--text-secondary);
+  padding: 6px;
+  border-radius: 50%;
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.btn-icon:hover:not(:disabled) {
+  background-color: var(--border-color);
+  color: var(--text-primary);
+}
+
+/* ── IP bar ─────────────────────────────────────────────────────── */
+
+.ip-bar {
+  background-color: var(--surface-color);
+  border-bottom: 1px solid var(--border-color);
+  padding: 8px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 32px;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+}
+
+.ip-bar .ip-label {
+  color: var(--text-dim);
+  margin-right: 6px;
+}
+
+.ip-bar .ip-value {
+  font-family: 'JetBrains Mono', 'Fira Code', 'Source Code Pro', monospace;
+  color: var(--accent-color);
+  font-weight: 600;
+}
+
+.ip-separator {
+  color: var(--border-color);
+}
+
+/* ── Main content ───────────────────────────────────────────────── */
+
+.main-content {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 24px 16px 48px;
+}
+
+/* ── Category sections ──────────────────────────────────────────── */
+
+.category-section {
+  margin-bottom: 32px;
+}
+
+.section-header {
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+  padding-left: 4px;
+}
+
+.section-divider {
+  border: none;
+  border-top: 1px solid var(--border-color);
+  margin-bottom: 16px;
+}
+
+.tiles-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+/* ── Service tile card ──────────────────────────────────────────── */
+
+.service-tile {
+  width: 180px;
+  min-height: 210px;
+  background-color: var(--card-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 18px 12px 14px;
+  gap: 0;
+  transition: box-shadow 0.2s, border-color 0.2s;
+  position: relative;
+}
+
+.service-tile:hover {
+  box-shadow: var(--shadow-hover);
+  border-color: #6c7086;
+}
+
+.service-tile.disabled {
+  opacity: 0.45;
+}
+
+.tile-icon {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+  margin-bottom: 8px;
+}
+
+.tile-icon-fallback {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--border-color);
+  border-radius: 12px;
+  color: var(--text-dim);
+  font-size: 1.5rem;
+  margin-bottom: 8px;
+}
+
+.tile-name {
+  font-size: 0.88rem;
+  font-weight: 600;
+  text-align: center;
+  color: var(--text-primary);
+  line-height: 1.3;
+  max-width: 156px;
+  word-break: break-word;
+  hyphens: auto;
+  min-height: 2.6em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tile-status {
+  font-size: 0.75rem;
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-secondary);
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background-color: var(--grey);
+}
+
+.status-dot.active    { background-color: var(--green); }
+.status-dot.inactive  { background-color: var(--red); }
+.status-dot.loading   { background-color: var(--yellow); animation: pulse-badge 1s infinite; }
+.status-dot.failed    { background-color: var(--red); }
+.status-dot.disabled  { background-color: var(--grey); }
+
+.tile-spacer {
+  flex: 1;
+}
+
+/* ── Tile controls ──────────────────────────────────────────────── */
+
+.tile-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+/* CSS-only toggle switch */
+.toggle-label {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.toggle-label input[type="checkbox"] {
+  display: none;
+}
+
+.toggle-track {
+  width: 40px;
+  height: 22px;
+  background-color: var(--border-color);
+  border-radius: 11px;
+  position: relative;
+  transition: background-color 0.2s;
+}
+
+.toggle-label input:checked + .toggle-track {
+  background-color: var(--green);
+}
+
+.toggle-label.disabled-toggle {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.toggle-thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  background-color: #fff;
+  border-radius: 50%;
+  transition: transform 0.2s;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+}
+
+.toggle-label input:checked + .toggle-track .toggle-thumb {
+  transform: translateX(18px);
+}
+
+.tile-restart-btn {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 50%;
+  font-size: 0.95rem;
+  line-height: 1;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.tile-restart-btn:hover:not(:disabled) {
+  background-color: var(--border-color);
+  color: var(--text-primary);
+}
+
+.tile-restart-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+/* ── Update modal ───────────────────────────────────────────────── */
+
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0,0,0,0.65);
+  z-index: 200;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-overlay.open {
+  display: flex;
+}
+
+.modal-dialog {
+  background-color: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  width: 90vw;
+  max-width: 900px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 16px 48px rgba(0,0,0,0.7);
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-color);
+  gap: 12px;
+}
+
+.modal-title {
+  font-size: 1rem;
+  font-weight: 700;
+  flex: 1;
+}
+
+.modal-status {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.modal-spinner {
+  width: 18px;
+  height: 18px;
+  border: 2.5px solid var(--border-color);
+  border-top-color: var(--accent-color);
+  border-radius: 50%;
+  animation: spin 0.75s linear infinite;
+  display: none;
+}
+
+.modal-spinner.spinning {
+  display: block;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.modal-log {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 16px;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Source Code Pro', monospace;
+  font-size: 0.78rem;
+  line-height: 1.6;
+  color: var(--text-primary);
+  background-color: #12121c;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 12px 20px;
+  border-top: 1px solid var(--border-color);
+}
+
+.btn-reboot {
+  background-color: var(--red);
+  color: #fff;
+}
+
+.btn-reboot:hover:not(:disabled) {
+  background-color: #c0181f;
+}
+
+.btn-save {
+  background-color: var(--yellow);
+  color: #1e1e2e;
+}
+
+.btn-save:hover:not(:disabled) {
+  background-color: #c98d08;
+}
+
+.btn-close-modal {
+  background-color: var(--border-color);
+  color: var(--text-primary);
+}
+
+.btn-close-modal:hover:not(:disabled) {
+  background-color: #5a5c72;
+}
+
+/* ── Empty state ────────────────────────────────────────────────── */
+
+.empty-state {
+  text-align: center;
+  padding: 64px 24px;
+  color: var(--text-dim);
+}
+
+.empty-state p {
+  font-size: 1rem;
+  margin-bottom: 8px;
+}
+
+/* ── Responsive ─────────────────────────────────────────────────── */
+
+@media (max-width: 600px) {
+  .header-bar {
+    padding: 10px 14px;
+    gap: 10px;
+  }
+  .header-bar .title {
+    font-size: 0.95rem;
+  }
+  .ip-bar {
+    gap: 16px;
+    flex-wrap: wrap;
+    padding: 8px 14px;
+  }
+  .main-content {
+    padding: 16px 12px 40px;
+  }
+  .tiles-grid {
+    justify-content: center;
+  }
+  .service-tile {
+    width: 160px;
+    min-height: 200px;
+  }
+}

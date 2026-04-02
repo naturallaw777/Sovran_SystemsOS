@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sovran_SystemsOS Hub</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+
+  <!-- Header bar -->
+  <header class="header-bar">
+    <span class="title">Sovran_SystemsOS Hub</span>
+    <span class="role-badge" id="role-badge">Loading…</span>
+    <button class="btn btn-update" id="btn-update" title="Run system update">
+      <span class="update-badge" id="update-badge"></span>
+      Update System
+    </button>
+    <button class="btn-icon" id="btn-refresh" title="Refresh service status">↺</button>
+  </header>
+
+  <!-- IP bar -->
+  <div class="ip-bar">
+    <span>
+      <span class="ip-label">Internal IP:</span>
+      <span class="ip-value" id="ip-internal">…</span>
+    </span>
+    <span class="ip-separator">|</span>
+    <span>
+      <span class="ip-label">External IP:</span>
+      <span class="ip-value" id="ip-external">…</span>
+    </span>
+  </div>
+
+  <!-- Service tiles -->
+  <main class="main-content">
+    <div id="tiles-area"></div>
+  </main>
+
+  <!-- Update modal -->
+  <div class="modal-overlay" id="update-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title-text">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <span class="modal-title" id="modal-title-text">Sovran_SystemsOS Update</span>
+        <div class="modal-spinner" id="modal-spinner"></div>
+        <span class="modal-status" id="modal-status">Updating…</span>
+      </div>
+      <div class="modal-log" id="modal-log" aria-live="polite"></div>
+      <div class="modal-footer">
+        <button class="btn btn-save" id="btn-save-report" style="display:none">Save Error Report</button>
+        <button class="btn btn-reboot" id="btn-reboot" style="display:none">Reboot</button>
+        <button class="btn btn-close-modal" id="btn-close-modal" disabled>Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
