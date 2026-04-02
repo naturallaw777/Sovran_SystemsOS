@@ -95,7 +95,7 @@ import uvicorn
 uvicorn.run(
     "sovran_systemsos_web.server:app",
     host="0.0.0.0",
-    port=8080,
+    port=8937,
     log_level="info",
 )
 LAUNCHER
@@ -130,6 +130,6 @@ in
     };
 
     # ── Open firewall port ─────────────────────────────────────
-    networking.firewall.allowedTCPPorts = [ 8080 ];
+    networking.firewall.allowedTCPPorts = [ 8937 ];
   };
 }
