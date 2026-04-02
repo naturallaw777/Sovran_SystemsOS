@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 import base64
 import hashlib
-import io
 import json
 import os
 import re
@@ -317,7 +316,6 @@ async def api_config():
 @app.get("/api/services")
 async def api_services():
     cfg = load_config()
-    method = cfg.get("command_method", "systemctl")
     services = cfg.get("services", [])
 
     loop = asyncio.get_event_loop()
@@ -380,56 +378,6 @@ async def api_credentials(unit: str):
         "name": entry.get("name", ""),
         "credentials": resolved,
     }
-
-
-def _get_allowed_units() -> set[str]:
-    cfg = load_config()
-    return {s.get("unit", "") for s in cfg.get("services", []) if s.get("unit")}
-
-
-@app.post("/api/services/{unit}/start")
-async def service_start(unit: str):
-    if unit not in _get_allowed_units():
-        raise HTTPException(status_code=403, detail=f"Unit {unit!r} is not in the allowed service list")
-    cfg = load_config()
-    method = cfg.get("command_method", "systemctl")
-    loop = asyncio.get_event_loop()
-    ok = await loop.run_in_executor(
-        None, lambda: sysctl.run_action("start", unit, "system", method)
-    )
-    if not ok:
-        raise HTTPException(status_code=500, detail=f"Failed to start {unit}")
-    return {"ok": True}
-
-
-@app.post("/api/services/{unit}/stop")
-async def service_stop(unit: str):
-    if unit not in _get_allowed_units():
-        raise HTTPException(status_code=403, detail=f"Unit {unit!r} is not in the allowed service list")
-    cfg = load_config()
-    method = cfg.get("command_method", "systemctl")
-    loop = asyncio.get_event_loop()
-    ok = await loop.run_in_executor(
-        None, lambda: sysctl.run_action("stop", unit, "system", method)
-    )
-    if not ok:
-        raise HTTPException(status_code=500, detail=f"Failed to stop {unit}")
-    return {"ok": True}
-
-
-@app.post("/api/services/{unit}/restart")
-async def service_restart(unit: str):
-    if unit not in _get_allowed_units():
-        raise HTTPException(status_code=403, detail=f"Unit {unit!r} is not in the allowed service list")
-    cfg = load_config()
-    method = cfg.get("command_method", "systemctl")
-    loop = asyncio.get_event_loop()
-    ok = await loop.run_in_executor(
-        None, lambda: sysctl.run_action("restart", unit, "system", method)
-    )
-    if not ok:
-        raise HTTPException(status_code=500, detail=f"Failed to restart {unit}")
-    return {"ok": True}
 
 
 @app.get("/api/network")

@@ -1,9 +1,9 @@
-/* Sovran_SystemsOS Hub — Vanilla JS Frontend */
+/* Sovran_SystemsOS Hub — Vanilla JS Frontend
+   v6 — Status-only dashboard (no start/stop/restart controls) */
 "use strict";
 
 const POLL_INTERVAL_SERVICES = 5000;   // 5 s
 const POLL_INTERVAL_UPDATES  = 1800000; // 30 min
-const ACTION_REFRESH_DELAY   = 1500;   // 1.5 s after start/stop/restart
 const UPDATE_POLL_INTERVAL   = 2000;   // 2 s while update is running
 const REBOOT_CHECK_INTERVAL  = 5000;   // 5 s between reconnect attempts
 
@@ -153,8 +153,7 @@ function buildTile(svc) {
   const sc   = statusClass(svc.status);
   const st   = statusText(svc.status, svc.enabled);
   const dis  = !svc.enabled;
-  const isOn = svc.status === "active";
-  const hasCreds = svc.has_credentials;
+  const hasCreds = svc.has_credentials && svc.enabled;
 
   const tile = document.createElement("div");
   tile.className = "service-tile" + (dis ? " disabled" : "");
@@ -162,7 +161,7 @@ function buildTile(svc) {
   tile.dataset.tileId = tileId(svc);
   if (dis) tile.title = `${svc.name} is not enabled in custom.nix`;
 
-  // Info button (only if service has credentials)
+  // Info button (only if service has credentials and is enabled)
   const infoBtn = hasCreds
     ? `<button class="tile-info-btn" data-unit="${escHtml(svc.unit)}" title="Connection info">i</button>`
     : "";
@@ -179,16 +178,6 @@ function buildTile(svc) {
       <span class="status-dot ${sc}"></span>
       <span class="status-text">${escHtml(st)}</span>
     </div>
-    <div class="tile-spacer"></div>
-    <div class="tile-controls">
-      <label class="toggle-label${dis ? " disabled-toggle" : ""}" title="${dis ? "Not enabled in custom.nix" : (isOn ? "Stop" : "Start")}">
-        <input type="checkbox" class="tile-toggle" data-unit="${escHtml(svc.unit)}"
-               ${isOn ? "checked" : ""} ${dis ? "disabled" : ""}>
-        <span class="toggle-track"><span class="toggle-thumb"></span></span>
-      </label>
-      <button class="tile-restart-btn" data-unit="${escHtml(svc.unit)}"
-              title="Restart" ${dis ? "disabled" : ""}>↺</button>
-    </div>
   `;
 
   // Info button click handler
@@ -197,29 +186,6 @@ function buildTile(svc) {
     infoBtnEl.addEventListener("click", (e) => {
       e.stopPropagation();
       openCredsModal(svc.unit, svc.name);
-    });
-  }
-
-  const chk = tile.querySelector(".tile-toggle");
-  if (!dis) {
-    chk.addEventListener("change", async (e) => {
-      const action = e.target.checked ? "start" : "stop";
-      chk.disabled = true;
-      try {
-        await apiFetch(`/api/services/${encodeURIComponent(svc.unit)}/${action}`, { method: "POST" });
-      } catch (_) {}
-      setTimeout(() => refreshServices(), ACTION_REFRESH_DELAY);
-    });
-  }
-
-  const restartBtn = tile.querySelector(".tile-restart-btn");
-  if (!dis) {
-    restartBtn.addEventListener("click", async () => {
-      restartBtn.disabled = true;
-      try {
-        await apiFetch(`/api/services/${encodeURIComponent(svc.unit)}/restart`, { method: "POST" });
-      } catch (_) {}
-      setTimeout(() => refreshServices(), ACTION_REFRESH_DELAY);
     });
   }
 
@@ -241,13 +207,9 @@ function updateTiles(services) {
 
     const dot  = tile.querySelector(".status-dot");
     const text = tile.querySelector(".status-text");
-    const chk  = tile.querySelector(".tile-toggle");
 
     if (dot)  { dot.className  = `status-dot ${sc}`; }
     if (text) { text.textContent = st; }
-    if (chk && !chk.disabled) {
-      chk.checked = svc.status === "active";
-    }
   }
 }
 
@@ -269,7 +231,7 @@ async function refreshServices() {
   }
 }
 
-// ── Network IPs ──────────────────────────────────��────────────────
+// ── Network IPs ───────────────────────────────────────────────────
 
 async function loadNetwork() {
   try {
