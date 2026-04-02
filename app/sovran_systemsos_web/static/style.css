@@ -1,6 +1,6 @@
 /* Sovran_SystemsOS Hub — Web UI Stylesheet
    Dark theme matching the Adwaita dark aesthetic
-   v5 — QR code support in credentials modal */
+   v6 — Status-only tiles (no controls) */
 
 *, *::before, *::after {
   box-sizing: border-box;
@@ -222,11 +222,11 @@ button:disabled {
   gap: 14px;
 }
 
-/* ── Service tile card ──────────────────────────────────────────── */
+/* ── Service tile card (status-only) ─────────────────────────────── */
 
 .service-tile {
-  width: 180px;
-  min-height: 210px;
+  width: 160px;
+  min-height: 150px;
   background-color: var(--card-color);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-card);
@@ -234,7 +234,8 @@ button:disabled {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 18px 12px 14px;
+  justify-content: center;
+  padding: 20px 12px 18px;
   gap: 0;
   transition: box-shadow 0.2s, border-color 0.2s;
   position: relative;
@@ -279,7 +280,7 @@ button:disabled {
   width: 48px;
   height: 48px;
   object-fit: contain;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
 }
 
 .tile-icon-fallback {
@@ -292,7 +293,7 @@ button:disabled {
   border-radius: 12px;
   color: var(--text-dim);
   font-size: 1.5rem;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
 }
 
 .tile-name {
@@ -301,10 +302,10 @@ button:disabled {
   text-align: center;
   color: var(--text-primary);
   line-height: 1.3;
-  max-width: 156px;
+  max-width: 140px;
   word-break: break-word;
   hyphens: auto;
-  min-height: 2.6em;
+  min-height: 1.3em;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -312,7 +313,7 @@ button:disabled {
 
 .tile-status {
   font-size: 0.75rem;
-  margin-top: 6px;
+  margin-top: 8px;
   display: flex;
   align-items: center;
   gap: 5px;
@@ -333,86 +334,7 @@ button:disabled {
 .status-dot.failed    { background-color: var(--red); }
 .status-dot.disabled  { background-color: var(--grey); }
 
-.tile-spacer {
-  flex: 1;
-}
-
-/* ── Tile controls ──────────────────────────────────────────────── */
-
-.tile-controls {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-top: 10px;
-}
-
-.toggle-label {
-  display: flex;
-  align-items: center;
-  cursor: pointer;
-}
-
-.toggle-label input[type="checkbox"] {
-  display: none;
-}
-
-.toggle-track {
-  width: 40px;
-  height: 22px;
-  background-color: var(--border-color);
-  border-radius: 11px;
-  position: relative;
-  transition: background-color 0.2s;
-}
-
-.toggle-label input:checked + .toggle-track {
-  background-color: var(--green);
-}
-
-.toggle-label.disabled-toggle {
-  cursor: not-allowed;
-  opacity: 0.5;
-}
-
-.toggle-thumb {
-  position: absolute;
-  top: 3px;
-  left: 3px;
-  width: 16px;
-  height: 16px;
-  background-color: #fff;
-  border-radius: 50%;
-  transition: transform 0.2s;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.4);
-}
-
-.toggle-label input:checked + .toggle-track .toggle-thumb {
-  transform: translateX(18px);
-}
-
-.tile-restart-btn {
-  background: none;
-  border: none;
-  color: var(--text-secondary);
-  cursor: pointer;
-  padding: 4px 6px;
-  border-radius: 50%;
-  font-size: 0.95rem;
-  line-height: 1;
-  transition: background-color 0.15s, color 0.15s;
-}
-
-.tile-restart-btn:hover:not(:disabled) {
-  background-color: var(--border-color);
-  color: var(--text-primary);
-}
-
-.tile-restart-btn:disabled {
-  opacity: 0.35;
-  cursor: default;
-}
-
-/* ── Update modal ───────────────────────────────────────────────── */
+/* ── Update modal ─────────────────────────────────���─────────────── */
 
 .modal-overlay {
   display: none;
@@ -530,7 +452,7 @@ button.btn-reboot:hover:not(:disabled) {
   background-color: #5a5c72;
 }
 
-/* ── Credentials info modal ──────────────────────────────────────��─ */
+/* ── Credentials info modal ──────────────────────────────────────── */
 
 .creds-dialog {
   background-color: var(--surface-color);
@@ -668,16 +590,6 @@ button.btn-reboot:hover:not(:disabled) {
 .creds-link:hover {
   text-decoration: underline;
   color: #defce6;
-}
-
-/* ── QR code in credentials modal ────────────────────────────────── */
-
-.creds-qr-wrap {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 20px 0;
-  margin-bottom: 10px;
 }
 
 /* ── QR code in credentials modal ────────────────────────────────── */
@@ -830,8 +742,8 @@ button.btn-reboot:hover:not(:disabled) {
     justify-content: center;
   }
   .service-tile {
-    width: 160px;
-    min-height: 200px;
+    width: 140px;
+    min-height: 130px;
   }
   .reboot-card {
     padding: 36px 28px;
