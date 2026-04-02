@@ -43,6 +43,10 @@ let
         { label = "URL"; file = "/var/lib/domains/btcpayserver"; prefix = "https://"; }
         { label = "Note"; value = "Create your admin account on first visit"; }
       ]; }
+      { name = "Zeus Connect";       unit = "zeus-connect-setup.service"; type = "system"; icon = "zeus";   enabled = cfg.services.bitcoin;  category = "bitcoin-apps"; credentials = [
+        { label = "Connection URL"; file = "/var/lib/secrets/zeus-connect-url"; }
+        { label = "How to Connect"; value = "1. Download Zeus from App Store or Google Play\n2. Open Zeus → Scan Node Config\n3. Copy and paste the Connection URL above"; }
+      ]; }
       { name = "Mempool";            unit = "mempool.service";      type = "system"; icon = "mempool";      enabled = cfg.features.mempool;  category = "bitcoin-apps"; credentials = [
         { label = "Tor Access"; file = "/var/lib/tor/onion/mempool-frontend/hostname"; prefix = "http://"; }
         { label = "Local Network"; file = "/var/lib/secrets/internal-ip"; prefix = "http://"; suffix = ":60847"; }
