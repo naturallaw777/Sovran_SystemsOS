@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 import hashlib
+import io
 import json
 import os
 import re
@@ -31,6 +33,7 @@ UPDATE_STATUS = "/var/log/sovran-hub-update.status"
 UPDATE_UNIT   = "sovran-hub-update.service"
 
 INTERNAL_IP_FILE = "/var/lib/secrets/internal-ip"
+ZEUS_CONNECT_FILE = "/var/lib/secrets/zeus-connect-url"
 
 REBOOT_COMMAND = ["reboot"]
 
@@ -185,6 +188,24 @@ def _get_external_ip() -> str:
     return "unavailable"
 
 
+# ── QR code helper ────────────────────────────────────────────────
+
+def _generate_qr_base64(data: str) -> str | None:
+    """Generate a QR code PNG and return it as a base64-encoded data URI.
+    Uses qrencode CLI (available on the system via credentials-pdf.nix)."""
+    try:
+        result = subprocess.run(
+            ["qrencode", "-o", "-", "-t", "PNG", "-s", "6", "-m", "2", "-l", "H", data],
+            capture_output=True, timeout=10,
+        )
+        if result.returncode == 0 and result.stdout:
+            b64 = base64.b64encode(result.stdout).decode("ascii")
+            return f"data:image/png;base64,{b64}"
+    except Exception:
+        pass
+    return None
+
+
 # ── Update helpers (file-based, no systemctl) ────────────────────
 
 def _read_update_status() -> str:
@@ -224,16 +245,22 @@ def _read_log(offset: int = 0) -> tuple[str, int]:
 # ── Credentials helpers ──────────────────────────────────────────
 
 def _resolve_credential(cred: dict) -> dict | None:
-    """Resolve a single credential entry to {label, value}."""
+    """Resolve a single credential entry to {label, value, ...}."""
     label = cred.get("label", "")
     prefix = cred.get("prefix", "")
     suffix = cred.get("suffix", "")
     extract = cred.get("extract", "")
     multiline = cred.get("multiline", False)
+    qrcode = cred.get("qrcode", False)
 
     # Static value
     if "value" in cred:
-        return {"label": label, "value": prefix + cred["value"] + suffix, "multiline": multiline}
+        result = {"label": label, "value": prefix + cred["value"] + suffix, "multiline": multiline}
+        if qrcode:
+            qr_data = _generate_qr_base64(result["value"])
+            if qr_data:
+                result["qrcode"] = qr_data
+        return result
 
     # File-based value
     filepath = cred.get("file", "")
@@ -255,7 +282,14 @@ def _resolve_credential(cred: dict) -> dict | None:
             return None
 
     value = prefix + raw + suffix
-    return {"label": label, "value": value, "multiline": multiline}
+    result = {"label": label, "value": value, "multiline": multiline}
+
+    if qrcode:
+        qr_data = _generate_qr_base64(value)
+        if qr_data:
+            result["qrcode"] = qr_data
+
+    return result
 
 
 # ── Routes ───────────────────────────────────────────────────────
