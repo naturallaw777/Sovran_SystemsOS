@@ -9,7 +9,8 @@ let
       { name = "Caddy"; unit = "caddy.service"; type = "system"; icon = "caddy"; enabled = true;  category = "infrastructure"; credentials = []; }
       { name = "Tor";   unit = "tor.service";   type = "system"; icon = "tor";   enabled = true;  category = "infrastructure"; credentials = []; }
       { name = "System Passwords"; unit = "root-password-setup.service"; type = "system"; icon = "system"; enabled = true; category = "infrastructure"; credentials = [
-        { label = "Free Account"; value = "Username: free  /  Password: free"; }
+        { label = "Free Account — Username"; value = "free"; }
+        { label = "Free Account — Password"; file = "/var/lib/secrets/free-password"; }
         { label = "Root Password"; file = "/var/lib/secrets/root-password"; }
         { label = "SSH Local Access"; value = "ssh root@localhost  /  Passphrase: gosovransystems"; }
       ]; }
