@@ -5,6 +5,7 @@ const POLL_INTERVAL_SERVICES = 5000;   // 5 s
 const POLL_INTERVAL_UPDATES  = 1800000; // 30 min
 const ACTION_REFRESH_DELAY   = 1500;   // 1.5 s after start/stop/restart
 const UPDATE_POLL_INTERVAL   = 1500;   // 1.5 s while update is running
+const UPDATE_POLL_DELAY      = 3000;   // 3 s before first poll (let unit start)
 
 const CATEGORY_ORDER = [
   "infrastructure",
@@ -28,6 +29,7 @@ let _updatePollTimer = null;
 let _updateLogOffset = 0;
 let _serverWasDown   = false;
 let _updateFinished  = false;
+let _sawRunning      = false;
 
 // ── DOM refs ──────────────────────────────────────────────────────
 
@@ -255,7 +257,6 @@ async function checkUpdates() {
     if ($updateBadge) {
       $updateBadge.classList.toggle("visible", hasUpdates);
     }
-    // Toggle button color: blue (default) → green (updates available)
     if ($updateBtn) {
       $updateBtn.classList.toggle("has-updates", hasUpdates);
     }
@@ -270,6 +271,7 @@ function openUpdateModal() {
   _updateLogOffset = 0;
   _serverWasDown = false;
   _updateFinished = false;
+  _sawRunning = false;
   if ($modalLog)      $modalLog.textContent = "";
   if ($modalStatus)   $modalStatus.textContent = "Starting update…";
   if ($modalSpinner)  $modalSpinner.classList.add("spinning");
@@ -307,9 +309,11 @@ function startUpdate() {
     .then(data => {
       if (data.status === "already_running") {
         appendLog("[Update already in progress, attaching…]\n\n");
+        _sawRunning = true;
       }
       if ($modalStatus) $modalStatus.textContent = "Updating…";
-      startUpdatePoll();
+      // Delay the first poll to give the systemd unit time to start
+      setTimeout(startUpdatePoll, UPDATE_POLL_DELAY);
     })
     .catch(err => {
       appendLog(`[Error: failed to start update — ${err}]\n`);
@@ -330,7 +334,6 @@ function stopUpdatePoll() {
 }
 
 async function pollUpdateStatus() {
-  // Don't poll if we already know it's done
   if (_updateFinished) return;
 
   try {
@@ -348,8 +351,14 @@ async function pollUpdateStatus() {
     }
     _updateLogOffset = data.offset;
 
-    // Check if finished
-    if (!data.running) {
+    // Track if we ever saw the unit as running
+    if (data.running) {
+      _sawRunning = true;
+    }
+
+    // Only declare finished if we previously saw it running (or server says so)
+    // This prevents the race where the unit hasn't started yet
+    if (!data.running && _sawRunning) {
       _updateFinished = true;
       stopUpdatePoll();
       if (data.result === "success") {
@@ -359,7 +368,9 @@ async function pollUpdateStatus() {
       }
     }
   } catch (err) {
-    // Server is likely restarting during nixos-rebuild switch — keep polling
+    // Server is likely restarting during nixos-rebuild switch
+    // This counts as "saw running" since it was running before it died
+    _sawRunning = true;
     if (!_serverWasDown) {
       _serverWasDown = true;
       appendLog("\n[Server restarting — waiting for it to come back…]\n\n");
@@ -413,7 +424,7 @@ if ($modal) {
   });
 }
 
-// ── Init ──────��───────────────────────────────────────────────────
+// ── Init ──────────────────────────────────────────────────────────
 
 async function init() {
   try {
