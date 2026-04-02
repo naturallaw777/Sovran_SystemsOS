@@ -13,10 +13,11 @@ import subprocess
 import urllib.request
 
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.requests import Request
+from pydantic import BaseModel
 
 from .config import load_config
 from . import systemctl as sysctl
@@ -30,6 +31,15 @@ GITEA_API_BASE = "https://git.sovransystems.com/api/v1/repos/Sovran_Systems/Sovr
 UPDATE_LOG    = "/var/log/sovran-hub-update.log"
 UPDATE_STATUS = "/var/log/sovran-hub-update.status"
 UPDATE_UNIT   = "sovran-hub-update.service"
+
+REBUILD_LOG    = "/var/log/sovran-hub-rebuild.log"
+REBUILD_STATUS = "/var/log/sovran-hub-rebuild.status"
+REBUILD_UNIT   = "sovran-hub-rebuild.service"
+
+HUB_OVERRIDES_NIX = "/etc/nixos/hub-overrides.nix"
+DOMAINS_DIR       = "/var/lib/domains"
+NOSTR_NPUB_FILE   = "/var/lib/secrets/nostr_npub"
+NJALLA_SCRIPT     = "/var/lib/njalla/njalla.sh"
 
 INTERNAL_IP_FILE = "/var/lib/secrets/internal-ip"
 ZEUS_CONNECT_FILE = "/var/lib/secrets/zeus-connect-url"
@@ -55,6 +65,85 @@ CATEGORY_ORDER = [
     ("apps",           "Self-Hosted Apps"),
     ("nostr",          "Nostr"),
     ("support",        "Support"),
+    ("feature-manager", "Feature Manager"),
+]
+
+FEATURE_REGISTRY = [
+    {
+        "id": "rdp",
+        "name": "Remote Desktop (RDP)",
+        "description": "Access your desktop remotely via RDP client",
+        "category": "infrastructure",
+        "needs_domain": False,
+        "domain_name": None,
+        "needs_ddns": False,
+        "extra_fields": [],
+        "conflicts_with": [],
+    },
+    {
+        "id": "haven",
+        "name": "Haven NOSTR Relay",
+        "description": "Run your own private Nostr relay",
+        "category": "nostr",
+        "needs_domain": True,
+        "domain_name": "haven",
+        "needs_ddns": True,
+        "extra_fields": [
+            {
+                "id": "nostr_npub",
+                "label": "Nostr Public Key (npub1...)",
+                "type": "text",
+                "required": True,
+                "current_value": "",
+            },
+        ],
+        "conflicts_with": [],
+    },
+    {
+        "id": "element-calling",
+        "name": "Element Video & Audio Calling",
+        "description": "Add video/audio calling to Matrix via LiveKit",
+        "category": "communication",
+        "needs_domain": True,
+        "domain_name": "element-calling",
+        "needs_ddns": True,
+        "extra_fields": [],
+        "conflicts_with": [],
+        "requires": ["matrix_domain"],
+    },
+    {
+        "id": "mempool",
+        "name": "Mempool Explorer",
+        "description": "Bitcoin mempool visualization and explorer",
+        "category": "bitcoin",
+        "needs_domain": False,
+        "domain_name": None,
+        "needs_ddns": False,
+        "extra_fields": [],
+        "conflicts_with": [],
+    },
+    {
+        "id": "bip110",
+        "name": "BIP-110 (Bitcoin Better Money)",
+        "description": "Bitcoin Knots with BIP-110 consensus changes",
+        "category": "bitcoin",
+        "needs_domain": False,
+        "domain_name": None,
+        "needs_ddns": False,
+        "extra_fields": [],
+        "conflicts_with": ["bitcoin-core"],
+    },
+    {
+        "id": "bitcoin-core",
+        "name": "Bitcoin Core",
+        "description": "Use Bitcoin Core instead of Bitcoin Knots",
+        "category": "bitcoin",
+        "needs_domain": False,
+        "domain_name": None,
+        "needs_ddns": False,
+        "extra_fields": [],
+        "conflicts_with": ["bip110"],
+    },
 ]
 
 ROLE_LABELS = {
@@ -303,6 +392,77 @@ def _resolve_credential(cred: dict) -> dict | None:
     return result
 
 
+# ── Rebuild helpers (file-based, no systemctl) ───────────────────
+
+def _read_rebuild_status() -> str:
+    """Read the rebuild status file. Returns RUNNING, SUCCESS, FAILED, or IDLE."""
+    try:
+        with open(REBUILD_STATUS, "r") as f:
+            return f.read().strip()
+    except FileNotFoundError:
+        return "IDLE"
+
+
+def _read_rebuild_log(offset: int = 0) -> tuple[str, int]:
+    """Read the rebuild log file from the given byte offset."""
+    try:
+        with open(REBUILD_LOG, "rb") as f:
+            f.seek(0, 2)
+            size = f.tell()
+            if offset > size:
+                offset = 0
+            f.seek(offset)
+            chunk = f.read()
+            return chunk.decode(errors="replace"), offset + len(chunk)
+    except FileNotFoundError:
+        return "", 0
+
+
+# ── hub-overrides.nix helpers ─────────────────────────────────────
+
+def _read_hub_overrides() -> tuple[dict, str | None]:
+    """Parse hub-overrides.nix. Returns (features_dict, nostr_npub_or_none)."""
+    features: dict[str, bool] = {}
+    nostr_npub = None
+    try:
+        with open(HUB_OVERRIDES_NIX, "r") as f:
+            content = f.read()
+        for m in re.finditer(
+            r'sovran_systemsOS\.features\.([a-zA-Z0-9_-]+)\s*=\s*(true|false)\s*;',
+            content,
+        ):
+            features[m.group(1)] = m.group(2) == "true"
+        m2 = re.search(r'sovran_systemsOS\.nostr_npub\s*=\s*"([^"]*)"', content)
+        if m2:
+            nostr_npub = m2.group(1)
+    except FileNotFoundError:
+        pass
+    return features, nostr_npub
+
+
+def _write_hub_overrides(features: dict, nostr_npub: str | None) -> None:
+    """Write a complete hub-overrides.nix from the given state."""
+    lines = []
+    for feat_id, enabled in features.items():
+        val = "true" if enabled else "false"
+        lines.append(f"  sovran_systemsOS.features.{feat_id} = {val};")
+    if nostr_npub:
+        lines.append(f'  sovran_systemsOS.nostr_npub = "{nostr_npub}";')
+    body = "\n".join(lines) + "\n" if lines else ""
+    content = (
+        "# Auto-generated by Sovran Hub — do not edit manually\n"
+        "{ ... }:\n"
+        "{\n"
+        + body
+        + "}\n"
+    )
+    nix_dir = os.path.dirname(HUB_OVERRIDES_NIX)
+    if nix_dir:
+        os.makedirs(nix_dir, exist_ok=True)
+    with open(HUB_OVERRIDES_NIX, "w") as f:
+        f.write(content)
+
+
 # ── Tech Support helpers ──────────────────────────────────────────
 
 def _is_support_active() -> bool:
@@ -422,6 +582,7 @@ async def api_config():
         "role": role,
         "role_label": ROLE_LABELS.get(role, role),
         "category_order": CATEGORY_ORDER,
+        "feature_manager": cfg.get("feature_manager", False),
     }
 
 
@@ -609,6 +770,232 @@ async def api_support_disable():
     # Verify it's actually gone
     verified = await loop.run_in_executor(None, _verify_support_removed)
     return {"ok": True, "verified": verified, "message": "Support access removed and verified"}
+
+
+# ── Feature Manager endpoints ─────────────────────────────────────
+
+@app.get("/api/features")
+async def api_features():
+    """Return all toggleable features with current state and domain requirements."""
+    loop = asyncio.get_event_loop()
+    overrides, nostr_npub = await loop.run_in_executor(None, _read_hub_overrides)
+
+    ssl_email_path = os.path.join(DOMAINS_DIR, "sslemail")
+    ssl_email_configured = os.path.exists(ssl_email_path)
+
+    features = []
+    for feat in FEATURE_REGISTRY:
+        feat_id = feat["id"]
+        enabled = overrides.get(feat_id, False)
+
+        domain_name = feat.get("domain_name")
+        domain_configured = True
+        if domain_name:
+            domain_configured = os.path.exists(os.path.join(DOMAINS_DIR, domain_name))
+
+        extra_fields = []
+        for ef in feat.get("extra_fields", []):
+            ef_copy = dict(ef)
+            if ef["id"] == "nostr_npub":
+                ef_copy["current_value"] = nostr_npub or ""
+            extra_fields.append(ef_copy)
+
+        entry: dict = {
+            "id": feat_id,
+            "name": feat["name"],
+            "description": feat["description"],
+            "category": feat["category"],
+            "enabled": enabled,
+            "needs_domain": feat.get("needs_domain", False),
+            "domain_configured": domain_configured,
+            "domain_name": domain_name,
+            "needs_ddns": feat.get("needs_ddns", False),
+            "extra_fields": extra_fields,
+            "conflicts_with": feat.get("conflicts_with", []),
+        }
+        if "requires" in feat:
+            entry["requires"] = feat["requires"]
+        features.append(entry)
+
+    return {"features": features, "ssl_email_configured": ssl_email_configured}
+
+
+class FeatureToggleRequest(BaseModel):
+    feature: str
+    enabled: bool
+    extra: dict = {}
+
+
+@app.post("/api/features/toggle")
+async def api_features_toggle(req: FeatureToggleRequest):
+    """Enable or disable a feature and trigger a system rebuild."""
+    feat_meta = next((f for f in FEATURE_REGISTRY if f["id"] == req.feature), None)
+    if not feat_meta:
+        raise HTTPException(status_code=404, detail="Feature not found")
+
+    loop = asyncio.get_event_loop()
+    features, nostr_npub = await loop.run_in_executor(None, _read_hub_overrides)
+
+    if req.enabled:
+        # Element-calling requires matrix domain
+        if req.feature == "element-calling":
+            if not os.path.exists(os.path.join(DOMAINS_DIR, "matrix")):
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        "Element Calling requires a Matrix domain to be configured. "
+                        "Please run `sovran-setup-domains` first or configure the Matrix domain."
+                    ),
+                )
+
+        # Domain requirement check
+        if feat_meta.get("needs_domain") and feat_meta.get("domain_name"):
+            domain_path = os.path.join(DOMAINS_DIR, feat_meta["domain_name"])
+            if not os.path.exists(domain_path):
+                return JSONResponse(
+                    status_code=400,
+                    content={
+                        "error": "domain_required",
+                        "domain_name": feat_meta["domain_name"],
+                    },
+                )
+
+        # Haven requires nostr_npub
+        if req.feature == "haven":
+            npub = (req.extra or {}).get("nostr_npub", "").strip()
+            if npub:
+                nostr_npub = npub
+            elif not nostr_npub:
+                raise HTTPException(status_code=400, detail="nostr_npub is required for Haven")
+
+        # Auto-disable conflicting features
+        for conflict_id in feat_meta.get("conflicts_with", []):
+            features[conflict_id] = False
+
+        features[req.feature] = True
+    else:
+        features[req.feature] = False
+
+    # Persist any extra fields (nostr_npub)
+    new_npub = (req.extra or {}).get("nostr_npub", "").strip()
+    if new_npub:
+        nostr_npub = new_npub
+        try:
+            os.makedirs(os.path.dirname(NOSTR_NPUB_FILE), exist_ok=True)
+            with open(NOSTR_NPUB_FILE, "w") as f:
+                f.write(nostr_npub)
+        except OSError:
+            pass
+
+    await loop.run_in_executor(None, _write_hub_overrides, features, nostr_npub)
+
+    # Start the rebuild service
+    await asyncio.create_subprocess_exec(
+        "systemctl", "reset-failed", REBUILD_UNIT,
+        stdout=asyncio.subprocess.DEVNULL,
+        stderr=asyncio.subprocess.DEVNULL,
+    )
+    proc = await asyncio.create_subprocess_exec(
+        "systemctl", "start", "--no-block", REBUILD_UNIT,
+        stdout=asyncio.subprocess.DEVNULL,
+        stderr=asyncio.subprocess.DEVNULL,
+    )
+    await proc.wait()
+
+    return {"ok": True, "status": "rebuilding"}
+
+
+@app.get("/api/rebuild/status")
+async def api_rebuild_status(offset: int = 0):
+    """Poll endpoint for rebuild progress."""
+    loop = asyncio.get_event_loop()
+    status = await loop.run_in_executor(None, _read_rebuild_status)
+    new_log, new_offset = await loop.run_in_executor(None, _read_rebuild_log, offset)
+    running = status == "RUNNING"
+    result = "pending" if running else status.lower()
+    return {
+        "running": running,
+        "result": result,
+        "log": new_log,
+        "offset": new_offset,
+    }
+
+
+# ── Domain endpoints ──────────────────────────────────────────────
+
+class DomainSetRequest(BaseModel):
+    domain_name: str
+    domain: str
+    ddns_url: str = ""
+
+
+@app.post("/api/domains/set")
+async def api_domains_set(req: DomainSetRequest):
+    """Save a domain and optionally register a DDNS URL."""
+    os.makedirs(DOMAINS_DIR, exist_ok=True)
+    domain_path = os.path.join(DOMAINS_DIR, req.domain_name)
+    with open(domain_path, "w") as f:
+        f.write(req.domain.strip())
+
+    if req.ddns_url:
+        ddns_url = req.ddns_url.strip()
+        # Strip leading "curl " if present
+        if ddns_url.lower().startswith("curl "):
+            ddns_url = ddns_url[5:].strip()
+        # Strip surrounding quotes
+        if len(ddns_url) >= 2 and ddns_url[0] in ('"', "'") and ddns_url[-1] == ddns_url[0]:
+            ddns_url = ddns_url[1:-1]
+        # Replace trailing &auto with &a=${IP}
+        if ddns_url.endswith("&auto"):
+            ddns_url = ddns_url[:-5] + "&a=${IP}"
+        # Append curl line to njalla.sh
+        njalla_dir = os.path.dirname(NJALLA_SCRIPT)
+        if njalla_dir:
+            os.makedirs(njalla_dir, exist_ok=True)
+        with open(NJALLA_SCRIPT, "a") as f:
+            f.write(f'curl "{ddns_url}"\n')
+        try:
+            os.chmod(NJALLA_SCRIPT, 0o755)
+        except OSError:
+            pass
+        # Run njalla.sh immediately to update DNS
+        try:
+            subprocess.run([NJALLA_SCRIPT], timeout=30, check=False)
+        except Exception:
+            pass
+
+    return {"ok": True}
+
+
+class DomainSetEmailRequest(BaseModel):
+    email: str
+
+
+@app.post("/api/domains/set-email")
+async def api_domains_set_email(req: DomainSetEmailRequest):
+    """Save the SSL certificate email address."""
+    os.makedirs(DOMAINS_DIR, exist_ok=True)
+    with open(os.path.join(DOMAINS_DIR, "sslemail"), "w") as f:
+        f.write(req.email.strip())
+    return {"ok": True}
+
+
+@app.get("/api/domains/status")
+async def api_domains_status():
+    """Return the value of each known domain file (or null if missing)."""
+    known = [
+        "matrix", "haven", "element-calling", "sslemail",
+        "vaultwarden", "btcpayserver", "nextcloud", "wordpress",
+    ]
+    domains: dict[str, str | None] = {}
+    for name in known:
+        path = os.path.join(DOMAINS_DIR, name)
+        try:
+            with open(path, "r") as f:
+                domains[name] = f.read().strip()
+        except FileNotFoundError:
+            domains[name] = None
+    return {"domains": domains}
 
 
 # ── Startup: seed the internal IP file immediately ───────────────
