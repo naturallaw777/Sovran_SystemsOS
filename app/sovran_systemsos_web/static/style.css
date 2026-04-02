@@ -100,9 +100,10 @@ button:disabled {
   opacity: 0.88;
 }
 
+/* Update button: blue by default, green when updates available */
 .btn-update {
-  background-color: var(--green);
-  color: #fff;
+  background-color: var(--accent-color);
+  color: #1e1e2e;
   position: relative;
   display: flex;
   align-items: center;
@@ -110,6 +111,15 @@ button:disabled {
 }
 
 .btn-update:hover:not(:disabled) {
+  opacity: 0.88;
+}
+
+.btn-update.has-updates {
+  background-color: var(--green);
+  color: #fff;
+}
+
+.btn-update.has-updates:hover:not(:disabled) {
   background-color: #27ae6e;
 }
 
@@ -451,6 +461,7 @@ button:disabled {
   background-color: #12121c;
   white-space: pre-wrap;
   word-break: break-all;
+  min-height: 200px;
 }
 
 .modal-footer {
@@ -462,13 +473,14 @@ button:disabled {
   border-top: 1px solid var(--border-color);
 }
 
+/* Reboot button: green */
 .btn-reboot {
-  background-color: var(--red);
+  background-color: var(--green);
   color: #fff;
 }
 
 .btn-reboot:hover:not(:disabled) {
-  background-color: #c0181f;
+  background-color: #27ae6e;
 }
 
 .btn-save {
