@@ -21,7 +21,7 @@ from fastapi.requests import Request
 from .config import load_config
 from . import systemctl as sysctl
 
-# ── Constants ────────────────────────────────────────────────────
+# ── Constants ──────────────────────────────��─────────────────────
 
 FLAKE_LOCK_PATH = "/etc/nixos/flake.lock"
 FLAKE_INPUT_NAME = "Sovran_Systems"
@@ -36,6 +36,17 @@ ZEUS_CONNECT_FILE = "/var/lib/secrets/zeus-connect-url"
 
 REBOOT_COMMAND = ["reboot"]
 
+# ── Tech Support constants ────────────────────────────────────────
+
+SUPPORT_KEY_FILE = "/root/.ssh/sovran_support_authorized"
+AUTHORIZED_KEYS  = "/root/.ssh/authorized_keys"
+SUPPORT_STATUS_FILE = "/var/lib/secrets/support-session-status"
+
+# Sovran Systems tech support public key
+SOVRAN_SUPPORT_PUBKEY = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExampleKeyReplaceMeWithYourRealPublicKey sovran-support"
+
+SUPPORT_KEY_COMMENT = "sovran-support"
+
 CATEGORY_ORDER = [
     ("infrastructure", "Infrastructure"),
     ("bitcoin-base",   "Bitcoin Base"),
@@ -43,6 +54,7 @@ CATEGORY_ORDER = [
     ("communication",  "Communication"),
     ("apps",           "Self-Hosted Apps"),
     ("nostr",          "Nostr"),
+    ("support",        "Support"),
 ]
 
 ROLE_LABELS = {
@@ -90,7 +102,7 @@ def _file_hash(filename: str) -> str:
 _APP_JS_HASH  = _file_hash("app.js")
 _STYLE_CSS_HASH = _file_hash("style.css")
 
-# ── Update check helpers ─────────────────────────────────────────
+# ── Update check helpers ──────────────────��──────────────────────
 
 def _get_locked_info():
     try:
@@ -291,6 +303,106 @@ def _resolve_credential(cred: dict) -> dict | None:
     return result
 
 
+# ── Tech Support helpers ──────────────────────────────────────────
+
+def _is_support_active() -> bool:
+    """Check if the support key is currently in authorized_keys."""
+    try:
+        with open(AUTHORIZED_KEYS, "r") as f:
+            content = f.read()
+        return SUPPORT_KEY_COMMENT in content
+    except FileNotFoundError:
+        return False
+
+
+def _get_support_session_info() -> dict:
+    """Read support session metadata."""
+    try:
+        with open(SUPPORT_STATUS_FILE, "r") as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
+
+
+def _enable_support() -> bool:
+    """Add the Sovran support public key to root's authorized_keys."""
+    try:
+        os.makedirs("/root/.ssh", mode=0o700, exist_ok=True)
+
+        # Write the key to the dedicated support key file
+        with open(SUPPORT_KEY_FILE, "w") as f:
+            f.write(SOVRAN_SUPPORT_PUBKEY + "\n")
+        os.chmod(SUPPORT_KEY_FILE, 0o600)
+
+        # Append to authorized_keys if not already present
+        existing = ""
+        try:
+            with open(AUTHORIZED_KEYS, "r") as f:
+                existing = f.read()
+        except FileNotFoundError:
+            pass
+
+        if SUPPORT_KEY_COMMENT not in existing:
+            with open(AUTHORIZED_KEYS, "a") as f:
+                f.write(SOVRAN_SUPPORT_PUBKEY + "\n")
+            os.chmod(AUTHORIZED_KEYS, 0o600)
+
+        # Write session metadata
+        import time
+        session_info = {
+            "enabled_at": time.time(),
+            "enabled_at_human": time.strftime("%Y-%m-%d %H:%M:%S %Z"),
+        }
+        os.makedirs(os.path.dirname(SUPPORT_STATUS_FILE), exist_ok=True)
+        with open(SUPPORT_STATUS_FILE, "w") as f:
+            json.dump(session_info, f)
+
+        return True
+    except Exception:
+        return False
+
+
+def _disable_support() -> bool:
+    """Remove the Sovran support public key from authorized_keys."""
+    try:
+        # Remove from authorized_keys
+        try:
+            with open(AUTHORIZED_KEYS, "r") as f:
+                lines = f.readlines()
+            filtered = [l for l in lines if SUPPORT_KEY_COMMENT not in l]
+            with open(AUTHORIZED_KEYS, "w") as f:
+                f.writelines(filtered)
+            os.chmod(AUTHORIZED_KEYS, 0o600)
+        except FileNotFoundError:
+            pass
+
+        # Remove the dedicated key file
+        try:
+            os.remove(SUPPORT_KEY_FILE)
+        except FileNotFoundError:
+            pass
+
+        # Remove session metadata
+        try:
+            os.remove(SUPPORT_STATUS_FILE)
+        except FileNotFoundError:
+            pass
+
+        return True
+    except Exception:
+        return False
+
+
+def _verify_support_removed() -> bool:
+    """Verify the support key is truly gone from authorized_keys."""
+    try:
+        with open(AUTHORIZED_KEYS, "r") as f:
+            content = f.read()
+        return SUPPORT_KEY_COMMENT not in content
+    except FileNotFoundError:
+        return True  # No file = no key = removed
+
+
 # ── Routes ───────────────────────────────────────────────────────
 
 @app.get("/", response_class=HTMLResponse)
@@ -459,6 +571,44 @@ async def api_updates_status(offset: int = 0):
         "log": new_log,
         "offset": new_offset,
     }
+
+
+# ── Tech Support endpoints ────────────────────────────────────────
+
+@app.get("/api/support/status")
+async def api_support_status():
+    """Check if tech support SSH access is currently enabled."""
+    loop = asyncio.get_event_loop()
+    active = await loop.run_in_executor(None, _is_support_active)
+    session = await loop.run_in_executor(None, _get_support_session_info)
+    return {
+        "active": active,
+        "enabled_at": session.get("enabled_at"),
+        "enabled_at_human": session.get("enabled_at_human"),
+    }
+
+
+@app.post("/api/support/enable")
+async def api_support_enable():
+    """Add the Sovran support SSH key to allow remote tech support."""
+    loop = asyncio.get_event_loop()
+    ok = await loop.run_in_executor(None, _enable_support)
+    if not ok:
+        raise HTTPException(status_code=500, detail="Failed to enable support access")
+    return {"ok": True, "message": "Support access enabled"}
+
+
+@app.post("/api/support/disable")
+async def api_support_disable():
+    """Remove the Sovran support SSH key and end the session."""
+    loop = asyncio.get_event_loop()
+    ok = await loop.run_in_executor(None, _disable_support)
+    if not ok:
+        raise HTTPException(status_code=500, detail="Failed to disable support access")
+
+    # Verify it's actually gone
+    verified = await loop.run_in_executor(None, _verify_support_removed)
+    return {"ok": True, "verified": verified, "message": "Support access removed and verified"}
 
 
 # ── Startup: seed the internal IP file immediately ───────────────
