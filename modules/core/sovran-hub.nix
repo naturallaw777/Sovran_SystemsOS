@@ -6,15 +6,15 @@ let
   monitoredServices =
     # ── Infrastructure (always present) ────────────────────────
     [
-      { name = "Caddy"; unit = "caddy.service"; type = "system"; icon = "caddy"; enabled = true;  category = "infrastructure"; credentials = []; }
-      { name = "Tor";   unit = "tor.service";   type = "system"; icon = "tor";   enabled = true;  category = "infrastructure"; credentials = []; }
-      { name = "System Passwords"; unit = "root-password-setup.service"; type = "system"; icon = "system"; enabled = true; category = "infrastructure"; credentials = [
+      { name = "Caddy"; unit = "caddy.service"; type = "system"; icon = "caddy"; enabled = true;  category = "infrastructure"; toggleKey = ""; credentials = []; }
+      { name = "Tor";   unit = "tor.service";   type = "system"; icon = "tor";   enabled = true;  category = "infrastructure"; toggleKey = ""; credentials = []; }
+      { name = "System Passwords"; unit = "root-password-setup.service"; type = "system"; icon = "system"; enabled = true; category = "infrastructure"; toggleKey = ""; credentials = [
         { label = "Free Account — Username"; value = "free"; }
         { label = "Free Account — Password"; file = "/var/lib/secrets/free-password"; }
         { label = "Root Password"; file = "/var/lib/secrets/root-password"; }
         { label = "SSH Local Access"; value = "ssh root@localhost  /  Passphrase: gosovransystems"; }
       ]; }
-      { name = "Remote Desktop"; unit = "gnome-remote-desktop.service"; type = "system"; icon = "rdp"; enabled = cfg.features.rdp; category = "infrastructure"; credentials = [
+      { name = "Remote Desktop"; unit = "gnome-remote-desktop.service"; type = "system"; icon = "rdp"; enabled = cfg.features.rdp; category = "infrastructure"; toggleKey = "feature:rdp"; credentials = [
         { label = "Username"; file = "/var/lib/gnome-remote-desktop/rdp-username"; }
         { label = "Password"; file = "/var/lib/gnome-remote-desktop/rdp-password"; }
         { label = "Address";  file = "/var/lib/secrets/internal-ip"; suffix = ":3389"; }
@@ -23,69 +23,70 @@ let
     ]
     # ── Bitcoin Base (node implementations) ────────────────────
     ++ [
-      { name = "Bitcoin Knots + BIP110"; unit = "bitcoind.service"; type = "system"; icon = "bip110";        enabled = cfg.features.bip110;        category = "bitcoin-base"; credentials = [
+      { name = "Bitcoin Knots + BIP110"; unit = "bitcoind.service"; type = "system"; icon = "bip110";        enabled = cfg.features.bip110;        category = "bitcoin-base"; toggleKey = "feature:bip110"; credentials = [
         { label = "Tor Address"; file = "/var/lib/tor/onion/bitcoind/hostname"; prefix = "http://"; }
       ]; }
-      { name = "Bitcoin Knots";          unit = "bitcoind.service"; type = "system"; icon = "bitcoind";      enabled = cfg.services.bitcoin && !cfg.features.bitcoin-core && !cfg.features.bip110; category = "bitcoin-base"; credentials = [
+      { name = "Bitcoin Knots";          unit = "bitcoind.service"; type = "system"; icon = "bitcoind";      enabled = cfg.services.bitcoin && !cfg.features.bitcoin-core && !cfg.features.bip110; category = "bitcoin-base"; toggleKey = "service:bitcoin"; credentials = [
         { label = "Tor Address"; file = "/var/lib/tor/onion/bitcoind/hostname"; prefix = "http://"; }
       ]; }
-      { name = "Bitcoin Core";           unit = "bitcoind.service"; type = "system"; icon = "bitcoin-core";  enabled = cfg.features.bitcoin-core;  category = "bitcoin-base"; credentials = [
+      { name = "Bitcoin Core";           unit = "bitcoind.service"; type = "system"; icon = "bitcoin-core";  enabled = cfg.features.bitcoin-core;  category = "bitcoin-base"; toggleKey = "feature:bitcoin-core"; credentials = [
         { label = "Tor Address"; file = "/var/lib/tor/onion/bitcoind/hostname"; prefix = "http://"; }
       ]; }
     ]
     # ── Bitcoin Apps (services on top of the node) ─────────────
     ++ [
-      { name = "Electrs";            unit = "electrs.service";      type = "system"; icon = "electrs";      enabled = cfg.services.bitcoin;  category = "bitcoin-apps"; credentials = [
+      { name = "Electrs";            unit = "electrs.service";      type = "system"; icon = "electrs";      enabled = cfg.services.bitcoin;  category = "bitcoin-apps"; toggleKey = ""; credentials = [
         { label = "Tor Address"; file = "/var/lib/tor/onion/electrs/hostname"; prefix = "http://"; }
         { label = "Port"; value = "50001"; }
       ]; }
-      { name = "LND";                unit = "lnd.service";          type = "system"; icon = "lnd";          enabled = cfg.services.bitcoin;  category = "bitcoin-apps"; credentials = []; }
-      { name = "Ride The Lightning"; unit = "rtl.service";          type = "system"; icon = "rtl";          enabled = cfg.services.bitcoin;  category = "bitcoin-apps"; credentials = [
+      { name = "LND";                unit = "lnd.service";          type = "system"; icon = "lnd";          enabled = cfg.services.bitcoin;  category = "bitcoin-apps"; toggleKey = ""; credentials = []; }
+      { name = "Ride The Lightning"; unit = "rtl.service";          type = "system"; icon = "rtl";          enabled = cfg.services.bitcoin;  category = "bitcoin-apps"; toggleKey = ""; credentials = [
         { label = "Tor Access"; file = "/var/lib/tor/onion/rtl/hostname"; prefix = "http://"; }
         { label = "Local Network"; file = "/var/lib/secrets/internal-ip"; prefix = "http://"; suffix = ":3050"; }
         { label = "Password"; file = "/etc/nix-bitcoin-secrets/rtl-password"; }
       ]; }
-      { name = "BTCPayserver";       unit = "btcpayserver.service"; type = "system"; icon = "btcpayserver"; enabled = cfg.services.bitcoin;  category = "bitcoin-apps"; credentials = [
+      { name = "BTCPayserver";       unit = "btcpayserver.service"; type = "system"; icon = "btcpayserver"; enabled = cfg.services.bitcoin;  category = "bitcoin-apps"; toggleKey = ""; credentials = [
         { label = "URL"; file = "/var/lib/domains/btcpayserver"; prefix = "https://"; }
         { label = "Note"; value = "Create your admin account on first visit"; }
       ]; }
-      { name = "Zeus Connect";       unit = "zeus-connect-setup.service"; type = "system"; icon = "zeus";   enabled = cfg.services.bitcoin;  category = "bitcoin-apps"; credentials = [
+      { name = "Zeus Connect";       unit = "zeus-connect-setup.service"; type = "system"; icon = "zeus";   enabled = cfg.services.bitcoin;  category = "bitcoin-apps"; toggleKey = ""; credentials = [
         { label = "Connection URL"; file = "/var/lib/secrets/zeus-connect-url"; qrcode = true; }
         { label = "How to Connect"; value = "1. Download Zeus from App Store or Google Play\n2. Open Zeus �� Scan Node Config\n3. Scan the QR code above or paste the Connection URL"; }
       ]; }
-      { name = "Mempool";            unit = "mempool.service";      type = "system"; icon = "mempool";      enabled = cfg.features.mempool;  category = "bitcoin-apps"; credentials = [
+      { name = "Mempool";            unit = "mempool.service";      type = "system"; icon = "mempool";      enabled = cfg.features.mempool;  category = "bitcoin-apps"; toggleKey = "feature:mempool"; credentials = [
         { label = "Tor Access"; file = "/var/lib/tor/onion/mempool-frontend/hostname"; prefix = "http://"; }
         { label = "Local Network"; file = "/var/lib/secrets/internal-ip"; prefix = "http://"; suffix = ":60847"; }
       ]; }
     ]
     # ── Communication ──────────────────────────────────────────
     ++ [
-      { name = "Matrix-Synapse"; unit = "matrix-synapse.service"; type = "system"; icon = "synapse"; enabled = cfg.services.synapse;          category = "communication"; credentials = [
+      { name = "Matrix-Synapse"; unit = "matrix-synapse.service"; type = "system"; icon = "synapse"; enabled = cfg.services.synapse;          category = "communication"; toggleKey = "service:synapse"; credentials = [
         { label = "Users"; file = "/var/lib/secrets/matrix-users"; multiline = true; }
       ]; }
-      { name = "Element-Call";   unit = "livekit.service";        type = "system"; icon = "livekit"; enabled = cfg.features.element-calling;  category = "communication"; credentials = []; }
+      { name = "Element-Call";   unit = "livekit.service";        type = "system"; icon = "livekit"; enabled = cfg.features.element-calling;  category = "communication"; toggleKey = "feature:element-calling"; credentials = []; }
     ]
     # ── Self-Hosted Apps ───────────────────────────────────────
     ++ [
-      { name = "VaultWarden"; unit = "vaultwarden.service";      type = "system"; icon = "vaultwarden"; enabled = cfg.services.vaultwarden; category = "apps"; credentials = [
+      { name = "VaultWarden"; unit = "vaultwarden.service";      type = "system"; icon = "vaultwarden"; enabled = cfg.services.vaultwarden; category = "apps"; toggleKey = "service:vaultwarden"; credentials = [
         { label = "URL"; file = "/var/lib/domains/vaultwarden"; prefix = "https://"; }
         { label = "Admin Panel"; file = "/var/lib/domains/vaultwarden"; prefix = "https://"; suffix = "/admin"; }
         { label = "Admin Token"; file = "/var/lib/secrets/vaultwarden/vaultwarden.env"; extract = "ADMIN_TOKEN"; }
       ]; }
-      { name = "Nextcloud";   unit = "phpfpm-nextcloud.service"; type = "system"; icon = "nextcloud";   enabled = cfg.services.nextcloud;   category = "apps"; credentials = [
+      { name = "Nextcloud";   unit = "phpfpm-nextcloud.service"; type = "system"; icon = "nextcloud";   enabled = cfg.services.nextcloud;   category = "apps"; toggleKey = "service:nextcloud"; credentials = [
         { label = "Credentials"; file = "/var/lib/secrets/nextcloud-admin"; multiline = true; }
       ]; }
-      { name = "WordPress";   unit = "phpfpm-wordpress.service"; type = "system"; icon = "wordpress";   enabled = cfg.services.wordpress;   category = "apps"; credentials = [
+      { name = "WordPress";   unit = "phpfpm-wordpress.service"; type = "system"; icon = "wordpress";   enabled = cfg.services.wordpress;   category = "apps"; toggleKey = "service:wordpress"; credentials = [
         { label = "Credentials"; file = "/var/lib/secrets/wordpress-admin"; multiline = true; }
       ]; }
     ]
     # ── Nostr / Relay ──────────────────────────────────────────
     ++ [
-      { name = "Haven Relay"; unit = "haven-relay.service"; type = "system"; icon = "haven"; enabled = cfg.features.haven; category = "nostr"; credentials = []; }
+      { name = "Haven Relay"; unit = "haven-relay.service"; type = "system"; icon = "haven"; enabled = cfg.features.haven; category = "nostr"; toggleKey = "feature:haven"; credentials = []; }
     ]
     # ── Support ────────────────────────────────────────────────
     ++ [
-      { name = "Tech Support"; unit = "sovran-tech-support"; type = "support"; icon = "support"; enabled = true; category = "support"; credentials = []; }
+      { name = "Tech Support"; unit = "sovran-tech-support"; type = "support"; icon = "support"; enabled = true; category = "support"; toggleKey = ""; credentials = []; }
+    ]; }
     ];
 
   activeRole =
@@ -99,9 +100,55 @@ let
       command_method   = "systemctl";
       role             = activeRole;
       services         = monitoredServices;
+      feature_state = {
+        haven            = cfg.features.haven;
+        bip110           = cfg.features.bip110;
+        mempool          = cfg.features.mempool;
+        element-calling  = cfg.features.element-calling;
+        bitcoin-core     = cfg.features.bitcoin-core;
+        rdp              = cfg.features.rdp;
+      };
+      service_state = {
+        synapse      = cfg.services.synapse;
+        bitcoin      = cfg.services.bitcoin;
+        vaultwarden  = cfg.services.vaultwarden;
+        wordpress    = cfg.services.wordpress;
+        nextcloud    = cfg.services.nextcloud;
+      };
     });
 
-  # ── Update wrapper script ──────────────────────────────────────
+  # ── Rebuild wrapper script (feature toggles only — no flake update) ──
+  rebuild-script = pkgs.writeShellScript "sovran-hub-rebuild.sh" ''
+    set -uo pipefail
+    export PATH="${lib.makeBinPath [ pkgs.nix pkgs.nixos-rebuild pkgs.coreutils ]}:$PATH"
+
+    LOG="/var/log/sovran-hub-rebuild.log"
+    STATUS="/var/log/sovran-hub-rebuild.status"
+
+    echo "RUNNING" > "$STATUS"
+    : > "$LOG"
+    exec > >(tee -a "$LOG") 2>&1
+
+    echo "══════════════════════════════════════════════════"
+    echo "  Sovran_SystemsOS Feature Rebuild — $(date)"
+    echo "══════════════════════════════════════════════════"
+    echo ""
+
+    if ! nixos-rebuild switch --flake /etc/nixos --print-build-logs 2>&1; then
+      echo ""
+      echo "══════════════════════════════════════════════════"
+      echo "  ✗ Rebuild failed — see errors above"
+      echo "══════════════════════════════════════════════════"
+      echo "FAILED" > "$STATUS"
+      exit 1
+    fi
+
+    echo ""
+    echo "══════════════════════════════════════════════════"
+    echo "  ✓ Rebuild completed successfully"
+    echo "══════════════════════════════════════════════════"
+    echo "SUCCESS" > "$STATUS"
+  '';
   update-script = pkgs.writeShellScript "sovran-hub-update.sh" ''
     set -uo pipefail
     export PATH="${lib.makeBinPath [ pkgs.nix pkgs.nixos-rebuild pkgs.git pkgs.flatpak pkgs.coreutils ]}:$PATH"
@@ -238,6 +285,14 @@ in
       serviceConfig = {
         Type       = "oneshot";
         ExecStart  = "${update-script}";
+      };
+    };
+
+    systemd.services.sovran-hub-rebuild = {
+      description = "Sovran_SystemsOS Feature Rebuild";
+      serviceConfig = {
+        Type       = "oneshot";
+        ExecStart  = "${rebuild-script}";
       };
     };
 

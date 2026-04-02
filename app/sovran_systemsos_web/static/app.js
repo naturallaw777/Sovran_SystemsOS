@@ -1,5 +1,5 @@
 /* Sovran_SystemsOS Hub — Vanilla JS Frontend
-   v7 — Status-only dashboard + Tech Support */
+   v8 — Feature Toggles + Hub-Overrides Architecture */
 "use strict";
 
 const POLL_INTERVAL_SERVICES = 5000;
@@ -22,6 +22,78 @@ const STATUS_LOADING_STATES = new Set([
   "reloading", "activating", "deactivating", "maintenance",
 ]);
 
+// ── Feature metadata ──────────────────────────────────────────────
+// Maps toggleKey → { domainKey, needsNpub, description, domainExample }
+
+const FEATURE_META = {
+  "feature:haven": {
+    domainKey: "haven",
+    needsNpub: true,
+    description: "Haven is a self-hosted NOSTR relay and Blossom media server for censorship-resistant publishing.",
+    domainExample: "relay.yourdomain.com",
+  },
+  "feature:bip110": {
+    domainKey: null,
+    needsNpub: false,
+    description: "Bitcoin Knots with BIP-110 — a privacy-enhancing upgrade for peer-to-peer transaction routing.",
+    domainExample: null,
+  },
+  "feature:mempool": {
+    domainKey: null,
+    needsNpub: false,
+    description: "Mempool.space block explorer connected directly to your own Bitcoin node.",
+    domainExample: null,
+  },
+  "feature:element-calling": {
+    domainKey: "element-calling",
+    needsNpub: false,
+    description: "LiveKit video and audio calling server, enabling Element Call integration on your Matrix homeserver.",
+    domainExample: "call.yourdomain.com",
+  },
+  "feature:bitcoin-core": {
+    domainKey: null,
+    needsNpub: false,
+    description: "Bitcoin Core GUI desktop application for interacting with your node via graphical interface.",
+    domainExample: null,
+  },
+  "feature:rdp": {
+    domainKey: null,
+    needsNpub: false,
+    description: "GNOME Remote Desktop — access your desktop remotely over RDP from any RDP client.",
+    domainExample: null,
+  },
+  "service:synapse": {
+    domainKey: "matrix",
+    needsNpub: false,
+    description: "Matrix Synapse is your self-hosted Matrix homeserver for private, federated messaging.",
+    domainExample: "matrix.yourdomain.com",
+  },
+  "service:bitcoin": {
+    domainKey: "btcpayserver",
+    needsNpub: false,
+    description: "The full Bitcoin ecosystem: Bitcoin Knots node, Electrs, LND Lightning, Ride The Lightning, and BTCPay Server.",
+    domainExample: "pay.yourdomain.com",
+  },
+  "service:vaultwarden": {
+    domainKey: "vaultwarden",
+    needsNpub: false,
+    description: "Vaultwarden — self-hosted, Bitwarden-compatible password manager with end-to-end encryption.",
+    domainExample: "vault.yourdomain.com",
+  },
+  "service:nextcloud": {
+    domainKey: "nextcloud",
+    needsNpub: false,
+    description: "Nextcloud — self-hosted file sync, cloud storage, and collaboration platform.",
+    domainExample: "cloud.yourdomain.com",
+  },
+  "service:wordpress": {
+    domainKey: "wordpress",
+    needsNpub: false,
+    description: "WordPress — self-hosted website and blog platform served directly by Caddy.",
+    domainExample: "blog.yourdomain.com",
+  },
+};
+
 // ── State ─────────────────────────────────────────────────────────
 
 let _servicesCache    = [];
@@ -31,6 +103,7 @@ let _updatePollTimer  = null;
 let _updateLogOffset  = 0;
 let _serverWasDown    = false;
 let _updateFinished   = false;
+let _modalMode        = "update"; // "update" or "rebuild"
 let _supportTimerInt  = null;
 let _supportEnabledAt = null;
 let _cachedExternalIp = null;
@@ -45,6 +118,7 @@ const $internalIp     = document.getElementById("ip-internal");
 const $externalIp     = document.getElementById("ip-external");
 
 const $modal          = document.getElementById("update-modal");
+const $modalTitle     = document.getElementById("modal-title-text");
 const $modalSpinner   = document.getElementById("modal-spinner");
 const $modalStatus    = document.getElementById("modal-status");
 const $modalLog       = document.getElementById("modal-log");
@@ -62,6 +136,11 @@ const $credsCloseBtn  = document.getElementById("creds-close-btn");
 const $supportModal     = document.getElementById("support-modal");
 const $supportBody      = document.getElementById("support-body");
 const $supportCloseBtn  = document.getElementById("support-close-btn");
+
+const $featureModal     = document.getElementById("feature-modal");
+const $featureTitle     = document.getElementById("feature-modal-title");
+const $featureBody      = document.getElementById("feature-body");
+const $featureCloseBtn  = document.getElementById("feature-close-btn");
 
 // ── Helpers ───────────────────────────────────────────────────────
 
@@ -149,12 +228,13 @@ function buildTile(svc) {
   var st = statusText(svc.status, svc.enabled);
   var dis = !svc.enabled;
   var hasCreds = svc.has_credentials && svc.enabled;
+  var hasToggle = !isSupport && !!svc.toggleKey;
 
   var tile = document.createElement("div");
   tile.className = "service-tile" + (dis ? " disabled" : "") + (isSupport ? " support-tile" : "");
   tile.dataset.unit = svc.unit;
   tile.dataset.tileId = tileId(svc);
-  if (dis) tile.title = svc.name + " is not enabled in custom.nix";
+  if (dis && !hasToggle) tile.title = svc.name + " is not enabled in custom.nix";
 
   if (isSupport) {
     tile.innerHTML = '<img class="tile-icon" src="/static/icons/' + escHtml(svc.icon) + '.svg" alt="' + escHtml(svc.name) + '" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'"><div class="tile-icon-fallback" style="display:none">🛟</div><div class="tile-name">' + escHtml(svc.name) + '</div><div class="tile-status"><span class="support-status-label">Click to manage</span></div>';
@@ -164,7 +244,8 @@ function buildTile(svc) {
   }
 
   var infoBtn = hasCreds ? '<button class="tile-info-btn" data-unit="' + escHtml(svc.unit) + '" title="Connection info">i</button>' : "";
-  tile.innerHTML = infoBtn + '<img class="tile-icon" src="/static/icons/' + escHtml(svc.icon) + '.svg" alt="' + escHtml(svc.name) + '" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'"><div class="tile-icon-fallback" style="display:none">⚙</div><div class="tile-name">' + escHtml(svc.name) + '</div><div class="tile-status"><span class="status-dot ' + sc + '"></span><span class="status-text">' + escHtml(st) + '</span></div>';
+  var toggleBtn = hasToggle ? '<button class="tile-toggle-btn" title="Enable / Disable">⚙</button>' : "";
+  tile.innerHTML = infoBtn + toggleBtn + '<img class="tile-icon" src="/static/icons/' + escHtml(svc.icon) + '.svg" alt="' + escHtml(svc.name) + '" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'"><div class="tile-icon-fallback" style="display:none">⚙</div><div class="tile-name">' + escHtml(svc.name) + '</div><div class="tile-status"><span class="status-dot ' + sc + '"></span><span class="status-text">' + escHtml(st) + '</span></div>';
 
   var infoBtnEl = tile.querySelector(".tile-info-btn");
   if (infoBtnEl) {
@@ -173,6 +254,17 @@ function buildTile(svc) {
       openCredsModal(svc.unit, svc.name);
     });
   }
+
+  var toggleBtnEl = tile.querySelector(".tile-toggle-btn");
+  if (toggleBtnEl) {
+    (function(capturedSvc) {
+      toggleBtnEl.addEventListener("click", function(e) {
+        e.stopPropagation();
+        openFeatureModal(capturedSvc);
+      });
+    })(svc);
+  }
+
   return tile;
 }
 
@@ -276,6 +368,155 @@ async function openCredsModal(unit, name) {
 
 function closeCredsModal() { if ($credsModal) $credsModal.classList.remove("open"); }
 
+// ── Feature toggle modal ──────────────────────────────────────────
+
+async function openFeatureModal(svc) {
+  if (!$featureModal) return;
+  if ($featureTitle) $featureTitle.textContent = svc.name + " — Settings";
+  if ($featureBody) $featureBody.innerHTML = '<p class="creds-loading">Loading…</p>';
+  $featureModal.classList.add("open");
+
+  try {
+    var featData = await apiFetch("/api/features");
+    var domains = await apiFetch("/api/domains");
+    var tkParts = (svc.toggleKey || "").split(":");
+    var tkType = tkParts[0];
+    var tkName = tkParts[1];
+
+    var currentEnabled;
+    if (tkType === "feature") {
+      currentEnabled = !!(featData.compiled_feature_state && featData.compiled_feature_state[tkName] !== undefined
+        ? featData.compiled_feature_state[tkName]
+        : featData.features[tkName]);
+    } else {
+      currentEnabled = !!(featData.compiled_service_state && featData.compiled_service_state[tkName] !== undefined
+        ? featData.compiled_service_state[tkName]
+        : featData.services[tkName]);
+    }
+
+    var meta = FEATURE_META[svc.toggleKey] || {};
+    var nostrNpub = featData.nostr_npub || "";
+    renderFeatureModal(svc, tkType, tkName, currentEnabled, domains, nostrNpub, meta);
+  } catch (err) {
+    if ($featureBody) $featureBody.innerHTML = '<p class="creds-empty">Could not load feature settings.</p>';
+  }
+}
+
+function renderFeatureModal(svc, type, name, currentEnabled, domains, nostrNpub, meta) {
+  if (!$featureBody) return;
+
+  var statusHtml = currentEnabled
+    ? '<span class="feature-status-badge enabled">● Enabled</span>'
+    : '<span class="feature-status-badge disabled">○ Disabled</span>';
+
+  var actionLabel = currentEnabled ? "Disable" : "Enable";
+  var actionClass = currentEnabled ? "btn-disable-feature" : "btn-enable-feature";
+
+  var domainHtml = "";
+  var npubHtml = "";
+
+  if (!currentEnabled && meta.domainKey) {
+    var existingDomain = (domains && domains[meta.domainKey]) || "";
+    var domainPlaceholder = meta.domainExample || "sub.yourdomain.com";
+    domainHtml =
+      '<div class="feature-field">' +
+        '<label class="feature-field-label">Domain for ' + escHtml(svc.name) + ' (e.g. ' + escHtml(domainPlaceholder) + ')</label>' +
+        '<input type="text" class="feature-input" id="feature-domain-input" value="' + escHtml(existingDomain) + '" placeholder="' + escHtml(domainPlaceholder) + '" />' +
+      '</div>' +
+      '<div class="feature-field">' +
+        '<label class="feature-field-label">Njal.la DDNS curl command (optional — paste from your Njal.la dashboard)</label>' +
+        '<input type="text" class="feature-input" id="feature-ddns-input" placeholder="https://njal.la/update/?h=...&k=...&auto" />' +
+      '</div>';
+  }
+
+  if (!currentEnabled && meta.needsNpub) {
+    npubHtml =
+      '<div class="feature-field">' +
+        '<label class="feature-field-label">Your NOSTR Public Key (npub1…) — required for Haven</label>' +
+        '<input type="text" class="feature-input" id="feature-npub-input" value="' + escHtml(nostrNpub) + '" placeholder="npub1abc..." />' +
+      '</div>';
+  }
+
+  var hint = currentEnabled
+    ? '<p class="feature-hint">Disabling will apply on next rebuild. Running services will be stopped.</p>'
+    : (meta.domainKey ? '<p class="feature-hint">A domain is required to expose this service to the internet via Caddy.</p>' : '');
+
+  $featureBody.innerHTML =
+    '<div class="feature-section">' +
+      '<div class="feature-status-row">' + statusHtml + '</div>' +
+      '<p class="feature-desc">' + escHtml(meta.description || svc.name) + '</p>' +
+      domainHtml + npubHtml +
+      '<div class="feature-action-row">' +
+        '<button class="btn ' + actionClass + '" id="btn-feature-action">' + actionLabel + ' ' + escHtml(svc.name) + '</button>' +
+      '</div>' +
+      hint +
+    '</div>';
+
+  var actionBtn = document.getElementById("btn-feature-action");
+  if (actionBtn) {
+    actionBtn.addEventListener("click", function() {
+      performFeatureToggle(type, name, !currentEnabled, meta, domains, svc.name);
+    });
+  }
+}
+
+async function performFeatureToggle(type, name, enabling, meta, domains, svcDisplayName) {
+  var btn = document.getElementById("btn-feature-action");
+  if (btn) { btn.disabled = true; btn.textContent = "Applying…"; }
+
+  var domain = "";
+  var ddnsCurl = "";
+  var npub = "";
+
+  if (enabling && meta.domainKey) {
+    var domainInput = document.getElementById("feature-domain-input");
+    domain = domainInput ? domainInput.value.trim() : "";
+    var ddnsInput = document.getElementById("feature-ddns-input");
+    ddnsCurl = ddnsInput ? ddnsInput.value.trim() : "";
+    if (!domain && !(domains && domains[meta.domainKey])) {
+      alert("Please enter a domain name for " + svcDisplayName + ".");
+      if (btn) { btn.disabled = false; btn.textContent = (enabling ? "Enable" : "Disable") + " " + svcDisplayName; }
+      return;
+    }
+  }
+
+  if (enabling && meta.needsNpub) {
+    var npubInput = document.getElementById("feature-npub-input");
+    npub = npubInput ? npubInput.value.trim() : "";
+    if (!npub || !npub.startsWith("npub1")) {
+      alert("Please enter your NOSTR public key (npub1…) to enable Haven.");
+      if (btn) { btn.disabled = false; btn.textContent = "Enable " + svcDisplayName; }
+      return;
+    }
+  }
+
+  try {
+    if (enabling && meta.domainKey && domain) {
+      await apiFetch("/api/domains/set", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({name: meta.domainKey, domain: domain, ddns_curl: ddnsCurl}),
+      });
+    }
+
+    await apiFetch("/api/features/toggle", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({type: type, name: name, enabled: enabling, npub: npub}),
+    });
+
+    closeFeatureModal();
+    openUpdateModal("rebuild");
+  } catch (err) {
+    if (btn) { btn.disabled = false; btn.textContent = (enabling ? "Enable" : "Disable") + " " + svcDisplayName; }
+    alert("Failed to apply changes: " + (err.message || err));
+  }
+}
+
+function closeFeatureModal() {
+  if ($featureModal) $featureModal.classList.remove("open");
+}
+
 // ── Tech Support modal ────────────────────────────────────────────
 
 async function openSupportModal() {
@@ -363,22 +604,29 @@ function closeSupportModal() {
   stopSupportTimer();
 }
 
-// ── Update modal ──────────────────────────────────────────────────
+// ── Update / Rebuild modal ────────────────────────────────────────
 
-function openUpdateModal() {
+function openUpdateModal(mode) {
+  _modalMode = mode || "update";
   if (!$modal) return;
   _updateLog = "";
   _updateLogOffset = 0;
   _serverWasDown = false;
   _updateFinished = false;
   if ($modalLog) $modalLog.textContent = "";
-  if ($modalStatus) $modalStatus.textContent = "Starting update…";
+  if ($modalTitle) $modalTitle.textContent = _modalMode === "rebuild" ? "Applying Changes" : "Sovran_SystemsOS Update";
+  if ($modalStatus) $modalStatus.textContent = _modalMode === "rebuild" ? "Rebuilding system…" : "Starting update…";
   if ($modalSpinner) $modalSpinner.classList.add("spinning");
   if ($btnReboot) $btnReboot.style.display = "none";
   if ($btnSave) $btnSave.style.display = "none";
   if ($btnCloseModal) $btnCloseModal.disabled = true;
   $modal.classList.add("open");
-  startUpdate();
+
+  if (_modalMode === "rebuild") {
+    startUpdatePoll(); // rebuild already started by the toggle API; just poll
+  } else {
+    startUpdate();
+  }
 }
 
 function closeUpdateModal() {
@@ -421,16 +669,23 @@ function stopUpdatePoll() {
 
 async function pollUpdateStatus() {
   if (_updateFinished) return;
+  var endpoint = _modalMode === "rebuild"
+    ? "/api/rebuild/status?offset=" + _updateLogOffset
+    : "/api/updates/status?offset=" + _updateLogOffset;
   try {
-    var data = await apiFetch("/api/updates/status?offset=" + _updateLogOffset);
-    if (_serverWasDown) { _serverWasDown = false; appendLog("[Server reconnected]\n"); if ($modalStatus) $modalStatus.textContent = "Updating…"; }
+    var data = await apiFetch(endpoint);
+    if (_serverWasDown) { _serverWasDown = false; appendLog("[Server reconnected]\n"); if ($modalStatus) $modalStatus.textContent = _modalMode === "rebuild" ? "Rebuilding…" : "Updating…"; }
     if (data.log) appendLog(data.log);
     _updateLogOffset = data.offset;
     if (data.running) return;
     _updateFinished = true;
     stopUpdatePoll();
-    if (data.result === "success") onUpdateDone(true);
-    else onUpdateDone(false);
+    if (data.result === "success") {
+      onUpdateDone(true);
+      if (_modalMode === "rebuild") { refreshServices(); }
+    } else {
+      onUpdateDone(false);
+    }
   } catch (err) {
     if (!_serverWasDown) { _serverWasDown = true; appendLog("\n[Server restarting — waiting for it to come back…]\n"); if ($modalStatus) $modalStatus.textContent = "Server restarting…"; }
   }
@@ -440,10 +695,10 @@ function onUpdateDone(success) {
   if ($modalSpinner) $modalSpinner.classList.remove("spinning");
   if ($btnCloseModal) $btnCloseModal.disabled = false;
   if (success) {
-    if ($modalStatus) $modalStatus.textContent = "✓ Update complete";
+    if ($modalStatus) $modalStatus.textContent = _modalMode === "rebuild" ? "✓ Changes applied" : "✓ Update complete";
     if ($btnReboot) $btnReboot.style.display = "inline-flex";
   } else {
-    if ($modalStatus) $modalStatus.textContent = "✗ Update failed";
+    if ($modalStatus) $modalStatus.textContent = _modalMode === "rebuild" ? "✗ Rebuild failed" : "✗ Update failed";
     if ($btnSave) $btnSave.style.display = "inline-flex";
     if ($btnReboot) $btnReboot.style.display = "inline-flex";
   }
@@ -454,7 +709,7 @@ function saveErrorReport() {
   var url = URL.createObjectURL(blob);
   var a = document.createElement("a");
   a.href = url;
-  a.download = "sovran-update-error-" + new Date().toISOString().split(".")[0].replace(/:/g, "-") + ".txt";
+  a.download = "sovran-" + (_modalMode === "rebuild" ? "rebuild" : "update") + "-error-" + new Date().toISOString().split(".")[0].replace(/:/g, "-") + ".txt";
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
@@ -482,17 +737,19 @@ function waitForServerReboot() {
 
 // ── Event listeners ───────────────────────────────────────────────
 
-if ($updateBtn) $updateBtn.addEventListener("click", openUpdateModal);
+if ($updateBtn) $updateBtn.addEventListener("click", function() { openUpdateModal("update"); });
 if ($refreshBtn) $refreshBtn.addEventListener("click", function() { refreshServices(); });
 if ($btnCloseModal) $btnCloseModal.addEventListener("click", closeUpdateModal);
 if ($btnReboot) $btnReboot.addEventListener("click", doReboot);
 if ($btnSave) $btnSave.addEventListener("click", saveErrorReport);
 if ($credsCloseBtn) $credsCloseBtn.addEventListener("click", closeCredsModal);
 if ($supportCloseBtn) $supportCloseBtn.addEventListener("click", closeSupportModal);
+if ($featureCloseBtn) $featureCloseBtn.addEventListener("click", closeFeatureModal);
 
 if ($modal) $modal.addEventListener("click", function(e) { if (e.target === $modal) closeUpdateModal(); });
 if ($credsModal) $credsModal.addEventListener("click", function(e) { if (e.target === $credsModal) closeCredsModal(); });
 if ($supportModal) $supportModal.addEventListener("click", function(e) { if (e.target === $supportModal) closeSupportModal(); });
+if ($featureModal) $featureModal.addEventListener("click", function(e) { if (e.target === $featureModal) closeFeatureModal(); });
 
 // ── Init ──────────────────────────────────────────────────────────
 

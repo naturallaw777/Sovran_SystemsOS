@@ -959,4 +959,148 @@ button.btn-reboot:hover:not(:disabled) {
 
 }
 
+/* ── Feature toggle button on tiles ─────────────────────────────── */
+
+.tile-toggle-btn {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background-color: var(--border-color);
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  font-weight: 400;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border: none;
+  transition: transform 0.15s, background-color 0.15s, color 0.15s;
+  line-height: 1;
+}
+
+.tile-toggle-btn:hover {
+  transform: scale(1.15);
+  background-color: var(--accent-color);
+  color: #1e1e2e;
+}
+
+/* ── Feature modal body content ──────────────────────────────────── */
+
+.feature-section {
+  padding: 4px 0 8px;
+}
+
+.feature-status-row {
+  text-align: center;
+  margin-bottom: 12px;
+}
+
+.feature-status-badge {
+  display: inline-block;
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 4px 14px;
+  border-radius: 20px;
+  letter-spacing: 0.05em;
+}
+
+.feature-status-badge.enabled {
+  background-color: rgba(46, 194, 126, 0.18);
+  color: var(--green);
+  border: 1px solid var(--green);
+}
+
+.feature-status-badge.disabled {
+  background-color: rgba(108, 112, 134, 0.18);
+  color: var(--text-dim);
+  border: 1px solid var(--border-color);
+}
+
+.feature-desc {
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.feature-field {
+  margin-bottom: 16px;
+}
+
+.feature-field-label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+  margin-bottom: 6px;
+}
+
+.feature-input {
+  width: 100%;
+  background-color: #12121c;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-family: 'JetBrains Mono', 'Fira Code', 'Source Code Pro', monospace;
+  font-size: 0.88rem;
+  padding: 10px 14px;
+  transition: border-color 0.15s;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.feature-input:focus {
+  border-color: var(--accent-color);
+}
+
+.feature-input::placeholder {
+  color: var(--text-dim);
+}
+
+.feature-action-row {
+  display: flex;
+  justify-content: center;
+  margin-top: 24px;
+}
+
+.btn-enable-feature {
+  background-color: var(--green);
+  color: #fff;
+  padding: 11px 32px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  border-radius: 10px;
+}
+
+.btn-enable-feature:hover:not(:disabled) {
+  background-color: #27ae6e;
+}
+
+.btn-disable-feature {
+  background-color: var(--red);
+  color: #fff;
+  padding: 11px 32px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  border-radius: 10px;
+}
+
+.btn-disable-feature:hover:not(:disabled) {
+  background-color: #c41520;
+}
+
+.feature-hint {
+  font-size: 0.76rem;
+  color: var(--text-dim);
+  text-align: center;
+  margin-top: 12px;
+  font-style: italic;
+}
+
 }
