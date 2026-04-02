@@ -34,7 +34,7 @@ def run_action(
     else:
         cmd = base_cmd
     try:
-        subprocess.Popen(cmd)
-        return True
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+        return result.returncode == 0
     except Exception:
         return False
