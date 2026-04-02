@@ -8,12 +8,26 @@ let
     set -euo pipefail
     SECRET_FILE="/var/lib/secrets/free-password"
 
-    if [ -z "''${1:-}" ]; then
-      echo -n "New password for free: "
-      read -rs NEW_PASS
-      echo
-    else
-      NEW_PASS="$1"
+    if [ "$(id -u)" -ne 0 ]; then
+      echo "Error: must be run as root (use sudo)." >&2
+      exit 1
+    fi
+
+    echo -n "New password for free: "
+    read -rs NEW_PASS
+    echo
+    echo -n "Confirm password: "
+    read -rs CONFIRM
+    echo
+
+    if [ "$NEW_PASS" != "$CONFIRM" ]; then
+      echo "Passwords do not match." >&2
+      exit 1
+    fi
+
+    if [ -z "$NEW_PASS" ]; then
+      echo "Password cannot be empty." >&2
+      exit 1
     fi
 
     echo "free:$NEW_PASS" | ${pkgs.shadow}/bin/chpasswd
@@ -22,33 +36,45 @@ let
     chmod 600 "$SECRET_FILE"
     echo "Password for 'free' updated and saved."
   '';
-
-  # ── Wrapper: intercept 'passwd free' ───────────────────────
-  passwd-wrapper = pkgs.writeShellScriptBin "passwd" ''
-    # If the target user is 'free', redirect to the proper tool
-    TARGET="''${1:-}"
-
-    if [ "$TARGET" = "free" ]; then
-      echo ""
-      echo "╔══════════════════════════════════════════════════════╗"
-      echo "║  ⚠  Use 'change-free-password' instead of 'passwd' ║"
-      echo "║                                                      ║"
-      echo "║  'passwd free' only updates /etc/shadow.             ║"
-      echo "║  The Hub and Magic Keys PDF will NOT be updated.     ║"
-      echo "║                                                      ║"
-      echo "║  Redirecting to change-free-password now...          ║"
-      echo "╚══════════════════════════════════════════════════════╝"
-      echo ""
-      exec ${change-free-password}/bin/change-free-password
-    fi
-
-    # For all other users, pass through to the real passwd
-    exec ${pkgs.shadow}/bin/passwd "$@"
-  '';
 in
 {
-  # ── Make helpers available system-wide ──────────────────────
-  environment.systemPackages = [ change-free-password passwd-wrapper ];
+  # ── Make helper available system-wide ───────────────────────
+  environment.systemPackages = [ change-free-password ];
+
+  # ── Shell aliases: intercept 'passwd free' ─────────────────
+  programs.bash.interactiveShellInit = ''
+    passwd() {
+      if [ "$1" = "free" ]; then
+        echo ""
+        echo "╔══════════════════════════════════════════════════════╗"
+        echo "║  ⚠  Use 'sudo change-free-password' instead.       ║"
+        echo "║                                                      ║"
+        echo "║  'passwd free' only updates /etc/shadow.             ║"
+        echo "║  The Hub and Magic Keys PDF will NOT be updated.     ║"
+        echo "╚══════════════════════════════════════════════════════╝"
+        echo ""
+        return 1
+      fi
+      command passwd "$@"
+    }
+  '';
+
+  programs.fish.interactiveShellInit = ''
+    function passwd --wraps passwd
+      if test "$argv[1]" = "free"
+        echo ""
+        echo "╔══════════════════════════════════════════════════════╗"
+        echo "║  ⚠  Use 'sudo change-free-password' instead.       ║"
+        echo "║                                                      ║"
+        echo "║  'passwd free' only updates /etc/shadow.             ║"
+        echo "║  The Hub and Magic Keys PDF will NOT be updated.     ║"
+        echo "╚════════════════════════════════════════��═════════════╝"
+        echo ""
+        return 1
+      end
+      command passwd $argv
+    end
+  '';
 
   # ── 1. Auto-Generate Root Password (Runs once) ─────────────
   systemd.services.root-password-setup = {
