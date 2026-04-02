@@ -1,5 +1,6 @@
 /* Sovran_SystemsOS Hub — Web UI Stylesheet
-   Dark theme matching the Adwaita dark aesthetic */
+   Dark theme matching the Adwaita dark aesthetic
+   v2 — cache bust */
 
 *, *::before, *::after {
   box-sizing: border-box;
@@ -100,9 +101,9 @@ button:disabled {
   opacity: 0.88;
 }
 
-/* Update button: blue by default, green when updates available */
+/* Update System button: BLUE (#89b4fa) by default */
 .btn-update {
-  background-color: var(--accent-color);
+  background-color: #89b4fa;
   color: #1e1e2e;
   position: relative;
   display: flex;
@@ -114,8 +115,9 @@ button:disabled {
   opacity: 0.88;
 }
 
+/* Update System button: GREEN when updates are available */
 .btn-update.has-updates {
-  background-color: var(--green);
+  background-color: #2ec27e;
   color: #fff;
 }
 
@@ -473,14 +475,20 @@ button:disabled {
   border-top: 1px solid var(--border-color);
 }
 
-/* Reboot button */
-#btn-reboot {
-  background-color: #2ec27e !important;
-  color: #fff !important;
+/* ── Modal footer buttons ────────────────────────────────────────
+   Reboot = GREEN, Save = YELLOW, Close = GREY                   */
+
+.modal-footer .btn-reboot,
+.modal-footer button.btn-reboot,
+button#btn-reboot {
+  background-color: #2ec27e;
+  color: #fff;
 }
 
-#btn-reboot:hover:not(:disabled) {
-  background-color: #27ae6e !important;
+.modal-footer .btn-reboot:hover:not(:disabled),
+.modal-footer button.btn-reboot:hover:not(:disabled),
+button#btn-reboot:hover:not(:disabled) {
+  background-color: #27ae6e;
 }
 
 .btn-save {
