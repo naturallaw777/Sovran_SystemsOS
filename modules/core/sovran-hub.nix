@@ -51,7 +51,7 @@ let
       ]; }
       { name = "Zeus Connect";       unit = "zeus-connect-setup.service"; type = "system"; icon = "zeus";   enabled = cfg.services.bitcoin;  category = "bitcoin-apps"; credentials = [
         { label = "Connection URL"; file = "/var/lib/secrets/zeus-connect-url"; qrcode = true; }
-        { label = "How to Connect"; value = "1. Download Zeus from App Store or Google Play\n2. Open Zeus → Scan Node Config\n3. Scan the QR code above or paste the Connection URL"; }
+        { label = "How to Connect"; value = "1. Download Zeus from App Store or Google Play\n2. Open Zeus �� Scan Node Config\n3. Scan the QR code above or paste the Connection URL"; }
       ]; }
       { name = "Mempool";            unit = "mempool.service";      type = "system"; icon = "mempool";      enabled = cfg.features.mempool;  category = "bitcoin-apps"; credentials = [
         { label = "Tor Access"; file = "/var/lib/tor/onion/mempool-frontend/hostname"; prefix = "http://"; }
@@ -82,6 +82,10 @@ let
     # ── Nostr / Relay ──────────────────────────────────────────
     ++ [
       { name = "Haven Relay"; unit = "haven-relay.service"; type = "system"; icon = "haven"; enabled = cfg.features.haven; category = "nostr"; credentials = []; }
+    ]
+    # ── Support ────────────────────────────────────────────────
+    ++ [
+      { name = "Tech Support"; unit = "sovran-tech-support"; type = "support"; icon = "support"; enabled = true; category = "support"; credentials = []; }
     ];
 
   activeRole =
@@ -105,10 +109,7 @@ let
     LOG="/var/log/sovran-hub-update.log"
     STATUS="/var/log/sovran-hub-update.status"
 
-    # Mark as RUNNING
     echo "RUNNING" > "$STATUS"
-
-    # Truncate the log and redirect ALL output (stdout + stderr) into it
     : > "$LOG"
     exec > >(tee -a "$LOG") 2>&1
 
@@ -177,18 +178,14 @@ let
     installPhase = ''
       runHook preInstall
 
-      # ── Python source ─────────────────────────────────────────
       install -d $out/lib/sovran-hub-web
       cp -r sovran_systemsos_web $out/lib/sovran-hub-web/
 
-      # ── Generated config ───────────────────────────────────────
       cp ${generatedConfig} $out/lib/sovran-hub-web/config.json
 
-      # ── Icons (SVG) ──────────────────��─────────────────────────
       install -d $out/share/sovran-hub/icons
       cp icons/* $out/share/sovran-hub/icons/ 2>/dev/null || true
 
-      # ── Launcher script ────────────────────────────────────────
       install -d $out/bin
       cat > $out/bin/sovran-hub-web <<LAUNCHER
 #!${pkgs.python3}/bin/python3
@@ -219,7 +216,6 @@ LAUNCHER
 in
 {
   config = {
-    # ── Web server as a systemd service ────────────────────────
     systemd.services.sovran-hub-web = {
       description = "Sovran_SystemsOS Hub Web Interface";
       wantedBy    = [ "multi-user.target" ];
@@ -234,11 +230,9 @@ in
         StandardError  = "journal";
       };
 
-      # ── Make qrencode available for QR code generation ────────
       path = [ pkgs.qrencode ];
     };
 
-    # ── System update as a detached oneshot ─────────────────────
     systemd.services.sovran-hub-update = {
       description = "Sovran_SystemsOS System Update";
       serviceConfig = {
@@ -247,7 +241,6 @@ in
       };
     };
 
-    # ── Open firewall port ─────────────────────────────────────
     networking.firewall.allowedTCPPorts = [ 8937 ];
   };
 }

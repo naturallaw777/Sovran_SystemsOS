@@ -1,11 +1,12 @@
 /* Sovran_SystemsOS Hub — Vanilla JS Frontend
-   v6 — Status-only dashboard (no start/stop/restart controls) */
+   v7 — Status-only dashboard + Tech Support */
 "use strict";
 
 const POLL_INTERVAL_SERVICES = 5000;   // 5 s
 const POLL_INTERVAL_UPDATES  = 1800000; // 30 min
 const UPDATE_POLL_INTERVAL   = 2000;   // 2 s while update is running
 const REBOOT_CHECK_INTERVAL  = 5000;   // 5 s between reconnect attempts
+const SUPPORT_TIMER_INTERVAL = 1000;   // 1 s for session timer
 
 const CATEGORY_ORDER = [
   "infrastructure",
@@ -14,6 +15,7 @@ const CATEGORY_ORDER = [
   "communication",
   "apps",
   "nostr",
+  "support",
 ];
 
 const STATUS_LOADING_STATES = new Set([
@@ -22,13 +24,16 @@ const STATUS_LOADING_STATES = new Set([
 
 // ── State ─────────────────────────────────────────────────────────
 
-let _servicesCache   = [];
-let _categoryLabels  = {};
-let _updateLog       = "";
-let _updatePollTimer = null;
-let _updateLogOffset = 0;
-let _serverWasDown   = false;
-let _updateFinished  = false;
+let _servicesCache    = [];
+let _categoryLabels   = {};
+let _updateLog        = "";
+let _updatePollTimer  = null;
+let _updateLogOffset  = 0;
+let _serverWasDown    = false;
+let _updateFinished   = false;
+let _supportTimerInt  = null;
+let _supportEnabledAt = null;
+let _cachedExternalIp = null;
 
 // ── DOM refs ──────────────────────────────────────────────────────
 
@@ -53,6 +58,10 @@ const $credsModal     = document.getElementById("creds-modal");
 const $credsTitle     = document.getElementById("creds-modal-title");
 const $credsBody      = document.getElementById("creds-body");
 const $credsCloseBtn  = document.getElementById("creds-close-btn");
+
+const $supportModal     = document.getElementById("support-modal");
+const $supportBody      = document.getElementById("support-body");
+const $supportCloseBtn  = document.getElementById("support-close-btn");
 
 // ── Helpers ───────────────────────────────────────────────────────
 
@@ -91,6 +100,15 @@ function linkify(str) {
     /(https?:\/\/[^\s<]+)/g,
     '<a href="$1" target="_blank" rel="noopener noreferrer" class="creds-link">$1</a>'
   );
+}
+
+function formatDuration(seconds) {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = Math.floor(seconds % 60);
+  if (h > 0) return `${h}h ${m}m ${s}s`;
+  if (m > 0) return `${m}m ${s}s`;
+  return `${s}s`;
 }
 
 // ── Fetch wrappers ────────────────────────────────────────────────
@@ -150,18 +168,37 @@ function buildTiles(services, categoryLabels) {
 }
 
 function buildTile(svc) {
+  const isSupport = svc.type === "support";
   const sc   = statusClass(svc.status);
   const st   = statusText(svc.status, svc.enabled);
   const dis  = !svc.enabled;
   const hasCreds = svc.has_credentials && svc.enabled;
 
   const tile = document.createElement("div");
-  tile.className = "service-tile" + (dis ? " disabled" : "");
+  tile.className = "service-tile" + (dis ? " disabled" : "") + (isSupport ? " support-tile" : "");
   tile.dataset.unit = svc.unit;
   tile.dataset.tileId = tileId(svc);
   if (dis) tile.title = `${svc.name} is not enabled in custom.nix`;
 
-  // Info button (only if service has credentials and is enabled)
+  if (isSupport) {
+    // Support tile — clickable, no info button, no status dot
+    tile.innerHTML = `
+      <img class="tile-icon"
+           src="/static/icons/${escHtml(svc.icon)}.svg"
+           alt="${escHtml(svc.name)}"
+           onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+      <div class="tile-icon-fallback" style="display:none">🛟</div>
+      <div class="tile-name">${escHtml(svc.name)}</div>
+      <div class="tile-status">
+        <span class="support-status-label">Click to manage</span>
+      </div>
+    `;
+    tile.style.cursor = "pointer";
+    tile.addEventListener("click", () => openSupportModal());
+    return tile;
+  }
+
+  // Normal tile
   const infoBtn = hasCreds
     ? `<button class="tile-info-btn" data-unit="${escHtml(svc.unit)}" title="Connection info">i</button>`
     : "";
@@ -180,7 +217,6 @@ function buildTile(svc) {
     </div>
   `;
 
-  // Info button click handler
   const infoBtnEl = tile.querySelector(".tile-info-btn");
   if (infoBtnEl) {
     infoBtnEl.addEventListener("click", (e) => {
@@ -201,6 +237,8 @@ function updateTiles(services) {
     const id = CSS.escape(tileId(svc));
     const tile = $tilesArea.querySelector(`.service-tile[data-tile-id="${id}"]`);
     if (!tile) continue;
+
+    if (svc.type === "support") continue; // Support tile doesn't have a systemd status
 
     const sc = statusClass(svc.status);
     const st = statusText(svc.status, svc.enabled);
@@ -238,6 +276,7 @@ async function loadNetwork() {
     const data = await apiFetch("/api/network");
     if ($internalIp) $internalIp.textContent = data.internal_ip || "—";
     if ($externalIp) $externalIp.textContent = data.external_ip || "—";
+    _cachedExternalIp = data.external_ip || "unavailable";
   } catch (_) {
     if ($internalIp) $internalIp.textContent = "—";
     if ($externalIp) $externalIp.textContent = "—";
@@ -282,7 +321,6 @@ async function openCredsModal(unit, name) {
       const id = "cred-" + Math.random().toString(36).substring(2, 8);
       const displayValue = linkify(cred.value);
 
-      // QR code block (if present)
       let qrBlock = "";
       if (cred.qrcode) {
         qrBlock = `
@@ -306,7 +344,6 @@ async function openCredsModal(unit, name) {
     }
     $credsBody.innerHTML = html;
 
-    // Attach copy handlers
     $credsBody.querySelectorAll(".creds-copy-btn").forEach(btn => {
       btn.addEventListener("click", () => {
         const target = document.getElementById(btn.dataset.target);
@@ -330,6 +367,184 @@ async function openCredsModal(unit, name) {
 
 function closeCredsModal() {
   if ($credsModal) $credsModal.classList.remove("open");
+}
+
+// ── Tech Support modal ────────────────────────────────────────────
+
+async function openSupportModal() {
+  if (!$supportModal) return;
+  $supportModal.classList.add("open");
+  $supportBody.innerHTML = '<p class="creds-loading">Checking support status…</p>';
+
+  try {
+    const status = await apiFetch("/api/support/status");
+    if (status.active) {
+      _supportEnabledAt = status.enabled_at;
+      renderSupportActive();
+    } else {
+      renderSupportInactive();
+    }
+  } catch (err) {
+    $supportBody.innerHTML = '<p class="creds-empty">Could not check support status.</p>';
+  }
+}
+
+function renderSupportInactive() {
+  stopSupportTimer();
+  const ip = _cachedExternalIp || "loading…";
+  $supportBody.innerHTML = `
+    <div class="support-section">
+      <div class="support-icon-big">🛟</div>
+      <h3 class="support-heading">Need help from Sovran Systems?</h3>
+      <p class="support-desc">
+        This will temporarily give Sovran Systems secure SSH access to your machine
+        so we can diagnose and fix issues for you.
+      </p>
+
+      <div class="support-info-box">
+        <div class="support-info-row">
+          <span class="support-info-label">Your External IP</span>
+          <span class="support-info-value" id="support-ext-ip">${escHtml(ip)}</span>
+        </div>
+        <p class="support-info-hint">
+          Give this IP to your Sovran Systems technician when asked.
+        </p>
+      </div>
+
+      <div class="support-steps">
+        <p class="support-steps-title">What happens when you click Enable:</p>
+        <ol>
+          <li>A Sovran Systems SSH key is added to this machine</li>
+          <li>You give us your External IP shown above</li>
+          <li>We connect and help you remotely</li>
+          <li>When done, you click <strong>End Support Session</strong> to remove the key</li>
+        </ol>
+      </div>
+
+      <button class="btn support-btn-enable" id="btn-support-enable">
+        Enable Support Access
+      </button>
+      <p class="support-fine-print">
+        You can end the session at any time. The access key will be completely removed.
+      </p>
+    </div>
+  `;
+
+  document.getElementById("btn-support-enable").addEventListener("click", enableSupport);
+}
+
+function renderSupportActive() {
+  const ip = _cachedExternalIp || "loading…";
+  $supportBody.innerHTML = `
+    <div class="support-section">
+      <div class="support-icon-big support-active-icon">🔓</div>
+      <h3 class="support-heading support-active-heading">Support Access is Active</h3>
+      <p class="support-desc">
+        Sovran Systems can currently connect to your machine via SSH.
+      </p>
+
+      <div class="support-info-box support-active-box">
+        <div class="support-info-row">
+          <span class="support-info-label">Your External IP</span>
+          <span class="support-info-value">${escHtml(ip)}</span>
+        </div>
+        <div class="support-info-row">
+          <span class="support-info-label">Session Duration</span>
+          <span class="support-info-value" id="support-timer">—</span>
+        </div>
+      </div>
+
+      <p class="support-active-note">
+        When your support session is complete, click the button below to
+        <strong>immediately remove</strong> the access key.
+      </p>
+
+      <button class="btn support-btn-disable" id="btn-support-disable">
+        End Support Session
+      </button>
+    </div>
+  `;
+
+  document.getElementById("btn-support-disable").addEventListener("click", disableSupport);
+  startSupportTimer();
+}
+
+function renderSupportRemoved(verified) {
+  stopSupportTimer();
+  const icon = verified ? "✅" : "⚠️";
+  const msg = verified
+    ? "The Sovran Systems SSH key has been completely removed from your machine. We no longer have any access."
+    : "The key removal was requested but could not be fully verified. Please reboot your machine to be sure.";
+
+  $supportBody.innerHTML = `
+    <div class="support-section">
+      <div class="support-icon-big">${icon}</div>
+      <h3 class="support-heading">Support Session Ended</h3>
+      <p class="support-desc">${escHtml(msg)}</p>
+
+      <div class="support-verify-box">
+        <span class="support-verify-label">SSH Key Status:</span>
+        <span class="support-verify-value ${verified ? "verified-gone" : "verify-warning"}">
+          ${verified ? "✓ Removed — No access" : "⚠ Verify by rebooting"}
+        </span>
+      </div>
+
+      <button class="btn support-btn-done" id="btn-support-done">Done</button>
+    </div>
+  `;
+
+  document.getElementById("btn-support-done").addEventListener("click", closeSupportModal);
+}
+
+async function enableSupport() {
+  const btn = document.getElementById("btn-support-enable");
+  if (btn) { btn.disabled = true; btn.textContent = "Enabling…"; }
+  try {
+    await apiFetch("/api/support/enable", { method: "POST" });
+    const status = await apiFetch("/api/support/status");
+    _supportEnabledAt = status.enabled_at;
+    renderSupportActive();
+  } catch (err) {
+    if (btn) { btn.disabled = false; btn.textContent = "Enable Support Access"; }
+    alert("Failed to enable support access. Please try again.");
+  }
+}
+
+async function disableSupport() {
+  const btn = document.getElementById("btn-support-disable");
+  if (btn) { btn.disabled = true; btn.textContent = "Removing key…"; }
+  try {
+    const result = await apiFetch("/api/support/disable", { method: "POST" });
+    renderSupportRemoved(result.verified);
+  } catch (err) {
+    if (btn) { btn.disabled = false; btn.textContent = "End Support Session"; }
+    alert("Failed to disable support access. Please try again.");
+  }
+}
+
+function startSupportTimer() {
+  stopSupportTimer();
+  updateSupportTimer();
+  _supportTimerInt = setInterval(updateSupportTimer, SUPPORT_TIMER_INTERVAL);
+}
+
+function stopSupportTimer() {
+  if (_supportTimerInt) {
+    clearInterval(_supportTimerInt);
+    _supportTimerInt = null;
+  }
+}
+
+function updateSupportTimer() {
+  const el = document.getElementById("support-timer");
+  if (!el || !_supportEnabledAt) return;
+  const elapsed = (Date.now() / 1000) - _supportEnabledAt;
+  el.textContent = formatDuration(Math.max(0, elapsed));
+}
+
+function closeSupportModal() {
+  if ($supportModal) $supportModal.classList.remove("open");
+  stopSupportTimer();
 }
 
 // ── Update modal ──────────────────────────────────────────────────
@@ -394,140 +609,4 @@ function startUpdatePoll() {
 
 function stopUpdatePoll() {
   if (_updatePollTimer) {
-    clearInterval(_updatePollTimer);
-    _updatePollTimer = null;
-  }
-}
-
-async function pollUpdateStatus() {
-  if (_updateFinished) return;
-
-  try {
-    const data = await apiFetch(`/api/updates/status?offset=${_updateLogOffset}`);
-
-    if (_serverWasDown) {
-      _serverWasDown = false;
-      appendLog("[Server reconnected]\n");
-      if ($modalStatus) $modalStatus.textContent = "Updating…";
-    }
-
-    if (data.log) {
-      appendLog(data.log);
-    }
-    _updateLogOffset = data.offset;
-
-    if (data.running) {
-      return;
-    }
-
-    _updateFinished = true;
-    stopUpdatePoll();
-
-    if (data.result === "success") {
-      onUpdateDone(true);
-    } else {
-      onUpdateDone(false);
-    }
-  } catch (err) {
-    if (!_serverWasDown) {
-      _serverWasDown = true;
-      appendLog("\n[Server restarting — waiting for it to come back…]\n");
-      if ($modalStatus) $modalStatus.textContent = "Server restarting…";
-    }
-  }
-}
-
-function onUpdateDone(success) {
-  if ($modalSpinner)  $modalSpinner.classList.remove("spinning");
-  if ($btnCloseModal) $btnCloseModal.disabled = false;
-
-  if (success) {
-    if ($modalStatus) $modalStatus.textContent = "✓ Update complete";
-    if ($btnReboot)   $btnReboot.style.display  = "inline-flex";
-  } else {
-    if ($modalStatus) $modalStatus.textContent = "✗ Update failed";
-    if ($btnSave)     $btnSave.style.display    = "inline-flex";
-    if ($btnReboot)   $btnReboot.style.display  = "inline-flex";
-  }
-}
-
-function saveErrorReport() {
-  const blob = new Blob([_updateLog], { type: "text/plain" });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement("a");
-  a.href     = url;
-  a.download = `sovran-update-error-${new Date().toISOString().split('.')[0].replace(/:/g, '-')}.txt`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-}
-
-// ── Reboot with confirmation overlay ──────────────────────────────
-
-function doReboot() {
-  if ($modal) $modal.classList.remove("open");
-  stopUpdatePoll();
-  if ($rebootOverlay) $rebootOverlay.classList.add("visible");
-  fetch("/api/reboot", { method: "POST" }).catch(() => {});
-  setTimeout(waitForServerReboot, REBOOT_CHECK_INTERVAL);
-}
-
-function waitForServerReboot() {
-  fetch("/api/config", { cache: "no-store" })
-    .then(res => {
-      if (res.ok) {
-        window.location.reload();
-      } else {
-        setTimeout(waitForServerReboot, REBOOT_CHECK_INTERVAL);
-      }
-    })
-    .catch(() => {
-      setTimeout(waitForServerReboot, REBOOT_CHECK_INTERVAL);
-    });
-}
-
-// ── Event listeners ───────────────────────────────────────────────
-
-if ($updateBtn)      $updateBtn.addEventListener("click", openUpdateModal);
-if ($refreshBtn)     $refreshBtn.addEventListener("click", () => refreshServices());
-if ($btnCloseModal)  $btnCloseModal.addEventListener("click", closeUpdateModal);
-if ($btnReboot)      $btnReboot.addEventListener("click", doReboot);
-if ($btnSave)        $btnSave.addEventListener("click", saveErrorReport);
-if ($credsCloseBtn)  $credsCloseBtn.addEventListener("click", closeCredsModal);
-
-if ($modal) {
-  $modal.addEventListener("click", (e) => {
-    if (e.target === $modal) closeUpdateModal();
-  });
-}
-
-if ($credsModal) {
-  $credsModal.addEventListener("click", (e) => {
-    if (e.target === $credsModal) closeCredsModal();
-  });
-}
-
-// ── Init ──────────────────────────────────────────────────────────
-
-async function init() {
-  try {
-    const cfg = await apiFetch("/api/config");
-    if (cfg.category_order) {
-      for (const [key, label] of cfg.category_order) {
-        _categoryLabels[key] = label;
-      }
-    }
-    const badge = document.getElementById("role-badge");
-    if (badge && cfg.role_label) badge.textContent = cfg.role_label;
-  } catch (_) {}
-
-  await refreshServices();
-  loadNetwork();
-  checkUpdates();
-
-  setInterval(refreshServices, POLL_INTERVAL_SERVICES);
-  setInterval(checkUpdates,    POLL_INTERVAL_UPDATES);
-}
-
-document.addEventListener("DOMContentLoaded", init);
+    clearInterval(_
