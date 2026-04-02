@@ -2,8 +2,54 @@
 
 let
   fonts = pkgs.liberation_ttf;
+
+  # ── Helper: change 'free' password and save it ─────────────
+  change-free-password = pkgs.writeShellScriptBin "change-free-password" ''
+    set -euo pipefail
+    SECRET_FILE="/var/lib/secrets/free-password"
+
+    if [ -z "''${1:-}" ]; then
+      echo -n "New password for free: "
+      read -rs NEW_PASS
+      echo
+    else
+      NEW_PASS="$1"
+    fi
+
+    echo "free:$NEW_PASS" | ${pkgs.shadow}/bin/chpasswd
+    mkdir -p /var/lib/secrets
+    echo "$NEW_PASS" > "$SECRET_FILE"
+    chmod 600 "$SECRET_FILE"
+    echo "Password for 'free' updated and saved."
+  '';
+
+  # ── Wrapper: intercept 'passwd free' ───────────────────────
+  passwd-wrapper = pkgs.writeShellScriptBin "passwd" ''
+    # If the target user is 'free', redirect to the proper tool
+    TARGET="''${1:-}"
+
+    if [ "$TARGET" = "free" ]; then
+      echo ""
+      echo "╔══════════════════════════════════════════════════════╗"
+      echo "║  ⚠  Use 'change-free-password' instead of 'passwd' ║"
+      echo "║                                                      ║"
+      echo "║  'passwd free' only updates /etc/shadow.             ║"
+      echo "║  The Hub and Magic Keys PDF will NOT be updated.     ║"
+      echo "║                                                      ║"
+      echo "║  Redirecting to change-free-password now...          ║"
+      echo "╚══════════════════════════════════════════════════════╝"
+      echo ""
+      exec ${change-free-password}/bin/change-free-password
+    fi
+
+    # For all other users, pass through to the real passwd
+    exec ${pkgs.shadow}/bin/passwd "$@"
+  '';
 in
 {
+  # ── Make helpers available system-wide ──────────────────────
+  environment.systemPackages = [ change-free-password passwd-wrapper ];
+
   # ── 1. Auto-Generate Root Password (Runs once) ─────────────
   systemd.services.root-password-setup = {
     description = "Generate and set a random root password";
@@ -20,6 +66,25 @@ in
         ROOT_PASS=$(pwgen -s 20 1)
         echo "root:$ROOT_PASS" | chpasswd
         echo "$ROOT_PASS" > "$SECRET_FILE"
+        chmod 600 "$SECRET_FILE"
+      fi
+    '';
+  };
+
+  # ── 1b. Save 'free' password on first boot ─────────────────
+  systemd.services.free-password-setup = {
+    description = "Save the initial 'free' user password";
+    wantedBy = [ "multi-user.target" ];
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+    };
+    path = [ pkgs.coreutils ];
+    script = ''
+      SECRET_FILE="/var/lib/secrets/free-password"
+      if [ ! -f "$SECRET_FILE" ]; then
+        mkdir -p /var/lib/secrets
+        echo "free" > "$SECRET_FILE"
         chmod 600 "$SECRET_FILE"
       fi
     '';
@@ -70,6 +135,7 @@ in
       SECRET_SOURCES=""
       for f in \
         /var/lib/secrets/root-password \
+        /var/lib/secrets/free-password \
         /etc/nix-bitcoin-secrets/rtl-password \
         /var/lib/tor/onion/rtl/hostname \
         /var/lib/tor/onion/electrs/hostname \
@@ -112,6 +178,7 @@ in
       read_secret() { if [ -f "$1" ]; then cat "$1"; else echo "$2"; fi; }
 
       ROOT_PASS=$(read_secret /var/lib/secrets/root-password "Generating...")
+      FREE_PASS=$(read_secret /var/lib/secrets/free-password "free")
       RTL_PASS=$(read_secret /etc/nix-bitcoin-secrets/rtl-password "Not found")
       RTL_ONION=$(read_secret /var/lib/tor/onion/rtl/hostname "Not generated yet")
       ELECTRS_ONION=$(read_secret /var/lib/tor/onion/electrs/hostname "Not generated yet")
@@ -150,7 +217,7 @@ These are the master keys to the actual machine.
 ### 1. Main Screen Unlock (The 'free' account)
 When you turn the computer on, it usually logs you in automatically. However, if the screen goes to sleep, or **if you enable Remote Desktop (RDP)**, you will need this to log in:
 - **Username:** \`free\`
-- **Password:** \`free\`
+- **Password:** \`$FREE_PASS\`
 
 🚨 **VERY IMPORTANT:** You MUST write this password down and keep it safe! If you lose it, you will be locked out of your computer!
 
