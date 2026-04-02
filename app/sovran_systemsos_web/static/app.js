@@ -4,8 +4,7 @@
 const POLL_INTERVAL_SERVICES = 5000;   // 5 s
 const POLL_INTERVAL_UPDATES  = 1800000; // 30 min
 const ACTION_REFRESH_DELAY   = 1500;   // 1.5 s after start/stop/restart
-const UPDATE_POLL_INTERVAL   = 1500;   // 1.5 s while update is running
-const UPDATE_POLL_DELAY      = 3000;   // 3 s before first poll (let unit start)
+const UPDATE_POLL_INTERVAL   = 2000;   // 2 s while update is running
 
 const CATEGORY_ORDER = [
   "infrastructure",
@@ -29,7 +28,6 @@ let _updatePollTimer = null;
 let _updateLogOffset = 0;
 let _serverWasDown   = false;
 let _updateFinished  = false;
-let _sawRunning      = false;
 
 // ── DOM refs ──────────────────────────────────────────────────────
 
@@ -74,7 +72,7 @@ async function apiFetch(path, options = {}) {
   return res.json();
 }
 
-// ── Render: initial build ─────────────────────────────────────────
+// ── Render: initial build ────────────────────────��────────────────
 
 function buildTiles(services, categoryLabels) {
   _servicesCache = services;
@@ -271,7 +269,6 @@ function openUpdateModal() {
   _updateLogOffset = 0;
   _serverWasDown = false;
   _updateFinished = false;
-  _sawRunning = false;
   if ($modalLog)      $modalLog.textContent = "";
   if ($modalStatus)   $modalStatus.textContent = "Starting update…";
   if ($modalSpinner)  $modalSpinner.classList.add("spinning");
@@ -309,11 +306,9 @@ function startUpdate() {
     .then(data => {
       if (data.status === "already_running") {
         appendLog("[Update already in progress, attaching…]\n\n");
-        _sawRunning = true;
       }
       if ($modalStatus) $modalStatus.textContent = "Updating…";
-      // Delay the first poll to give the systemd unit time to start
-      setTimeout(startUpdatePoll, UPDATE_POLL_DELAY);
+      startUpdatePoll();
     })
     .catch(err => {
       appendLog(`[Error: failed to start update — ${err}]\n`);
@@ -342,6 +337,7 @@ async function pollUpdateStatus() {
     // Server came back after being down
     if (_serverWasDown) {
       _serverWasDown = false;
+      appendLog("[Server reconnected]\n");
       if ($modalStatus) $modalStatus.textContent = "Updating…";
     }
 
@@ -351,14 +347,8 @@ async function pollUpdateStatus() {
     }
     _updateLogOffset = data.offset;
 
-    // Track if we ever saw the unit as running
-    if (data.running) {
-      _sawRunning = true;
-    }
-
-    // Only declare finished if we previously saw it running (or server says so)
-    // This prevents the race where the unit hasn't started yet
-    if (!data.running && _sawRunning) {
+    // Check if finished
+    if (!data.running) {
       _updateFinished = true;
       stopUpdatePoll();
       if (data.result === "success") {
@@ -368,12 +358,10 @@ async function pollUpdateStatus() {
       }
     }
   } catch (err) {
-    // Server is likely restarting during nixos-rebuild switch
-    // This counts as "saw running" since it was running before it died
-    _sawRunning = true;
+    // Server is likely restarting during nixos-rebuild switch — keep polling
     if (!_serverWasDown) {
       _serverWasDown = true;
-      appendLog("\n[Server restarting — waiting for it to come back…]\n\n");
+      appendLog("\n[Server restarting — waiting for it to come back…]\n");
       if ($modalStatus) $modalStatus.textContent = "Server restarting…";
     }
   }
