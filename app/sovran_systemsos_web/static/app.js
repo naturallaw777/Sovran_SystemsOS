@@ -4,6 +4,7 @@
 const POLL_INTERVAL_SERVICES = 5000;   // 5 s
 const POLL_INTERVAL_UPDATES  = 1800000; // 30 min
 const ACTION_REFRESH_DELAY   = 1500;   // 1.5 s after start/stop/restart
+const UPDATE_POLL_INTERVAL   = 2000;   // 2 s while update is running
 
 const CATEGORY_ORDER = [
   "infrastructure",
@@ -24,6 +25,8 @@ let _servicesCache  = [];
 let _categoryLabels = {};
 let _updateSource   = null;
 let _updateLog      = "";
+let _updatePollTimer = null;
+let _updateLogOffset = 0;
 
 // ── DOM refs ──────────────────────────────────────────────────────
 
@@ -261,6 +264,7 @@ async function checkUpdates() {
 function openUpdateModal() {
   if (!$modal) return;
   _updateLog = "";
+  _updateLogOffset = 0;
   if ($modalLog)    $modalLog.textContent = "";
   if ($modalStatus) $modalStatus.textContent = "Updating…";
   if ($modalSpinner) $modalSpinner.classList.add("spinning");
@@ -269,69 +273,81 @@ function openUpdateModal() {
   if ($btnCloseModal) { $btnCloseModal.disabled   = true;   }
 
   $modal.classList.add("open");
-  startUpdateStream();
+  startUpdate();
 }
 
 function closeUpdateModal() {
   if (!$modal) return;
   $modal.classList.remove("open");
-  if (_updateSource) {
-    _updateSource.close();
-    _updateSource = null;
-  }
+  stopUpdatePoll();
 }
 
 function appendLog(text) {
-  _updateLog += text + "\n";
+  if (!text) return;
+  _updateLog += text;
   if ($modalLog) {
-    $modalLog.textContent += text + "\n";
+    $modalLog.textContent += text;
     $modalLog.scrollTop = $modalLog.scrollHeight;
   }
 }
 
-function startUpdateStream() {
-  // Trigger the update via POST first, then listen via SSE
-  fetch("/api/updates/run", { method: "POST" }).then(response => {
-    if (!response.ok || !response.body) {
-      const detail = response.ok ? "no body" : `HTTP ${response.status} ${response.statusText}`;
-      appendLog(`[Error: failed to start update — ${detail}]`);
+function startUpdate() {
+  appendLog("$ cd /etc/nixos && nix flake update && nixos-rebuild switch && flatpak update -y\n\n");
+
+  // Trigger the systemd unit via POST
+  fetch("/api/updates/run", { method: "POST" })
+    .then(response => {
+      if (!response.ok) {
+        return response.text().then(t => { throw new Error(t); });
+      }
+      return response.json();
+    })
+    .then(data => {
+      // Start polling for status + log lines
+      startUpdatePoll();
+    })
+    .catch(err => {
+      appendLog(`[Error: failed to start update — ${err}]\n`);
       onUpdateDone(false);
-      return;
+    });
+}
+
+function startUpdatePoll() {
+  // Poll immediately, then on interval
+  pollUpdateStatus();
+  _updatePollTimer = setInterval(pollUpdateStatus, UPDATE_POLL_INTERVAL);
+}
+
+function stopUpdatePoll() {
+  if (_updatePollTimer) {
+    clearInterval(_updatePollTimer);
+    _updatePollTimer = null;
+  }
+}
+
+async function pollUpdateStatus() {
+  try {
+    const data = await apiFetch(`/api/updates/status?offset=${_updateLogOffset}`);
+
+    // Append new log text
+    if (data.log) {
+      appendLog(data.log);
     }
+    _updateLogOffset = data.offset;
 
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = "";
-
-    function read() {
-      reader.read().then(({ done, value }) => {
-        if (done) {
-          onUpdateDone(true);
-          return;
-        }
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop(); // keep incomplete line
-        for (const line of lines) {
-          if (line.startsWith("data: ")) {
-            appendLog(line.slice(6));
-          } else if (line.startsWith("event: done")) {
-            // success event will follow in data:
-          } else if (line.startsWith("event: error")) {
-            // error event will follow in data:
-          }
-        }
-        read();
-      }).catch(err => {
-        appendLog(`[Stream error: ${err}]`);
+    // Check if finished
+    if (!data.running) {
+      stopUpdatePoll();
+      if (data.result === "success") {
+        onUpdateDone(true);
+      } else {
         onUpdateDone(false);
-      });
+      }
     }
-    read();
-  }).catch(err => {
-    appendLog(`[Request error: ${err}]`);
-    onUpdateDone(false);
-  });
+  } catch (err) {
+    // Server may be restarting during nixos-rebuild switch — keep polling
+    console.warn("Update poll failed (server may be restarting):", err);
+  }
 }
 
 function onUpdateDone(success) {
