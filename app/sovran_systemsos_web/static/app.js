@@ -269,7 +269,7 @@ async function refreshServices() {
   }
 }
 
-// ── Network IPs ───────────────────────────────────────────────────
+// ── Network IPs ──────────────────────────────────��────────────────
 
 async function loadNetwork() {
   try {
@@ -319,9 +319,22 @@ async function openCredsModal(unit, name) {
     for (const cred of data.credentials) {
       const id = "cred-" + Math.random().toString(36).substring(2, 8);
       const displayValue = linkify(cred.value);
+
+      // QR code block (if present)
+      let qrBlock = "";
+      if (cred.qrcode) {
+        qrBlock = `
+          <div class="creds-qr-wrap">
+            <img class="creds-qr-img" src="${cred.qrcode}" alt="QR Code for ${escHtml(cred.label)}">
+            <div class="creds-qr-hint">Scan with Zeus app on your phone</div>
+          </div>
+        `;
+      }
+
       html += `
         <div class="creds-row">
           <div class="creds-label">${escHtml(cred.label)}</div>
+          ${qrBlock}
           <div class="creds-value-wrap">
             <div class="creds-value" id="${id}">${displayValue}</div>
             <button class="creds-copy-btn" data-target="${id}">Copy</button>
