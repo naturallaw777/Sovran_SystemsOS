@@ -1,2 +1,5 @@
 custom.nix
 role-state.nix
+*.iso
+*.zip
+*.pma
