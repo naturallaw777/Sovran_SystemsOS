@@ -227,6 +227,9 @@ in
         StandardOutput = "journal";
         StandardError  = "journal";
       };
+
+      # ── Make qrencode available for QR code generation ────────
+      path = [ pkgs.qrencode ];
     };
 
     # ── System update as a detached oneshot ─────────────────────
