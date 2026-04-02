@@ -1,21 +1,16 @@
-{ config, pkgs, lib, ... }:
+{ config, lib, pkgs, ... }:
 
 lib.mkIf config.sovran_systemsOS.features.rdp {
 
-  services.gnome.gnome-remote-desktop.enable = true;
+  services.gnome-remote-desktop.enable = true;
 
-  networking.firewall.allowedTCPPorts = [ 3389 ];
-
-  environment.systemPackages = with pkgs; [
-    freerdp
-  ];
-
-  # The NixOS module installs the unit but doesn't enable it — we just need to start it and order it
-  systemd.services.gnome-remote-desktop = {
-    wantedBy = [ "graphical.target" ];
-    after = [ "gnome-remote-desktop-setup.service" ];
-    wants = [ "gnome-remote-desktop-setup.service" ];
+  users.users.gnome-remote-desktop = {
+    isSystemUser = true;
+    group = "gnome-remote-desktop";
+    home = "/var/lib/gnome-remote-desktop";
+    createHome = true;
   };
+  users.groups.gnome-remote-desktop = {};
 
   systemd.tmpfiles.rules = [
     "d /var/lib/gnome-remote-desktop 0750 gnome-remote-desktop gnome-remote-desktop -"
@@ -76,6 +71,10 @@ lib.mkIf config.sovran_systemsOS.features.rdp {
       else
         PASSWORD=$(cat /var/lib/gnome-remote-desktop/rdp-password)
       fi
+
+      # Write username to a separate file for the hub
+      echo "sovran" > /var/lib/gnome-remote-desktop/rdp-username
+      chmod 600 /var/lib/gnome-remote-desktop/rdp-username
 
       # Get current IP address
       LOCAL_IP=$(hostname -I | awk '{print $1}')
