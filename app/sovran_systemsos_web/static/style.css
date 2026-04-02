@@ -793,13 +793,15 @@ button.btn-reboot:hover:not(:disabled) {
 
 /* ── Credential links ─────────────────────────────────────── */
 .creds-link {
-  color: #58a6ff;
+  color: #7ee787;
   text-decoration: none;
   word-break: break-all;
 }
 .creds-link:hover {
   text-decoration: underline;
-  color: #79c0ff;
+  color: #a5f0b0;
+}
+
 }
 
 
