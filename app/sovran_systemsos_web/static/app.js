@@ -27,8 +27,9 @@ let _updateLog       = "";
 let _updatePollTimer = null;
 let _updateLogOffset = 0;
 let _serverWasDown   = false;
+let _updateFinished  = false;
 
-// ── DOM refs ────────────────────────────────────────────���─────────
+// ── DOM refs ──────────────────────────────────────────────────────
 
 const $tilesArea     = document.getElementById("tiles-area");
 const $updateBtn     = document.getElementById("btn-update");
@@ -250,8 +251,13 @@ async function loadNetwork() {
 async function checkUpdates() {
   try {
     const data = await apiFetch("/api/updates/check");
+    const hasUpdates = !!data.available;
     if ($updateBadge) {
-      $updateBadge.classList.toggle("visible", !!data.available);
+      $updateBadge.classList.toggle("visible", hasUpdates);
+    }
+    // Toggle button color: blue (default) → green (updates available)
+    if ($updateBtn) {
+      $updateBtn.classList.toggle("has-updates", hasUpdates);
     }
   } catch (_) {}
 }
@@ -263,6 +269,7 @@ function openUpdateModal() {
   _updateLog = "";
   _updateLogOffset = 0;
   _serverWasDown = false;
+  _updateFinished = false;
   if ($modalLog)      $modalLog.textContent = "";
   if ($modalStatus)   $modalStatus.textContent = "Starting update…";
   if ($modalSpinner)  $modalSpinner.classList.add("spinning");
@@ -323,6 +330,9 @@ function stopUpdatePoll() {
 }
 
 async function pollUpdateStatus() {
+  // Don't poll if we already know it's done
+  if (_updateFinished) return;
+
   try {
     const data = await apiFetch(`/api/updates/status?offset=${_updateLogOffset}`);
 
@@ -340,6 +350,7 @@ async function pollUpdateStatus() {
 
     // Check if finished
     if (!data.running) {
+      _updateFinished = true;
       stopUpdatePoll();
       if (data.result === "success") {
         onUpdateDone(true);
@@ -402,7 +413,7 @@ if ($modal) {
   });
 }
 
-// ── Init ──────────────────────────────────────────────────────────
+// ── Init ──────��───────────────────────────────────────────────────
 
 async function init() {
   try {
