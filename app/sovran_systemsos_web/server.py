@@ -22,7 +22,7 @@ from pydantic import BaseModel
 from .config import load_config
 from . import systemctl as sysctl
 
-# ── Constants ──────────────────────────────��─────────────────────
+# ── Constants ──────────────────────────────────────────────────────
 
 FLAKE_LOCK_PATH = "/etc/nixos/flake.lock"
 FLAKE_INPUT_NAME = "Sovran_Systems"
@@ -146,6 +146,16 @@ FEATURE_REGISTRY = [
     },
 ]
 
+# Map feature IDs to their systemd units in config.json
+FEATURE_SERVICE_MAP = {
+    "rdp": "gnome-remote-desktop.service",
+    "haven": "haven-relay.service",
+    "element-calling": "livekit.service",
+    "mempool": "mempool-frontend.service",
+    "bip110": None,
+    "bitcoin-core": None,
+}
+
 ROLE_LABELS = {
     "server_plus_desktop": "Server + Desktop",
     "desktop":             "Desktop Only",
@@ -191,7 +201,7 @@ def _file_hash(filename: str) -> str:
 _APP_JS_HASH  = _file_hash("app.js")
 _STYLE_CSS_HASH = _file_hash("style.css")
 
-# ── Update check helpers ──────────────────��──────────────────────
+# ── Update check helpers ──────────────────────────────────────────
 
 def _get_locked_info():
     try:
@@ -463,6 +473,21 @@ def _write_hub_overrides(features: dict, nostr_npub: str | None) -> None:
         f.write(content)
 
 
+# ── Feature status helpers ─────────────────────────────────────────
+
+def _is_feature_enabled_in_config(feature_id: str) -> bool | None:
+    """Check if a feature's service appears as enabled in the running config.json.
+    Returns True/False if found, None if the feature has no mapped service."""
+    unit = FEATURE_SERVICE_MAP.get(feature_id)
+    if unit is None:
+        return None  # bip110, bitcoin-core — can't determine from config
+    cfg = load_config()
+    for svc in cfg.get("services", []):
+        if svc.get("unit") == unit:
+            return svc.get("enabled", False)
+    return None
+
+
 # ── Tech Support helpers ──────────────────────────────────────────
 
 def _is_support_active() -> bool:
@@ -582,7 +607,6 @@ async def api_config():
         "role": role,
         "role_label": ROLE_LABELS.get(role, role),
         "category_order": CATEGORY_ORDER,
-        "feature_manager": cfg.get("feature_manager", False),
     }
 
 
@@ -786,7 +810,18 @@ async def api_features():
     features = []
     for feat in FEATURE_REGISTRY:
         feat_id = feat["id"]
-        enabled = overrides.get(feat_id, False)
+
+        # Determine enabled state:
+        # 1. Check hub-overrides.nix first (explicit hub toggle)
+        # 2. Fall back to config.json services (features enabled in custom.nix)
+        if feat_id in overrides:
+            enabled = overrides[feat_id]
+        else:
+            config_state = _is_feature_enabled_in_config(feat_id)
+            if config_state is not None:
+                enabled = config_state
+            else:
+                enabled = False
 
         domain_name = feat.get("domain_name")
         domain_configured = True
