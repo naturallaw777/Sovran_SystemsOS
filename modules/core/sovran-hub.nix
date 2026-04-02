@@ -129,6 +129,18 @@ in
       };
     };
 
+    # ── System update as a detached oneshot ─────────────────────
+    systemd.services.sovran-hub-update = {
+      description = "Sovran_SystemsOS System Update";
+      serviceConfig = {
+        Type           = "oneshot";
+        ExecStart      = "${pkgs.bash}/bin/bash -c 'cd /etc/nixos && nix flake update && nixos-rebuild switch && flatpak update -y'";
+        StandardOutput = "file:/var/log/sovran-hub-update.log";
+        StandardError  = "file:/var/log/sovran-hub-update.log";
+      };
+      path = [ pkgs.nix pkgs.nixos-rebuild pkgs.git pkgs.flatpak ];
+    };
+
     # ── Open firewall port ─────────────────────────────────────
     networking.firewall.allowedTCPPorts = [ 8937 ];
   };

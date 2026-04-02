@@ -7,7 +7,6 @@ import json
 import os
 import socket
 import subprocess
-import threading
 import urllib.request
 from typing import AsyncIterator
 
@@ -26,13 +25,11 @@ FLAKE_LOCK_PATH = "/etc/nixos/flake.lock"
 FLAKE_INPUT_NAME = "Sovran_Systems"
 GITEA_API_BASE = "https://git.sovransystems.com/api/v1/repos/Sovran_Systems/Sovran_SystemsOS/commits"
 
+UPDATE_UNIT = "sovran-hub-update.service"
+UPDATE_LOG  = "/var/log/sovran-hub-update.log"
+
 REBOOT_COMMAND = [
     "reboot",
-]
-
-UPDATE_COMMAND = [
-    "bash", "-c",
-    "cd /etc/nixos && nix flake update && nixos-rebuild switch && flatpak update -y",
 ]
 
 CATEGORY_ORDER = [
@@ -161,6 +158,42 @@ def _get_external_ip() -> str:
         except Exception:
             continue
     return "unavailable"
+
+
+# ── Update unit helpers ──────────────────────────────────────────
+
+def _update_is_active() -> bool:
+    """Return True if the update unit is currently running."""
+    r = subprocess.run(
+        ["systemctl", "is-active", "--quiet", UPDATE_UNIT],
+        capture_output=True,
+    )
+    return r.returncode == 0
+
+
+def _update_result() -> str:
+    """Return 'success', 'failed', or 'inactive'."""
+    r = subprocess.run(
+        ["systemctl", "show", "-p", "Result", "--value", UPDATE_UNIT],
+        capture_output=True, text=True,
+    )
+    val = r.stdout.strip()
+    if val == "success":
+        return "success"
+    elif val:
+        return "failed"
+    return "inactive"
+
+
+def _read_update_log(offset: int = 0) -> tuple[str, int]:
+    """Read update log from offset. Return (new_text, new_offset)."""
+    try:
+        with open(UPDATE_LOG, "r") as f:
+            f.seek(offset)
+            text = f.read()
+            return text, f.tell()
+    except FileNotFoundError:
+        return "", 0
 
 
 # ── Routes ───────────────────────────────────────────────────────
@@ -292,36 +325,48 @@ async def api_reboot():
 
 @app.post("/api/updates/run")
 async def api_updates_run():
-    async def event_stream() -> AsyncIterator[str]:
-        yield "data: $ ssh root@localhost 'cd /etc/nixos && nix flake update && nixos-rebuild switch && flatpak update -y'\n\n"
-        yield "data: \n\n"
+    """Kick off the detached update systemd unit."""
+    loop = asyncio.get_event_loop()
 
-        process = await asyncio.create_subprocess_exec(
-            *UPDATE_COMMAND,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.STDOUT,
-        )
+    # Check if already running
+    running = await loop.run_in_executor(None, _update_is_active)
+    if running:
+        return {"ok": True, "status": "already_running"}
 
-        assert process.stdout is not None
-        try:
-            async for raw_line in process.stdout:
-                line = raw_line.decode(errors="replace").rstrip("\n")
-                # SSE requires data: prefix; escape newlines within a line
-                yield f"data: {line}\n\n"
-        except Exception:
-            yield "data: [stream error: output read interrupted]\n\n"
+    # Clear the old log
+    try:
+        open(UPDATE_LOG, "w").close()
+    except OSError:
+        pass
 
-        await process.wait()
-        if process.returncode == 0:
-            yield "event: done\ndata: success\n\n"
-        else:
-            yield f"event: error\ndata: exit code {process.returncode}\n\n"
-
-    return StreamingResponse(
-        event_stream(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "X-Accel-Buffering": "no",
-        },
+    # Reset the failed state (if any) and start the unit
+    await asyncio.create_subprocess_exec(
+        "systemctl", "reset-failed", UPDATE_UNIT,
+        stdout=asyncio.subprocess.DEVNULL,
+        stderr=asyncio.subprocess.DEVNULL,
     )
+    proc = await asyncio.create_subprocess_exec(
+        "systemctl", "start", UPDATE_UNIT,
+        stdout=asyncio.subprocess.DEVNULL,
+        stderr=asyncio.subprocess.DEVNULL,
+    )
+    await proc.wait()
+
+    return {"ok": True, "status": "started"}
+
+
+@app.get("/api/updates/status")
+async def api_updates_status(offset: int = 0):
+    """Poll endpoint: returns running state, result, and new log lines."""
+    loop = asyncio.get_event_loop()
+
+    running = await loop.run_in_executor(None, _update_is_active)
+    result = await loop.run_in_executor(None, _update_result)
+    new_log, new_offset = await loop.run_in_executor(None, _read_update_log, offset)
+
+    return {
+        "running": running,
+        "result": result,
+        "log": new_log,
+        "offset": new_offset,
+    }
