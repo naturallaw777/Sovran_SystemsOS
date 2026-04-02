@@ -56,6 +56,10 @@ const $credsCloseBtn  = document.getElementById("creds-close-btn");
 
 // ── Helpers ───────────────────────────────────────────────────────
 
+function tileId(svc) {
+  return svc.unit + "::" + svc.name;
+}
+
 function statusClass(status) {
   if (!status) return "unknown";
   if (status === "active")   return "active";
@@ -147,6 +151,7 @@ function buildTile(svc) {
   const tile = document.createElement("div");
   tile.className = "service-tile" + (dis ? " disabled" : "");
   tile.dataset.unit = svc.unit;
+  tile.dataset.tileId = tileId(svc);
   if (dis) tile.title = `${svc.name} is not enabled in custom.nix`;
 
   // Info button (only if service has credentials)
@@ -219,7 +224,8 @@ function updateTiles(services) {
   _servicesCache = services;
 
   for (const svc of services) {
-    const tile = $tilesArea.querySelector(`.service-tile[data-unit="${CSS.escape(svc.unit)}"]`);
+    const id = CSS.escape(tileId(svc));
+    const tile = $tilesArea.querySelector(`.service-tile[data-tile-id="${id}"]`);
     if (!tile) continue;
 
     const sc = statusClass(svc.status);
@@ -263,7 +269,7 @@ async function loadNetwork() {
     if ($internalIp) $internalIp.textContent = data.internal_ip || "—";
     if ($externalIp) $externalIp.textContent = data.external_ip || "—";
   } catch (_) {
-    if ($internalIp) $internalIp.textContent = "—";
+    if ($internalIp) $internalIp.textContent = "��";
     if ($externalIp) $externalIp.textContent = "—";
   }
 }
