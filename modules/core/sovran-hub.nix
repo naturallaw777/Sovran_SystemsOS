@@ -134,9 +134,10 @@ in
       description = "Sovran_SystemsOS System Update";
       serviceConfig = {
         Type           = "oneshot";
-        ExecStart      = "${pkgs.bash}/bin/bash -c 'cd /etc/nixos && nix flake update && nixos-rebuild switch && flatpak update -y'";
-        StandardOutput = "file:/var/log/sovran-hub-update.log";
-        StandardError  = "file:/var/log/sovran-hub-update.log";
+        ExecStart      = "${pkgs.bash}/bin/bash -c 'cd /etc/nixos && nix flake update 2>&1 && nixos-rebuild switch 2>&1 && flatpak update -y 2>&1'";
+        StandardOutput = "journal";
+        StandardError  = "journal";
+        SyslogIdentifier = "sovran-hub-update";
       };
       path = [ pkgs.nix pkgs.nixos-rebuild pkgs.git pkgs.flatpak ];
     };

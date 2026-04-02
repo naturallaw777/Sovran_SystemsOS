@@ -26,7 +26,6 @@ FLAKE_INPUT_NAME = "Sovran_Systems"
 GITEA_API_BASE = "https://git.sovransystems.com/api/v1/repos/Sovran_Systems/Sovran_SystemsOS/commits"
 
 UPDATE_UNIT = "sovran-hub-update.service"
-UPDATE_LOG  = "/var/log/sovran-hub-update.log"
 
 REBOOT_COMMAND = [
     "reboot",
@@ -172,7 +171,7 @@ def _update_is_active() -> bool:
 
 
 def _update_result() -> str:
-    """Return 'success', 'failed', or 'inactive'."""
+    """Return 'success', 'failed', or 'unknown'."""
     r = subprocess.run(
         ["systemctl", "show", "-p", "Result", "--value", UPDATE_UNIT],
         capture_output=True, text=True,
@@ -182,18 +181,47 @@ def _update_result() -> str:
         return "success"
     elif val:
         return "failed"
-    return "inactive"
+    return "unknown"
 
 
-def _read_update_log(offset: int = 0) -> tuple[str, int]:
-    """Read update log from offset. Return (new_text, new_offset)."""
-    try:
-        with open(UPDATE_LOG, "r") as f:
-            f.seek(offset)
-            text = f.read()
-            return text, f.tell()
-    except FileNotFoundError:
-        return "", 0
+def _get_update_invocation_id() -> str:
+    """Get the current InvocationID of the update unit."""
+    r = subprocess.run(
+        ["systemctl", "show", "-p", "InvocationID", "--value", UPDATE_UNIT],
+        capture_output=True, text=True,
+    )
+    return r.stdout.strip()
+
+
+def _read_journal_logs(since_cursor: str = "") -> tuple[list[str], str]:
+    """
+    Read journal logs for the update unit.
+    Returns (lines, last_cursor).
+    Uses cursors so we never miss lines even if the server restarts.
+    """
+    cmd = [
+        "journalctl", "-u", UPDATE_UNIT,
+        "--no-pager", "-o", "cat",
+        "--show-cursor",
+    ]
+    if since_cursor:
+        cmd += ["--after-cursor", since_cursor]
+    else:
+        # Only get logs from the most recent invocation
+        cmd += ["-n", "10000"]
+
+    r = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+    output = r.stdout
+
+    lines = []
+    cursor = since_cursor
+    for raw_line in output.split("\n"):
+        if raw_line.startswith("-- cursor: "):
+            cursor = raw_line[len("-- cursor: "):]
+        elif raw_line:
+            lines.append(raw_line)
+
+    return lines, cursor
 
 
 # ── Routes ───────────────────────────────────────────────────────
@@ -333,12 +361,6 @@ async def api_updates_run():
     if running:
         return {"ok": True, "status": "already_running"}
 
-    # Clear the old log
-    try:
-        open(UPDATE_LOG, "w").close()
-    except OSError:
-        pass
-
     # Reset the failed state (if any) and start the unit
     await asyncio.create_subprocess_exec(
         "systemctl", "reset-failed", UPDATE_UNIT,
@@ -356,17 +378,19 @@ async def api_updates_run():
 
 
 @app.get("/api/updates/status")
-async def api_updates_status(offset: int = 0):
-    """Poll endpoint: returns running state, result, and new log lines."""
+async def api_updates_status(cursor: str = ""):
+    """Poll endpoint: returns running state, result, and new journal lines."""
     loop = asyncio.get_event_loop()
 
     running = await loop.run_in_executor(None, _update_is_active)
     result = await loop.run_in_executor(None, _update_result)
-    new_log, new_offset = await loop.run_in_executor(None, _read_update_log, offset)
+    lines, new_cursor = await loop.run_in_executor(
+        None, _read_journal_logs, cursor,
+    )
 
     return {
         "running": running,
         "result": result,
-        "log": new_log,
-        "offset": new_offset,
+        "lines": lines,
+        "cursor": new_cursor,
     }

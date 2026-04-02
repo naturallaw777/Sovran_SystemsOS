@@ -26,7 +26,8 @@ let _categoryLabels = {};
 let _updateSource   = null;
 let _updateLog      = "";
 let _updatePollTimer = null;
-let _updateLogOffset = 0;
+let _updateCursor    = "";
+let _serverDownSince = 0;
 
 // ── DOM refs ──────────────────────────────────────────────────────
 
@@ -264,7 +265,8 @@ async function checkUpdates() {
 function openUpdateModal() {
   if (!$modal) return;
   _updateLog = "";
-  _updateLogOffset = 0;
+  _updateCursor = "";
+  _serverDownSince = 0;
   if ($modalLog)    $modalLog.textContent = "";
   if ($modalStatus) $modalStatus.textContent = "Updating…";
   if ($modalSpinner) $modalSpinner.classList.add("spinning");
@@ -284,15 +286,16 @@ function closeUpdateModal() {
 
 function appendLog(text) {
   if (!text) return;
-  _updateLog += text;
+  _updateLog += text + "\n";
   if ($modalLog) {
-    $modalLog.textContent += text;
+    $modalLog.textContent += text + "\n";
     $modalLog.scrollTop = $modalLog.scrollHeight;
   }
 }
 
 function startUpdate() {
-  appendLog("$ cd /etc/nixos && nix flake update && nixos-rebuild switch && flatpak update -y\n\n");
+  appendLog("$ cd /etc/nixos && nix flake update && nixos-rebuild switch && flatpak update -y");
+  appendLog("");
 
   // Trigger the systemd unit via POST
   fetch("/api/updates/run", { method: "POST" })
@@ -303,11 +306,14 @@ function startUpdate() {
       return response.json();
     })
     .then(data => {
-      // Start polling for status + log lines
+      if (data.status === "already_running") {
+        appendLog("[Update already in progress, attaching…]");
+      }
+      // Start polling for journal output
       startUpdatePoll();
     })
     .catch(err => {
-      appendLog(`[Error: failed to start update — ${err}]\n`);
+      appendLog(`[Error: failed to start update — ${err}]`);
       onUpdateDone(false);
     });
 }
@@ -327,16 +333,31 @@ function stopUpdatePoll() {
 
 async function pollUpdateStatus() {
   try {
-    const data = await apiFetch(`/api/updates/status?offset=${_updateLogOffset}`);
+    const data = await apiFetch(
+      `/api/updates/status?cursor=${encodeURIComponent(_updateCursor)}`
+    );
 
-    // Append new log text
-    if (data.log) {
-      appendLog(data.log);
+    // Server is back — reset the down counter
+    if (_serverDownSince > 0) {
+      appendLog("[Server reconnected, resuming…]");
+      _serverDownSince = 0;
     }
-    _updateLogOffset = data.offset;
 
-    // Check if finished
-    if (!data.running) {
+    // Append new journal lines
+    if (data.lines && data.lines.length > 0) {
+      for (const line of data.lines) {
+        appendLog(line);
+      }
+    }
+    if (data.cursor) {
+      _updateCursor = data.cursor;
+    }
+
+    // Update status text while running
+    if (data.running) {
+      if ($modalStatus) $modalStatus.textContent = "Updating…";
+    } else {
+      // Finished
       stopUpdatePoll();
       if (data.result === "success") {
         onUpdateDone(true);
@@ -345,7 +366,12 @@ async function pollUpdateStatus() {
       }
     }
   } catch (err) {
-    // Server may be restarting during nixos-rebuild switch — keep polling
+    // Server is likely restarting during nixos-rebuild switch
+    if (_serverDownSince === 0) {
+      _serverDownSince = Date.now();
+      appendLog("[Server restarting — waiting for it to come back…]");
+      if ($modalStatus) $modalStatus.textContent = "Server restarting…";
+    }
     console.warn("Update poll failed (server may be restarting):", err);
   }
 }
@@ -360,6 +386,7 @@ function onUpdateDone(success) {
   } else {
     if ($modalStatus) $modalStatus.textContent = "✗ Update failed";
     if ($btnSave)     $btnSave.style.display    = "inline-flex";
+    if ($btnReboot)   $btnReboot.style.display  = "inline-flex";
   }
 }
 
