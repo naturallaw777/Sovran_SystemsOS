@@ -756,4 +756,207 @@ button.btn-reboot:hover:not(:disabled) {
     width: 200px;
     height: 200px;
   }
+
+/* ── Tech Support tile ───────────────────────────────────────────── */
+
+.support-tile {
+  border-color: var(--accent-color);
+  border-width: 2px;
+  border-style: dashed;
+}
+
+.support-tile:hover {
+  border-color: #a8c8ff;
+  border-style: solid;
+}
+
+.support-status-label {
+  font-size: 0.75rem;
+  color: var(--accent-color);
+  font-weight: 600;
+}
+
+/* ── Tech Support modal content ──────────────────────────────────── */
+
+.support-section {
+  text-align: center;
+  padding: 8px 0;
+}
+
+.support-icon-big {
+  font-size: 3rem;
+  margin-bottom: 12px;
+}
+
+.support-heading {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.support-active-heading {
+  color: var(--yellow);
+}
+
+.support-desc {
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin-bottom: 20px;
+  max-width: 480px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.support-info-box {
+  background-color: #12121c;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 16px 20px;
+  margin: 0 auto 20px;
+  max-width: 400px;
+}
+
+.support-active-box {
+  border-color: var(--yellow);
+}
+
+.support-info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+}
+
+.support-info-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+}
+
+.support-info-value {
+  font-family: 'JetBrains Mono', 'Fira Code', 'Source Code Pro', monospace;
+  font-size: 0.92rem;
+  color: var(--accent-color);
+  font-weight: 600;
+}
+
+.support-info-hint {
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  margin-top: 8px;
+  font-style: italic;
+}
+
+.support-steps {
+  text-align: left;
+  max-width: 420px;
+  margin: 0 auto 24px;
+}
+
+.support-steps-title {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
+.support-steps ol {
+  padding-left: 20px;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  line-height: 1.8;
+}
+
+.support-btn-enable {
+  background-color: var(--green);
+  color: #fff;
+  padding: 12px 32px;
+  font-size: 1rem;
+  font-weight: 700;
+  border-radius: 10px;
+}
+
+.support-btn-enable:hover:not(:disabled) {
+  background-color: #27ae6e;
+}
+
+.support-btn-disable {
+  background-color: var(--red);
+  color: #fff;
+  padding: 12px 32px;
+  font-size: 1rem;
+  font-weight: 700;
+  border-radius: 10px;
+}
+
+.support-btn-disable:hover:not(:disabled) {
+  background-color: #c41520;
+}
+
+.support-active-note {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin-bottom: 20px;
+  max-width: 420px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.support-fine-print {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  margin-top: 12px;
+  font-style: italic;
+}
+
+.support-verify-box {
+  background-color: #12121c;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 16px 20px;
+  margin: 20px auto;
+  max-width: 400px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.support-verify-label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text-dim);
+}
+
+.support-verify-value {
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.support-verify-value.verified-gone {
+  color: var(--green);
+}
+
+.support-verify-value.verify-warning {
+  color: var(--yellow);
+}
+
+.support-btn-done {
+  background-color: var(--border-color);
+  color: var(--text-primary);
+  padding: 10px 28px;
+  font-size: 0.92rem;
+  font-weight: 600;
+  border-radius: 10px;
+}
+
+.support-btn-done:hover:not(:disabled) {
+  background-color: #5a5c72;
+
+
+}
+
 }
