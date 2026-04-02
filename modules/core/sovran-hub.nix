@@ -52,27 +52,18 @@ let
       services         = monitoredServices;
     });
 
-  sovran-hub = pkgs.python3Packages.buildPythonApplication {
-    pname   = "sovran-systemsos-hub";
+  sovran-hub-web = pkgs.python3Packages.buildPythonApplication {
+    pname   = "sovran-systemsos-hub-web";
     version = "1.0.0";
     format  = "other";
 
     src = ../../app;
 
-    nativeBuildInputs = with pkgs; [
-      wrapGAppsHook4
-      gobject-introspection
-    ];
-
-    buildInputs = with pkgs; [
-      gtk4
-      libadwaita
-      gdk-pixbuf
-      librsvg
-    ];
-
     propagatedBuildInputs = with pkgs.python3Packages; [
-      pygobject3
+      fastapi
+      uvicorn
+      jinja2
+      python-multipart
     ];
 
     dontBuild = true;
@@ -81,84 +72,64 @@ let
       runHook preInstall
 
       # ── Python source ─────────────────────────────────────────
-      install -d $out/lib/sovran-hub
-      cp -r sovran_systemsos_hub $out/lib/sovran-hub/
-
-      # ── CSS ────────────────────────────────────────────────────
-      cp style.css $out/lib/sovran-hub/style.css
+      install -d $out/lib/sovran-hub-web
+      cp -r sovran_systemsos_web $out/lib/sovran-hub-web/
 
       # ── Generated config ───────────────────────────────────────
-      cp ${generatedConfig} $out/lib/sovran-hub/config.json
+      cp ${generatedConfig} $out/lib/sovran-hub-web/config.json
 
-      # ── Icons (SVG + PNG) ───────────────���──────────────────────
+      # ── Icons (SVG) ────────────────────────────────────────────
       install -d $out/share/sovran-hub/icons
       cp icons/* $out/share/sovran-hub/icons/ 2>/dev/null || true
 
       # ── Launcher script ────────────────────────────────────────
       install -d $out/bin
-      cat > $out/bin/sovran-hub <<LAUNCHER
+      cat > $out/bin/sovran-hub-web <<LAUNCHER
 #!${pkgs.python3}/bin/python3
 import os, sys
-base = os.path.join("$out", "lib", "sovran-hub")
+base = os.path.join("$out", "lib", "sovran-hub-web")
 sys.path.insert(0, base)
 os.environ["SOVRAN_HUB_CONFIG"] = os.path.join(base, "config.json")
 os.environ["SOVRAN_HUB_ICONS"]  = os.path.join("$out", "share", "sovran-hub", "icons")
-os.environ["SOVRAN_HUB_CSS"]    = os.path.join(base, "style.css")
-from sovran_systemsos_hub.application import SovranHubApp
-sys.exit(SovranHubApp().run(sys.argv))
+import uvicorn
+uvicorn.run(
+    "sovran_systemsos_web.server:app",
+    host="0.0.0.0",
+    port=8080,
+    log_level="info",
+)
 LAUNCHER
-      chmod +x $out/bin/sovran-hub
-
-      # ── Desktop file (for app launcher + dock) ─────────────────
-      install -d $out/share/applications
-      cat > $out/share/applications/sovran-hub.desktop <<DESKTOP
-[Desktop Entry]
-Type=Application
-Name=Sovran_SystemsOS Hub
-Comment=Manage Sovran_SystemsOS systemd services
-Exec=$out/bin/sovran-hub
-Icon=utilities-system-monitor-symbolic
-Terminal=false
-Categories=System;Monitor;
-StartupWMClass=com.sovransystems.hub
-DESKTOP
-
-      # ── Autostart desktop file ─────────────────────────────────
-      install -d $out/etc/xdg/autostart
-      cat > $out/etc/xdg/autostart/sovran-hub.desktop <<AUTOSTART
-[Desktop Entry]
-Type=Application
-Name=Sovran_SystemsOS Hub
-Comment=Manage Sovran_SystemsOS systemd services
-Exec=$out/bin/sovran-hub
-Icon=utilities-system-monitor-symbolic
-Terminal=false
-X-GNOME-Autostart-enabled=true
-AutostartCondition=unless-exists sovran-hub-no-autostart
-AUTOSTART
+      chmod +x $out/bin/sovran-hub-web
 
       runHook postInstall
     '';
 
     meta = {
-      description = "Sovran_SystemsOS Hub — GTK4 systemd service manager";
-      mainProgram = "sovran-hub";
+      description = "Sovran_SystemsOS Hub — web-based systemd service manager";
+      mainProgram = "sovran-hub-web";
     };
   };
 
 in
 {
   config = {
-    environment.systemPackages = [ sovran-hub ];
+    # ── Web server as a systemd service ────────────────────────
+    systemd.services.sovran-hub-web = {
+      description = "Sovran_SystemsOS Hub Web Interface";
+      wantedBy    = [ "multi-user.target" ];
+      after       = [ "network.target" ];
 
-    # ── XDG autostart: link the system-wide autostart file ─────
-    environment.etc."xdg/autostart/sovran-hub.desktop".source =
-      "${sovran-hub}/etc/xdg/autostart/sovran-hub.desktop";
+      serviceConfig = {
+        ExecStart      = "${sovran-hub-web}/bin/sovran-hub-web";
+        Restart        = "on-failure";
+        RestartSec     = "5s";
+        User           = "root";
+        StandardOutput = "journal";
+        StandardError  = "journal";
+      };
+    };
 
-    # ── GNOME dock: add to favorites ───────────────────────────
-    services.xserver.desktopManager.gnome.extraGSettingsOverrides = ''
-      [org.gnome.shell]
-      favorite-apps=['org.gnome.Nautilus.desktop', 'sovran-hub.desktop', 'org.gnome.Console.desktop', 'firefox.desktop']
-    '';
+    # ── Open firewall port ─────────────────────────────────────
+    networking.firewall.allowedTCPPorts = [ 8080 ];
   };
 }
