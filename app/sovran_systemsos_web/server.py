@@ -852,17 +852,22 @@ async def api_domains():
 @app.post("/api/domains/set")
 async def api_domains_set(req: DomainSetRequest):
     """Write a domain file and optionally append a Njal.la DDNS curl entry."""
+    if not re.match(r'^[a-zA-Z0-9][a-zA-Z0-9\-]*$', req.name):
+        raise HTTPException(status_code=400, detail="Invalid domain key name")
     if not re.match(r'^[a-zA-Z0-9][a-zA-Z0-9.\-]+$', req.domain):
         raise HTTPException(status_code=400, detail="Invalid domain format")
 
-    os.makedirs("/var/lib/domains", exist_ok=True)
-    with open(f"/var/lib/domains/{req.name}", "w") as f:
+    domains_dir = "/var/lib/domains"
+    os.makedirs(domains_dir, exist_ok=True)
+    domain_path = os.path.join(domains_dir, req.name)
+    with open(domain_path, "w") as f:
         f.write(req.domain)
 
     if req.ddns_curl:
         curl_line = req.ddns_curl.strip()
-        # Replace Njal.la &auto placeholder with the dynamic IP variable
-        curl_line = curl_line.rstrip("auto") + 'a=${IP}'
+        # Replace Njal.la "&auto" placeholder with the dynamic IP variable
+        if "&auto" in curl_line:
+            curl_line = curl_line.replace("&auto", "&a=${IP}")
         curl_line = re.sub(r'&a=&a=', '&a=', curl_line)
         if not curl_line.lower().startswith("curl "):
             curl_line = f'curl "{curl_line}"'
