@@ -5,6 +5,7 @@ const POLL_INTERVAL_SERVICES = 5000;   // 5 s
 const POLL_INTERVAL_UPDATES  = 1800000; // 30 min
 const ACTION_REFRESH_DELAY   = 1500;   // 1.5 s after start/stop/restart
 const UPDATE_POLL_INTERVAL   = 2000;   // 2 s while update is running
+const REBOOT_CHECK_INTERVAL  = 5000;   // 5 s between reconnect attempts
 
 const CATEGORY_ORDER = [
   "infrastructure",
@@ -19,7 +20,7 @@ const STATUS_LOADING_STATES = new Set([
   "reloading", "activating", "deactivating", "maintenance",
 ]);
 
-// ── State ─────────────────────────────────────────────────────────
+// ── State ──────────────────────────────────────────────���──────────
 
 let _servicesCache   = [];
 let _categoryLabels  = {};
@@ -31,20 +32,22 @@ let _updateFinished  = false;
 
 // ── DOM refs ──────────────────────────────────────────────────────
 
-const $tilesArea     = document.getElementById("tiles-area");
-const $updateBtn     = document.getElementById("btn-update");
-const $updateBadge   = document.getElementById("update-badge");
-const $refreshBtn    = document.getElementById("btn-refresh");
-const $internalIp    = document.getElementById("ip-internal");
-const $externalIp    = document.getElementById("ip-external");
+const $tilesArea      = document.getElementById("tiles-area");
+const $updateBtn      = document.getElementById("btn-update");
+const $updateBadge    = document.getElementById("update-badge");
+const $refreshBtn     = document.getElementById("btn-refresh");
+const $internalIp     = document.getElementById("ip-internal");
+const $externalIp     = document.getElementById("ip-external");
 
-const $modal         = document.getElementById("update-modal");
-const $modalSpinner  = document.getElementById("modal-spinner");
-const $modalStatus   = document.getElementById("modal-status");
-const $modalLog      = document.getElementById("modal-log");
-const $btnReboot     = document.getElementById("btn-reboot");
-const $btnSave       = document.getElementById("btn-save-report");
-const $btnCloseModal = document.getElementById("btn-close-modal");
+const $modal          = document.getElementById("update-modal");
+const $modalSpinner   = document.getElementById("modal-spinner");
+const $modalStatus    = document.getElementById("modal-status");
+const $modalLog       = document.getElementById("modal-log");
+const $btnReboot      = document.getElementById("btn-reboot");
+const $btnSave        = document.getElementById("btn-save-report");
+const $btnCloseModal  = document.getElementById("btn-close-modal");
+
+const $rebootOverlay  = document.getElementById("reboot-overlay");
 
 // ── Helpers ───────────────────────────────────────────────────────
 
@@ -334,25 +337,21 @@ async function pollUpdateStatus() {
   try {
     const data = await apiFetch(`/api/updates/status?offset=${_updateLogOffset}`);
 
-    // Server came back after being down
     if (_serverWasDown) {
       _serverWasDown = false;
       appendLog("[Server reconnected]\n");
       if ($modalStatus) $modalStatus.textContent = "Updating…";
     }
 
-    // Append new log content
     if (data.log) {
       appendLog(data.log);
     }
     _updateLogOffset = data.offset;
 
-    // RUNNING → keep polling
     if (data.running) {
       return;
     }
 
-    // Finished — check result
     _updateFinished = true;
     stopUpdatePoll();
 
@@ -362,7 +361,6 @@ async function pollUpdateStatus() {
       onUpdateDone(false);
     }
   } catch (err) {
-    // Server is restarting during nixos-rebuild switch — keep polling
     if (!_serverWasDown) {
       _serverWasDown = true;
       appendLog("\n[Server restarting — waiting for it to come back…]\n");
@@ -397,9 +395,37 @@ function saveErrorReport() {
   URL.revokeObjectURL(url);
 }
 
+// ── Reboot with confirmation overlay ──────────────────────────────
+
 function doReboot() {
+  // Close the update modal
+  if ($modal) $modal.classList.remove("open");
+  stopUpdatePoll();
+
+  // Show the reboot overlay
+  if ($rebootOverlay) $rebootOverlay.classList.add("visible");
+
+  // Send the reboot command
   fetch("/api/reboot", { method: "POST" }).catch(() => {});
-  if ($modalStatus) $modalStatus.textContent = "Rebooting…";
+
+  // Start polling to detect when the server comes back
+  setTimeout(waitForServerReboot, REBOOT_CHECK_INTERVAL);
+}
+
+function waitForServerReboot() {
+  fetch("/api/config", { cache: "no-store" })
+    .then(res => {
+      if (res.ok) {
+        // Server is back — reload the page to get the fresh state
+        window.location.reload();
+      } else {
+        setTimeout(waitForServerReboot, REBOOT_CHECK_INTERVAL);
+      }
+    })
+    .catch(() => {
+      // Still down — keep trying
+      setTimeout(waitForServerReboot, REBOOT_CHECK_INTERVAL);
+    });
 }
 
 // ── Event listeners ───────────────────────────────────────────────

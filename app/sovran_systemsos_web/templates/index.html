@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Sovran_SystemsOS Hub</title>
-  <link rel="stylesheet" href="/static/style.css?v=2" />
+  <link rel="stylesheet" href="/static/style.css?v=3" />
 </head>
 <body>
 
@@ -54,6 +54,24 @@
     </div>
   </div>
 
-  <script src="/static/app.js?v=2"></script>
+  <!-- Reboot overlay -->
+  <div class="reboot-overlay" id="reboot-overlay">
+    <div class="reboot-card">
+      <div class="reboot-icon">↻</div>
+      <h2 class="reboot-title">System Rebooting</h2>
+      <p class="reboot-message">
+        Sovran_SystemsOS is now restarting.<br />
+        This page will automatically reconnect once the system is back online.
+      </p>
+      <div class="reboot-dots">
+        <span class="reboot-dot"></span>
+        <span class="reboot-dot"></span>
+        <span class="reboot-dot"></span>
+      </div>
+      <p class="reboot-submessage">Stay tuned…</p>
+    </div>
+  </div>
+
+  <script src="/static/app.js?v=3"></script>
 </body>
 </html>
