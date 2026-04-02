@@ -80,6 +80,72 @@
     </div>
   </div>
 
+  <!-- Domain Setup Modal -->
+  <div class="modal-overlay" id="domain-setup-modal" role="dialog" aria-modal="true" aria-labelledby="domain-setup-title">
+    <div class="creds-dialog">
+      <div class="creds-header">
+        <span class="creds-title" id="domain-setup-title">🌐 Domain Setup</span>
+        <button class="creds-close-btn" id="domain-setup-close-btn" title="Close">✕</button>
+      </div>
+      <div class="creds-body" id="domain-setup-body"></div>
+    </div>
+  </div>
+
+  <!-- SSL Email Modal -->
+  <div class="modal-overlay" id="ssl-email-modal" role="dialog" aria-modal="true" aria-labelledby="ssl-email-title">
+    <div class="creds-dialog domain-narrow-dialog">
+      <div class="creds-header">
+        <span class="creds-title" id="ssl-email-title">📧 SSL Certificate Email</span>
+        <button class="creds-close-btn" id="ssl-email-close-btn" title="Close">✕</button>
+      </div>
+      <div class="creds-body">
+        <p class="support-desc">Let's Encrypt needs an email address for SSL certificate notifications.</p>
+        <div class="domain-field-group">
+          <label class="domain-field-label" for="ssl-email-input">Email:</label>
+          <input class="domain-field-input" type="email" id="ssl-email-input" placeholder="you@example.com" />
+        </div>
+        <div class="domain-field-actions">
+          <button class="btn btn-close-modal" id="ssl-email-cancel-btn">Cancel</button>
+          <button class="btn btn-primary" id="ssl-email-save-btn">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Feature Confirm Modal -->
+  <div class="modal-overlay" id="feature-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="feature-confirm-title">
+    <div class="creds-dialog domain-narrow-dialog">
+      <div class="creds-header">
+        <span class="creds-title" id="feature-confirm-title">Confirm Action</span>
+        <button class="creds-close-btn" id="feature-confirm-close-btn" title="Close">✕</button>
+      </div>
+      <div class="creds-body">
+        <p class="support-desc" id="feature-confirm-message"></p>
+        <div class="domain-field-actions">
+          <button class="btn btn-close-modal" id="feature-confirm-cancel-btn">Cancel</button>
+          <button class="btn btn-primary" id="feature-confirm-ok-btn">Continue</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Rebuild Modal -->
+  <div class="modal-overlay" id="rebuild-modal" role="dialog" aria-modal="true" aria-labelledby="rebuild-modal-title">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <span class="modal-title" id="rebuild-modal-title">Sovran_SystemsOS Rebuild</span>
+        <div class="modal-spinner" id="rebuild-spinner"></div>
+        <span class="modal-status" id="rebuild-status">Rebuilding…</span>
+      </div>
+      <div class="modal-log" id="rebuild-log" aria-live="polite"></div>
+      <div class="modal-footer">
+        <button class="btn btn-save" id="rebuild-save-report" style="display:none">Save Error Report</button>
+        <button class="btn btn-reboot" id="rebuild-reboot-btn" style="display:none">Reboot</button>
+        <button class="btn btn-close-modal" id="rebuild-close-btn" disabled>Close</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Reboot overlay -->
   <div class="reboot-overlay" id="reboot-overlay">
     <div class="reboot-card">
