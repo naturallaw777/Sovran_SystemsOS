@@ -30,6 +30,8 @@ UPDATE_LOG    = "/var/log/sovran-hub-update.log"
 UPDATE_STATUS = "/var/log/sovran-hub-update.status"
 UPDATE_UNIT   = "sovran-hub-update.service"
 
+INTERNAL_IP_FILE = "/var/lib/secrets/internal-ip"
+
 REBOOT_COMMAND = ["reboot"]
 
 CATEGORY_ORDER = [
@@ -154,6 +156,17 @@ def _get_internal_ip() -> str:
     return "unavailable"
 
 
+def _save_internal_ip(ip: str):
+    """Write the internal IP to a file so credentials can reference it."""
+    if ip and ip != "unavailable":
+        try:
+            os.makedirs(os.path.dirname(INTERNAL_IP_FILE), exist_ok=True)
+            with open(INTERNAL_IP_FILE, "w") as f:
+                f.write(ip)
+        except OSError:
+            pass
+
+
 def _get_external_ip() -> str:
     MAX_IP_LENGTH = 46
     for url in [
@@ -245,7 +258,7 @@ def _resolve_credential(cred: dict) -> dict | None:
     return {"label": label, "value": value, "multiline": multiline}
 
 
-# ── Routes ───────────��───────────────────────────────────────────
+# ── Routes ───────────────────────────────────────────────────────
 
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
@@ -392,6 +405,8 @@ async def api_network():
         loop.run_in_executor(None, _get_internal_ip),
         loop.run_in_executor(None, _get_external_ip),
     )
+    # Keep the internal-ip file in sync for credential lookups
+    _save_internal_ip(internal)
     return {"internal_ip": internal, "external_ip": external}
 
 
@@ -462,3 +477,13 @@ async def api_updates_status(offset: int = 0):
         "log": new_log,
         "offset": new_offset,
     }
+
+
+# ── Startup: seed the internal IP file immediately ───────────────
+
+@app.on_event("startup")
+async def _startup_save_ip():
+    """Write internal IP to file on server start so credentials work immediately."""
+    loop = asyncio.get_event_loop()
+    ip = await loop.run_in_executor(None, _get_internal_ip)
+    _save_internal_ip(ip)

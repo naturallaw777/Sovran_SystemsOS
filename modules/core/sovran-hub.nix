@@ -209,37 +209,6 @@ LAUNCHER
 in
 {
   config = {
-    # ── Save internal IP for hub credentials ────────────────────
-    systemd.services.save-internal-ip = {
-      description = "Save internal IP address for hub credentials";
-      wantedBy = [ "multi-user.target" ];
-      after = [ "network-online.target" ];
-      wants = [ "network-online.target" ];
-      serviceConfig = {
-        Type = "oneshot";
-        RemainAfterExit = true;
-      };
-      path = [ pkgs.iproute2 pkgs.coreutils pkgs.hostname ];
-      script = ''
-        mkdir -p /var/lib/secrets
-        IP=$(hostname -I | awk '{print $1}')
-        if [ -n "$IP" ]; then
-          echo "$IP" > /var/lib/secrets/internal-ip
-          chmod 644 /var/lib/secrets/internal-ip
-        fi
-      '';
-    };
-
-    # ── Refresh IP periodically (in case DHCP changes it) ──────
-    systemd.timers.save-internal-ip = {
-      wantedBy = [ "timers.target" ];
-      timerConfig = {
-        OnBootSec = "30s";
-        OnUnitActiveSec = "15min";
-        Unit = "save-internal-ip.service";
-      };
-    };
-
     # ── Web server as a systemd service ────────────────────────
     systemd.services.sovran-hub-web = {
       description = "Sovran_SystemsOS Hub Web Interface";
