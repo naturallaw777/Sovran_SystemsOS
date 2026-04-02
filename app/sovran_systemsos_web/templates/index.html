@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Sovran_SystemsOS Hub</title>
-  <link rel="stylesheet" href="/static/style.css?v=3" />
+  <link rel="stylesheet" href="/static/style.css?v=4" />
 </head>
 <body>
 
@@ -54,6 +54,19 @@
     </div>
   </div>
 
+  <!-- Credentials info modal -->
+  <div class="modal-overlay" id="creds-modal" role="dialog" aria-modal="true" aria-labelledby="creds-modal-title">
+    <div class="creds-dialog">
+      <div class="creds-header">
+        <span class="creds-title" id="creds-modal-title">Service Info</span>
+        <button class="creds-close-btn" id="creds-close-btn" title="Close">✕</button>
+      </div>
+      <div class="creds-body" id="creds-body">
+        <p class="creds-loading">Loading…</p>
+      </div>
+    </div>
+  </div>
+
   <!-- Reboot overlay -->
   <div class="reboot-overlay" id="reboot-overlay">
     <div class="reboot-card">
@@ -72,6 +85,6 @@
     </div>
   </div>
 
-  <script src="/static/app.js?v=3"></script>
+  <script src="/static/app.js?v=4"></script>
 </body>
 </html>
