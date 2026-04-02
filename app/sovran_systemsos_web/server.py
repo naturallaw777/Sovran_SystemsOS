@@ -293,6 +293,7 @@ async def api_reboot():
     return {"ok": True}
 
 
+@app.post("/api/updates/run")
 async def api_updates_run():
     async def event_stream() -> AsyncIterator[str]:
         yield "data: $ ssh root@localhost 'cd /etc/nixos && nix flake update && nixos-rebuild switch && flatpak update -y'\n\n"
