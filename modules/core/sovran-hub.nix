@@ -18,19 +18,19 @@ let
     # ── Bitcoin Base (node implementations) ────────────────────
     ++ [
       { name = "Bitcoin Knots + BIP110"; unit = "bitcoind.service"; type = "system"; icon = "bip110";        enabled = cfg.features.bip110;        category = "bitcoin-base"; credentials = [
-        { label = "Tor Address"; file = "/var/lib/tor/onion/bitcoind/hostname"; }
+        { label = "Tor Address"; file = "/var/lib/tor/onion/bitcoind/hostname"; prefix = "http://"; }
       ]; }
       { name = "Bitcoin Knots";          unit = "bitcoind.service"; type = "system"; icon = "bitcoind";      enabled = cfg.services.bitcoin && !cfg.features.bitcoin-core && !cfg.features.bip110; category = "bitcoin-base"; credentials = [
-        { label = "Tor Address"; file = "/var/lib/tor/onion/bitcoind/hostname"; }
+        { label = "Tor Address"; file = "/var/lib/tor/onion/bitcoind/hostname"; prefix = "http://"; }
       ]; }
       { name = "Bitcoin Core";           unit = "bitcoind.service"; type = "system"; icon = "bitcoin-core";  enabled = cfg.features.bitcoin-core;  category = "bitcoin-base"; credentials = [
-        { label = "Tor Address"; file = "/var/lib/tor/onion/bitcoind/hostname"; }
+        { label = "Tor Address"; file = "/var/lib/tor/onion/bitcoind/hostname"; prefix = "http://"; }
       ]; }
     ]
     # ── Bitcoin Apps (services on top of the node) ─────────────
     ++ [
       { name = "Electrs";            unit = "electrs.service";      type = "system"; icon = "electrs";      enabled = cfg.services.bitcoin;  category = "bitcoin-apps"; credentials = [
-        { label = "Tor Address"; file = "/var/lib/tor/onion/electrs/hostname"; }
+        { label = "Tor Address"; file = "/var/lib/tor/onion/electrs/hostname"; prefix = "http://"; }
         { label = "Port"; value = "50001"; }
       ]; }
       { name = "LND";                unit = "lnd.service";          type = "system"; icon = "lnd";          enabled = cfg.services.bitcoin;  category = "bitcoin-apps"; credentials = []; }
