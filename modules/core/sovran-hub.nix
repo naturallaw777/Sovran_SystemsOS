@@ -28,7 +28,7 @@ let
       { name = "Matrix-Synapse"; unit = "matrix-synapse.service"; type = "system"; icon = "synapse"; enabled = cfg.services.synapse;          category = "communication"; }
       { name = "Element-Call";   unit = "livekit.service";        type = "system"; icon = "livekit"; enabled = cfg.features.element-calling;  category = "communication"; }
     ]
-    # ── Self-Hosted Apps ────────────────��──────────────────────
+    # ── Self-Hosted Apps ───────────────────────────────────────
     ++ [
       { name = "VaultWarden"; unit = "vaultwarden.service";      type = "system"; icon = "vaultwarden"; enabled = cfg.services.vaultwarden; category = "apps"; }
       { name = "Nextcloud";   unit = "phpfpm-nextcloud.service"; type = "system"; icon = "nextcloud";   enabled = cfg.services.nextcloud;   category = "apps"; }
@@ -58,17 +58,14 @@ let
     export PATH="${lib.makeBinPath [ pkgs.nix pkgs.nixos-rebuild pkgs.git pkgs.flatpak pkgs.coreutils ]}:$PATH"
 
     LOG="/var/log/sovran-hub-update.log"
-    LOCK="/run/sovran-hub-update.lock"
+    STATUS="/var/log/sovran-hub-update.status"
 
-    # Create lock file (survives server restarts, cleared on reboot since /run is tmpfs)
-    echo $$ > "$LOCK"
+    # Mark as RUNNING
+    echo "RUNNING" > "$STATUS"
 
     # Truncate the log and redirect ALL output (stdout + stderr) into it
     : > "$LOG"
     exec > >(tee -a "$LOG") 2>&1
-
-    # Ensure lock is removed on exit (success or failure)
-    trap 'rm -f "$LOCK"' EXIT
 
     echo "══════════════════════════════════════════════════"
     echo "  Sovran_SystemsOS Update — $(date)"
@@ -105,10 +102,12 @@ let
       echo "══════════════════════════════════════════════════"
       echo "  ✓ Update completed successfully"
       echo "══════════════════════════════════════════════════"
+      echo "SUCCESS" > "$STATUS"
     else
       echo "══════════════════════════════════════════════════"
       echo "  ✗ Update failed — see errors above"
       echo "══════════════════════════════════════════════════"
+      echo "FAILED" > "$STATUS"
     fi
 
     exit "$RC"

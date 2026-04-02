@@ -473,14 +473,14 @@ button:disabled {
   border-top: 1px solid var(--border-color);
 }
 
-/* Reboot button: green */
-.btn-reboot {
-  background-color: var(--green);
-  color: #fff;
+/* Reboot button */
+#btn-reboot {
+  background-color: #2ec27e !important;
+  color: #fff !important;
 }
 
-.btn-reboot:hover:not(:disabled) {
-  background-color: #27ae6e;
+#btn-reboot:hover:not(:disabled) {
+  background-color: #27ae6e !important;
 }
 
 .btn-save {
