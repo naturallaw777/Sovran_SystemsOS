@@ -930,9 +930,9 @@ function buildFeatureCard(feat) {
   var toggleLabel = card.querySelector(".feature-toggle");
   toggle.addEventListener("change", function() {
     var newEnabled = toggle.checked;
-    // Revert visually until confirmed
+    // Revert visually to original state while confirmation/modal is pending
     toggle.checked = feat.enabled;
-    if (newEnabled) { toggleLabel.classList.remove("active"); } else { toggleLabel.classList.add("active"); }
+    if (feat.enabled) { toggleLabel.classList.add("active"); } else { toggleLabel.classList.remove("active"); }
     handleFeatureToggle(feat, newEnabled);
   });
 
