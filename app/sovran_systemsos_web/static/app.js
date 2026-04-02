@@ -4,7 +4,7 @@
 const POLL_INTERVAL_SERVICES = 5000;   // 5 s
 const POLL_INTERVAL_UPDATES  = 1800000; // 30 min
 const ACTION_REFRESH_DELAY   = 1500;   // 1.5 s after start/stop/restart
-const UPDATE_POLL_INTERVAL   = 2000;   // 2 s while update is running
+const UPDATE_POLL_INTERVAL   = 1500;   // 1.5 s while update is running
 
 const CATEGORY_ORDER = [
   "infrastructure",
@@ -21,29 +21,28 @@ const STATUS_LOADING_STATES = new Set([
 
 // ── State ─────────────────────────────────────────────────────────
 
-let _servicesCache  = [];
-let _categoryLabels = {};
-let _updateSource   = null;
-let _updateLog      = "";
+let _servicesCache   = [];
+let _categoryLabels  = {};
+let _updateLog       = "";
 let _updatePollTimer = null;
-let _updateCursor    = "";
-let _serverDownSince = 0;
+let _updateLogOffset = 0;
+let _serverWasDown   = false;
 
-// ── DOM refs ──────────────────────────────────────────────────────
+// ── DOM refs ────────────────────────────────────────────���─────────
 
-const $tilesArea    = document.getElementById("tiles-area");
-const $updateBtn    = document.getElementById("btn-update");
-const $updateBadge  = document.getElementById("update-badge");
-const $refreshBtn   = document.getElementById("btn-refresh");
-const $internalIp   = document.getElementById("ip-internal");
-const $externalIp   = document.getElementById("ip-external");
+const $tilesArea     = document.getElementById("tiles-area");
+const $updateBtn     = document.getElementById("btn-update");
+const $updateBadge   = document.getElementById("update-badge");
+const $refreshBtn    = document.getElementById("btn-refresh");
+const $internalIp    = document.getElementById("ip-internal");
+const $externalIp    = document.getElementById("ip-external");
 
-const $modal        = document.getElementById("update-modal");
-const $modalSpinner = document.getElementById("modal-spinner");
-const $modalStatus  = document.getElementById("modal-status");
-const $modalLog     = document.getElementById("modal-log");
-const $btnReboot    = document.getElementById("btn-reboot");
-const $btnSave      = document.getElementById("btn-save-report");
+const $modal         = document.getElementById("update-modal");
+const $modalSpinner  = document.getElementById("modal-spinner");
+const $modalStatus   = document.getElementById("modal-status");
+const $modalLog      = document.getElementById("modal-log");
+const $btnReboot     = document.getElementById("btn-reboot");
+const $btnSave       = document.getElementById("btn-save-report");
 const $btnCloseModal = document.getElementById("btn-close-modal");
 
 // ── Helpers ───────────────────────────────────────────────────────
@@ -77,7 +76,6 @@ async function apiFetch(path, options = {}) {
 function buildTiles(services, categoryLabels) {
   _servicesCache = services;
 
-  // Group by category
   const grouped = {};
   for (const svc of services) {
     const cat = svc.category || "other";
@@ -155,7 +153,6 @@ function buildTile(svc) {
     </div>
   `;
 
-  // Toggle handler
   const chk = tile.querySelector(".tile-toggle");
   if (!dis) {
     chk.addEventListener("change", async (e) => {
@@ -168,7 +165,6 @@ function buildTile(svc) {
     });
   }
 
-  // Restart handler
   const restartBtn = tile.querySelector(".tile-restart-btn");
   if (!dis) {
     restartBtn.addEventListener("click", async () => {
@@ -265,14 +261,14 @@ async function checkUpdates() {
 function openUpdateModal() {
   if (!$modal) return;
   _updateLog = "";
-  _updateCursor = "";
-  _serverDownSince = 0;
-  if ($modalLog)    $modalLog.textContent = "";
-  if ($modalStatus) $modalStatus.textContent = "Updating…";
-  if ($modalSpinner) $modalSpinner.classList.add("spinning");
-  if ($btnReboot)   { $btnReboot.style.display   = "none"; }
-  if ($btnSave)     { $btnSave.style.display      = "none"; }
-  if ($btnCloseModal) { $btnCloseModal.disabled   = true;   }
+  _updateLogOffset = 0;
+  _serverWasDown = false;
+  if ($modalLog)      $modalLog.textContent = "";
+  if ($modalStatus)   $modalStatus.textContent = "Starting update…";
+  if ($modalSpinner)  $modalSpinner.classList.add("spinning");
+  if ($btnReboot)     { $btnReboot.style.display   = "none"; }
+  if ($btnSave)       { $btnSave.style.display      = "none"; }
+  if ($btnCloseModal) { $btnCloseModal.disabled     = true;   }
 
   $modal.classList.add("open");
   startUpdate();
@@ -286,18 +282,14 @@ function closeUpdateModal() {
 
 function appendLog(text) {
   if (!text) return;
-  _updateLog += text + "\n";
+  _updateLog += text;
   if ($modalLog) {
-    $modalLog.textContent += text + "\n";
+    $modalLog.textContent += text;
     $modalLog.scrollTop = $modalLog.scrollHeight;
   }
 }
 
 function startUpdate() {
-  appendLog("$ cd /etc/nixos && nix flake update && nixos-rebuild switch && flatpak update -y");
-  appendLog("");
-
-  // Trigger the systemd unit via POST
   fetch("/api/updates/run", { method: "POST" })
     .then(response => {
       if (!response.ok) {
@@ -307,19 +299,18 @@ function startUpdate() {
     })
     .then(data => {
       if (data.status === "already_running") {
-        appendLog("[Update already in progress, attaching…]");
+        appendLog("[Update already in progress, attaching…]\n\n");
       }
-      // Start polling for journal output
+      if ($modalStatus) $modalStatus.textContent = "Updating…";
       startUpdatePoll();
     })
     .catch(err => {
-      appendLog(`[Error: failed to start update — ${err}]`);
+      appendLog(`[Error: failed to start update — ${err}]\n`);
       onUpdateDone(false);
     });
 }
 
 function startUpdatePoll() {
-  // Poll immediately, then on interval
   pollUpdateStatus();
   _updatePollTimer = setInterval(pollUpdateStatus, UPDATE_POLL_INTERVAL);
 }
@@ -333,31 +324,22 @@ function stopUpdatePoll() {
 
 async function pollUpdateStatus() {
   try {
-    const data = await apiFetch(
-      `/api/updates/status?cursor=${encodeURIComponent(_updateCursor)}`
-    );
+    const data = await apiFetch(`/api/updates/status?offset=${_updateLogOffset}`);
 
-    // Server is back — reset the down counter
-    if (_serverDownSince > 0) {
-      appendLog("[Server reconnected, resuming…]");
-      _serverDownSince = 0;
-    }
-
-    // Append new journal lines
-    if (data.lines && data.lines.length > 0) {
-      for (const line of data.lines) {
-        appendLog(line);
-      }
-    }
-    if (data.cursor) {
-      _updateCursor = data.cursor;
-    }
-
-    // Update status text while running
-    if (data.running) {
+    // Server came back after being down
+    if (_serverWasDown) {
+      _serverWasDown = false;
       if ($modalStatus) $modalStatus.textContent = "Updating…";
-    } else {
-      // Finished
+    }
+
+    // Append any new log content
+    if (data.log) {
+      appendLog(data.log);
+    }
+    _updateLogOffset = data.offset;
+
+    // Check if finished
+    if (!data.running) {
       stopUpdatePoll();
       if (data.result === "success") {
         onUpdateDone(true);
@@ -366,13 +348,12 @@ async function pollUpdateStatus() {
       }
     }
   } catch (err) {
-    // Server is likely restarting during nixos-rebuild switch
-    if (_serverDownSince === 0) {
-      _serverDownSince = Date.now();
-      appendLog("[Server restarting — waiting for it to come back…]");
+    // Server is likely restarting during nixos-rebuild switch — keep polling
+    if (!_serverWasDown) {
+      _serverWasDown = true;
+      appendLog("\n[Server restarting — waiting for it to come back…]\n\n");
       if ($modalStatus) $modalStatus.textContent = "Server restarting…";
     }
-    console.warn("Update poll failed (server may be restarting):", err);
   }
 }
 
@@ -415,7 +396,6 @@ if ($btnCloseModal)  $btnCloseModal.addEventListener("click", closeUpdateModal);
 if ($btnReboot)      $btnReboot.addEventListener("click", doReboot);
 if ($btnSave)        $btnSave.addEventListener("click", saveErrorReport);
 
-// Close modal on overlay click
 if ($modal) {
   $modal.addEventListener("click", (e) => {
     if (e.target === $modal) closeUpdateModal();
@@ -425,7 +405,6 @@ if ($modal) {
 // ── Init ──────────────────────────────────────────────────────────
 
 async function init() {
-  // Load config to get category labels
   try {
     const cfg = await apiFetch("/api/config");
     if (cfg.category_order) {
@@ -433,17 +412,14 @@ async function init() {
         _categoryLabels[key] = label;
       }
     }
-    // Update role badge
     const badge = document.getElementById("role-badge");
     if (badge && cfg.role_label) badge.textContent = cfg.role_label;
   } catch (_) {}
 
-  // Initial data loads
   await refreshServices();
   loadNetwork();
   checkUpdates();
 
-  // Polling
   setInterval(refreshServices, POLL_INTERVAL_SERVICES);
   setInterval(checkUpdates,    POLL_INTERVAL_UPDATES);
 }
