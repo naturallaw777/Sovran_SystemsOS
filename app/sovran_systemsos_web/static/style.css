@@ -960,3 +960,220 @@ button.btn-reboot:hover:not(:disabled) {
 }
 
 }
+
+/* ── Feature Manager ─────────────────────────────────────────────── */
+
+.feature-manager-section {
+  margin-bottom: 32px;
+}
+
+.feature-subcategory {
+  margin-bottom: 24px;
+}
+
+.feature-subcategory-header {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  margin-bottom: 10px;
+  padding-left: 2px;
+}
+
+.feature-cards-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.feature-card {
+  background-color: var(--card-color);
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.feature-card:last-child {
+  border-bottom: none;
+}
+
+.feature-card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.feature-card-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.feature-card-name {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+
+.feature-card-desc {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.feature-card-status {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  margin-top: 6px;
+}
+
+/* ── Feature toggle switch ───────────────────────────────────────── */
+
+.feature-toggle {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  width: 44px;
+  height: 24px;
+  flex-shrink: 0;
+  cursor: pointer;
+  margin-top: 2px;
+}
+
+.feature-toggle-input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+  position: absolute;
+}
+
+.feature-toggle-slider {
+  position: absolute;
+  inset: 0;
+  background-color: var(--border-color);
+  border-radius: 24px;
+  transition: background-color 0.2s;
+}
+
+.feature-toggle-slider::before {
+  content: "";
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  left: 3px;
+  top: 3px;
+  background-color: var(--text-secondary);
+  border-radius: 50%;
+  transition: transform 0.2s, background-color 0.2s;
+}
+
+.feature-toggle.active .feature-toggle-slider {
+  background-color: var(--green);
+}
+
+.feature-toggle.active .feature-toggle-slider::before {
+  transform: translateX(20px);
+  background-color: #fff;
+}
+
+/* ── Feature domain badge ────────────────────────────────────────── */
+
+.feature-domain-badge {
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin-top: 6px;
+  padding: 2px 0;
+}
+
+.feature-domain-badge.configured {
+  color: var(--green);
+}
+
+.feature-domain-badge.not-configured {
+  color: var(--yellow);
+}
+
+/* ── Feature conflict warning ────────────────────────────────────── */
+
+.feature-conflict-warning {
+  font-size: 0.75rem;
+  color: var(--yellow);
+  margin-top: 4px;
+}
+
+/* ── Domain setup modal inputs ───────────────────────────────────── */
+
+.domain-narrow-dialog {
+  max-width: 520px;
+}
+
+.domain-setup-intro {
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+  margin-bottom: 18px;
+  line-height: 1.6;
+}
+
+.domain-setup-intro ol {
+  padding-left: 20px;
+  margin-top: 6px;
+}
+
+.domain-field-group {
+  margin-bottom: 14px;
+}
+
+.domain-field-label {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-dim);
+  margin-bottom: 6px;
+}
+
+.domain-field-input {
+  width: 100%;
+  background-color: #12121c;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 0.92rem;
+  padding: 10px 14px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.domain-field-input:focus {
+  border-color: var(--accent-color);
+}
+
+.domain-field-hint {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  margin-top: 5px;
+  font-style: italic;
+}
+
+.domain-field-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+@media (max-width: 600px) {
+  .feature-cards-wrap {
+    border-radius: 10px;
+  }
+  .feature-card {
+    padding: 12px 14px;
+  }
+  .domain-narrow-dialog {
+    margin: 0 12px;
+  }
+}
