@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import os
 import re
@@ -70,6 +71,20 @@ if os.path.isdir(_ICONS_DIR):
     )
 
 templates = Jinja2Templates(directory=os.path.join(_BASE_DIR, "templates"))
+
+# ── Static asset cache-busting ────────────────────────────────────
+
+def _file_hash(filename: str) -> str:
+    """Return first 8 chars of the MD5 hex digest for a static file."""
+    path = os.path.join(_BASE_DIR, "static", filename)
+    try:
+        with open(path, "rb") as f:
+            return hashlib.md5(f.read()).hexdigest()[:8]
+    except FileNotFoundError:
+        return "0"
+
+_APP_JS_HASH  = _file_hash("app.js")
+_STYLE_CSS_HASH = _file_hash("style.css")
 
 # ── Update check helpers ─────────────────────────────────────────
 
@@ -230,11 +245,15 @@ def _resolve_credential(cred: dict) -> dict | None:
     return {"label": label, "value": value, "multiline": multiline}
 
 
-# ── Routes ───────────────────────────────────────────────────────
+# ── Routes ───────────��───────────────────────────────────────────
 
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
+    return templates.TemplateResponse("index.html", {
+        "request": request,
+        "app_js_hash": _APP_JS_HASH,
+        "style_css_hash": _STYLE_CSS_HASH,
+    })
 
 
 @app.get("/api/config")
