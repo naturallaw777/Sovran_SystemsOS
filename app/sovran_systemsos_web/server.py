@@ -929,9 +929,19 @@ class DomainSetRequest(BaseModel):
     ddns_url: str = ""
 
 
+_SAFE_NAME_RE = re.compile(r'^[a-zA-Z0-9_-]+$')
+
+
+def _validate_safe_name(name: str) -> bool:
+    """Return True if name contains only safe path characters (no separators)."""
+    return bool(name) and _SAFE_NAME_RE.match(name) is not None
+
+
 @app.post("/api/domains/set")
 async def api_domains_set(req: DomainSetRequest):
     """Save a domain and optionally register a DDNS URL."""
+    if not _validate_safe_name(req.domain_name):
+        raise HTTPException(status_code=400, detail="Invalid domain_name")
     os.makedirs(DOMAINS_DIR, exist_ok=True)
     domain_path = os.path.join(DOMAINS_DIR, req.domain_name)
     with open(domain_path, "w") as f:
