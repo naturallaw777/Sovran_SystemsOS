@@ -1,0 +1,12 @@
+[core]
+	repositoryformatversion = 0
+	filemode = true
+	bare = true
+[remote "origin"]
+	url = https://github.com/naturallaw777/staging_alpha.git
+	tagOpt = --no-tags
+	fetch = +refs/*:refs/*
+	mirror = true
+[remote "gitea"]
+	url = https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS.git
+	fetch = +refs/heads/*:refs/remotes/gitea/*
