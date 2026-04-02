@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import re
 import socket
 import subprocess
 import urllib.request
@@ -192,6 +193,43 @@ def _read_log(offset: int = 0) -> tuple[str, int]:
         return "", 0
 
 
+# ── Credentials helpers ──────────────────────────────────────────
+
+def _resolve_credential(cred: dict) -> dict | None:
+    """Resolve a single credential entry to {label, value}."""
+    label = cred.get("label", "")
+    prefix = cred.get("prefix", "")
+    suffix = cred.get("suffix", "")
+    extract = cred.get("extract", "")
+    multiline = cred.get("multiline", False)
+
+    # Static value
+    if "value" in cred:
+        return {"label": label, "value": prefix + cred["value"] + suffix, "multiline": multiline}
+
+    # File-based value
+    filepath = cred.get("file", "")
+    if not filepath:
+        return None
+
+    try:
+        with open(filepath, "r") as f:
+            raw = f.read().strip()
+    except (FileNotFoundError, PermissionError):
+        return None
+
+    if extract:
+        # Extract a key=value from an env file (e.g., ADMIN_TOKEN=...)
+        match = re.search(rf'{re.escape(extract)}=(.*)', raw)
+        if match:
+            raw = match.group(1).strip()
+        else:
+            return None
+
+    value = prefix + raw + suffix
+    return {"label": label, "value": value, "multiline": multiline}
+
+
 # ── Routes ───────────────────────────────────────────────────────
 
 @app.get("/", response_class=HTMLResponse)
@@ -228,6 +266,10 @@ async def api_services():
             )
         else:
             status = "disabled"
+
+        creds = entry.get("credentials", [])
+        has_credentials = len(creds) > 0
+
         return {
             "name": entry.get("name", ""),
             "unit": unit,
@@ -236,10 +278,42 @@ async def api_services():
             "enabled": enabled,
             "category": entry.get("category", "other"),
             "status": status,
+            "has_credentials": has_credentials,
         }
 
     results = await asyncio.gather(*[get_status(s) for s in services])
     return list(results)
+
+
+@app.get("/api/credentials/{unit}")
+async def api_credentials(unit: str):
+    """Return resolved credentials for a given service unit."""
+    cfg = load_config()
+    services = cfg.get("services", [])
+
+    # Find the service entry matching this unit
+    entry = None
+    for s in services:
+        if s.get("unit") == unit:
+            creds = s.get("credentials", [])
+            if creds:
+                entry = s
+                break
+
+    if not entry:
+        raise HTTPException(status_code=404, detail="No credentials for this service")
+
+    loop = asyncio.get_event_loop()
+    resolved = []
+    for cred in entry.get("credentials", []):
+        result = await loop.run_in_executor(None, _resolve_credential, cred)
+        if result:
+            resolved.append(result)
+
+    return {
+        "name": entry.get("name", ""),
+        "credentials": resolved,
+    }
 
 
 def _get_allowed_units() -> set[str]:

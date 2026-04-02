@@ -1,6 +1,6 @@
 /* Sovran_SystemsOS Hub — Web UI Stylesheet
    Dark theme matching the Adwaita dark aesthetic
-   v3 — reboot overlay */
+   v4 — credentials info modal */
 
 *, *::before, *::after {
   box-sizing: border-box;
@@ -70,7 +70,7 @@ body {
   letter-spacing: 0.03em;
 }
 
-/* ── Buttons ────────────────────────────────────────────────────��─ */
+/* ── Buttons ────────────────────────────────────────────────────── */
 
 button {
   font-family: inherit;
@@ -247,6 +247,32 @@ button:disabled {
 
 .service-tile.disabled {
   opacity: 0.45;
+}
+
+/* Info badge on tiles with credentials */
+.tile-info-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background-color: var(--accent-color);
+  color: #1e1e2e;
+  font-size: 0.75rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border: none;
+  transition: transform 0.15s, background-color 0.15s;
+  line-height: 1;
+}
+
+.tile-info-btn:hover {
+  transform: scale(1.15);
+  background-color: #a8c8ff;
 }
 
 .tile-icon {
@@ -504,6 +530,133 @@ button.btn-reboot:hover:not(:disabled) {
   background-color: #5a5c72;
 }
 
+/* ── Credentials info modal ──────────────────────────────────────── */
+
+.creds-dialog {
+  background-color: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  width: 90vw;
+  max-width: 520px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 16px 48px rgba(0,0,0,0.7);
+  animation: creds-fade-in 0.2s ease-out;
+}
+
+@keyframes creds-fade-in {
+  from { opacity: 0; transform: scale(0.95) translateY(8px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.creds-header {
+  display: flex;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.creds-title {
+  font-size: 1rem;
+  font-weight: 700;
+  flex: 1;
+}
+
+.creds-close-btn {
+  background: none;
+  color: var(--text-secondary);
+  font-size: 1.1rem;
+  padding: 4px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  border: none;
+}
+
+.creds-close-btn:hover {
+  background-color: var(--border-color);
+  color: var(--text-primary);
+}
+
+.creds-body {
+  padding: 16px 20px;
+  overflow-y: auto;
+}
+
+.creds-loading {
+  color: var(--text-dim);
+  text-align: center;
+  padding: 24px 0;
+}
+
+.creds-row {
+  margin-bottom: 14px;
+}
+
+.creds-row:last-child {
+  margin-bottom: 0;
+}
+
+.creds-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+  margin-bottom: 4px;
+}
+
+.creds-value-wrap {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.creds-value {
+  flex: 1;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Source Code Pro', monospace;
+  font-size: 0.82rem;
+  color: var(--accent-color);
+  background-color: #12121c;
+  padding: 8px 12px;
+  border-radius: 8px;
+  word-break: break-all;
+  white-space: pre-wrap;
+  line-height: 1.5;
+  border: 1px solid var(--border-color);
+}
+
+.creds-copy-btn {
+  background-color: var(--border-color);
+  color: var(--text-primary);
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  border: none;
+  white-space: nowrap;
+  flex-shrink: 0;
+  align-self: flex-start;
+  margin-top: 6px;
+}
+
+.creds-copy-btn:hover {
+  background-color: #5a5c72;
+}
+
+.creds-copy-btn.copied {
+  background-color: var(--green);
+  color: #fff;
+}
+
+.creds-empty {
+  color: var(--text-dim);
+  text-align: center;
+  padding: 24px 0;
+  font-size: 0.88rem;
+}
+
 /* ── Reboot overlay ─────────────────────────────────────────────── */
 
 .reboot-overlay {
@@ -633,5 +786,8 @@ button.btn-reboot:hover:not(:disabled) {
   .reboot-card {
     padding: 36px 28px;
     margin: 0 16px;
+  }
+  .creds-dialog {
+    margin: 0 12px;
   }
 }

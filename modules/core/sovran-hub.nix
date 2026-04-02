@@ -6,37 +6,62 @@ let
   monitoredServices =
     # ── Infrastructure (always present) ────────────────────────
     [
-      { name = "Caddy"; unit = "caddy.service"; type = "system"; icon = "caddy"; enabled = true;  category = "infrastructure"; }
-      { name = "Tor";   unit = "tor.service";   type = "system"; icon = "tor";   enabled = true;  category = "infrastructure"; }
+      { name = "Caddy"; unit = "caddy.service"; type = "system"; icon = "caddy"; enabled = true;  category = "infrastructure"; credentials = []; }
+      { name = "Tor";   unit = "tor.service";   type = "system"; icon = "tor";   enabled = true;  category = "infrastructure"; credentials = []; }
     ]
     # ── Bitcoin Base (node implementations) ────────────────────
     ++ [
-      { name = "Bitcoin Knots + BIP110"; unit = "bitcoind.service"; type = "system"; icon = "bip110";        enabled = cfg.features.bip110;        category = "bitcoin-base"; }
-      { name = "Bitcoin Knots";          unit = "bitcoind.service"; type = "system"; icon = "bitcoind";      enabled = cfg.services.bitcoin && !cfg.features.bitcoin-core && !cfg.features.bip110; category = "bitcoin-base"; }
-      { name = "Bitcoin Core";           unit = "bitcoind.service"; type = "system"; icon = "bitcoin-core";  enabled = cfg.features.bitcoin-core;  category = "bitcoin-base"; }
+      { name = "Bitcoin Knots + BIP110"; unit = "bitcoind.service"; type = "system"; icon = "bip110";        enabled = cfg.features.bip110;        category = "bitcoin-base"; credentials = [
+        { label = "Tor Address"; file = "/var/lib/tor/onion/bitcoind/hostname"; }
+      ]; }
+      { name = "Bitcoin Knots";          unit = "bitcoind.service"; type = "system"; icon = "bitcoind";      enabled = cfg.services.bitcoin && !cfg.features.bitcoin-core && !cfg.features.bip110; category = "bitcoin-base"; credentials = [
+        { label = "Tor Address"; file = "/var/lib/tor/onion/bitcoind/hostname"; }
+      ]; }
+      { name = "Bitcoin Core";           unit = "bitcoind.service"; type = "system"; icon = "bitcoin-core";  enabled = cfg.features.bitcoin-core;  category = "bitcoin-base"; credentials = [
+        { label = "Tor Address"; file = "/var/lib/tor/onion/bitcoind/hostname"; }
+      ]; }
     ]
     # ── Bitcoin Apps (services on top of the node) ─────────────
     ++ [
-      { name = "Electrs";            unit = "electrs.service";      type = "system"; icon = "electrs";      enabled = cfg.services.bitcoin;  category = "bitcoin-apps"; }
-      { name = "LND";                unit = "lnd.service";          type = "system"; icon = "lnd";          enabled = cfg.services.bitcoin;  category = "bitcoin-apps"; }
-      { name = "Ride The Lightning"; unit = "rtl.service";          type = "system"; icon = "rtl";          enabled = cfg.services.bitcoin;  category = "bitcoin-apps"; }
-      { name = "BTCPayserver";       unit = "btcpayserver.service"; type = "system"; icon = "btcpayserver"; enabled = cfg.services.bitcoin;  category = "bitcoin-apps"; }
-      { name = "Mempool";            unit = "mempool.service";      type = "system"; icon = "mempool";      enabled = cfg.features.mempool;  category = "bitcoin-apps"; }
+      { name = "Electrs";            unit = "electrs.service";      type = "system"; icon = "electrs";      enabled = cfg.services.bitcoin;  category = "bitcoin-apps"; credentials = [
+        { label = "Tor Address"; file = "/var/lib/tor/onion/electrs/hostname"; }
+        { label = "Port"; value = "50001"; }
+      ]; }
+      { name = "LND";                unit = "lnd.service";          type = "system"; icon = "lnd";          enabled = cfg.services.bitcoin;  category = "bitcoin-apps"; credentials = []; }
+      { name = "Ride The Lightning"; unit = "rtl.service";          type = "system"; icon = "rtl";          enabled = cfg.services.bitcoin;  category = "bitcoin-apps"; credentials = [
+        { label = "URL"; file = "/var/lib/tor/onion/rtl/hostname"; prefix = "http://"; }
+        { label = "Password"; file = "/etc/nix-bitcoin-secrets/rtl-password"; }
+      ]; }
+      { name = "BTCPayserver";       unit = "btcpayserver.service"; type = "system"; icon = "btcpayserver"; enabled = cfg.services.bitcoin;  category = "bitcoin-apps"; credentials = [
+        { label = "URL"; file = "/var/lib/domains/btcpayserver"; prefix = "https://"; }
+        { label = "Note"; value = "Create your admin account on first visit"; }
+      ]; }
+      { name = "Mempool";            unit = "mempool.service";      type = "system"; icon = "mempool";      enabled = cfg.features.mempool;  category = "bitcoin-apps"; credentials = []; }
     ]
     # ── Communication ──────────────────────────────────────────
     ++ [
-      { name = "Matrix-Synapse"; unit = "matrix-synapse.service"; type = "system"; icon = "synapse"; enabled = cfg.services.synapse;          category = "communication"; }
-      { name = "Element-Call";   unit = "livekit.service";        type = "system"; icon = "livekit"; enabled = cfg.features.element-calling;  category = "communication"; }
+      { name = "Matrix-Synapse"; unit = "matrix-synapse.service"; type = "system"; icon = "synapse"; enabled = cfg.services.synapse;          category = "communication"; credentials = [
+        { label = "Users"; file = "/var/lib/secrets/matrix-users"; multiline = true; }
+      ]; }
+      { name = "Element-Call";   unit = "livekit.service";        type = "system"; icon = "livekit"; enabled = cfg.features.element-calling;  category = "communication"; credentials = []; }
     ]
     # ── Self-Hosted Apps ───────────────────────────────────────
     ++ [
-      { name = "VaultWarden"; unit = "vaultwarden.service";      type = "system"; icon = "vaultwarden"; enabled = cfg.services.vaultwarden; category = "apps"; }
-      { name = "Nextcloud";   unit = "phpfpm-nextcloud.service"; type = "system"; icon = "nextcloud";   enabled = cfg.services.nextcloud;   category = "apps"; }
-      { name = "WordPress";   unit = "phpfpm-wordpress.service"; type = "system"; icon = "wordpress";   enabled = cfg.services.wordpress;   category = "apps"; }
+      { name = "VaultWarden"; unit = "vaultwarden.service";      type = "system"; icon = "vaultwarden"; enabled = cfg.services.vaultwarden; category = "apps"; credentials = [
+        { label = "URL"; file = "/var/lib/domains/vaultwarden"; prefix = "https://"; }
+        { label = "Admin Panel"; file = "/var/lib/domains/vaultwarden"; prefix = "https://"; suffix = "/admin"; }
+        { label = "Admin Token"; file = "/var/lib/secrets/vaultwarden/vaultwarden.env"; extract = "ADMIN_TOKEN"; }
+      ]; }
+      { name = "Nextcloud";   unit = "phpfpm-nextcloud.service"; type = "system"; icon = "nextcloud";   enabled = cfg.services.nextcloud;   category = "apps"; credentials = [
+        { label = "Credentials"; file = "/var/lib/secrets/nextcloud-admin"; multiline = true; }
+      ]; }
+      { name = "WordPress";   unit = "phpfpm-wordpress.service"; type = "system"; icon = "wordpress";   enabled = cfg.services.wordpress;   category = "apps"; credentials = [
+        { label = "Credentials"; file = "/var/lib/secrets/wordpress-admin"; multiline = true; }
+      ]; }
     ]
     # ── Nostr / Relay ──────────────────────────────────────────
     ++ [
-      { name = "Haven Relay"; unit = "haven-relay.service"; type = "system"; icon = "haven"; enabled = cfg.features.haven; category = "nostr"; }
+      { name = "Haven Relay"; unit = "haven-relay.service"; type = "system"; icon = "haven"; enabled = cfg.features.haven; category = "nostr"; credentials = []; }
     ];
 
   activeRole =
@@ -52,7 +77,7 @@ let
       services         = monitoredServices;
     });
 
-  # ── Update wrapper script ──────────────────────────────────────
+  # ── Update wrapper script ─────────────────────────────────────��
   update-script = pkgs.writeShellScript "sovran-hub-update.sh" ''
     set -uo pipefail
     export PATH="${lib.makeBinPath [ pkgs.nix pkgs.nixos-rebuild pkgs.git pkgs.flatpak pkgs.coreutils ]}:$PATH"
