@@ -4,9 +4,7 @@
   imports = [
     ./modules/modules.nix
     ./iso/branding.nix
-  ] ++ (if builtins.pathExists /etc/nixos/hub-overrides.nix
-        then [ /etc/nixos/hub-overrides.nix ]
-        else []);
+  ];
 
   # ── Boot ────────────────────────────────────────────────────
   boot.loader.systemd-boot.enable = true;
