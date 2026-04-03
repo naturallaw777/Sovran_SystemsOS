@@ -10,6 +10,12 @@ lib.mkIf config.sovran_systemsOS.features.rdp {
   };
   users.groups.gnome-remote-desktop = {};
 
+  # Enable the GNOME Remote Desktop service at the system level
+  services.gnome.gnome-remote-desktop.enable = true;
+
+  # Open RDP port in the firewall
+  networking.firewall.allowedTCPPorts = [ 3389 ];
+
   systemd.tmpfiles.rules = [
     "d /var/lib/gnome-remote-desktop 0750 gnome-remote-desktop gnome-remote-desktop -"
     "d /var/lib/gnome-remote-desktop/.local 0750 gnome-remote-desktop gnome-remote-desktop -"
