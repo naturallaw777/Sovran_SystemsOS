@@ -950,6 +950,12 @@ async def api_features_toggle(req: FeatureToggleRequest):
 
     await loop.run_in_executor(None, _write_hub_overrides, features, nostr_npub)
 
+    # Clear the old rebuild log so the frontend doesn't pick up stale results
+    try:
+        open(REBUILD_LOG, "w").close()
+    except OSError:
+        pass
+
     # Start the rebuild service
     await asyncio.create_subprocess_exec(
         "systemctl", "reset-failed", REBUILD_UNIT,

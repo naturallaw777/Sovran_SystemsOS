@@ -543,7 +543,8 @@ function openRebuildModal() {
   if ($rebuildSave) $rebuildSave.style.display = "none";
   if ($rebuildClose) $rebuildClose.disabled = true;
   $rebuildModal.classList.add("open");
-  startRebuildPoll();
+  // Delay first poll slightly to let the rebuild service start and clear stale log
+  setTimeout(startRebuildPoll, 1500);
 }
 
 function closeRebuildModal() {
