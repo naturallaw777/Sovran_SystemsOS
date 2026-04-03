@@ -607,6 +607,7 @@ async def api_config():
         "role": role,
         "role_label": ROLE_LABELS.get(role, role),
         "category_order": CATEGORY_ORDER,
+        "feature_manager": True,
     }
 
 
