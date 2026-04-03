@@ -63,6 +63,13 @@ body {
   flex: 1;
 }
 
+.header-logo {
+  height: 30px;
+  width: auto;
+  vertical-align: middle;
+  margin-right: 8px;
+}
+
 .role-badge {
   background-color: var(--accent-color);
   color: #1e1e2e;
@@ -1794,6 +1801,11 @@ button.btn-reboot:hover:not(:disabled) {
   font-size: 3.5rem;
   line-height: 1;
   margin-bottom: 14px;
+}
+
+.onboarding-logo-img {
+  height: 90px;
+  width: auto;
 }
 
 .onboarding-title {
