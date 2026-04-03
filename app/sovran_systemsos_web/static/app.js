@@ -46,13 +46,15 @@ let _supportEnabledAt = null;
 let _cachedExternalIp = null;
 
 // Feature Manager state
-let _featuresData       = null;
-let _rebuildLog         = "";
-let _rebuildLogOffset   = 0;
-let _rebuildPollTimer   = null;
-let _rebuildFinished    = false;
-let _rebuildServerDown  = false;
-let _pendingToggle      = null; // {feature, extra} waiting for domain/confirm
+let _featuresData         = null;
+let _rebuildLog           = "";
+let _rebuildLogOffset     = 0;
+let _rebuildPollTimer     = null;
+let _rebuildFinished      = false;
+let _rebuildServerDown    = false;
+let _pendingToggle        = null; // {feature, extra} waiting for domain/confirm
+let _rebuildFeatureName   = "";
+let _rebuildIsEnabling    = true;
 
 // ── DOM refs ──────────────────────────────────────────────────────
 
@@ -205,14 +207,14 @@ function buildTile(svc) {
   if (dis) tile.title = svc.name + " is not enabled in custom.nix";
 
   if (isSupport) {
-    tile.innerHTML = '<img class="tile-icon" src="/static/icons/' + escHtml(svc.icon) + '.svg" alt="' + escHtml(svc.name) + '" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'"><div class="tile-icon-fallback" style="display:none">🛟</div><div class="tile-name">' + escHtml(svc.name) + '</div><div class="tile-status"><span class="support-status-label">Click to manage</span></div>';
+    tile.innerHTML = '<img class="tile-icon" src="/static/icons/' + escHtml(svc.icon) + '.svg" alt="' + escHtml(svc.name) + '" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'"><div class="tile-icon-fallback" style="display:none">?</div><div class="tile-name">' + escHtml(svc.name) + '</div><div class="tile-status"><span class="support-status-label">Click for help</span></div>';
     tile.style.cursor = "pointer";
     tile.addEventListener("click", function() { openSupportModal(); });
     return tile;
   }
 
   var infoBtn = hasCreds ? '<button class="tile-info-btn" data-unit="' + escHtml(svc.unit) + '" title="Connection info">i</button>' : "";
-  tile.innerHTML = infoBtn + '<img class="tile-icon" src="/static/icons/' + escHtml(svc.icon) + '.svg" alt="' + escHtml(svc.name) + '" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'"><div class="tile-icon-fallback" style="display:none">⚙</div><div class="tile-name">' + escHtml(svc.name) + '</div><div class="tile-status"><span class="status-dot ' + sc + '"></span><span class="status-text">' + escHtml(st) + '</span></div>';
+  tile.innerHTML = infoBtn + '<img class="tile-icon" src="/static/icons/' + escHtml(svc.icon) + '.svg" alt="' + escHtml(svc.name) + '" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'"><div class="tile-icon-fallback" style="display:none">?</div><div class="tile-name">' + escHtml(svc.name) + '</div><div class="tile-status"><span class="status-dot ' + sc + '"></span><span class="status-text">' + st + '</span></div>';
 
   var infoBtnEl = tile.querySelector(".tile-info-btn");
   if (infoBtnEl) {
@@ -342,13 +344,13 @@ async function openSupportModal() {
 function renderSupportInactive() {
   stopSupportTimer();
   var ip = _cachedExternalIp || "loading…";
-  $supportBody.innerHTML = '<div class="support-section"><div class="support-icon-big">🛟</div><h3 class="support-heading">Need help from Sovran Systems?</h3><p class="support-desc">This will temporarily give Sovran Systems secure SSH access to your machine so we can diagnose and fix issues for you.</p><div class="support-info-box"><div class="support-info-row"><span class="support-info-label">Your External IP</span><span class="support-info-value" id="support-ext-ip">' + escHtml(ip) + '</span></div><p class="support-info-hint">Give this IP to your Sovran Systems technician when asked.</p></div><div class="support-steps"><p class="support-steps-title">What happens when you click Enable:</p><ol><li>A Sovran Systems SSH key is added to this machine</li><li>You give us your External IP shown above</li><li>We connect and help you remotely</li><li>When done, you click <strong>End Support Session</strong> to remove the key</li></ol></div><button class="btn support-btn-enable" id="btn-support-enable">Enable Support Access</button><p class="support-fine-print">You can end the session at any time. The access key will be completely removed.</p></div>';
+  $supportBody.innerHTML = '<div class="support-section"><div class="support-icon-big">🛟</div><h3 class="support-heading">Need help from Sovran Systems?</h3><p class="support-desc">This will temporarily grant our support team SSH access to your machine so we can help diagnose and fix issues.</p><div class="support-info-box"><div class="support-info-row"><span class="support-info-label">Your IP</span><span class="support-info-value">' + escHtml(ip) + '</span></div><div class="support-info-hint">This IP will be shared with Sovran Systems support</div></div><div class="support-steps"><div class="support-steps-title">What happens:</div><ol><li>Our public SSH key is added to your machine</li><li>We connect and help fix the issue</li><li>You click "End Session" to remove our access</li></ol></div><button class="btn support-btn-enable" id="btn-support-enable">Enable Support Access</button><p class="support-fine-print">You can revoke access at any time</p></div>';
   document.getElementById("btn-support-enable").addEventListener("click", enableSupport);
 }
 
 function renderSupportActive() {
   var ip = _cachedExternalIp || "loading…";
-  $supportBody.innerHTML = '<div class="support-section"><div class="support-icon-big support-active-icon">🔓</div><h3 class="support-heading support-active-heading">Support Access is Active</h3><p class="support-desc">Sovran Systems can currently connect to your machine via SSH.</p><div class="support-info-box support-active-box"><div class="support-info-row"><span class="support-info-label">Your External IP</span><span class="support-info-value">' + escHtml(ip) + '</span></div><div class="support-info-row"><span class="support-info-label">Session Duration</span><span class="support-info-value" id="support-timer">—</span></div></div><p class="support-active-note">When your support session is complete, click the button below to <strong>immediately remove</strong> the access key.</p><button class="btn support-btn-disable" id="btn-support-disable">End Support Session</button></div>';
+  $supportBody.innerHTML = '<div class="support-section"><div class="support-icon-big support-active-icon">🔓</div><h3 class="support-heading support-active-heading">Support Access is Active</h3><p class="support-active-note">Sovran Systems can currently connect to your machine via SSH.</p><div class="support-info-box support-active-box"><div class="support-info-row"><span class="support-info-label">Your IP</span><span class="support-info-value">' + escHtml(ip) + '</span></div><div class="support-info-row"><span class="support-info-label">Duration</span><span class="support-info-value" id="support-timer">…</span></div></div><button class="btn support-btn-disable" id="btn-support-disable">End Support Session</button><p class="support-fine-print">This will remove the SSH key immediately</p></div>';
   document.getElementById("btn-support-disable").addEventListener("click", disableSupport);
   startSupportTimer();
 }
@@ -356,7 +358,7 @@ function renderSupportActive() {
 function renderSupportRemoved(verified) {
   stopSupportTimer();
   var icon = verified ? "✅" : "⚠️";
-  var msg = verified ? "The Sovran Systems SSH key has been completely removed from your machine. We no longer have any access." : "The key removal was requested but could not be fully verified. Please reboot your machine to be sure.";
+  var msg = verified ? "The Sovran Systems SSH key has been completely removed from your machine. We no longer have any access." : "The key removal was requested but could not be fully verified. Please reboot to ensure it is gone.";
   var vclass = verified ? "verified-gone" : "verify-warning";
   var vlabel = verified ? "✓ Removed — No access" : "⚠ Verify by rebooting";
   $supportBody.innerHTML = '<div class="support-section"><div class="support-icon-big">' + icon + '</div><h3 class="support-heading">Support Session Ended</h3><p class="support-desc">' + escHtml(msg) + '</p><div class="support-verify-box"><span class="support-verify-label">SSH Key Status:</span><span class="support-verify-value ' + vclass + '">' + vlabel + '</span></div><button class="btn support-btn-done" id="btn-support-done">Done</button></div>';
@@ -513,7 +515,9 @@ function saveErrorReport() {
 
 function doReboot() {
   if ($modal) $modal.classList.remove("open");
+  if ($rebuildModal) $rebuildModal.classList.remove("open");
   stopUpdatePoll();
+  stopRebuildPoll();
   if ($rebootOverlay) $rebootOverlay.classList.add("visible");
   fetch("/api/reboot", { method: "POST" }).catch(function() {});
   setTimeout(waitForServerReboot, REBOOT_CHECK_INTERVAL);
@@ -536,8 +540,10 @@ function openRebuildModal() {
   _rebuildLogOffset = 0;
   _rebuildServerDown = false;
   _rebuildFinished = false;
-  if ($rebuildLog) $rebuildLog.textContent = "";
-  if ($rebuildStatus) $rebuildStatus.textContent = "Rebuilding…";
+  if ($rebuildLog) { $rebuildLog.textContent = ""; $rebuildLog.style.display = "none"; }
+  var action = _rebuildIsEnabling ? "Enabling" : "Disabling";
+  var label = _rebuildFeatureName || "feature";
+  if ($rebuildStatus) $rebuildStatus.textContent = action + " " + label + "…";
   if ($rebuildSpinner) $rebuildSpinner.classList.add("spinning");
   if ($rebuildReboot) $rebuildReboot.style.display = "none";
   if ($rebuildSave) $rebuildSave.style.display = "none";
@@ -555,7 +561,7 @@ function closeRebuildModal() {
 function appendRebuildLog(text) {
   if (!text) return;
   _rebuildLog += text;
-  if ($rebuildLog) { $rebuildLog.textContent += text; $rebuildLog.scrollTop = $rebuildLog.scrollHeight; }
+  // Log is collected silently for error reports — not displayed to user
 }
 
 function startRebuildPoll() {
@@ -571,7 +577,7 @@ async function pollRebuildStatus() {
   if (_rebuildFinished) return;
   try {
     var data = await apiFetch("/api/rebuild/status?offset=" + _rebuildLogOffset);
-    if (_rebuildServerDown) { _rebuildServerDown = false; appendRebuildLog("[Server reconnected]\n"); if ($rebuildStatus) $rebuildStatus.textContent = "Rebuilding…"; }
+    if (_rebuildServerDown) { _rebuildServerDown = false; }
     if (data.log) appendRebuildLog(data.log);
     _rebuildLogOffset = data.offset;
     if (data.running) return;
@@ -579,7 +585,7 @@ async function pollRebuildStatus() {
     stopRebuildPoll();
     onRebuildDone(data.result === "success");
   } catch (err) {
-    if (!_rebuildServerDown) { _rebuildServerDown = true; appendRebuildLog("\n[Server restarting — waiting for it to come back…]\n"); if ($rebuildStatus) $rebuildStatus.textContent = "Server restarting…"; }
+    if (!_rebuildServerDown) { _rebuildServerDown = true; if ($rebuildStatus) $rebuildStatus.textContent = "Applying changes…"; }
   }
 }
 
@@ -587,12 +593,11 @@ function onRebuildDone(success) {
   if ($rebuildSpinner) $rebuildSpinner.classList.remove("spinning");
   if ($rebuildClose) $rebuildClose.disabled = false;
   if (success) {
-    if ($rebuildStatus) $rebuildStatus.textContent = "✓ Rebuild complete";
-    if ($rebuildReboot) $rebuildReboot.style.display = "inline-flex";
-    // Refresh feature states
-    loadFeatureManager();
+    if ($rebuildStatus) $rebuildStatus.textContent = "✓ Done";
+    // Auto-reload the page after a short delay so tiles and toggles reflect the new state
+    setTimeout(function() { window.location.reload(); }, 1200);
   } else {
-    if ($rebuildStatus) $rebuildStatus.textContent = "✗ Rebuild failed";
+    if ($rebuildStatus) $rebuildStatus.textContent = "✗ Something went wrong";
     if ($rebuildSave) $rebuildSave.style.display = "inline-flex";
     if ($rebuildReboot) $rebuildReboot.style.display = "inline-flex";
   }
@@ -680,12 +685,12 @@ function openDomainSetupModal(feat, onSaved) {
         }
       }
     }
-    npubField = '<div class="domain-field-group"><label class="domain-field-label" for="domain-npub-input">Nostr Public Key (npub1...):</label><input class="domain-field-input" type="text" id="domain-npub-input" placeholder="npub1…" value="' + escHtml(currentNpub) + '" /></div>';
+    npubField = '<div class="domain-field-group"><label class="domain-field-label" for="domain-npub-input">Nostr Public Key (npub1...):</label><input class="domain-field-input" type="text" id="domain-npub-input" placeholder="npub1..." value="' + escHtml(currentNpub) + '" /></div>';
   }
 
   $domainSetupBody.innerHTML =
     '<div class="domain-setup-intro"><p>Before continuing, you need:</p><ol><li>A subdomain purchased on njal.la</li><li>A Dynamic DNS record for it</li></ol></div>' +
-    '<div class="domain-field-group"><label class="domain-field-label" for="domain-subdomain-input">Subdomain:</label><input class="domain-field-input" type="text" id="domain-subdomain-input" placeholder="relay.mydomain.com" /></div>' +
+    '<div class="domain-field-group"><label class="domain-field-label" for="domain-subdomain-input">Subdomain:</label><input class="domain-field-input" type="text" id="domain-subdomain-input" placeholder="myservice.example.com" /></div>' +
     '<div class="domain-field-group"><label class="domain-field-label" for="domain-ddns-input">Njal.la DDNS URL:</label><input class="domain-field-input" type="text" id="domain-ddns-input" placeholder="https://njal.la/update/?h=..." /><p class="domain-field-hint">ℹ Paste the curl URL from your Njal.la dashboard\'s Dynamic record</p></div>' +
     npubField +
     '<div class="domain-field-actions"><button class="btn btn-close-modal" id="domain-setup-cancel-btn">Cancel</button><button class="btn btn-primary" id="domain-setup-save-btn">Save &amp; Enable</button></div>';
@@ -736,6 +741,13 @@ function closeDomainSetupModal() {
 // ── Feature toggle logic ──────────────────────────────────────────
 
 async function performFeatureToggle(featId, enabled, extra) {
+  // Look up feature name for the rebuild modal
+  _rebuildIsEnabling = enabled;
+  _rebuildFeatureName = featId;
+  if (_featuresData) {
+    var found = _featuresData.features.find(function(f) { return f.id === featId; });
+    if (found) _rebuildFeatureName = found.name;
+  }
   try {
     var res = await fetch("/api/features/toggle", {
       method: "POST",
