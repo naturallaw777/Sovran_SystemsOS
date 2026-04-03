@@ -592,6 +592,143 @@ button.btn-reboot:hover:not(:disabled) {
   color: #defce6;
 }
 
+/* ── Matrix action buttons ───────────────────────────────────────── */
+
+.matrix-actions-divider {
+  border: none;
+  border-top: 1px solid var(--border-color);
+  margin: 18px 0 14px;
+}
+
+.matrix-actions-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.matrix-action-btn {
+  background-color: var(--accent-color);
+  color: #0f0f19;
+  font-size: 0.88rem;
+  font-weight: 700;
+  padding: 10px 18px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  flex: 1;
+  min-width: 140px;
+}
+
+.matrix-action-btn:hover {
+  background-color: #a8c8ff;
+}
+
+.matrix-form-group {
+  margin-bottom: 14px;
+}
+
+.matrix-form-label {
+  display: block;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+  font-weight: 600;
+}
+
+.matrix-form-input {
+  width: 100%;
+  background-color: #12121c;
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 0.9rem;
+  box-sizing: border-box;
+}
+
+.matrix-form-input:focus {
+  outline: none;
+  border-color: var(--accent-color);
+}
+
+.matrix-form-checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.matrix-form-checkbox-row input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent-color);
+}
+
+.matrix-form-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.matrix-form-submit {
+  background-color: var(--accent-color);
+  color: #0f0f19;
+  font-size: 0.88rem;
+  font-weight: 700;
+  padding: 10px 20px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  flex: 1;
+}
+
+.matrix-form-submit:hover:not(:disabled) {
+  background-color: #a8c8ff;
+}
+
+.matrix-form-submit:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.matrix-form-back {
+  background-color: var(--border-color);
+  color: var(--text-primary);
+  font-size: 0.88rem;
+  font-weight: 600;
+  padding: 10px 20px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+}
+
+.matrix-form-back:hover {
+  background-color: #5a5c72;
+}
+
+.matrix-form-result {
+  margin-top: 14px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  display: none;
+}
+
+.matrix-form-result.success {
+  background-color: rgba(74, 222, 128, 0.12);
+  border: 1px solid var(--green);
+  color: var(--green);
+  display: block;
+}
+
+.matrix-form-result.error {
+  background-color: rgba(239, 68, 68, 0.12);
+  border: 1px solid #ef4444;
+  color: #f87171;
+  display: block;
+}
+
 /* ── QR code in credentials modal ────────────────────────────────── */
 
 .creds-qr-wrap {
@@ -756,6 +893,7 @@ button.btn-reboot:hover:not(:disabled) {
     width: 200px;
     height: 200px;
   }
+}
 
 /* ── Tech Support tile ───────────────────────────────────────────── */
 
@@ -955,10 +1093,6 @@ button.btn-reboot:hover:not(:disabled) {
 
 .support-btn-done:hover:not(:disabled) {
   background-color: #5a5c72;
-
-
-}
-
 }
 
 /* ── Feature Manager ─────────────────────────────────────────────── */

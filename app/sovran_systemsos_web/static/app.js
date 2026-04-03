@@ -154,7 +154,11 @@ function formatDuration(seconds) {
 
 async function apiFetch(path, options) {
   const res = await fetch(path, options || {});
-  if (!res.ok) throw new Error(res.status + " " + res.statusText);
+  if (!res.ok) {
+    let detail = res.status + " " + res.statusText;
+    try { const body = await res.json(); if (body && body.detail) detail = body.detail; } catch (e) {}
+    throw new Error(detail);
+  }
   return res.json();
 }
 
@@ -306,6 +310,12 @@ async function openCredsModal(unit, name) {
       }
       html += '<div class="creds-row"><div class="creds-label">' + escHtml(cred.label) + '</div>' + qrBlock + '<div class="creds-value-wrap"><div class="creds-value" id="' + id + '">' + displayValue + '</div><button class="creds-copy-btn" data-target="' + id + '">Copy</button></div></div>';
     }
+    if (unit === "matrix-synapse.service") {
+      html += '<hr class="matrix-actions-divider"><div class="matrix-actions-row">' +
+        '<button class="matrix-action-btn" id="matrix-add-user-btn">➕ Add New User</button>' +
+        '<button class="matrix-action-btn" id="matrix-change-pw-btn">🔑 Change Password</button>' +
+        '</div>';
+    }
     $credsBody.innerHTML = html;
     $credsBody.querySelectorAll(".creds-copy-btn").forEach(function(btn) {
       btn.addEventListener("click", function() {
@@ -340,9 +350,123 @@ async function openCredsModal(unit, name) {
         }
       });
     });
+    if (unit === "matrix-synapse.service") {
+      var addBtn = document.getElementById("matrix-add-user-btn");
+      var changePwBtn = document.getElementById("matrix-change-pw-btn");
+      if (addBtn) addBtn.addEventListener("click", function() { openMatrixCreateUserModal(unit, name); });
+      if (changePwBtn) changePwBtn.addEventListener("click", function() { openMatrixChangePasswordModal(unit, name); });
+    }
   } catch (err) {
     $credsBody.innerHTML = '<p class="creds-empty">Could not load credentials.</p>';
   }
+}
+
+function openMatrixCreateUserModal(unit, name) {
+  if (!$credsBody) return;
+  $credsBody.innerHTML =
+    '<div class="matrix-form-group"><label class="matrix-form-label" for="matrix-new-username">Username</label>' +
+    '<input class="matrix-form-input" type="text" id="matrix-new-username" placeholder="alice" autocomplete="off"></div>' +
+    '<div class="matrix-form-group"><label class="matrix-form-label" for="matrix-new-password">Password</label>' +
+    '<input class="matrix-form-input" type="password" id="matrix-new-password" placeholder="Strong password" autocomplete="new-password"></div>' +
+    '<div class="matrix-form-checkbox-row"><input type="checkbox" id="matrix-new-admin"><label class="matrix-form-label" for="matrix-new-admin" style="margin:0">Make admin</label></div>' +
+    '<div class="matrix-form-actions">' +
+    '<button class="matrix-form-back" id="matrix-create-back-btn">← Back</button>' +
+    '<button class="matrix-form-submit" id="matrix-create-submit-btn">Create User</button>' +
+    '</div>' +
+    '<div class="matrix-form-result" id="matrix-create-result"></div>';
+
+  document.getElementById("matrix-create-back-btn").addEventListener("click", function() {
+    openCredsModal(unit, name);
+  });
+
+  document.getElementById("matrix-create-submit-btn").addEventListener("click", async function() {
+    var submitBtn = document.getElementById("matrix-create-submit-btn");
+    var resultEl = document.getElementById("matrix-create-result");
+    var username = (document.getElementById("matrix-new-username").value || "").trim();
+    var password = document.getElementById("matrix-new-password").value || "";
+    var isAdmin = document.getElementById("matrix-new-admin").checked;
+
+    if (!username || !password) {
+      resultEl.className = "matrix-form-result error";
+      resultEl.textContent = "Username and password are required.";
+      return;
+    }
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Creating…";
+    resultEl.className = "matrix-form-result";
+    resultEl.textContent = "";
+
+    try {
+      var resp = await apiFetch("/api/matrix/create-user", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: username, password: password, admin: isAdmin })
+      });
+      resultEl.className = "matrix-form-result success";
+      resultEl.textContent = "✅ User @" + escHtml(resp.username) + " created successfully.";
+      submitBtn.textContent = "Create User";
+      submitBtn.disabled = false;
+    } catch (err) {
+      resultEl.className = "matrix-form-result error";
+      resultEl.textContent = "❌ " + (err.message || "Failed to create user.");
+      submitBtn.textContent = "Create User";
+      submitBtn.disabled = false;
+    }
+  });
+}
+
+function openMatrixChangePasswordModal(unit, name) {
+  if (!$credsBody) return;
+  $credsBody.innerHTML =
+    '<div class="matrix-form-group"><label class="matrix-form-label" for="matrix-chpw-username">Username (localpart only, e.g. <em>alice</em>)</label>' +
+    '<input class="matrix-form-input" type="text" id="matrix-chpw-username" placeholder="alice" autocomplete="off"></div>' +
+    '<div class="matrix-form-group"><label class="matrix-form-label" for="matrix-chpw-password">New Password</label>' +
+    '<input class="matrix-form-input" type="password" id="matrix-chpw-password" placeholder="New strong password" autocomplete="new-password"></div>' +
+    '<div class="matrix-form-actions">' +
+    '<button class="matrix-form-back" id="matrix-chpw-back-btn">← Back</button>' +
+    '<button class="matrix-form-submit" id="matrix-chpw-submit-btn">Change Password</button>' +
+    '</div>' +
+    '<div class="matrix-form-result" id="matrix-chpw-result"></div>';
+
+  document.getElementById("matrix-chpw-back-btn").addEventListener("click", function() {
+    openCredsModal(unit, name);
+  });
+
+  document.getElementById("matrix-chpw-submit-btn").addEventListener("click", async function() {
+    var submitBtn = document.getElementById("matrix-chpw-submit-btn");
+    var resultEl = document.getElementById("matrix-chpw-result");
+    var username = (document.getElementById("matrix-chpw-username").value || "").trim();
+    var newPassword = document.getElementById("matrix-chpw-password").value || "";
+
+    if (!username || !newPassword) {
+      resultEl.className = "matrix-form-result error";
+      resultEl.textContent = "Username and new password are required.";
+      return;
+    }
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Changing…";
+    resultEl.className = "matrix-form-result";
+    resultEl.textContent = "";
+
+    try {
+      var resp = await apiFetch("/api/matrix/change-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: username, new_password: newPassword })
+      });
+      resultEl.className = "matrix-form-result success";
+      resultEl.textContent = "✅ Password for @" + escHtml(resp.username) + " changed successfully.";
+      submitBtn.textContent = "Change Password";
+      submitBtn.disabled = false;
+    } catch (err) {
+      resultEl.className = "matrix-form-result error";
+      resultEl.textContent = "❌ " + (err.message || "Failed to change password.");
+      submitBtn.textContent = "Change Password";
+      submitBtn.disabled = false;
+    }
+  });
 }
 
 function closeCredsModal() { if ($credsModal) $credsModal.classList.remove("open"); }
