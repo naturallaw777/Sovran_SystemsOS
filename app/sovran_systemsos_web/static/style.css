@@ -207,26 +207,20 @@ button:disabled {
 }
 
 .status-banner--warn {
-  background-color: rgba(229, 165, 10, 0.15);
-  border-bottom: 1px solid var(--yellow);
-  color: var(--yellow);
+  background-color: rgba(229, 165, 10, 0.08);
+  border-bottom: 1px solid rgba(229, 165, 10, 0.4);
+  color: var(--text-secondary);
 }
 
 .status-banner--critical {
-  background-color: rgba(224, 27, 36, 0.15);
-  border-bottom: 1px solid var(--red);
-  color: var(--red);
-  animation: pulse-banner-bg 2s ease-in-out infinite;
+  background-color: rgba(224, 27, 36, 0.08);
+  border-bottom: 1px solid rgba(224, 27, 36, 0.4);
+  color: var(--text-secondary);
 }
 
 .status-banner--fade-out {
   opacity: 0;
   pointer-events: none;
-}
-
-@keyframes pulse-banner-bg {
-  0%, 100% { background-color: rgba(224, 27, 36, 0.15); }
-  50%       { background-color: rgba(224, 27, 36, 0.28); }
 }
 
 .status-banner-details {
@@ -259,6 +253,7 @@ button:disabled {
   border-collapse: collapse;
   margin-top: 8px;
   font-size: 0.8rem;
+  color: var(--text-secondary);
 }
 
 .status-banner-table th {
@@ -269,7 +264,7 @@ button:disabled {
   text-transform: uppercase;
   letter-spacing: 0.05em;
   font-size: 0.72rem;
-  border-bottom: 1px solid currentColor;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .status-banner-table td {
