@@ -882,7 +882,12 @@ async def api_features():
         domain_name = feat.get("domain_name")
         domain_configured = True
         if domain_name:
-            domain_configured = os.path.exists(os.path.join(DOMAINS_DIR, domain_name))
+            domain_path = os.path.join(DOMAINS_DIR, domain_name)
+            try:
+                with open(domain_path, "r") as f:
+                    domain_configured = bool(f.read(256).strip())
+            except OSError:
+                domain_configured = False
 
         extra_fields = []
         for ef in feat.get("extra_fields", []):
