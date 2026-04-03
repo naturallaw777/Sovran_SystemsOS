@@ -28,14 +28,24 @@
   };
 
   # ── Networking ──────────────────────────────────────────────
-  networking.hostName = "nixos";
+  networking.hostName = "sovransystemsos";
   networking.networkmanager.enable = true;
   networking.firewall.enable = true;
   networking.firewall.allowedTCPPorts = [ 80 443 8448 3051 ];
-  networking.firewall.allowedUDPPorts = [ 80 443 8448 3051 ];
+  networking.firewall.allowedUDPPorts = [ 80 443 8448 3051 5353 ];
   networking.firewall.allowedUDPPortRanges = [
     { from = 49152; to = 65535; }
   ];
+
+  # ── mDNS / Avahi (sovransystemsos.local) ──────────────────
+  services.avahi = {
+    enable = true;
+    nssmdns4 = true;
+    publish = {
+      enable = true;
+      addresses = true;
+    };
+  };
 
   # ── Locale / Time ──────────────────────────────────────────
   time.timeZone = "America/Los_Angeles";
