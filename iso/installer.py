@@ -349,10 +349,22 @@ class InstallerWindow(Adw.ApplicationWindow):
         """Inform the user about required router/firewall ports before install."""
         outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
 
+        # Detect internal IP at install time
+        internal_ip = "this machine's LAN IP"
+        try:
+            import subprocess as _sp
+            _r = _sp.run(["hostname", "-I"], capture_output=True, text=True, timeout=5)
+            if _r.returncode == 0:
+                _parts = _r.stdout.strip().split()
+                if _parts:
+                    internal_ip = _parts[0]
+        except Exception:
+            pass
+
         # Warning banner
         banner = Adw.Banner()
         banner.set_title(
-            "⚠  You must open these ports on your home router / WAN firewall"
+            "⚠  Port Forwarding Setup Required — configure your router before install"
         )
         banner.set_revealed(True)
         banner.set_margin_top(16)
@@ -363,10 +375,12 @@ class InstallerWindow(Adw.ApplicationWindow):
         intro = Gtk.Label()
         intro.set_markup(
             "<span foreground='#a6adc8'>"
-            "Many Sovran_SystemsOS features require specific ports to be forwarded "
-            "through your router for remote access to work correctly. "
+            "Many Sovran_SystemsOS features require <b>port forwarding</b> to be configured "
+            "in your router's admin panel. This means telling your router to forward "
+            "specific ports to <b>this machine's internal LAN IP</b>.\n\n"
             "Services like Element Video/Audio Calling and Matrix Federation "
-            "<b>will not work for clients outside your LAN</b> unless these ports are open."
+            "<b>will not work for clients outside your LAN</b> unless these ports are "
+            "forwarded to this machine."
             "</span>"
         )
         intro.set_wrap(True)
@@ -375,6 +389,17 @@ class InstallerWindow(Adw.ApplicationWindow):
         intro.set_margin_start(40)
         intro.set_margin_end(40)
         outer.append(intro)
+
+        ip_label = Gtk.Label()
+        ip_label.set_markup(
+            f"<span foreground='#89b4fa' font_desc='monospace'>"
+            f"  Forward ports to this machine's internal IP:  <b>{internal_ip}</b>"
+            f"</span>"
+        )
+        ip_label.set_margin_top(10)
+        ip_label.set_margin_start(40)
+        ip_label.set_margin_end(40)
+        outer.append(ip_label)
 
         sw = Gtk.ScrolledWindow()
         sw.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
@@ -425,8 +450,13 @@ class InstallerWindow(Adw.ApplicationWindow):
         note = Gtk.Label()
         note.set_markup(
             "<span foreground='#6c7086' size='small'>"
-            "ℹ  Search \"<i>how to open ports on [your router model]</i>\" for step-by-step instructions. "
-            "Most home routers have a \"Port Forwarding\" section in their admin panel."
+            "ℹ  In your router's admin panel (usually at 192.168.1.1), find the "
+            "\"<b>Port Forwarding</b>\" section and add a rule for each port above with "
+            "the destination set to <b>this machine's internal IP</b>.  "
+            "These ports only need to be forwarded to this specific machine — "
+            "this does <b>NOT</b> expose your entire network.\n"
+            "To verify forwarding is working, test from a device on a different network "
+            "(e.g. a phone on mobile data) or check your router's port forwarding page."
             "</span>"
         )
         note.set_wrap(True)

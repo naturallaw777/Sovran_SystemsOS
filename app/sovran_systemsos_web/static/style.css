@@ -1390,3 +1390,57 @@ button.btn-reboot:hover:not(:disabled) {
   line-height: 1.5;
   margin-bottom: 14px;
 }
+
+/* ── Port status indicators ─────────────────────────────────────── */
+
+.port-req-status {
+  padding: 5px 10px;
+  white-space: nowrap;
+  font-size: 0.82rem;
+}
+
+.port-status-listening {
+  color: #a6e3a1;
+  font-weight: 600;
+}
+
+.port-status-open {
+  color: #f9e2af;
+  font-weight: 600;
+}
+
+.port-status-closed {
+  color: #f38ba8;
+  font-weight: 600;
+}
+
+.port-status-unknown {
+  color: var(--text-dim);
+}
+
+/* Internal IP highlight in port modal */
+.port-req-internal-ip {
+  font-family: 'JetBrains Mono', monospace;
+  background: rgba(137, 180, 250, 0.15);
+  color: var(--accent-color);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.95em;
+}
+
+/* Tile port badge status colours */
+.tile-ports-all-ready {
+  color: #a6e3a1;
+}
+
+.tile-ports-partial {
+  color: #f9e2af;
+}
+
+.tile-ports-none-ready {
+  color: var(--text-secondary);
+}
+
+.tile-ports-label--loading {
+  color: var(--text-dim);
+}

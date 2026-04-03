@@ -251,6 +251,48 @@ $PENDING_NJALLA"
     echo "  DDNS script:    /var/lib/njalla/njalla.sh"
     echo "  DDNS cron:      Every 15 minutes (already configured)"
     echo ""
+
+    # ── Port Forwarding Reminder ──────────────────────
+    INTERNAL_IP=$(hostname -I 2>/dev/null | awk '{print $1}')
+    printf "%b%s%b\n" "$YELLOW" "══════════════════════════════════════════════" "$NC"
+    printf "%b  ⚠  Port Forwarding Reminder%b\n" "$YELLOW" "$NC"
+    printf "%b%s%b\n" "$YELLOW" "══════════════════════════════════════════════" "$NC"
+    echo ""
+    echo "  For your services to be reachable from the internet, you must"
+    echo "  set up PORT FORWARDING in your router's admin panel."
+    echo ""
+    if [ -n "$INTERNAL_IP" ]; then
+      printf "  Forward these ports to this machine's internal IP: %b%s%b\n" "$CYAN" "$INTERNAL_IP" "$NC"
+    else
+      echo "  Forward these ports to this machine's internal LAN IP."
+    fi
+    echo ""
+    echo "    80/TCP    — HTTP (redirects to HTTPS)"
+    echo "    443/TCP   — HTTPS (all domain-based services)"
+    echo "    8448/TCP  — Matrix federation (server-to-server)"
+    echo ""
+    echo "  If you enabled Element Calling, also forward:"
+    echo "    7881/TCP        — LiveKit WebRTC signalling"
+    echo "    7882-7894/UDP   — LiveKit media streams"
+    echo "    5349/TCP        — TURN over TLS"
+    echo "    3478/UDP        — TURN (STUN/relay)"
+    echo "    30000-40000/TCP+UDP — TURN relay"
+    echo ""
+    echo "  How: Log into your router (usually 192.168.1.1), find the"
+    echo "  \"Port Forwarding\" section, and add rules for each port above"
+    if [ -n "$INTERNAL_IP" ]; then
+      printf "  with the destination set to %b%s%b.\n" "$CYAN" "$INTERNAL_IP" "$NC"
+    else
+      echo "  with the destination set to this machine's IP."
+    fi
+    echo ""
+    echo "  These ports only need to be forwarded to this specific machine —"
+    echo "  this does NOT expose your entire network."
+    echo ""
+    printf "%b%s%b\n" "$YELLOW" "══════════════════════════════════════════════" "$NC"
+    echo ""
+    read -p "Press Enter to continue with the rebuild..."
+
     printf "%b%s%b\n" "$YELLOW" "  Rebuilding to activate services with new domains..." "$NC"
     echo ""
     nixos-rebuild switch --flake /etc/nixos#nixos
@@ -335,6 +377,48 @@ $PENDING_NJALLA"
     echo "  All configured domains:"
     ${domainSummary}
     echo ""
+
+    # ── Port Forwarding Reminder ──────────────────────
+    INTERNAL_IP=$(hostname -I 2>/dev/null | awk '{print $1}')
+    printf "%b%s%b\n" "$YELLOW" "══════════════════════════════════════════════" "$NC"
+    printf "%b  ⚠  Port Forwarding Reminder%b\n" "$YELLOW" "$NC"
+    printf "%b%s%b\n" "$YELLOW" "══════════════════════════════════════════════" "$NC"
+    echo ""
+    echo "  For your services to be reachable from the internet, you must"
+    echo "  set up PORT FORWARDING in your router's admin panel."
+    echo ""
+    if [ -n "$INTERNAL_IP" ]; then
+      printf "  Forward these ports to this machine's internal IP: %b%s%b\n" "$CYAN" "$INTERNAL_IP" "$NC"
+    else
+      echo "  Forward these ports to this machine's internal LAN IP."
+    fi
+    echo ""
+    echo "    80/TCP    — HTTP (redirects to HTTPS)"
+    echo "    443/TCP   — HTTPS (all domain-based services)"
+    echo "    8448/TCP  — Matrix federation (server-to-server)"
+    echo ""
+    echo "  If you enabled Element Calling, also forward:"
+    echo "    7881/TCP        — LiveKit WebRTC signalling"
+    echo "    7882-7894/UDP   — LiveKit media streams"
+    echo "    5349/TCP        — TURN over TLS"
+    echo "    3478/UDP        — TURN (STUN/relay)"
+    echo "    30000-40000/TCP+UDP — TURN relay"
+    echo ""
+    echo "  How: Log into your router (usually 192.168.1.1), find the"
+    echo "  \"Port Forwarding\" section, and add rules for each port above"
+    if [ -n "$INTERNAL_IP" ]; then
+      printf "  with the destination set to %b%s%b.\n" "$CYAN" "$INTERNAL_IP" "$NC"
+    else
+      echo "  with the destination set to this machine's IP."
+    fi
+    echo ""
+    echo "  These ports only need to be forwarded to this specific machine —"
+    echo "  this does NOT expose your entire network."
+    echo ""
+    printf "%b%s%b\n" "$YELLOW" "══════════════════════════════════════════════" "$NC"
+    echo ""
+    read -p "Press Enter to continue with the rebuild..."
+
     printf "%b%s%b\n" "$YELLOW" "  Rebuilding to activate services with new domains..." "$NC"
     echo ""
     nixos-rebuild switch --impure
