@@ -310,12 +310,33 @@ async function openCredsModal(unit, name) {
     $credsBody.querySelectorAll(".creds-copy-btn").forEach(function(btn) {
       btn.addEventListener("click", function() {
         var target = document.getElementById(btn.dataset.target);
-        if (target) {
-          navigator.clipboard.writeText(target.textContent).then(function() {
-            btn.textContent = "Copied!";
-            btn.classList.add("copied");
-            setTimeout(function() { btn.textContent = "Copy"; btn.classList.remove("copied"); }, 1500);
-          }).catch(function() {});
+        if (!target) return;
+        var text = target.textContent;
+
+        function onSuccess() {
+          btn.textContent = "Copied!";
+          btn.classList.add("copied");
+          setTimeout(function() { btn.textContent = "Copy"; btn.classList.remove("copied"); }, 1500);
+        }
+
+        function fallbackCopy() {
+          var ta = document.createElement("textarea");
+          ta.value = text;
+          ta.style.position = "fixed";
+          ta.style.left = "-9999px";
+          document.body.appendChild(ta);
+          ta.select();
+          try {
+            document.execCommand("copy");
+            onSuccess();
+          } catch (e) {}
+          document.body.removeChild(ta);
+        }
+
+        if (navigator.clipboard && window.isSecureContext) {
+          navigator.clipboard.writeText(text).then(onSuccess).catch(fallbackCopy);
+        } else {
+          fallbackCopy();
         }
       });
     });
