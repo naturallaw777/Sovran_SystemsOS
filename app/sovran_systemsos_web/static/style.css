@@ -1862,6 +1862,10 @@ button.btn-reboot:hover:not(:disabled) {
   overflow-y: auto;
 }
 
+.onboarding-card--ports {
+  overflow-y: visible;
+}
+
 .onboarding-body-text {
   font-size: 0.92rem;
   color: var(--text-secondary);
@@ -2121,13 +2125,13 @@ button.btn-reboot:hover:not(:disabled) {
   width: 100%;
   border-collapse: collapse;
   margin-top: 10px;
-  font-size: 0.82rem;
+  font-size: 0.92rem;
 }
 
 .onboarding-port-table th {
   text-align: left;
-  padding: 4px 8px;
-  font-size: 0.72rem;
+  padding: 6px 10px;
+  font-size: 0.8rem;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--text-dim);
@@ -2135,7 +2139,7 @@ button.btn-reboot:hover:not(:disabled) {
 }
 
 .onboarding-port-table td {
-  padding: 4px 8px;
+  padding: 8px 10px;
   vertical-align: top;
 }
 
