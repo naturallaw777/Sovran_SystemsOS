@@ -1311,3 +1311,82 @@ button.btn-reboot:hover:not(:disabled) {
     margin: 0 12px;
   }
 }
+
+/* ── Tile: Port Requirements badge ──────────────────────────────── */
+
+.tile-ports {
+  margin-top: 6px;
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  line-height: 1.4;
+  flex-wrap: wrap;
+}
+
+.tile-ports:hover {
+  color: var(--accent-color);
+}
+
+.tile-ports-icon {
+  flex-shrink: 0;
+}
+
+.tile-ports-label {
+  word-break: break-word;
+}
+
+/* ── Port Requirements Modal ────────────────────────────────────── */
+
+.port-req-intro {
+  font-size: 0.9rem;
+  color: var(--text-primary);
+  margin-bottom: 14px;
+  line-height: 1.5;
+}
+
+.port-req-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  margin-bottom: 14px;
+}
+
+.port-req-table thead th {
+  text-align: left;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.port-req-table tbody tr:nth-child(even) {
+  background-color: rgba(255,255,255,0.03);
+}
+
+.port-req-port {
+  padding: 5px 10px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.82rem;
+  color: var(--accent-color);
+  white-space: nowrap;
+}
+
+.port-req-proto {
+  padding: 5px 10px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.port-req-desc {
+  padding: 5px 10px;
+  color: var(--text-primary);
+}
+
+.port-req-hint {
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  line-height: 1.5;
+  margin-bottom: 14px;
+}

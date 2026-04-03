@@ -341,7 +341,110 @@ class InstallerWindow(Adw.ApplicationWindow):
             if radio.get_active():
                 self.role = radio.get_name()
                 break
-        self.push_disk_confirm()
+        self.push_port_requirements()
+
+    # ── Step 1b: Port Requirements Notice ─────────────────────────────────
+
+    def push_port_requirements(self):
+        """Inform the user about required router/firewall ports before install."""
+        outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+
+        # Warning banner
+        banner = Adw.Banner()
+        banner.set_title(
+            "⚠  You must open these ports on your home router / WAN firewall"
+        )
+        banner.set_revealed(True)
+        banner.set_margin_top(16)
+        banner.set_margin_start(40)
+        banner.set_margin_end(40)
+        outer.append(banner)
+
+        intro = Gtk.Label()
+        intro.set_markup(
+            "<span foreground='#a6adc8'>"
+            "Many Sovran_SystemsOS features require specific ports to be forwarded "
+            "through your router for remote access to work correctly. "
+            "Services like Element Video/Audio Calling and Matrix Federation "
+            "<b>will not work for clients outside your LAN</b> unless these ports are open."
+            "</span>"
+        )
+        intro.set_wrap(True)
+        intro.set_justify(Gtk.Justification.FILL)
+        intro.set_margin_top(14)
+        intro.set_margin_start(40)
+        intro.set_margin_end(40)
+        outer.append(intro)
+
+        sw = Gtk.ScrolledWindow()
+        sw.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+        sw.set_vexpand(True)
+        sw.set_margin_start(40)
+        sw.set_margin_end(40)
+        sw.set_margin_top(12)
+        sw.set_margin_bottom(8)
+
+        ports_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+
+        port_sections = [
+            (
+                "🌐  Web / HTTPS  (all domain-based services)",
+                [("80", "TCP", "HTTP (redirects to HTTPS)"),
+                 ("443", "TCP", "HTTPS")],
+            ),
+            (
+                "💬  Matrix Federation  (Matrix-Synapse)",
+                [("8448", "TCP", "Server-to-server federation")],
+            ),
+            (
+                "🎥  Element Video & Audio Calling  (LiveKit / Element-call)",
+                [("7881",         "TCP",     "LiveKit WebRTC signalling"),
+                 ("7882-7894",    "UDP",     "LiveKit media streams"),
+                 ("5349",         "TCP",     "TURN over TLS"),
+                 ("3478",         "UDP",     "TURN (STUN / relay)"),
+                 ("30000-40000",  "TCP/UDP", "TURN relay (WebRTC media)")],
+            ),
+            (
+                "🖥  Remote SSH  (optional — only if you want WAN SSH access)",
+                [("22", "TCP", "SSH")],
+            ),
+        ]
+
+        for section_title, rows in port_sections:
+            group = Adw.PreferencesGroup()
+            group.set_title(section_title)
+
+            for port, proto, desc in rows:
+                row = Adw.ActionRow()
+                row.set_title(f"Port {port}  ({proto})")
+                row.set_subtitle(desc)
+                group.add(row)
+
+            ports_box.append(group)
+
+        note = Gtk.Label()
+        note.set_markup(
+            "<span foreground='#6c7086' size='small'>"
+            "ℹ  Search \"<i>how to open ports on [your router model]</i>\" for step-by-step instructions. "
+            "Most home routers have a \"Port Forwarding\" section in their admin panel."
+            "</span>"
+        )
+        note.set_wrap(True)
+        note.set_justify(Gtk.Justification.FILL)
+        note.set_margin_top(8)
+        ports_box.append(note)
+
+        sw.set_child(ports_box)
+        outer.append(sw)
+
+        outer.append(self.nav_row(
+            back_label="←  Back",
+            back_cb=lambda b: self.nav.pop(),
+            next_label="I Understand  →",
+            next_cb=lambda b: self.push_disk_confirm(),
+        ))
+
+        self.push_page("Network Port Requirements", outer, show_back=True)
 
     # ── Step 2: Disk Confirm ───────────────────────────────────────────────
 
