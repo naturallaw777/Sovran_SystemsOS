@@ -284,7 +284,7 @@ async function loadStep3() {
   html += '</div>';
 
   // Totals
-  html += '<div class="onboarding-port-totals" style="margin-bottom:18px;padding:10px 14px;background:var(--color-bg-subtle,#f6f8fa);border-radius:6px;font-size:0.93em;">';
+  html += '<div class="onboarding-port-totals">';
   html += '<strong>Total port openings: 4</strong> (without Element Calling)<br>';
   html += '<strong>Total port openings: 9</strong> (with Element Calling — 4 required + 5 optional)';
   html += '</div>';
