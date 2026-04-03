@@ -228,113 +228,78 @@ async function loadStep3() {
   body.innerHTML = '<p class="onboarding-loading">Checking ports…</p>';
 
   var networkData = null;
-  var portHealth  = null;
 
   try {
-    var results = await Promise.all([
-      apiFetch("/api/network"),
-      apiFetch("/api/ports/health"),
-    ]);
-    networkData = results[0];
-    portHealth  = results[1];
+    networkData = await apiFetch("/api/network");
   } catch (err) {
-    body.innerHTML = '<p class="onboarding-error">⚠ Could not load port data: ' + escHtml(err.message) + '</p>';
+    body.innerHTML = '<p class="onboarding-error">⚠ Could not load network data: ' + escHtml(err.message) + '</p>';
     return;
   }
 
   var internalIp = (networkData && networkData.internal_ip) || "unknown";
 
-  var html = '<div class="onboarding-port-warn" style="margin-bottom:16px;">'
-    + '⚠ <strong>IMPORTANT: Ports 80 (HTTP) and 443 (HTTPS) MUST be forwarded first.</strong><br>'
-    + 'Caddy uses these ports to obtain SSL certificates from Let\'s Encrypt. '
-    + 'If these ports are closed, certificate authentication will fail and '
-    + 'none of your domain-based services will work over HTTPS.'
-    + '</div>';
+  var ip = escHtml(internalIp);
+
+  var html = '<p class="onboarding-port-note" style="margin-bottom:14px;">'
+    + '⚠ <strong>Each port only needs to be forwarded once — all services share the same ports.</strong>'
+    + '</p>';
 
   html += '<div class="onboarding-port-ip">';
   html += '  <span class="onboarding-port-ip-label">Forward ports to this machine\'s internal IP:</span>';
-  html += '  <span class="port-req-internal-ip">' + escHtml(internalIp) + '</span>';
+  html += '  <span class="port-req-internal-ip">' + ip + '</span>';
   html += '</div>';
+
+  // Required ports table
+  html += '<div class="onboarding-port-section" style="margin-bottom:20px;">';
+  html += '<div class="onboarding-port-section-title" style="font-weight:700;margin-bottom:8px;">Required Ports — open these on your router:</div>';
+  html += '<table class="onboarding-port-table">';
+  html += '<thead><tr><th>Port</th><th>Protocol</th><th>Forward&nbsp;to</th><th>Purpose</th></tr></thead>';
+  html += '<tbody>';
+  html += '<tr><td class="port-req-port">80</td><td class="port-req-proto">TCP</td><td class="port-req-internal-ip">' + ip + '</td><td class="port-req-desc">HTTP</td></tr>';
+  html += '<tr><td class="port-req-port">443</td><td class="port-req-proto">TCP</td><td class="port-req-internal-ip">' + ip + '</td><td class="port-req-desc">HTTPS</td></tr>';
+  html += '<tr><td class="port-req-port">22</td><td class="port-req-proto">TCP</td><td class="port-req-internal-ip">' + ip + '</td><td class="port-req-desc">SSH Remote Access</td></tr>';
+  html += '<tr><td class="port-req-port">8448</td><td class="port-req-proto">TCP</td><td class="port-req-internal-ip">' + ip + '</td><td class="port-req-desc">Matrix Federation</td></tr>';
+  html += '</tbody></table>';
+  html += '</div>';
+
+  // Optional ports table
+  html += '<div class="onboarding-port-section" style="margin-bottom:20px;">';
+  html += '<div class="onboarding-port-section-title" style="font-weight:700;margin-bottom:4px;">Optional — Only needed if you enable Element Calling:</div>';
+  html += '<div style="font-size:0.88em;margin-bottom:8px;color:var(--color-text-muted,#888);">These 5 additional port openings are required on top of the 4 required ports above.</div>';
+  html += '<table class="onboarding-port-table">';
+  html += '<thead><tr><th>Port</th><th>Protocol</th><th>Forward&nbsp;to</th><th>Purpose</th></tr></thead>';
+  html += '<tbody>';
+  html += '<tr><td class="port-req-port">7881</td><td class="port-req-proto">TCP</td><td class="port-req-internal-ip">' + ip + '</td><td class="port-req-desc">LiveKit WebRTC signalling</td></tr>';
+  html += '<tr><td class="port-req-port">7882–7894</td><td class="port-req-proto">UDP</td><td class="port-req-internal-ip">' + ip + '</td><td class="port-req-desc">LiveKit media streams</td></tr>';
+  html += '<tr><td class="port-req-port">5349</td><td class="port-req-proto">TCP</td><td class="port-req-internal-ip">' + ip + '</td><td class="port-req-desc">TURN over TLS</td></tr>';
+  html += '<tr><td class="port-req-port">3478</td><td class="port-req-proto">UDP</td><td class="port-req-internal-ip">' + ip + '</td><td class="port-req-desc">TURN (STUN/relay)</td></tr>';
+  html += '<tr><td class="port-req-port">30000–40000</td><td class="port-req-proto">TCP/UDP</td><td class="port-req-internal-ip">' + ip + '</td><td class="port-req-desc">TURN relay (WebRTC)</td></tr>';
+  html += '</tbody></table>';
+  html += '</div>';
+
+  // Totals
+  html += '<div class="onboarding-port-totals" style="margin-bottom:18px;padding:10px 14px;background:var(--color-bg-subtle,#f6f8fa);border-radius:6px;font-size:0.93em;">';
+  html += '<strong>Total port openings: 4</strong> (without Element Calling)<br>';
+  html += '<strong>Total port openings: 9</strong> (with Element Calling — 4 required + 5 optional)';
+  html += '</div>';
+
+  html += '<div class="onboarding-port-warn" style="margin-bottom:16px;">'
+    + '⚠ <strong>Ports 80 and 443 must be forwarded first.</strong> '
+    + 'Caddy uses these to obtain SSL certificates from Let\'s Encrypt. '
+    + 'If they are closed, HTTPS will not work and your services will be unreachable from outside your network.'
+    + '</div>';
 
   html += '<details class="onboarding-port-details" style="margin-bottom:16px;">'
     + '<summary class="onboarding-port-details-summary">How to set up port forwarding</summary>'
     + '<ol style="margin:12px 0 0 16px; padding:0; line-height:1.8;">'
     + '<li>Open your router\'s admin panel — usually <code>http://192.168.1.1</code> or <code>http://192.168.0.1</code></li>'
     + '<li>Look for <strong>"Port Forwarding"</strong>, <strong>"NAT"</strong>, or <strong>"Virtual Server"</strong> in the settings</li>'
-    + '<li>Create a new rule for each port listed below</li>'
-    + '<li>Set the destination/internal IP to <strong>' + escHtml(internalIp) + '</strong></li>'
+    + '<li>Create a new rule for each port listed above</li>'
+    + '<li>Set the destination/internal IP to <strong>' + ip + '</strong></li>'
     + '<li>Set both internal and external port to the same number</li>'
     + '<li>Save and apply changes</li>'
     + '</ol>'
     + '</details>';
-
-  var status      = (portHealth && portHealth.status) || "ok";
-  var totalPorts  = (portHealth && portHealth.total_ports) || 0;
-  var closedPorts = (portHealth && portHealth.closed_ports) || 0;
-
-  if (totalPorts === 0) {
-    html += '<p class="onboarding-body-text">No port requirements detected for your current role.</p>';
-  } else if (status === "ok") {
-    html += '<p class="onboarding-port-all-ok">✅ All ' + totalPorts + ' required ports are open and ready.</p>';
-  } else {
-    html += '<div class="onboarding-port-warn">';
-    html += '⚠ ' + closedPorts + ' of ' + totalPorts + ' ports appear closed. ';
-    html += 'You can continue, but affected services may not work until ports are forwarded.';
-    html += '</div>';
-  }
-
-  // Show per-service breakdown
-  var affectedSvcs = (portHealth && portHealth.affected_services) || [];
-  if (affectedSvcs.length > 0) {
-    html += '<div class="onboarding-port-breakdown">';
-    html += '<div class="onboarding-port-breakdown-title">Affected Services</div>';
-    affectedSvcs.forEach(function(svc) {
-      html += '<div class="onboarding-port-svc">';
-      html += '<div class="onboarding-port-svc-name">' + escHtml(svc.name) + '</div>';
-      (svc.closed_ports || []).forEach(function(p) {
-        html += '<div class="onboarding-port-row">';
-        html += '  <span class="port-status-closed">🔴</span>';
-        html += '  <span class="port-req-port">' + escHtml(p.port) + '/' + escHtml(p.protocol) + '</span>';
-        if (p.description) html += '  <span class="port-req-desc">' + escHtml(p.description) + '</span>';
-        html += '</div>';
-      });
-      html += '</div>';
-    });
-    html += '</div>';
-  }
-
-  // Full port table from services
-  if (_servicesData) {
-    // Collect all unique port requirements
-    var allPorts = [];
-    var seen = new Set();
-    (_servicesData || []).forEach(function(svc) {
-      (svc.port_requirements || []).forEach(function(p) {
-        var key = p.port + "/" + p.protocol;
-        if (!seen.has(key)) {
-          seen.add(key);
-          allPorts.push(p);
-        }
-      });
-    });
-
-    if (allPorts.length > 0) {
-      html += '<details class="onboarding-port-details">';
-      html += '<summary class="onboarding-port-details-summary">View All Required Ports</summary>';
-      html += '<table class="onboarding-port-table">';
-      html += '<thead><tr><th>Port</th><th>Protocol</th><th>Purpose</th></tr></thead>';
-      html += '<tbody>';
-      allPorts.forEach(function(p) {
-        html += '<tr>';
-        html += '<td class="port-req-port">' + escHtml(p.port) + '</td>';
-        html += '<td class="port-req-proto">' + escHtml(p.protocol) + '</td>';
-        html += '<td class="port-req-desc">' + escHtml(p.description || "") + '</td>';
-        html += '</tr>';
-      });
-      html += '</tbody></table>';
-      html += '</details>';
-    }
-  }
 
   body.innerHTML = html;
 }
