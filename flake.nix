@@ -27,7 +27,6 @@
 				self.nixosModules.Sovran_SystemsOS
 				/etc/nixos/role-state.nix
 				/etc/nixos/custom.nix
-				/etc/nixos/hub-overrides.nix
 			];
 		};
 
