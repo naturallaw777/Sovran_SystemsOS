@@ -1,3 +1,39 @@
+{ config, lib, pkgs, ... }:
+
+lib.mkIf config.sovran_systemsOS.features.rdp {
+
+  users.users.gnome-remote-desktop = {
+    isSystemUser = true;
+    group = "gnome-remote-desktop";
+    home = "/var/lib/gnome-remote-desktop";
+    createHome = true;
+  };
+  users.groups.gnome-remote-desktop = {};
+
+  systemd.tmpfiles.rules = [
+    "d /var/lib/gnome-remote-desktop 0750 gnome-remote-desktop gnome-remote-desktop -"
+    "d /var/lib/gnome-remote-desktop/.local 0750 gnome-remote-desktop gnome-remote-desktop -"
+    "d /var/lib/gnome-remote-desktop/.local/share 0750 gnome-remote-desktop gnome-remote-desktop -"
+    "d /var/lib/gnome-remote-desktop/.local/share/gnome-remote-desktop 0750 gnome-remote-desktop gnome-remote-desktop -"
+  ];
+
+  systemd.services.gnome-remote-desktop-setup = {
+    description = "Configure GNOME Remote Desktop RDP";
+    wantedBy = [ "multi-user.target" ];
+    before = [ "gnome-remote-desktop.service" ];
+    after = [ "systemd-tmpfiles-setup.service" "network-online.target" ];
+    wants = [ "network-online.target" ];
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+    };
+    path = [
+      pkgs.gnome-remote-desktop
+      pkgs.polkit
+      pkgs.openssl
+      pkgs.hostname
+      pkgs.gawk
+    ];
     script = ''
       # Ensure directory structure exists
       mkdir -p /var/lib/gnome-remote-desktop/.local/share/gnome-remote-desktop
@@ -75,3 +111,5 @@
 
       echo "GNOME Remote Desktop RDP configured successfully"
     '';
+  };
+}
