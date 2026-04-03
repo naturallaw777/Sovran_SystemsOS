@@ -1690,8 +1690,9 @@ button.btn-reboot:hover:not(:disabled) {
 .onboarding-body {
   overflow: auto;
   display: flex;
-  align-items: flex-start;
-  justify-content: center;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
   background-color: var(--bg-color);
   min-height: 100vh;
   padding: 32px 16px 64px;
@@ -1700,6 +1701,7 @@ button.btn-reboot:hover:not(:disabled) {
 .onboarding-shell {
   width: 100%;
   max-width: 680px;
+  margin: 0 auto;
 }
 
 /* Progress bar */

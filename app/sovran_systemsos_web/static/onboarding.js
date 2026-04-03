@@ -8,13 +8,13 @@ const TOTAL_STEPS = 6;
 
 // Domains that may need configuration, with service unit mapping for enabled check
 const DOMAIN_DEFS = [
-  { name: "matrix",          label: "Matrix (Synapse)",             unit: "matrix-synapse.service",  needsDdns: false },
-  { name: "haven",           label: "Haven Nostr Relay",            unit: "haven-relay.service",     needsDdns: true  },
-  { name: "element-calling", label: "Element Video/Audio Calling",  unit: "livekit.service",         needsDdns: true  },
-  { name: "vaultwarden",     label: "Vaultwarden (Password Vault)", unit: "vaultwarden.service",     needsDdns: false },
-  { name: "btcpayserver",    label: "BTCPay Server",                unit: "btcpayserver.service",    needsDdns: false },
-  { name: "nextcloud",       label: "Nextcloud",                    unit: "phpfpm-nextcloud.service",needsDdns: false },
-  { name: "wordpress",       label: "WordPress",                    unit: "phpfpm-wordpress.service",needsDdns: false },
+  { name: "matrix",          label: "Matrix (Synapse)",             unit: "matrix-synapse.service",   needsDdns: true },
+  { name: "haven",           label: "Haven Nostr Relay",            unit: "haven-relay.service",      needsDdns: true },
+  { name: "element-calling", label: "Element Video/Audio Calling",  unit: "livekit.service",          needsDdns: true },
+  { name: "vaultwarden",     label: "Vaultwarden (Password Vault)", unit: "vaultwarden.service",      needsDdns: true },
+  { name: "btcpayserver",    label: "BTCPay Server",                unit: "btcpayserver.service",     needsDdns: true },
+  { name: "nextcloud",       label: "Nextcloud",                    unit: "phpfpm-nextcloud.service", needsDdns: true },
+  { name: "wordpress",       label: "WordPress",                    unit: "phpfpm-wordpress.service", needsDdns: true },
 ];
 
 const REBUILD_POLL_INTERVAL = 2000;
@@ -137,16 +137,25 @@ async function loadStep2() {
   if (relevantDomains.length === 0) {
     html += '<p class="onboarding-body-text">No domain-based services are enabled for your role. You can skip this step.</p>';
   } else {
-    html += '<p class="onboarding-hint">Enter a fully-qualified domain name (e.g. <code>matrix.example.com</code>) for each service.</p>';
+    html += '<div class="onboarding-port-warn" style="margin-bottom:16px;">'
+      + '<strong>Before you continue:</strong>'
+      + '<ol style="margin:8px 0 0 16px; padding:0; line-height:1.7;">'
+      + '<li>Purchase your subdomains on <a href="https://njal.la" target="_blank" style="color:var(--accent-color);">https://njal.la</a></li>'
+      + '<li>For each subdomain, add a <strong>Dynamic</strong> record in your Njal.la dashboard</li>'
+      + '<li>Njal.la will give you a curl command like:<br>'
+      + '<code style="font-size:0.8em;">curl "https://njal.la/update/?h=sub.domain.com&amp;k=abc123&amp;auto"</code></li>'
+      + '<li>Enter the subdomain and paste that curl command below</li>'
+      + '</ol>'
+      + '</div>';
+    html += '<p class="onboarding-hint">Enter each fully-qualified subdomain (e.g. <code>matrix.yourdomain.com</code>) and its Njal.la DDNS curl command.</p>';
     relevantDomains.forEach(function(d) {
       var currentVal = (_domainsData && _domainsData[d.name]) || "";
       html += '<div class="onboarding-domain-group">';
       html += '<label class="onboarding-domain-label">' + escHtml(d.label) + '</label>';
       html += '<input class="onboarding-domain-input domain-field-input" type="text" id="domain-input-' + escHtml(d.name) + '" data-domain="' + escHtml(d.name) + '" placeholder="e.g. ' + escHtml(d.name) + '.yourdomain.com" value="' + escHtml(currentVal) + '" />';
-      if (d.needsDdns) {
-        html += '<label class="onboarding-domain-label onboarding-domain-label--sub">DDNS Update URL <span class="onboarding-optional">(optional)</span></label>';
-        html += '<input class="onboarding-domain-input domain-field-input" type="text" id="ddns-input-' + escHtml(d.name) + '" data-ddns="' + escHtml(d.name) + '" placeholder="https://njal.la/update?...&auto" />';
-      }
+      html += '<label class="onboarding-domain-label onboarding-domain-label--sub">Njal.la DDNS Curl Command</label>';
+      html += '<input class="onboarding-domain-input domain-field-input" type="text" id="ddns-input-' + escHtml(d.name) + '" data-ddns="' + escHtml(d.name) + '" placeholder="curl &quot;https://njal.la/update/?h=' + escHtml(d.name) + '.yourdomain.com&amp;k=abc123&amp;auto&quot;" />';
+      html += '<p class="onboarding-hint" style="margin-top:4px;">ℹ Paste the curl URL from your Njal.la dashboard\'s Dynamic record</p>';
       html += '</div>';
     });
   }
@@ -235,10 +244,29 @@ async function loadStep3() {
 
   var internalIp = (networkData && networkData.internal_ip) || "unknown";
 
-  var html = '<div class="onboarding-port-ip">';
+  var html = '<div class="onboarding-port-warn" style="margin-bottom:16px;">'
+    + '⚠ <strong>IMPORTANT: Ports 80 (HTTP) and 443 (HTTPS) MUST be forwarded first.</strong><br>'
+    + 'Caddy uses these ports to obtain SSL certificates from Let\'s Encrypt. '
+    + 'If these ports are closed, certificate authentication will fail and '
+    + 'none of your domain-based services will work over HTTPS.'
+    + '</div>';
+
+  html += '<div class="onboarding-port-ip">';
   html += '  <span class="onboarding-port-ip-label">Forward ports to this machine\'s internal IP:</span>';
   html += '  <span class="port-req-internal-ip">' + escHtml(internalIp) + '</span>';
   html += '</div>';
+
+  html += '<details class="onboarding-port-details" style="margin-bottom:16px;">'
+    + '<summary class="onboarding-port-details-summary">How to set up port forwarding</summary>'
+    + '<ol style="margin:12px 0 0 16px; padding:0; line-height:1.8;">'
+    + '<li>Open your router\'s admin panel — usually <code>http://192.168.1.1</code> or <code>http://192.168.0.1</code></li>'
+    + '<li>Look for <strong>"Port Forwarding"</strong>, <strong>"NAT"</strong>, or <strong>"Virtual Server"</strong> in the settings</li>'
+    + '<li>Create a new rule for each port listed below</li>'
+    + '<li>Set the destination/internal IP to <strong>' + escHtml(internalIp) + '</strong></li>'
+    + '<li>Set both internal and external port to the same number</li>'
+    + '<li>Save and apply changes</li>'
+    + '</ol>'
+    + '</details>';
 
   var status      = (portHealth && portHealth.status) || "ok";
   var totalPorts  = (portHealth && portHealth.total_ports) || 0;
