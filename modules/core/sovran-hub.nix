@@ -42,7 +42,7 @@ let
       { name = "LND";                unit = "lnd.service";          type = "system"; icon = "lnd";          enabled = cfg.services.bitcoin;  category = "bitcoin-apps"; credentials = []; }
       { name = "Ride The Lightning"; unit = "rtl.service";          type = "system"; icon = "rtl";          enabled = cfg.services.bitcoin;  category = "bitcoin-apps"; credentials = [
         { label = "Tor Access"; file = "/var/lib/tor/onion/rtl/hostname"; prefix = "http://"; }
-        { label = "Local Network"; file = "/var/lib/secrets/internal-ip"; prefix = "http://"; suffix = ":3050"; }
+        { label = "Local Network"; file = "/var/lib/secrets/internal-ip"; prefix = "http://"; suffix = ":3051"; }
         { label = "Password"; file = "/etc/nix-bitcoin-secrets/rtl-password"; }
       ]; }
       { name = "BTCPayserver";       unit = "btcpayserver.service"; type = "system"; icon = "btcpayserver"; enabled = cfg.services.bitcoin;  category = "bitcoin-apps"; credentials = [
@@ -283,6 +283,6 @@ in
       };
     };
 
-    networking.firewall.allowedTCPPorts = [ 8937 ];
+    networking.firewall.allowedTCPPorts = [ 3051 8937 60847 ];
   };
 }

@@ -11,15 +11,4 @@ lib.mkIf config.sovran_systemsOS.features.mempool {
 
   nix-bitcoin.onionServices.mempool-frontend.enable = true;
 
-  services.caddy = {
-      virtualHosts = {
-          ":60847" = {
-              extraConfig = ''
-                  reverse_proxy :60845
-                  encode gzip zstd
-              '';
-          };
-      };
-  };
-
 }
