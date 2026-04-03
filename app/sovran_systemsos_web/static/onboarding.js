@@ -516,11 +516,21 @@ function renderFeaturesStep(data) {
         }
       }
 
+      // Haven requires a Nostr npub — show inline input
+      var npubHtml = "";
+      if (feat.id === "haven") {
+        npubHtml = '<div class="onboarding-feat-npub-row" id="npub-row-haven">'
+          + '<label class="onboarding-domain-label onboarding-domain-label--sub">Nostr Public Key (npub1…)</label>'
+          + '<input class="onboarding-domain-input" type="text" id="npub-input-haven" placeholder="npub1…" />'
+          + '</div>';
+      }
+
       html += '<div class="onboarding-feat-card" id="feat-card-' + escHtml(feat.id) + '">';
       html += '<div class="onboarding-feat-info">';
       html += '<div class="onboarding-feat-name">' + escHtml(feat.name) + '</div>';
       html += '<div class="onboarding-feat-desc">' + escHtml(feat.description) + '</div>';
       html += domainHtml;
+      html += npubHtml;
       html += '</div>';
       html += '<label class="feature-toggle' + (feat.enabled ? " active" : "") + '" title="Toggle ' + escHtml(feat.name) + '">';
       html += '<input type="checkbox" class="feature-toggle-input" data-feat-id="' + escHtml(feat.id) + '"' + (feat.enabled ? " checked" : "") + ' />';
@@ -556,15 +566,19 @@ function renderFeaturesStep(data) {
 async function handleFeatureToggleStep5(feat, newEnabled, inputEl, labelEl) {
   setStatus("step-5-rebuild-status", "Saving…", "info");
 
-  // Collect nostr_npub if needed
+  // Collect nostr_npub from inline input if needed
   var extra = {};
   if (newEnabled && feat.id === "haven") {
-    var npub = prompt("Enter your Nostr public key (npub1…):");
-    if (!npub || !npub.trim()) {
-      setStatus("step-5-rebuild-status", "⚠ npub required for Haven", "error");
+    var npubInput = document.getElementById("npub-input-haven");
+    var npub = npubInput ? npubInput.value.trim() : "";
+    if (!npub) {
+      setStatus("step-5-rebuild-status", "⚠ Enter your Nostr public key (npub1…) above before enabling Haven", "error");
+      // Revert toggle to off
+      if (inputEl) inputEl.checked = false;
+      if (labelEl) labelEl.classList.remove("active");
       return;
     }
-    extra.nostr_npub = npub.trim();
+    extra.nostr_npub = npub;
   }
 
   try {

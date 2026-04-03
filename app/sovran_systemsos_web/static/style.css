@@ -2281,3 +2281,7 @@ button.btn-reboot:hover:not(:disabled) {
   color: #f9e2af;
 }
 
+.onboarding-feat-npub-row {
+  margin-top: 8px;
+}
+

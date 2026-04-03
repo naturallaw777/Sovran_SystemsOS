@@ -839,8 +839,8 @@ async def api_onboarding_status():
 
 @app.post("/api/onboarding/complete")
 async def api_onboarding_complete():
-    os.makedirs(os.path.dirname(ONBOARDING_FLAG), exist_ok=True)
     try:
+        os.makedirs(os.path.dirname(ONBOARDING_FLAG), exist_ok=True)
         with open(ONBOARDING_FLAG, "w") as f:
             f.write("")
     except OSError as exc:
