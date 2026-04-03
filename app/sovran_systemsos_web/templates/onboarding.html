@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sovran_SystemsOS — First-Boot Setup</title>
+  <link rel="stylesheet" href="/static/style.css?v={{ style_css_hash }}" />
+</head>
+<body class="onboarding-body">
+
+  <!-- Onboarding wizard container -->
+  <div class="onboarding-shell">
+
+    <!-- Progress bar -->
+    <div class="onboarding-progress-bar">
+      <div class="onboarding-progress-fill" id="onboarding-progress-fill"></div>
+    </div>
+
+    <!-- Step indicators -->
+    <div class="onboarding-steps-nav" id="onboarding-steps-nav">
+      <span class="onboarding-step-dot" data-step="1">1</span>
+      <span class="onboarding-step-connector"></span>
+      <span class="onboarding-step-dot" data-step="2">2</span>
+      <span class="onboarding-step-connector"></span>
+      <span class="onboarding-step-dot" data-step="3">3</span>
+      <span class="onboarding-step-connector"></span>
+      <span class="onboarding-step-dot" data-step="4">4</span>
+      <span class="onboarding-step-connector"></span>
+      <span class="onboarding-step-dot" data-step="5">5</span>
+      <span class="onboarding-step-connector"></span>
+      <span class="onboarding-step-dot" data-step="6">6</span>
+    </div>
+
+    <!-- Step panels -->
+    <div class="onboarding-panel-wrap">
+
+      <!-- ── Step 1: Welcome ── -->
+      <div class="onboarding-panel" id="step-1">
+        <div class="onboarding-hero">
+          <div class="onboarding-logo">🛡️</div>
+          <h1 class="onboarding-title">Welcome to Sovran_SystemsOS!</h1>
+          <p class="onboarding-subtitle">Be Digitally Sovereign</p>
+        </div>
+        <div class="onboarding-card">
+          <p class="onboarding-body-text">
+            Your system is installed and ready to configure. This wizard will guide
+            you through the final setup steps so everything works perfectly.
+          </p>
+          <div class="onboarding-role-row" id="onboarding-role-row">
+            <span class="onboarding-role-label">Your Role:</span>
+            <span class="onboarding-role-badge" id="onboarding-role-badge">Loading…</span>
+          </div>
+          <p class="onboarding-body-text onboarding-body-text--dim">
+            This setup only takes a few minutes. You can always revisit these
+            settings from the main Hub dashboard.
+          </p>
+        </div>
+        <div class="onboarding-footer">
+          <div></div>
+          <button class="btn btn-primary onboarding-btn-next" id="step-1-next">
+            Let's Go →
+          </button>
+        </div>
+      </div>
+
+      <!-- ── Step 2: Domain Configuration ── -->
+      <div class="onboarding-panel" id="step-2" style="display:none">
+        <div class="onboarding-step-header">
+          <span class="onboarding-step-icon">🌐</span>
+          <h2 class="onboarding-step-title">Domain Configuration</h2>
+          <p class="onboarding-step-desc">
+            Enter the domain names for your services. If you're using dynamic DNS,
+            also provide your DDNS update URL.
+          </p>
+        </div>
+        <div class="onboarding-card onboarding-card--scroll" id="step-2-body">
+          <p class="onboarding-loading">Loading service information…</p>
+        </div>
+        <div id="step-2-status" class="onboarding-save-status"></div>
+        <div class="onboarding-footer">
+          <button class="btn btn-close-modal onboarding-btn-back" data-prev="1">← Back</button>
+          <button class="btn btn-primary onboarding-btn-next" id="step-2-next">
+            Save &amp; Continue →
+          </button>
+        </div>
+      </div>
+
+      <!-- ── Step 3: Port Forwarding ── -->
+      <div class="onboarding-panel" id="step-3" style="display:none">
+        <div class="onboarding-step-header">
+          <span class="onboarding-step-icon">🔌</span>
+          <h2 class="onboarding-step-title">Port Forwarding Check</h2>
+          <p class="onboarding-step-desc">
+            Your router must forward these ports to this machine. Configure port
+            forwarding in your router's admin panel pointing to the internal IP shown below.
+          </p>
+        </div>
+        <div class="onboarding-card onboarding-card--scroll" id="step-3-body">
+          <p class="onboarding-loading">Checking ports…</p>
+        </div>
+        <div class="onboarding-footer">
+          <button class="btn btn-close-modal onboarding-btn-back" data-prev="2">← Back</button>
+          <button class="btn btn-primary onboarding-btn-next" id="step-3-next">
+            Continue →
+          </button>
+        </div>
+      </div>
+
+      <!-- ── Step 4: Credentials ── -->
+      <div class="onboarding-panel" id="step-4" style="display:none">
+        <div class="onboarding-step-header">
+          <span class="onboarding-step-icon">🔑</span>
+          <h2 class="onboarding-step-title">Your Credentials</h2>
+          <p class="onboarding-step-desc">
+            These are your generated service passwords. Save them somewhere safe —
+            the Hub is your permanent credentials viewer.
+          </p>
+        </div>
+        <div class="onboarding-card onboarding-card--scroll" id="step-4-body">
+          <p class="onboarding-loading">Loading credentials…</p>
+        </div>
+        <div class="onboarding-footer">
+          <button class="btn btn-close-modal onboarding-btn-back" data-prev="3">← Back</button>
+          <button class="btn btn-primary onboarding-btn-next" id="step-4-next">
+            Continue →
+          </button>
+        </div>
+      </div>
+
+      <!-- ── Step 5: Feature Manager ── -->
+      <div class="onboarding-panel" id="step-5" style="display:none">
+        <div class="onboarding-step-header">
+          <span class="onboarding-step-icon">⚙️</span>
+          <h2 class="onboarding-step-title">Feature Manager</h2>
+          <p class="onboarding-step-desc">
+            Enable or disable optional features. Toggling a feature will start
+            a system rebuild in the background.
+          </p>
+        </div>
+        <div class="onboarding-card onboarding-card--scroll" id="step-5-body">
+          <p class="onboarding-loading">Loading features…</p>
+        </div>
+        <div id="step-5-rebuild-status" class="onboarding-save-status"></div>
+        <div class="onboarding-footer">
+          <button class="btn btn-close-modal onboarding-btn-back" data-prev="4">← Back</button>
+          <button class="btn btn-primary onboarding-btn-next" id="step-5-next">
+            Continue →
+          </button>
+        </div>
+      </div>
+
+      <!-- ── Step 6: Complete ── -->
+      <div class="onboarding-panel" id="step-6" style="display:none">
+        <div class="onboarding-hero">
+          <div class="onboarding-logo">✅</div>
+          <h1 class="onboarding-title">Your Sovran_SystemsOS is Ready!</h1>
+          <p class="onboarding-subtitle">Setup complete</p>
+        </div>
+        <div class="onboarding-card">
+          <p class="onboarding-body-text">
+            All configuration steps are done. Head to the main Hub dashboard to
+            monitor your services, manage credentials, and make changes at any time.
+          </p>
+          <ul class="onboarding-checklist" id="onboarding-checklist">
+            <li>✅ Domain configuration saved</li>
+            <li>✅ Port forwarding reviewed</li>
+            <li>✅ Credentials noted</li>
+            <li>✅ Features configured</li>
+          </ul>
+        </div>
+        <div class="onboarding-footer">
+          <button class="btn btn-close-modal onboarding-btn-back" data-prev="5">← Back</button>
+          <button class="btn btn-primary" id="step-6-finish">
+            Go to Dashboard →
+          </button>
+        </div>
+      </div>
+
+    </div><!-- /panel-wrap -->
+  </div><!-- /shell -->
+
+  <!-- Rebuild progress modal (reused from main app) -->
+  <div class="modal-overlay" id="ob-rebuild-modal" role="dialog" aria-modal="true" aria-labelledby="ob-rebuild-title">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <span class="modal-title" id="ob-rebuild-title">Rebuilding System…</span>
+        <div class="modal-spinner" id="ob-rebuild-spinner"></div>
+        <span class="modal-status" id="ob-rebuild-status">Please wait</span>
+      </div>
+      <div class="modal-log" id="ob-rebuild-log" aria-live="polite"></div>
+      <div class="modal-footer">
+        <button class="btn btn-close-modal" id="ob-rebuild-close" disabled>Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/onboarding.js?v={{ onboarding_js_hash }}"></script>
+</body>
+</html>

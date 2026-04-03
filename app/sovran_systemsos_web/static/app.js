@@ -1475,6 +1475,17 @@ function _renderPortHealthBanner(data) {
 // ── Init ──────────────────────────────────────────────────────────
 
 async function init() {
+  // Check onboarding status first — redirect to wizard if not complete
+  try {
+    var onboardingStatus = await apiFetch("/api/onboarding/status");
+    if (!onboardingStatus.complete) {
+      window.location.href = "/onboarding";
+      return;
+    }
+  } catch (_) {
+    // If we can't reach the endpoint, continue to normal dashboard
+  }
+
   try {
     var cfg = await apiFetch("/api/config");
     if (cfg.category_order) {
