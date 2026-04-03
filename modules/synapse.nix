@@ -153,8 +153,8 @@ EOF
     };
     path = [ pkgs.pwgen pkgs.matrix-synapse pkgs.curl pkgs.coreutils pkgs.jq ];
     script = ''
-      set -euo pipefail
-      
+      set -uo pipefail
+
       # Wait for Synapse to be fully responsive
       for i in {1..30}; do
         if curl -s http://localhost:8008/_matrix/client/versions > /dev/null; then
@@ -170,23 +170,33 @@ EOF
       # Only run if we haven't already generated the file
       if [ ! -f "$CREDS_FILE" ]; then
         mkdir -p /var/lib/secrets
-        
+
         ADMIN_USER="admin"
         ADMIN_PASS=$(pwgen -s 24 1)
-        
+
         TEST_USER="test"
         TEST_PASS=$(pwgen -s 24 1)
 
-        # Create Admin user
-        register_new_matrix_user -c /run/matrix-synapse/runtime-config.yaml \
-          -u "$ADMIN_USER" -p "$ADMIN_PASS" -a http://localhost:8008
+        ADMIN_CREATED=true
+        TEST_CREATED=true
 
-        # Create Test user (non-admin)
-        register_new_matrix_user -c /run/matrix-synapse/runtime-config.yaml \
-          -u "$TEST_USER" -p "$TEST_PASS" --no-admin http://localhost:8008
+        # Create Admin user (tolerate "already exists")
+        if ! register_new_matrix_user -c /run/matrix-synapse/runtime-config.yaml \
+          -u "$ADMIN_USER" -p "$ADMIN_PASS" -a http://localhost:8008 2>&1; then
+          echo "Admin user already exists, skipping."
+          ADMIN_CREATED=false
+        fi
 
-        # Save the credentials
-        cat > "$CREDS_FILE" << CREDS
+        # Create Test user (tolerate "already exists")
+        if ! register_new_matrix_user -c /run/matrix-synapse/runtime-config.yaml \
+          -u "$TEST_USER" -p "$TEST_PASS" --no-admin http://localhost:8008 2>&1; then
+          echo "Test user already exists, skipping."
+          TEST_CREATED=false
+        fi
+
+        # Write credentials file
+        if [ "$ADMIN_CREATED" = true ] && [ "$TEST_CREATED" = true ]; then
+          cat > "$CREDS_FILE" << CREDS
 Matrix (Element) Credentials
 ════════════════════════════
 Homeserver URL: https://$DOMAIN
@@ -199,9 +209,24 @@ Password: $ADMIN_PASS
 Username: @$TEST_USER:$DOMAIN
 Password: $TEST_PASS
 CREDS
+        else
+          cat > "$CREDS_FILE" << CREDS
+Matrix (Element) Credentials
+════════════════════════════
+Homeserver URL: https://$DOMAIN
+
+[ Admin Account ]
+Username: @$ADMIN_USER:$DOMAIN
+Password: $(if [ "$ADMIN_CREATED" = true ]; then echo "$ADMIN_PASS"; else echo "(pre-existing — password set during original setup)"; fi)
+
+[ Test Account ]
+Username: @$TEST_USER:$DOMAIN
+Password: $(if [ "$TEST_CREATED" = true ]; then echo "$TEST_PASS"; else echo "(pre-existing — password set during original setup)"; fi)
+CREDS
+        fi
 
         chmod 600 "$CREDS_FILE"
-        echo "Matrix users created successfully."
+        echo "Matrix users setup completed."
       fi
     '';
   };
