@@ -113,6 +113,11 @@ const $featureConfirmOk      = document.getElementById("feature-confirm-ok-btn")
 const $featureConfirmCancel  = document.getElementById("feature-confirm-cancel-btn");
 const $featureConfirmClose   = document.getElementById("feature-confirm-close-btn");
 
+// Port Requirements modal
+const $portReqModal  = document.getElementById("port-requirements-modal");
+const $portReqBody   = document.getElementById("port-req-body");
+const $portReqClose  = document.getElementById("port-req-close-btn");
+
 // ── Helpers ───────────────────────────────────────────────────────
 
 function tileId(svc) { return svc.unit + "::" + svc.name; }
@@ -218,7 +223,16 @@ function buildTile(svc) {
   }
 
   var infoBtn = hasCreds ? '<button class="tile-info-btn" data-unit="' + escHtml(svc.unit) + '" title="Connection info">i</button>' : "";
-  tile.innerHTML = infoBtn + '<img class="tile-icon" src="/static/icons/' + escHtml(svc.icon) + '.svg" alt="' + escHtml(svc.name) + '" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'"><div class="tile-icon-fallback" style="display:none">?</div><div class="tile-name">' + escHtml(svc.name) + '</div><div class="tile-status"><span class="status-dot ' + sc + '"></span><span class="status-text">' + st + '</span></div>';
+
+  // Port requirements badge
+  var ports = svc.port_requirements || [];
+  var portsHtml = "";
+  if (ports.length > 0) {
+    var portLabels = ports.map(function(p) { return escHtml(p.port) + ' (' + escHtml(p.protocol) + ')'; });
+    portsHtml = '<div class="tile-ports" title="Click to view required router ports"><span class="tile-ports-icon">🔌</span><span class="tile-ports-label">Ports: ' + portLabels.join(', ') + '</span></div>';
+  }
+
+  tile.innerHTML = infoBtn + '<img class="tile-icon" src="/static/icons/' + escHtml(svc.icon) + '.svg" alt="' + escHtml(svc.name) + '" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'"><div class="tile-icon-fallback" style="display:none">?</div><div class="tile-name">' + escHtml(svc.name) + '</div><div class="tile-status"><span class="status-dot ' + sc + '"></span><span class="status-text">' + st + '</span></div>' + portsHtml;
 
   var infoBtnEl = tile.querySelector(".tile-info-btn");
   if (infoBtnEl) {
@@ -227,6 +241,16 @@ function buildTile(svc) {
       openCredsModal(svc.unit, svc.name);
     });
   }
+
+  var portsEl = tile.querySelector(".tile-ports");
+  if (portsEl) {
+    portsEl.style.cursor = "pointer";
+    portsEl.addEventListener("click", function(e) {
+      e.stopPropagation();
+      openPortRequirementsModal(svc.name, ports, null);
+    });
+  }
+
   return tile;
 }
 
@@ -883,6 +907,58 @@ function closeDomainSetupModal() {
   if ($domainSetupModal) $domainSetupModal.classList.remove("open");
 }
 
+// ── Port Requirements modal ───────────────────────────────────────
+
+function openPortRequirementsModal(featureName, ports, onContinue) {
+  if (!$portReqModal || !$portReqBody) return;
+
+  var rows = ports.map(function(p) {
+    return '<tr><td class="port-req-port">' + escHtml(p.port) + '</td>' +
+      '<td class="port-req-proto">' + escHtml(p.protocol) + '</td>' +
+      '<td class="port-req-desc">' + escHtml(p.description) + '</td></tr>';
+  }).join("");
+
+  var continueBtn = onContinue
+    ? '<button class="btn btn-primary" id="port-req-continue-btn">I Understand — Continue</button>'
+    : '';
+
+  $portReqBody.innerHTML =
+    '<p class="port-req-intro">You have enabled <strong>' + escHtml(featureName) + '</strong>. ' +
+    'For it to work with clients outside your local network you must open the following ports ' +
+    'on your <strong>home router / WAN firewall</strong>:</p>' +
+    '<table class="port-req-table">' +
+    '<thead><tr><th>Port(s)</th><th>Protocol</th><th>Purpose</th></tr></thead>' +
+    '<tbody>' + rows + '</tbody>' +
+    '</table>' +
+    '<p class="port-req-hint">ℹ Consult your router manual or search "<em>how to open ports on [router model]</em>" ' +
+    'for instructions. Features like Element Video Calling will not work for remote users until these ports are open.</p>' +
+    '<div class="domain-field-actions">' +
+    '<button class="btn btn-close-modal" id="port-req-dismiss-btn">Dismiss</button>' +
+    continueBtn +
+    '</div>';
+
+  document.getElementById("port-req-dismiss-btn").addEventListener("click", function() {
+    closePortRequirementsModal();
+  });
+
+  if (onContinue) {
+    document.getElementById("port-req-continue-btn").addEventListener("click", function() {
+      closePortRequirementsModal();
+      onContinue();
+    });
+  }
+
+  $portReqModal.classList.add("open");
+}
+
+function closePortRequirementsModal() {
+  if ($portReqModal) $portReqModal.classList.remove("open");
+}
+
+if ($portReqClose) {
+  $portReqClose.addEventListener("click", closePortRequirementsModal);
+}
+
 // ── Feature toggle logic ──────────────────────────────────────────
 
 async function performFeatureToggle(featId, enabled, extra) {
@@ -935,7 +1011,7 @@ function handleFeatureToggle(feat, newEnabled) {
     });
   }
 
-  function proceedAfterConflictCheck() {
+  function proceedAfterPortCheck() {
     // Check SSL email first
     if (!_featuresData || !_featuresData.ssl_email_configured) {
       if (feat.needs_domain) {
@@ -965,6 +1041,16 @@ function handleFeatureToggle(feat, newEnabled) {
       }
     }
     performFeatureToggle(feat.id, true, {});
+  }
+
+  function proceedAfterConflictCheck() {
+    // Show port requirements notification if the feature has extra port needs
+    var ports = feat.port_requirements || [];
+    if (ports.length > 0) {
+      openPortRequirementsModal(feat.name, ports, proceedAfterPortCheck);
+    } else {
+      proceedAfterPortCheck();
+    }
   }
 
   if (conflictNames.length > 0) {

@@ -83,6 +83,7 @@ FEATURE_REGISTRY = [
         "needs_ddns": False,
         "extra_fields": [],
         "conflicts_with": [],
+        "port_requirements": [],
     },
     {
         "id": "haven",
@@ -102,6 +103,8 @@ FEATURE_REGISTRY = [
             },
         ],
         "conflicts_with": [],
+        # Haven uses only 80/443, already covered by the main install alert
+        "port_requirements": [],
     },
     {
         "id": "element-calling",
@@ -114,6 +117,15 @@ FEATURE_REGISTRY = [
         "extra_fields": [],
         "conflicts_with": [],
         "requires": ["matrix_domain"],
+        "port_requirements": [
+            {"port": "80",          "protocol": "TCP",     "description": "HTTP (redirect to HTTPS)"},
+            {"port": "443",         "protocol": "TCP",     "description": "HTTPS (domain)"},
+            {"port": "7881",        "protocol": "TCP",     "description": "LiveKit WebRTC signalling"},
+            {"port": "7882-7894",   "protocol": "UDP",     "description": "LiveKit media streams"},
+            {"port": "5349",        "protocol": "TCP",     "description": "TURN over TLS"},
+            {"port": "3478",        "protocol": "UDP",     "description": "TURN (STUN/relay)"},
+            {"port": "30000-40000", "protocol": "TCP/UDP", "description": "TURN relay (WebRTC)"},
+        ],
     },
     {
         "id": "mempool",
@@ -125,6 +137,7 @@ FEATURE_REGISTRY = [
         "needs_ddns": False,
         "extra_fields": [],
         "conflicts_with": [],
+        "port_requirements": [],
     },
     {
         "id": "bip110",
@@ -136,6 +149,7 @@ FEATURE_REGISTRY = [
         "needs_ddns": False,
         "extra_fields": [],
         "conflicts_with": ["bitcoin-core"],
+        "port_requirements": [],
     },
     {
         "id": "bitcoin-core",
@@ -147,6 +161,7 @@ FEATURE_REGISTRY = [
         "needs_ddns": False,
         "extra_fields": [],
         "conflicts_with": ["bip110"],
+        "port_requirements": [],
     },
 ]
 
@@ -158,6 +173,37 @@ FEATURE_SERVICE_MAP = {
     "mempool": "mempool.service",
     "bip110": None,
     "bitcoin-core": None,
+}
+
+# Port requirements for service tiles (keyed by unit name or icon)
+# Services using only 80/443 for domain access share the same base list.
+_PORTS_WEB = [
+    {"port": "80",  "protocol": "TCP", "description": "HTTP (redirect to HTTPS)"},
+    {"port": "443", "protocol": "TCP", "description": "HTTPS"},
+]
+_PORTS_MATRIX_FEDERATION = _PORTS_WEB + [
+    {"port": "8448", "protocol": "TCP", "description": "Matrix server-to-server federation"},
+]
+_PORTS_ELEMENT_CALLING = _PORTS_WEB + [
+    {"port": "7881",        "protocol": "TCP",     "description": "LiveKit WebRTC signalling"},
+    {"port": "7882-7894",   "protocol": "UDP",     "description": "LiveKit media streams"},
+    {"port": "5349",        "protocol": "TCP",     "description": "TURN over TLS"},
+    {"port": "3478",        "protocol": "UDP",     "description": "TURN (STUN/relay)"},
+    {"port": "30000-40000", "protocol": "TCP/UDP", "description": "TURN relay (WebRTC)"},
+]
+
+SERVICE_PORT_REQUIREMENTS: dict[str, list[dict]] = {
+    # Infrastructure
+    "caddy.service":                    _PORTS_WEB,
+    # Communication
+    "matrix-synapse.service":           _PORTS_MATRIX_FEDERATION,
+    "livekit.service":                  _PORTS_ELEMENT_CALLING,
+    # Domain-based apps (80/443)
+    "btcpayserver.service":             _PORTS_WEB,
+    "vaultwarden.service":              _PORTS_WEB,
+    "phpfpm-nextcloud.service":         _PORTS_WEB,
+    "phpfpm-wordpress.service":         _PORTS_WEB,
+    "haven-relay.service":              _PORTS_WEB,
 }
 
 # For features that share a unit, disambiguate by icon field
@@ -689,6 +735,8 @@ async def api_services():
         creds = entry.get("credentials", [])
         has_credentials = len(creds) > 0
 
+        port_requirements = SERVICE_PORT_REQUIREMENTS.get(unit, [])
+
         return {
             "name": entry.get("name", ""),
             "unit": unit,
@@ -698,6 +746,7 @@ async def api_services():
             "category": entry.get("category", "other"),
             "status": status,
             "has_credentials": has_credentials,
+            "port_requirements": port_requirements,
         }
 
     results = await asyncio.gather(*[get_status(s) for s in services])
@@ -910,6 +959,7 @@ async def api_features():
             "needs_ddns": feat.get("needs_ddns", False),
             "extra_fields": extra_fields,
             "conflicts_with": feat.get("conflicts_with", []),
+            "port_requirements": feat.get("port_requirements", []),
         }
         if "requires" in feat:
             entry["requires"] = feat["requires"]
