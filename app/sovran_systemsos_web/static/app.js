@@ -1441,7 +1441,7 @@ function _renderPortHealthBanner(data) {
   } else {
     // critical
     $statusBanner.classList.add("status-banner--critical");
-    html = "🔴 System Alert: Ports Are Down — Some services may not work";
+    html = "⚠ Some ports are closed — certain services may be affected";
   }
 
   var detailsId  = "status-banner-detail-body";
