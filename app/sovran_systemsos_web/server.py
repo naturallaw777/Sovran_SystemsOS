@@ -151,7 +151,7 @@ FEATURE_SERVICE_MAP = {
     "rdp": "gnome-remote-desktop.service",
     "haven": "haven-relay.service",
     "element-calling": "livekit.service",
-    "mempool": "mempool-frontend.service",
+    "mempool": "mempool.service",
     "bip110": None,
     "bitcoin-core": None,
 }
