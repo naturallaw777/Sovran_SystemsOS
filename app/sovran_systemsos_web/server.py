@@ -224,12 +224,6 @@ _BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 app = FastAPI(title="Sovran_SystemsOS Hub")
 
-app.mount(
-    "/static",
-    StaticFiles(directory=os.path.join(_BASE_DIR, "static")),
-    name="static",
-)
-
 _ICONS_DIR = os.environ.get(
     "SOVRAN_HUB_ICONS",
     os.path.join(os.path.dirname(_BASE_DIR), "icons"),
@@ -240,6 +234,12 @@ if os.path.isdir(_ICONS_DIR):
         StaticFiles(directory=_ICONS_DIR),
         name="icons",
     )
+
+app.mount(
+    "/static",
+    StaticFiles(directory=os.path.join(_BASE_DIR, "static")),
+    name="static",
+)
 
 templates = Jinja2Templates(directory=os.path.join(_BASE_DIR, "templates"))
 
