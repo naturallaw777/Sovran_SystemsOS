@@ -156,6 +156,12 @@ FEATURE_SERVICE_MAP = {
     "bitcoin-core": None,
 }
 
+# For features that share a unit, disambiguate by icon field
+FEATURE_ICON_MAP = {
+    "bip110": "bip110",
+    "bitcoin-core": "bitcoin-core",
+}
+
 ROLE_LABELS = {
     "server_plus_desktop": "Server + Desktop",
     "desktop":             "Desktop Only",
@@ -616,12 +622,31 @@ async def api_services():
     cfg = load_config()
     services = cfg.get("services", [])
 
+    # Build reverse map: unit → feature_id (for features with a unit)
+    unit_to_feature = {
+        unit: feat_id
+        for feat_id, unit in FEATURE_SERVICE_MAP.items()
+        if unit is not None
+    }
+
     loop = asyncio.get_event_loop()
+
+    # Read runtime feature overrides from hub-overrides.nix
+    overrides, _ = await loop.run_in_executor(None, _read_hub_overrides)
 
     async def get_status(entry):
         unit = entry.get("unit", "")
         scope = entry.get("type", "system")
+        icon = entry.get("icon", "")
         enabled = entry.get("enabled", True)
+
+        # Overlay runtime feature state from hub-overrides.nix
+        feat_id = unit_to_feature.get(unit)
+        if feat_id is None:
+            feat_id = FEATURE_ICON_MAP.get(icon)
+        if feat_id is not None and feat_id in overrides:
+            enabled = overrides[feat_id]
+
         if enabled:
             status = await loop.run_in_executor(
                 None, lambda: sysctl.is_active(unit, scope)
@@ -636,7 +661,7 @@ async def api_services():
             "name": entry.get("name", ""),
             "unit": unit,
             "type": scope,
-            "icon": entry.get("icon", ""),
+            "icon": icon,
             "enabled": enabled,
             "category": entry.get("category", "other"),
             "status": status,
