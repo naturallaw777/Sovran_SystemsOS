@@ -167,14 +167,16 @@ EOF
       CREDS_FILE="/var/lib/secrets/matrix-users"
       SECRET=$(cat /var/lib/matrix-synapse/registration-secret)
 
-      # Only run if we haven't already generated the file
+      mkdir -p /var/lib/secrets
+
+      ADMIN_USER="admin"
+      TEST_USER="test"
+      ADMIN_PASS=""
+      TEST_PASS=""
+
+      # Only run user registration if we haven't already generated the credentials file
       if [ ! -f "$CREDS_FILE" ]; then
-        mkdir -p /var/lib/secrets
-
-        ADMIN_USER="admin"
         ADMIN_PASS=$(pwgen -s 24 1)
-
-        TEST_USER="test"
         TEST_PASS=$(pwgen -s 24 1)
 
         ADMIN_CREATED=true
@@ -226,25 +228,26 @@ CREDS
         fi
 
         chmod 600 "$CREDS_FILE"
-
-        # Write individual credential files for the hub UI (umask 077 ensures 600 from creation)
-        PREEXISTING_NOTE="Password set during original setup"
-        (umask 077; echo "https://$DOMAIN" > /var/lib/secrets/matrix-homeserver-url)
-        (umask 077; echo "@$ADMIN_USER:$DOMAIN" > /var/lib/secrets/matrix-admin-username)
-        if [ "$ADMIN_CREATED" = true ]; then
-          (umask 077; echo "$ADMIN_PASS" > /var/lib/secrets/matrix-admin-password)
-        else
-          (umask 077; echo "$PREEXISTING_NOTE" > /var/lib/secrets/matrix-admin-password)
-        fi
-        (umask 077; echo "@$TEST_USER:$DOMAIN" > /var/lib/secrets/matrix-test-username)
-        if [ "$TEST_CREATED" = true ]; then
-          (umask 077; echo "$TEST_PASS" > /var/lib/secrets/matrix-test-password)
-        else
-          (umask 077; echo "$PREEXISTING_NOTE" > /var/lib/secrets/matrix-test-password)
-        fi
-
-        echo "Matrix users setup completed."
       fi
+
+      # Always write individual credential files for the hub UI, even if the bulk
+      # credentials file already existed from a prior run (umask 077 ensures mode 600).
+      # If passwords were not freshly generated above, parse them from the bulk file.
+      if [ -z "$ADMIN_PASS" ]; then
+        ADMIN_PASS=$(awk '/\[ Admin Account \]/{f=1} f && /^Password:/{sub(/^Password: /,""); print; exit}' "$CREDS_FILE")
+        [ -z "$ADMIN_PASS" ] && ADMIN_PASS="Password not available — check $CREDS_FILE"
+      fi
+      if [ -z "$TEST_PASS" ]; then
+        TEST_PASS=$(awk '/\[ Test Account \]/{f=1} f && /^Password:/{sub(/^Password: /,""); print; exit}' "$CREDS_FILE")
+        [ -z "$TEST_PASS" ] && TEST_PASS="Password not available — check $CREDS_FILE"
+      fi
+      (umask 077; echo "https://$DOMAIN" > /var/lib/secrets/matrix-homeserver-url)
+      (umask 077; echo "@$ADMIN_USER:$DOMAIN" > /var/lib/secrets/matrix-admin-username)
+      (umask 077; echo "$ADMIN_PASS" > /var/lib/secrets/matrix-admin-password)
+      (umask 077; echo "@$TEST_USER:$DOMAIN" > /var/lib/secrets/matrix-test-username)
+      (umask 077; echo "$TEST_PASS" > /var/lib/secrets/matrix-test-password)
+
+      echo "Matrix users setup completed."
     '';
   };
 
