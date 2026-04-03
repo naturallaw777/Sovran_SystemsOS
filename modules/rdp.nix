@@ -1,39 +1,3 @@
-{ config, lib, pkgs, ... }:
-
-lib.mkIf config.sovran_systemsOS.features.rdp {
-
-  users.users.gnome-remote-desktop = {
-    isSystemUser = true;
-    group = "gnome-remote-desktop";
-    home = "/var/lib/gnome-remote-desktop";
-    createHome = true;
-  };
-  users.groups.gnome-remote-desktop = {};
-
-  systemd.tmpfiles.rules = [
-    "d /var/lib/gnome-remote-desktop 0750 gnome-remote-desktop gnome-remote-desktop -"
-    "d /var/lib/gnome-remote-desktop/.local 0750 gnome-remote-desktop gnome-remote-desktop -"
-    "d /var/lib/gnome-remote-desktop/.local/share 0750 gnome-remote-desktop gnome-remote-desktop -"
-    "d /var/lib/gnome-remote-desktop/.local/share/gnome-remote-desktop 0750 gnome-remote-desktop gnome-remote-desktop -"
-  ];
-
-  systemd.services.gnome-remote-desktop-setup = {
-    description = "Configure GNOME Remote Desktop RDP";
-    wantedBy = [ "multi-user.target" ];
-    before = [ "gnome-remote-desktop.service" ];
-    after = [ "systemd-tmpfiles-setup.service" "network-online.target" ];
-    wants = [ "network-online.target" ];
-    serviceConfig = {
-      Type = "oneshot";
-      RemainAfterExit = true;
-    };
-    path = [
-      pkgs.gnome-remote-desktop
-      pkgs.polkit
-      pkgs.openssl
-      pkgs.hostname
-      pkgs.gawk
-    ];
     script = ''
       # Ensure directory structure exists
       mkdir -p /var/lib/gnome-remote-desktop/.local/share/gnome-remote-desktop
@@ -42,19 +6,30 @@ lib.mkIf config.sovran_systemsOS.features.rdp {
       TLS_DIR="/var/lib/gnome-remote-desktop/tls"
       CRED_FILE="/var/lib/gnome-remote-desktop/rdp-credentials"
 
-      # Generate TLS certificate if it doesn't exist
-      if [ ! -f "$TLS_DIR/rdp-tls.crt" ]; then
+      # Regenerate TLS certificate if missing OR if ownership is wrong
+      # (disable/re-enable cycle can break ownership or grdctl state)
+      NEED_REGEN=0
+      if [ ! -f "$TLS_DIR/rdp-tls.crt" ] || [ ! -f "$TLS_DIR/rdp-tls.key" ]; then
+        NEED_REGEN=1
+      elif [ "$(stat -c '%U' "$TLS_DIR/rdp-tls.key" 2>/dev/null)" != "gnome-remote-desktop" ]; then
+        NEED_REGEN=1
+      fi
+
+      if [ "$NEED_REGEN" = "1" ]; then
         mkdir -p "$TLS_DIR"
+        rm -f "$TLS_DIR/rdp-tls.key" "$TLS_DIR/rdp-tls.crt"
         openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 \
           -sha256 -nodes -days 3650 \
           -keyout "$TLS_DIR/rdp-tls.key" \
           -out "$TLS_DIR/rdp-tls.crt" \
           -subj "/CN=gnome-remote-desktop"
-        chown -R gnome-remote-desktop:gnome-remote-desktop "$TLS_DIR"
-        chmod 600 "$TLS_DIR/rdp-tls.key"
-        chmod 644 "$TLS_DIR/rdp-tls.crt"
-        echo "Generated RDP TLS certificate"
+        echo "Generated new RDP TLS certificate"
       fi
+
+      # Always fix ownership and permissions (handles re-enable after disable)
+      chown -R gnome-remote-desktop:gnome-remote-desktop "$TLS_DIR"
+      chmod 600 "$TLS_DIR/rdp-tls.key"
+      chmod 644 "$TLS_DIR/rdp-tls.crt"
 
       # Configure TLS certificate
       grdctl --system rdp set-tls-cert "$TLS_DIR/rdp-tls.crt"
@@ -100,5 +75,3 @@ lib.mkIf config.sovran_systemsOS.features.rdp {
 
       echo "GNOME Remote Desktop RDP configured successfully"
     '';
-  };
-}
