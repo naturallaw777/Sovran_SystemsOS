@@ -151,7 +151,7 @@ EOF
       Type = "oneshot";
       RemainAfterExit = true;
     };
-    path = [ pkgs.pwgen pkgs.matrix-synapse pkgs.curl pkgs.coreutils pkgs.jq ];
+    path = [ pkgs.pwgen pkgs.matrix-synapse pkgs.curl pkgs.gawk pkgs.coreutils pkgs.jq ];
     script = ''
       set -uo pipefail
 
