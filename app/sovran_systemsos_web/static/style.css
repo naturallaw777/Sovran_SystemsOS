@@ -1684,3 +1684,600 @@ button.btn-reboot:hover:not(:disabled) {
 .sidebar .section-header {
   font-size: 0.75rem;
 }
+
+/* ── Onboarding Wizard ────────────────────────────────────────── */
+
+.onboarding-body {
+  overflow: auto;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  background-color: var(--bg-color);
+  min-height: 100vh;
+  padding: 32px 16px 64px;
+}
+
+.onboarding-shell {
+  width: 100%;
+  max-width: 680px;
+}
+
+/* Progress bar */
+
+.onboarding-progress-bar {
+  height: 4px;
+  background-color: var(--border-color);
+  border-radius: 2px;
+  margin-bottom: 24px;
+  overflow: hidden;
+}
+
+.onboarding-progress-fill {
+  height: 100%;
+  background-color: var(--accent-color);
+  border-radius: 2px;
+  transition: width 0.4s ease;
+  width: 0%;
+}
+
+/* Step dots */
+
+.onboarding-steps-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  margin-bottom: 32px;
+}
+
+.onboarding-step-dot {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background-color: var(--card-color);
+  border: 2px solid var(--border-color);
+  color: var(--text-dim);
+  font-size: 0.72rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background-color 0.2s, border-color 0.2s, color 0.2s;
+}
+
+.onboarding-step-dot.active {
+  background-color: var(--accent-color);
+  border-color: var(--accent-color);
+  color: #1e1e2e;
+}
+
+.onboarding-step-dot.completed {
+  background-color: #2ec27e;
+  border-color: #2ec27e;
+  color: #fff;
+}
+
+.onboarding-step-connector {
+  flex: 1;
+  height: 2px;
+  background-color: var(--border-color);
+  max-width: 60px;
+  min-width: 16px;
+}
+
+/* Panel */
+
+.onboarding-panel-wrap {
+  position: relative;
+}
+
+.onboarding-panel {
+  animation: ob-fadein 0.25s ease;
+}
+
+@keyframes ob-fadein {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Hero (steps 1 and 6) */
+
+.onboarding-hero {
+  text-align: center;
+  margin-bottom: 28px;
+}
+
+.onboarding-logo {
+  font-size: 3.5rem;
+  line-height: 1;
+  margin-bottom: 14px;
+}
+
+.onboarding-title {
+  font-size: 1.7rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.onboarding-subtitle {
+  font-size: 1rem;
+  color: var(--accent-color);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+/* Step header (steps 2-5) */
+
+.onboarding-step-header {
+  margin-bottom: 20px;
+}
+
+.onboarding-step-icon {
+  font-size: 2rem;
+  display: block;
+  margin-bottom: 10px;
+}
+
+.onboarding-step-title {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+}
+
+.onboarding-step-desc {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+/* Cards */
+
+.onboarding-card {
+  background-color: var(--card-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-card);
+  padding: 24px;
+  margin-bottom: 20px;
+}
+
+.onboarding-card--scroll {
+  max-height: 440px;
+  overflow-y: auto;
+}
+
+.onboarding-body-text {
+  font-size: 0.92rem;
+  color: var(--text-secondary);
+  line-height: 1.7;
+  margin-bottom: 16px;
+}
+
+.onboarding-body-text--dim {
+  color: var(--text-dim);
+  font-size: 0.85rem;
+}
+
+.onboarding-body-text:last-child { margin-bottom: 0; }
+
+/* Role badge */
+
+.onboarding-role-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 16px 0;
+}
+
+.onboarding-role-label {
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.onboarding-role-badge {
+  background-color: var(--accent-color);
+  color: #1e1e2e;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 3px 12px;
+  border-radius: 20px;
+  letter-spacing: 0.04em;
+}
+
+/* Checklist */
+
+.onboarding-checklist {
+  list-style: none;
+  margin: 16px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.onboarding-checklist li {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+/* Footer navigation */
+
+.onboarding-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 8px;
+}
+
+.onboarding-btn-next,
+.onboarding-btn-back {
+  min-width: 140px;
+}
+
+/* Status messages */
+
+.onboarding-save-status {
+  font-size: 0.85rem;
+  min-height: 1.4em;
+  margin-bottom: 8px;
+  padding: 0 4px;
+}
+
+.onboarding-save-status--ok {
+  color: #a6e3a1;
+}
+
+.onboarding-save-status--error {
+  color: #f38ba8;
+}
+
+.onboarding-save-status--info {
+  color: var(--text-secondary);
+}
+
+/* Loading / error states */
+
+.onboarding-loading {
+  font-size: 0.88rem;
+  color: var(--text-dim);
+  text-align: center;
+  padding: 24px 0;
+}
+
+.onboarding-error {
+  font-size: 0.88rem;
+  color: #f38ba8;
+  padding: 12px 0;
+}
+
+/* Hints */
+
+.onboarding-hint {
+  font-size: 0.82rem;
+  color: var(--text-dim);
+  margin-bottom: 14px;
+  line-height: 1.5;
+}
+
+.onboarding-hint code {
+  font-family: 'JetBrains Mono', monospace;
+  background: rgba(137, 180, 250, 0.1);
+  padding: 1px 5px;
+  border-radius: 3px;
+  color: var(--accent-color);
+}
+
+.onboarding-hint--inline {
+  margin-bottom: 6px;
+  margin-top: 2px;
+}
+
+.onboarding-optional {
+  font-size: 0.78rem;
+  color: var(--text-dim);
+}
+
+/* Domain inputs */
+
+.onboarding-domain-group {
+  margin-bottom: 18px;
+}
+
+.onboarding-domain-group--email {
+  border-top: 1px solid var(--border-color);
+  padding-top: 18px;
+  margin-top: 6px;
+}
+
+.onboarding-domain-label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 5px;
+}
+
+.onboarding-domain-label--sub {
+  font-weight: 500;
+  font-size: 0.8rem;
+  margin-top: 8px;
+}
+
+.onboarding-domain-input {
+  width: 100%;
+  background-color: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-btn);
+  color: var(--text-primary);
+  font-size: 0.88rem;
+  padding: 8px 12px;
+  outline: none;
+  transition: border-color 0.15s;
+  font-family: inherit;
+}
+
+.onboarding-domain-input:focus {
+  border-color: var(--accent-color);
+}
+
+/* Port forwarding */
+
+.onboarding-port-ip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  background: rgba(137, 180, 250, 0.06);
+  border: 1px solid rgba(137, 180, 250, 0.2);
+  border-radius: 10px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  font-size: 0.88rem;
+}
+
+.onboarding-port-ip-label {
+  color: var(--text-secondary);
+}
+
+.onboarding-port-all-ok {
+  color: #a6e3a1;
+  font-size: 0.92rem;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+.onboarding-port-warn {
+  background: rgba(229, 165, 10, 0.08);
+  border: 1px solid rgba(229, 165, 10, 0.3);
+  border-radius: 8px;
+  padding: 12px 16px;
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+  margin-bottom: 14px;
+  line-height: 1.5;
+}
+
+.onboarding-port-breakdown {
+  margin-bottom: 14px;
+}
+
+.onboarding-port-breakdown-title {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-dim);
+  margin-bottom: 8px;
+}
+
+.onboarding-port-svc {
+  margin-bottom: 10px;
+}
+
+.onboarding-port-svc-name {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+
+.onboarding-port-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 0;
+  font-size: 0.85rem;
+}
+
+.onboarding-port-details {
+  margin-top: 12px;
+}
+
+.onboarding-port-details-summary {
+  font-size: 0.82rem;
+  color: var(--accent-color);
+  cursor: pointer;
+  font-weight: 600;
+  padding: 4px 0;
+}
+
+.onboarding-port-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+  font-size: 0.82rem;
+}
+
+.onboarding-port-table th {
+  text-align: left;
+  padding: 4px 8px;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.onboarding-port-table td {
+  padding: 4px 8px;
+  vertical-align: top;
+}
+
+/* Credentials */
+
+.onboarding-creds-notice {
+  background: rgba(137, 180, 250, 0.06);
+  border: 1px solid rgba(137, 180, 250, 0.2);
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin-bottom: 16px;
+  line-height: 1.5;
+}
+
+.onboarding-creds-category {
+  margin-bottom: 20px;
+}
+
+.onboarding-creds-category-title {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-dim);
+  margin-bottom: 8px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.onboarding-creds-service {
+  background: var(--surface-color);
+  border-radius: 10px;
+  padding: 12px 16px;
+  margin-bottom: 10px;
+}
+
+.onboarding-creds-service-name {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.onboarding-cred-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 3px 0;
+  font-size: 0.85rem;
+  flex-wrap: wrap;
+}
+
+.onboarding-cred-label {
+  color: var(--text-dim);
+  font-weight: 600;
+  min-width: 100px;
+  flex-shrink: 0;
+}
+
+.onboarding-cred-value {
+  color: var(--text-primary);
+  word-break: break-all;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.82rem;
+}
+
+.onboarding-cred-secret {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.onboarding-cred-hidden {
+  color: var(--text-dim);
+  letter-spacing: 0.15em;
+}
+
+.onboarding-cred-reveal-btn {
+  background: none;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  color: var(--accent-color);
+  font-size: 0.72rem;
+  padding: 1px 6px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.onboarding-cred-reveal-btn:hover {
+  background-color: rgba(137, 180, 250, 0.1);
+}
+
+/* Feature step */
+
+.onboarding-feat-group {
+  margin-bottom: 20px;
+}
+
+.onboarding-feat-group-title {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-dim);
+  margin-bottom: 8px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.onboarding-feat-card {
+  background: var(--surface-color);
+  border-radius: 10px;
+  padding: 12px 16px;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.onboarding-feat-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.onboarding-feat-name {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 3px;
+}
+
+.onboarding-feat-desc {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+  margin-bottom: 5px;
+}
+
+.onboarding-feat-domain {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+  display: inline-block;
+}
+
+.onboarding-feat-domain--ok {
+  background: rgba(46, 194, 126, 0.12);
+  color: #a6e3a1;
+}
+
+.onboarding-feat-domain--missing {
+  background: rgba(229, 165, 10, 0.1);
+  color: #f9e2af;
+}
+
