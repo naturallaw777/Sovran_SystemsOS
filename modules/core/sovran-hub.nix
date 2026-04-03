@@ -61,7 +61,11 @@ let
     # ── Communication ──────────────────────────────────────────
     ++ [
       { name = "Matrix-Synapse"; unit = "matrix-synapse.service"; type = "system"; icon = "synapse"; enabled = cfg.services.synapse;          category = "communication"; credentials = [
-        { label = "Users"; file = "/var/lib/secrets/matrix-users"; multiline = true; }
+        { label = "Homeserver URL";   file = "/var/lib/secrets/matrix-homeserver-url"; }
+        { label = "Admin Username";   file = "/var/lib/secrets/matrix-admin-username"; }
+        { label = "Admin Password";   file = "/var/lib/secrets/matrix-admin-password"; }
+        { label = "Test Username";    file = "/var/lib/secrets/matrix-test-username"; }
+        { label = "Test Password";    file = "/var/lib/secrets/matrix-test-password"; }
       ]; }
       { name = "Element-Call";   unit = "livekit.service";        type = "system"; icon = "livekit"; enabled = cfg.features.element-calling;  category = "communication"; credentials = []; }
     ]
