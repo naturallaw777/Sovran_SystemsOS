@@ -226,6 +226,23 @@ CREDS
         fi
 
         chmod 600 "$CREDS_FILE"
+
+        # Write individual credential files for the hub UI (umask 077 ensures 600 from creation)
+        PREEXISTING_NOTE="Password set during original setup"
+        (umask 077; echo "https://$DOMAIN" > /var/lib/secrets/matrix-homeserver-url)
+        (umask 077; echo "@$ADMIN_USER:$DOMAIN" > /var/lib/secrets/matrix-admin-username)
+        if [ "$ADMIN_CREATED" = true ]; then
+          (umask 077; echo "$ADMIN_PASS" > /var/lib/secrets/matrix-admin-password)
+        else
+          (umask 077; echo "$PREEXISTING_NOTE" > /var/lib/secrets/matrix-admin-password)
+        fi
+        (umask 077; echo "@$TEST_USER:$DOMAIN" > /var/lib/secrets/matrix-test-username)
+        if [ "$TEST_CREATED" = true ]; then
+          (umask 077; echo "$TEST_PASS" > /var/lib/secrets/matrix-test-password)
+        else
+          (umask 077; echo "$PREEXISTING_NOTE" > /var/lib/secrets/matrix-test-password)
+        fi
+
         echo "Matrix users setup completed."
       fi
     '';
