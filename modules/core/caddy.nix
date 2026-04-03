@@ -145,6 +145,14 @@ $HAVEN {
 EOF
       fi
 
+      # ── Sovran Hub (LAN mDNS access) ────────────────
+      cat >> /run/caddy/Caddyfile <<EOF
+
+http://sovransystemsos.local {
+  reverse_proxy localhost:8937
+}
+EOF
+
       # ── RTL (LAN access) ────────────────────────────
       cat >> /run/caddy/Caddyfile <<EOF
 
