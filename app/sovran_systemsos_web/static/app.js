@@ -15,8 +15,6 @@ const CATEGORY_ORDER = [
   "communication",
   "apps",
   "nostr",
-  "support",
-  "feature-manager",
 ];
 
 const FEATURE_SUBCATEGORY_LABELS = {
@@ -59,6 +57,8 @@ let _rebuildIsEnabling    = true;
 // ── DOM refs ──────────────────────────────────────────────────────
 
 const $tilesArea      = document.getElementById("tiles-area");
+const $sidebarSupport = document.getElementById("sidebar-support");
+const $sidebarFeatures = document.getElementById("sidebar-features");
 const $updateBtn      = document.getElementById("btn-update");
 const $updateBadge    = document.getElementById("update-badge");
 const $refreshBtn     = document.getElementById("btn-refresh");
@@ -172,11 +172,19 @@ async function apiFetch(path, options) {
 function buildTiles(services, categoryLabels) {
   _servicesCache = services;
   var grouped = {};
+  var supportServices = [];
   for (var i = 0; i < services.length; i++) {
-    var cat = services[i].category || "other";
+    var svc = services[i];
+    // Support tiles go to the sidebar, not the main grid
+    if (svc.category === "support" || svc.type === "support") {
+      supportServices.push(svc);
+      continue;
+    }
+    var cat = svc.category || "other";
     if (!grouped[cat]) grouped[cat] = [];
-    grouped[cat].push(services[i]);
+    grouped[cat].push(svc);
   }
+  renderSidebarSupport(supportServices);
   $tilesArea.innerHTML = "";
   var orderedKeys = CATEGORY_ORDER.filter(function(k) { return grouped[k]; });
   Object.keys(grouped).forEach(function(k) {
@@ -199,6 +207,28 @@ function buildTiles(services, categoryLabels) {
   }
   if ($tilesArea.children.length === 0) {
     $tilesArea.innerHTML = '<div class="empty-state"><p>No services configured.</p></div>';
+  }
+}
+
+function renderSidebarSupport(supportServices) {
+  $sidebarSupport.innerHTML = "";
+  for (var i = 0; i < supportServices.length; i++) {
+    var svc = supportServices[i];
+    var btn = document.createElement("button");
+    btn.className = "sidebar-support-btn";
+    btn.innerHTML =
+      '<span class="sidebar-support-icon">🛟</span>' +
+      '<span class="sidebar-support-text">' +
+        '<span class="sidebar-support-title">' + escHtml(svc.name || "Tech Support") + '</span>' +
+        '<span class="sidebar-support-hint">Click for help</span>' +
+      '</span>';
+    btn.addEventListener("click", function() { openSupportModal(); });
+    $sidebarSupport.appendChild(btn);
+  }
+  if (supportServices.length > 0) {
+    var hr = document.createElement("hr");
+    hr.className = "sidebar-divider";
+    $sidebarSupport.appendChild(hr);
   }
 }
 
@@ -1194,7 +1224,7 @@ async function loadFeatureManager() {
 
 function renderFeatureManager(data) {
   // Remove old feature manager section if it exists
-  var old = $tilesArea.querySelector(".feature-manager-section");
+  var old = $sidebarFeatures.querySelector(".feature-manager-section");
   if (old) old.parentNode.removeChild(old);
 
   var section = document.createElement("div");
@@ -1236,7 +1266,7 @@ function renderFeatureManager(data) {
     section.appendChild(subcat);
   }
 
-  $tilesArea.appendChild(section);
+  $sidebarFeatures.appendChild(section);
 }
 
 function buildFeatureCard(feat) {
