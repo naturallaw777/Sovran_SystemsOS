@@ -189,6 +189,125 @@ button:disabled {
   color: var(--border-color);
 }
 
+/* ── System status banner ────────────────────────────────────────── */
+
+.status-banner {
+  padding: 10px 24px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-align: center;
+  transition: opacity 0.5s ease, max-height 0.3s ease;
+  overflow: hidden;
+}
+
+.status-banner--ok {
+  background-color: rgba(46, 194, 126, 0.15);
+  border-bottom: 1px solid var(--green);
+  color: var(--green);
+}
+
+.status-banner--warn {
+  background-color: rgba(229, 165, 10, 0.15);
+  border-bottom: 1px solid var(--yellow);
+  color: var(--yellow);
+}
+
+.status-banner--critical {
+  background-color: rgba(224, 27, 36, 0.15);
+  border-bottom: 1px solid var(--red);
+  color: var(--red);
+  animation: pulse-banner-bg 2s ease-in-out infinite;
+}
+
+.status-banner--fade-out {
+  opacity: 0;
+  pointer-events: none;
+}
+
+@keyframes pulse-banner-bg {
+  0%, 100% { background-color: rgba(224, 27, 36, 0.15); }
+  50%       { background-color: rgba(224, 27, 36, 0.28); }
+}
+
+.status-banner-details {
+  margin-top: 8px;
+  text-align: left;
+  max-width: 720px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.status-banner-toggle {
+  background: none;
+  border: none;
+  font: inherit;
+  color: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0;
+  opacity: 0.8;
+}
+
+.status-banner-toggle:hover {
+  opacity: 1;
+}
+
+.status-banner-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 8px;
+  font-size: 0.8rem;
+}
+
+.status-banner-table th {
+  text-align: left;
+  padding: 4px 8px;
+  opacity: 0.7;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 0.72rem;
+  border-bottom: 1px solid currentColor;
+}
+
+.status-banner-table td {
+  padding: 4px 8px;
+  vertical-align: top;
+}
+
+.status-banner-table td:first-child {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.status-banner-port {
+  font-family: 'JetBrains Mono', 'Fira Code', 'Source Code Pro', monospace;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+@media (max-width: 768px) {
+  .status-banner {
+    padding: 10px 16px;
+  }
+  .status-banner-details {
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 600px) {
+  .status-banner {
+    padding: 10px 14px;
+    font-size: 0.82rem;
+  }
+  .status-banner-table th,
+  .status-banner-table td {
+    padding: 4px 4px;
+  }
+}
+
 /* ── Main content ───────────────────────────────────────────────── */
 
 .main-content {

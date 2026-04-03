@@ -2,11 +2,14 @@
    v7 — Status-only dashboard + Tech Support + Feature Manager */
 "use strict";
 
-const POLL_INTERVAL_SERVICES = 5000;
-const POLL_INTERVAL_UPDATES  = 1800000;
-const UPDATE_POLL_INTERVAL   = 2000;
-const REBOOT_CHECK_INTERVAL  = 5000;
-const SUPPORT_TIMER_INTERVAL = 1000;
+const POLL_INTERVAL_SERVICES    = 5000;
+const POLL_INTERVAL_UPDATES     = 1800000;
+const POLL_INTERVAL_PORT_HEALTH = 15000;
+const UPDATE_POLL_INTERVAL      = 2000;
+const REBOOT_CHECK_INTERVAL     = 5000;
+const SUPPORT_TIMER_INTERVAL    = 1000;
+const BANNER_AUTO_FADE_DELAY    = 5000;
+const BANNER_FADE_TRANSITION_MS = 550;
 
 const CATEGORY_ORDER = [
   "infrastructure",
@@ -117,6 +120,9 @@ const $featureConfirmClose   = document.getElementById("feature-confirm-close-bt
 const $portReqModal  = document.getElementById("port-requirements-modal");
 const $portReqBody   = document.getElementById("port-req-body");
 const $portReqClose  = document.getElementById("port-req-close-btn");
+
+// System status banner
+const $statusBanner  = document.getElementById("system-status-banner");
 
 // ── Helpers ───────────────────────────────────────────────────────
 
@@ -1356,6 +1362,116 @@ if ($modal) $modal.addEventListener("click", function(e) { if (e.target === $mod
 if ($credsModal) $credsModal.addEventListener("click", function(e) { if (e.target === $credsModal) closeCredsModal(); });
 if ($supportModal) $supportModal.addEventListener("click", function(e) { if (e.target === $supportModal) closeSupportModal(); });
 
+// ── Port health banner ────────────────────────────────────────────
+
+var _bannerFadeTimer   = null;
+var _bannerDetailsOpen = false;
+
+async function loadPortHealth() {
+  if (!$statusBanner) return;
+  try {
+    var data = await apiFetch("/api/ports/health");
+    _renderPortHealthBanner(data);
+  } catch (_) {
+    // Silently ignore — banner stays hidden on error
+  }
+}
+
+function _renderPortHealthBanner(data) {
+  if (!$statusBanner) return;
+
+  // Clear any pending fade-out timer
+  if (_bannerFadeTimer) {
+    clearTimeout(_bannerFadeTimer);
+    _bannerFadeTimer = null;
+  }
+
+  var status       = data.status || "ok";
+  var totalPorts   = data.total_ports || 0;
+  var closedPorts  = data.closed_ports || 0;
+  var affectedSvcs = data.affected_services || [];
+
+  // No port requirements — hide banner
+  if (totalPorts === 0) {
+    $statusBanner.style.display = "none";
+    $statusBanner.className = "status-banner";
+    return;
+  }
+
+  // Build expandable details for warn/critical states
+  function buildDetailsHtml(svcs) {
+    if (!svcs.length) return "";
+    var rows = svcs.map(function(svc) {
+      var portList = (svc.closed_ports || []).map(function(p) {
+        return '🔴 <span class="status-banner-port">' + escHtml(p.port) + '/' + escHtml(p.protocol) + '</span>'
+          + (p.description ? ' <span style="opacity:0.7">— ' + escHtml(p.description) + '</span>' : '');
+      }).join(", ");
+      return '<tr><td>' + escHtml(svc.name) + '</td><td>' + portList + '</td></tr>';
+    }).join("");
+    return '<table class="status-banner-table">'
+      + '<thead><tr><th>Service</th><th>Closed Ports</th></tr></thead>'
+      + '<tbody>' + rows + '</tbody>'
+      + '</table>';
+  }
+
+  var html = "";
+  $statusBanner.className = "status-banner";
+
+  if (status === "ok") {
+    // Switching from warn/critical to ok: reset details-open state
+    _bannerDetailsOpen = false;
+    $statusBanner.classList.add("status-banner--ok");
+    html = "✅ All Systems Operational — All ports open for all enabled services";
+    $statusBanner.style.display = "block";
+    $statusBanner.style.opacity = "1";
+    $statusBanner.innerHTML = html;
+    // Auto-fade after BANNER_AUTO_FADE_DELAY
+    _bannerFadeTimer = setTimeout(function() {
+      $statusBanner.classList.add("status-banner--fade-out");
+      _bannerFadeTimer = setTimeout(function() {
+        $statusBanner.style.display = "none";
+      }, BANNER_FADE_TRANSITION_MS);
+    }, BANNER_AUTO_FADE_DELAY);
+    return;
+  }
+
+  if (status === "partial") {
+    $statusBanner.classList.add("status-banner--warn");
+    html = "⚠️ Some Services May Be Affected — " + closedPorts + " of " + totalPorts + " ports closed";
+  } else {
+    // critical
+    $statusBanner.classList.add("status-banner--critical");
+    html = "🔴 System Alert: Ports Are Down — Some services may not work";
+  }
+
+  var detailsId  = "status-banner-detail-body";
+  var toggleId   = "status-banner-toggle";
+  var detailsHtml = buildDetailsHtml(affectedSvcs);
+
+  html += ' <button class="status-banner-toggle" id="' + toggleId + '">'
+    + (_bannerDetailsOpen ? "Hide Details ▲" : "View Details ▼")
+    + '</button>'
+    + '<div class="status-banner-details" id="' + detailsId + '" style="display:'
+    + (_bannerDetailsOpen ? "block" : "none") + '">'
+    + detailsHtml
+    + '</div>';
+
+  $statusBanner.style.display = "block";
+  $statusBanner.style.opacity = "1";
+  $statusBanner.innerHTML = html;
+
+  var toggleBtn   = document.getElementById(toggleId);
+  var detailsBody = document.getElementById(detailsId);
+
+  if (toggleBtn && detailsBody) {
+    toggleBtn.addEventListener("click", function() {
+      _bannerDetailsOpen = !_bannerDetailsOpen;
+      detailsBody.style.display = _bannerDetailsOpen ? "block" : "none";
+      toggleBtn.textContent = _bannerDetailsOpen ? "Hide Details ▲" : "View Details ▼";
+    });
+  }
+}
+
 // ── Init ──────────────────────────────────────────────────────────
 
 async function init() {
@@ -1372,9 +1488,11 @@ async function init() {
     await refreshServices();
     loadNetwork();
     checkUpdates();
+    loadPortHealth();
 
     setInterval(refreshServices, POLL_INTERVAL_SERVICES);
     setInterval(checkUpdates, POLL_INTERVAL_UPDATES);
+    setInterval(loadPortHealth, POLL_INTERVAL_PORT_HEALTH);
 
     if (cfg.feature_manager) {
       loadFeatureManager();
@@ -1383,8 +1501,10 @@ async function init() {
     await refreshServices();
     loadNetwork();
     checkUpdates();
+    loadPortHealth();
     setInterval(refreshServices, POLL_INTERVAL_SERVICES);
     setInterval(checkUpdates, POLL_INTERVAL_UPDATES);
+    setInterval(loadPortHealth, POLL_INTERVAL_PORT_HEALTH);
   }
 }
 
