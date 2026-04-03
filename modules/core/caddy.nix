@@ -144,6 +144,24 @@ $HAVEN {
 }
 EOF
       fi
+
+      # ── RTL (LAN access) ────────────────────────────
+      cat >> /run/caddy/Caddyfile <<EOF
+
+:3051 {
+  reverse_proxy :3050
+  encode gzip zstd
+}
+EOF
+
+      # ── Mempool (LAN access) ────────────────────────
+      cat >> /run/caddy/Caddyfile <<EOF
+
+:60847 {
+  reverse_proxy :60845
+  encode gzip zstd
+}
+EOF
     '';
   };
 }
