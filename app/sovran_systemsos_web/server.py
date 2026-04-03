@@ -10,6 +10,8 @@ import os
 import re
 import socket
 import subprocess
+import urllib.error
+import urllib.parse
 import urllib.request
 
 from fastapi import FastAPI, HTTPException
@@ -1108,6 +1110,185 @@ async def api_domains_status():
         except FileNotFoundError:
             domains[name] = None
     return {"domains": domains}
+
+
+# ── Matrix user management ────────────────────────────────────────
+
+MATRIX_USERS_FILE = "/var/lib/secrets/matrix-users"
+MATRIX_DOMAINS_FILE = "/var/lib/domains/matrix"
+
+_SAFE_USERNAME_RE = re.compile(r'^[a-z0-9._\-]+$')
+
+
+def _validate_matrix_username(username: str) -> bool:
+    """Return True if username is a valid Matrix localpart."""
+    return bool(username) and len(username) <= 255 and bool(_SAFE_USERNAME_RE.match(username))
+
+
+def _parse_matrix_admin_creds() -> tuple[str, str]:
+    """Parse admin username and password from the matrix-users credentials file.
+
+    Returns (localpart, password) for the admin account.
+    Raises FileNotFoundError if the file does not exist.
+    Raises ValueError if the file cannot be parsed.
+    """
+    with open(MATRIX_USERS_FILE, "r") as f:
+        content = f.read()
+
+    admin_user: str | None = None
+    admin_pass: str | None = None
+    in_admin_section = False
+
+    for line in content.splitlines():
+        stripped = line.strip()
+        if stripped == "[ Admin Account ]":
+            in_admin_section = True
+            continue
+        if stripped.startswith("[ ") and in_admin_section:
+            break
+        if in_admin_section:
+            if stripped.startswith("Username:"):
+                raw = stripped[len("Username:"):].strip()
+                # Format is @localpart:domain — extract localpart
+                if raw.startswith("@") and ":" in raw:
+                    admin_user = raw[1:raw.index(":")]
+                else:
+                    admin_user = raw
+            elif stripped.startswith("Password:"):
+                admin_pass = stripped[len("Password:"):].strip()
+
+    if not admin_user or not admin_pass:
+        raise ValueError("Could not parse admin credentials from matrix-users file")
+    if "(pre-existing" in admin_pass:
+        raise ValueError(
+            "Admin password is not stored (user was pre-existing). "
+            "Please reset the admin password manually before using this feature."
+        )
+    return admin_user, admin_pass
+
+
+def _matrix_get_admin_token(domain: str, admin_user: str, admin_pass: str) -> str:
+    """Log in to the local Synapse instance and return an access token."""
+    url = "http://[::1]:8008/_matrix/client/v3/login"
+    payload = json.dumps({
+        "type": "m.login.password",
+        "identifier": {"type": "m.id.user", "user": admin_user},
+        "password": admin_pass,
+    }).encode()
+    req = urllib.request.Request(
+        url, data=payload,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    with urllib.request.urlopen(req, timeout=15) as resp:
+        body = json.loads(resp.read())
+    token: str = body.get("access_token", "")
+    if not token:
+        raise ValueError("No access_token in Synapse login response")
+    return token
+
+
+class MatrixCreateUserRequest(BaseModel):
+    username: str
+    password: str
+    admin: bool = False
+
+
+@app.post("/api/matrix/create-user")
+async def api_matrix_create_user(req: MatrixCreateUserRequest):
+    """Create a new Matrix user via register_new_matrix_user."""
+    if not _validate_matrix_username(req.username):
+        raise HTTPException(status_code=400, detail="Invalid username. Use only lowercase letters, digits, '.', '_', '-'.")
+    if not req.password:
+        raise HTTPException(status_code=400, detail="Password must not be empty.")
+
+    admin_flag = ["-a"] if req.admin else ["--no-admin"]
+    cmd = [
+        "register_new_matrix_user",
+        "-c", "/run/matrix-synapse/runtime-config.yaml",
+        "-u", req.username,
+        "-p", req.password,
+        *admin_flag,
+        "http://localhost:8008",
+    ]
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+    except FileNotFoundError:
+        raise HTTPException(status_code=500, detail="register_new_matrix_user not found on this system.")
+    except subprocess.TimeoutExpired:
+        raise HTTPException(status_code=500, detail="Command timed out.")
+
+    output = (result.stdout + result.stderr).strip()
+    if result.returncode != 0:
+        # Surface the actual error from the tool (e.g. "User ID already taken")
+        raise HTTPException(status_code=400, detail=output or "Failed to create user.")
+
+    return {"ok": True, "username": req.username}
+
+
+class MatrixChangePasswordRequest(BaseModel):
+    username: str
+    new_password: str
+
+
+@app.post("/api/matrix/change-password")
+async def api_matrix_change_password(req: MatrixChangePasswordRequest):
+    """Change a Matrix user's password via the Synapse Admin API."""
+    if not _validate_matrix_username(req.username):
+        raise HTTPException(status_code=400, detail="Invalid username. Use only lowercase letters, digits, '.', '_', '-'.")
+    if not req.new_password:
+        raise HTTPException(status_code=400, detail="New password must not be empty.")
+
+    # Read domain
+    try:
+        with open(MATRIX_DOMAINS_FILE, "r") as f:
+            domain = f.read().strip()
+    except FileNotFoundError:
+        raise HTTPException(status_code=500, detail="Matrix domain not configured.")
+
+    # Parse admin credentials
+    try:
+        admin_user, admin_pass = _parse_matrix_admin_creds()
+    except FileNotFoundError:
+        raise HTTPException(status_code=500, detail="Matrix credentials file not found.")
+    except ValueError as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+    # Obtain admin access token
+    loop = asyncio.get_event_loop()
+    try:
+        token = await loop.run_in_executor(
+            None, _matrix_get_admin_token, domain, admin_user, admin_pass
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Could not authenticate as admin: {exc}")
+
+    # Call Synapse Admin API to reset the password
+    target_user_id = f"@{req.username}:{domain}"
+    url = f"http://[::1]:8008/_synapse/admin/v2/users/{urllib.parse.quote(target_user_id, safe='@:')}"
+    payload = json.dumps({"password": req.new_password}).encode()
+    api_req = urllib.request.Request(
+        url, data=payload,
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {token}",
+        },
+        method="PUT",
+    )
+    try:
+        with urllib.request.urlopen(api_req, timeout=15) as resp:
+            resp.read()
+    except urllib.error.HTTPError as exc:
+        body = exc.read().decode(errors="replace")
+        try:
+            detail = json.loads(body).get("error", body)
+        except Exception:
+            detail = body
+        raise HTTPException(status_code=400, detail=detail)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Admin API call failed: {exc}")
+
+    return {"ok": True, "username": req.username}
 
 
 # ── Startup: seed the internal IP file immediately ───────────────
