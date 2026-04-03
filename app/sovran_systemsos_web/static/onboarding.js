@@ -109,17 +109,21 @@ async function loadStep2() {
   if (!body) return;
 
   try {
-    // Fetch services + domains in parallel
+    // Fetch services, domains, and network info in parallel
     var results = await Promise.all([
       apiFetch("/api/services"),
       apiFetch("/api/domains/status"),
+      apiFetch("/api/network"),
     ]);
     _servicesData = results[0];
     _domainsData  = results[1];
+    var networkData = results[2];
   } catch (err) {
     body.innerHTML = '<p class="onboarding-error">⚠ Could not load service data: ' + escHtml(err.message) + '</p>';
     return;
   }
+
+  var externalIp = (networkData && networkData.external_ip) || "Unknown (could not retrieve)";
 
   // Build set of enabled service units
   var enabledUnits = new Set();
@@ -140,11 +144,13 @@ async function loadStep2() {
     html += '<div class="onboarding-port-warn" style="margin-bottom:16px;">'
       + '<strong>Before you continue:</strong>'
       + '<ol style="margin:8px 0 0 16px; padding:0; line-height:1.7;">'
-      + '<li>Purchase your subdomains on <a href="https://njal.la" target="_blank" style="color:var(--accent-color);">https://njal.la</a></li>'
-      + '<li>For each subdomain, add a <strong>Dynamic</strong> record in your Njal.la dashboard</li>'
+      + '<li>Create an account at <a href="https://njal.la" target="_blank" style="color:var(--accent-color);">https://njal.la</a></li>'
+      + '<li>Purchase your domain on Njal.la</li>'
+      + '<li>In the Njal.la web interface, create a <strong>Dynamic</strong> record pointing to this machine\'s external IP address:<br>'
+      + '<span style="display:inline-block;margin-top:4px;padding:4px 12px;background:var(--card-color);border:1px solid var(--border-color);border-radius:6px;font-family:monospace;font-size:1.1em;font-weight:700;letter-spacing:0.03em;">' + escHtml(externalIp) + '</span></li>'
       + '<li>Njal.la will give you a curl command like:<br>'
       + '<code style="font-size:0.8em;">curl "https://njal.la/update/?h=sub.domain.com&amp;k=abc123&amp;auto"</code></li>'
-      + '<li>Enter the subdomain and paste that curl command below</li>'
+      + '<li>Enter the subdomain and paste that curl command below for each service</li>'
       + '</ol>'
       + '</div>';
     html += '<p class="onboarding-hint">Enter each fully-qualified subdomain (e.g. <code>matrix.yourdomain.com</code>) and its Njal.la DDNS curl command.</p>';
