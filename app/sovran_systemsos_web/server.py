@@ -50,6 +50,8 @@ ZEUS_CONNECT_FILE = "/var/lib/secrets/zeus-connect-url"
 
 REBOOT_COMMAND = ["reboot"]
 
+ONBOARDING_FLAG = "/var/lib/sovran/onboarding-complete"
+
 # ── Tech Support constants ────────────────────────────────────────
 
 SUPPORT_KEY_FILE = "/root/.ssh/sovran_support_authorized"
@@ -256,6 +258,7 @@ def _file_hash(filename: str) -> str:
 
 _APP_JS_HASH  = _file_hash("app.js")
 _STYLE_CSS_HASH = _file_hash("style.css")
+_ONBOARDING_JS_HASH = _file_hash("onboarding.js")
 
 # ── Update check helpers ──────────────────────────────────────────
 
@@ -817,6 +820,32 @@ async def index(request: Request):
         "app_js_hash": _APP_JS_HASH,
         "style_css_hash": _STYLE_CSS_HASH,
     })
+
+
+@app.get("/onboarding", response_class=HTMLResponse)
+async def onboarding(request: Request):
+    return templates.TemplateResponse("onboarding.html", {
+        "request": request,
+        "onboarding_js_hash": _ONBOARDING_JS_HASH,
+        "style_css_hash": _STYLE_CSS_HASH,
+    })
+
+
+@app.get("/api/onboarding/status")
+async def api_onboarding_status():
+    complete = os.path.exists(ONBOARDING_FLAG)
+    return {"complete": complete}
+
+
+@app.post("/api/onboarding/complete")
+async def api_onboarding_complete():
+    os.makedirs(os.path.dirname(ONBOARDING_FLAG), exist_ok=True)
+    try:
+        with open(ONBOARDING_FLAG, "w") as f:
+            f.write("")
+    except OSError as exc:
+        raise HTTPException(status_code=500, detail=f"Could not write flag file: {exc}")
+    return {"ok": True}
 
 
 @app.get("/api/config")
