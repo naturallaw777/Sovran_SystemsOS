@@ -172,17 +172,19 @@ async function apiFetch(path, options) {
 function buildTiles(services, categoryLabels) {
   _servicesCache = services;
   var grouped = {};
+  var supportServices = [];
   for (var i = 0; i < services.length; i++) {
     var svc = services[i];
     // Support tiles go to the sidebar, not the main grid
     if (svc.category === "support" || svc.type === "support") {
-      renderSidebarSupport(svc);
+      supportServices.push(svc);
       continue;
     }
     var cat = svc.category || "other";
     if (!grouped[cat]) grouped[cat] = [];
     grouped[cat].push(svc);
   }
+  renderSidebarSupport(supportServices);
   $tilesArea.innerHTML = "";
   var orderedKeys = CATEGORY_ORDER.filter(function(k) { return grouped[k]; });
   Object.keys(grouped).forEach(function(k) {
@@ -208,21 +210,26 @@ function buildTiles(services, categoryLabels) {
   }
 }
 
-function renderSidebarSupport(svc) {
+function renderSidebarSupport(supportServices) {
   $sidebarSupport.innerHTML = "";
-  var btn = document.createElement("button");
-  btn.className = "sidebar-support-btn";
-  btn.innerHTML =
-    '<span class="sidebar-support-icon">🛟</span>' +
-    '<span class="sidebar-support-text">' +
-      '<span class="sidebar-support-title">' + escHtml(svc.name || "Tech Support") + '</span>' +
-      '<span class="sidebar-support-hint">Click for help</span>' +
-    '</span>';
-  btn.addEventListener("click", function() { openSupportModal(); });
-  $sidebarSupport.appendChild(btn);
-  var hr = document.createElement("hr");
-  hr.className = "sidebar-divider";
-  $sidebarSupport.appendChild(hr);
+  for (var i = 0; i < supportServices.length; i++) {
+    var svc = supportServices[i];
+    var btn = document.createElement("button");
+    btn.className = "sidebar-support-btn";
+    btn.innerHTML =
+      '<span class="sidebar-support-icon">🛟</span>' +
+      '<span class="sidebar-support-text">' +
+        '<span class="sidebar-support-title">' + escHtml(svc.name || "Tech Support") + '</span>' +
+        '<span class="sidebar-support-hint">Click for help</span>' +
+      '</span>';
+    btn.addEventListener("click", function() { openSupportModal(); });
+    $sidebarSupport.appendChild(btn);
+  }
+  if (supportServices.length > 0) {
+    var hr = document.createElement("hr");
+    hr.className = "sidebar-divider";
+    $sidebarSupport.appendChild(hr);
+  }
 }
 
 function buildTile(svc) {
