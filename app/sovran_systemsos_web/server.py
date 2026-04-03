@@ -960,6 +960,104 @@ async def api_ports_status(req: PortCheckRequest):
     return {"internal_ip": internal_ip, "ports": port_results}
 
 
+@app.get("/api/ports/health")
+async def api_ports_health():
+    """Aggregate port health across all enabled services."""
+    cfg = load_config()
+    services = cfg.get("services", [])
+
+    # Build reverse map: unit → feature_id (for features with a unit)
+    unit_to_feature = {
+        unit: feat_id
+        for feat_id, unit in FEATURE_SERVICE_MAP.items()
+        if unit is not None
+    }
+
+    loop = asyncio.get_event_loop()
+
+    # Read runtime feature overrides from custom.nix Hub Managed section
+    overrides, _ = await loop.run_in_executor(None, _read_hub_overrides)
+
+    # Collect port requirements for enabled services only
+    enabled_port_requirements: list[tuple[str, str, list[dict]]] = []
+    for entry in services:
+        unit = entry.get("unit", "")
+        icon = entry.get("icon", "")
+        enabled = entry.get("enabled", True)
+
+        feat_id = unit_to_feature.get(unit)
+        if feat_id is None:
+            feat_id = FEATURE_ICON_MAP.get(icon)
+        if feat_id is not None and feat_id in overrides:
+            enabled = overrides[feat_id]
+
+        if not enabled:
+            continue
+
+        ports = SERVICE_PORT_REQUIREMENTS.get(unit, [])
+        if ports:
+            enabled_port_requirements.append((entry.get("name", unit), unit, ports))
+
+    # If no enabled services have port requirements, return ok with zero ports
+    if not enabled_port_requirements:
+        return {
+            "total_ports": 0,
+            "open_ports": 0,
+            "closed_ports": 0,
+            "status": "ok",
+            "affected_services": [],
+        }
+
+    # Run port checks in parallel
+    listening, allowed = await asyncio.gather(
+        loop.run_in_executor(None, _get_listening_ports),
+        loop.run_in_executor(None, _get_firewall_allowed_ports),
+    )
+
+    total_ports = 0
+    open_ports = 0
+    affected_services = []
+
+    for name, unit, ports in enabled_port_requirements:
+        closed = []
+        for p in ports:
+            port_str = str(p.get("port", ""))
+            protocol = str(p.get("protocol", "TCP"))
+            status = _check_port_status(port_str, protocol, listening, allowed)
+            total_ports += 1
+            if status in ("listening", "firewall_open"):
+                open_ports += 1
+            else:
+                closed.append({
+                    "port": port_str,
+                    "protocol": protocol,
+                    "description": p.get("description", ""),
+                })
+        if closed:
+            affected_services.append({
+                "name": name,
+                "unit": unit,
+                "closed_ports": closed,
+            })
+
+    closed_ports = total_ports - open_ports
+
+    if closed_ports == 0:
+        health_status = "ok"
+    elif open_ports == 0:
+        health_status = "critical"
+    else:
+        health_status = "partial"
+
+    return {
+        "total_ports": total_ports,
+        "open_ports": open_ports,
+        "closed_ports": closed_ports,
+        "status": health_status,
+        "affected_services": affected_services,
+    }
+
+
 @app.get("/api/updates/check")
 async def api_updates_check():
     loop = asyncio.get_event_loop()
