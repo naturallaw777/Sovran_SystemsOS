@@ -54,13 +54,19 @@ body {
   position: sticky;
   top: 0;
   z-index: 100;
+  justify-content: flex-end;
 }
 
 .header-bar .title {
   font-size: 1.15rem;
   font-weight: 700;
   color: var(--text-primary);
-  flex: 1;
+  position: absolute;
+  left: 0;
+  right: 0;
+  text-align: center;
+  pointer-events: none;
+  white-space: nowrap;
 }
 
 .header-logo {
@@ -1530,6 +1536,19 @@ button.btn-reboot:hover:not(:disabled) {
   margin-top: 6px;
 }
 
+.domain-setup-intro li {
+  margin-bottom: 6px;
+}
+
+.domain-setup-intro code {
+  background-color: #12121c;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.82em;
+  word-break: break-all;
+}
+
 .domain-field-group {
   margin-bottom: 14px;
 }
@@ -1808,6 +1827,28 @@ button.btn-reboot:hover:not(:disabled) {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+/* Addon feature toggle row in service detail modal */
+.svc-detail-addon-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.svc-detail-addon-status {
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.addon-status--on {
+  color: var(--green);
+}
+
+.addon-status--off {
+  color: var(--text-dim);
 }
 
 /* ── Sidebar: compact feature card overrides ─────────────────────── */

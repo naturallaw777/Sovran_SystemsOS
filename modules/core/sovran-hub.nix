@@ -51,7 +51,7 @@ let
       ]; }
       { name = "Zeus Connect";       unit = "zeus-connect-setup.service"; type = "system"; icon = "zeus";   enabled = cfg.services.bitcoin;  category = "bitcoin-apps"; credentials = [
         { label = "Connection URL"; file = "/var/lib/secrets/zeus-connect-url"; qrcode = true; }
-        { label = "How to Connect"; value = "1. Download Zeus from App Store or Google Play\n2. Open Zeus �� Scan Node Config\n3. Scan the QR code above or paste the Connection URL"; }
+        { label = "How to Connect"; value = "1. Download Zeus from App Store or Google Play\n2. Open Zeus → Scan Node Config\n3. Scan the QR code above or paste the Connection URL"; }
       ]; }
       { name = "Mempool";            unit = "mempool.service";      type = "system"; icon = "mempool";      enabled = cfg.features.mempool;  category = "bitcoin-apps"; credentials = [
         { label = "Tor Access"; file = "/var/lib/tor/onion/mempool-frontend/hostname"; prefix = "http://"; }
