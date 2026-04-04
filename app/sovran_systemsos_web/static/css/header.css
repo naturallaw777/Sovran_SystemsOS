@@ -3,37 +3,39 @@
 .header-bar {
   background-color: var(--surface-color);
   border-bottom: 1px solid var(--border-color);
-  padding: 20px 24px;
+  padding: 16px 24px;
   display: flex;
   align-items: center;
   gap: 16px;
   position: sticky;
   top: 0;
   z-index: 100;
-  justify-content: flex-end;
+  justify-content: center;
 }
 
 .header-bar .title {
   font-size: 1.15rem;
   font-weight: 700;
   color: var(--text-primary);
-  position: absolute;
-  left: 0;
-  right: 0;
-  text-align: center;
-  pointer-events: none;
-  white-space: nowrap;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 4px;
+  flex: 1;
+}
+
+.header-bar .header-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  position: absolute;
+  right: 24px;
 }
 
 .header-logo {
-  height: 120px;
+  height: 130px;
   width: auto;
   display: block;
-  margin: 0 auto;
 }
 
 .role-badge {
