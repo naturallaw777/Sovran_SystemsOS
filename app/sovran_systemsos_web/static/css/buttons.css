@@ -1,0 +1,86 @@
+/* ── Buttons ────────────────────────────────────────────────────── */
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  outline: none;
+  transition: opacity 0.15s, box-shadow 0.15s, background-color 0.15s;
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.btn {
+  padding: 7px 16px;
+  border-radius: var(--radius-btn);
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.btn-primary {
+  background-color: var(--accent-color);
+  color: #1e1e2e;
+}
+
+.btn-primary:hover:not(:disabled) {
+  opacity: 0.88;
+}
+
+/* Update System button: BLUE by default */
+.btn-update {
+  background-color: #89b4fa;
+  color: #1e1e2e;
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-update:hover:not(:disabled) {
+  opacity: 0.88;
+}
+
+/* Update System button: GREEN when updates are available */
+.btn-update.has-updates {
+  background-color: #2ec27e;
+  color: #fff;
+}
+
+.btn-update.has-updates:hover:not(:disabled) {
+  background-color: #27ae6e;
+}
+
+.update-badge {
+  display: none;
+  width: 10px;
+  height: 10px;
+  background-color: var(--yellow);
+  border-radius: 50%;
+  animation: pulse-badge 1.4s ease-in-out infinite;
+}
+
+.update-badge.visible {
+  display: inline-block;
+}
+
+@keyframes pulse-badge {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.5; transform: scale(1.35); }
+}
+
+.btn-icon {
+  background: none;
+  color: var(--text-secondary);
+  padding: 6px;
+  border-radius: 50%;
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.btn-icon:hover:not(:disabled) {
+  background-color: var(--border-color);
+  color: var(--text-primary);
+}

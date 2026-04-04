@@ -1,0 +1,143 @@
+/* ── Feature Manager styles ──────────────────────────────────────── */
+
+.feature-manager-section {
+  margin-bottom: 32px;
+}
+
+.feature-subcategory {
+  margin-bottom: 16px;
+}
+
+.feature-subcategory-header {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+  margin-bottom: 8px;
+  padding-left: 4px;
+}
+
+.feature-cards-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.feature-card {
+  background-color: var(--card-color);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 14px 16px;
+}
+
+.feature-card-top {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.feature-card-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.feature-card-name {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.feature-card-desc {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.feature-card-status {
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  margin-top: 6px;
+}
+
+.feature-toggle {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.feature-toggle-input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+  position: absolute;
+}
+
+.feature-toggle-slider {
+  position: absolute;
+  inset: 0;
+  background-color: var(--border-color);
+  border-radius: 24px;
+  transition: background-color 0.2s;
+}
+
+.feature-toggle-slider::before {
+  content: "";
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  left: 3px;
+  top: 3px;
+  background-color: #fff;
+  border-radius: 50%;
+  transition: transform 0.2s;
+}
+
+.feature-toggle.active .feature-toggle-slider {
+  background-color: var(--green);
+}
+
+.feature-toggle.active .feature-toggle-slider::before {
+  transform: translateX(20px);
+}
+
+.feature-domain-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: 0.78rem;
+}
+
+.feature-domain-icon {
+  flex-shrink: 0;
+}
+
+.feature-domain-label {
+  color: var(--text-secondary);
+}
+
+.feature-domain-label--checking {
+  color: var(--text-dim);
+  font-style: italic;
+}
+
+.feature-domain-label--ok {
+  color: var(--green);
+  font-weight: 600;
+}
+
+.feature-domain-label--warn {
+  color: var(--yellow);
+  font-weight: 600;
+}
+
+.feature-domain-label--error {
+  color: var(--red);
+  font-weight: 600;
+}
