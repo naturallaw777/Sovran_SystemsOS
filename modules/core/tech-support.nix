@@ -7,7 +7,7 @@
 #
 # Security design:
 #   • Support staff log in as `sovran-support`, not as root.
-#   • Wallet directories (LND, Sparrow, Bisq, …) are locked with POSIX ACLs
+#   • Protected directories (LND, bitcoind, nix-bitcoin-secrets, /home) are locked with POSIX ACLs
 #     (u:sovran-support:---) by the Hub API as soon as a session is started.
 #   • The Hub web UI lets the user grant time-limited access to wallet files
 #     and view a full audit log of every session event.
