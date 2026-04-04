@@ -1319,7 +1319,7 @@ async def api_credentials(unit: str):
 
 
 @app.get("/api/service-detail/{unit}")
-async def api_service_detail(unit: str):
+async def api_service_detail(unit: str, icon: str | None = None):
     """Return comprehensive details for a single service — status, credentials,
     port health, domain health, description, and IPs — in one API call."""
     cfg = load_config()
@@ -1335,8 +1335,12 @@ async def api_service_detail(unit: str):
     loop = asyncio.get_event_loop()
     overrides, nostr_npub = await loop.run_in_executor(None, _read_hub_overrides)
 
-    # Find the service config entry
-    entry = next((s for s in services if s.get("unit") == unit), None)
+    # Find the service config entry, preferring icon match when provided
+    entry = None
+    if icon:
+        entry = next((s for s in services if s.get("unit") == unit and s.get("icon") == icon), None)
+    if entry is None:
+        entry = next((s for s in services if s.get("unit") == unit), None)
     if entry is None:
         raise HTTPException(status_code=404, detail="Service not found")
 
