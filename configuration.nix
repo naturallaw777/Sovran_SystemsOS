@@ -28,24 +28,17 @@
   };
 
   # ── Networking ──────────────────────────────────────────────
-  networking.hostName = "sovransystemsos";
+  # NOTE: hostName must remain "nixos" to match the nixosConfigurations key in
+  # flake.nix. Changing it breaks flake-based remote upgrades with:
+  #   error: does not provide attribute 'nixosConfigurations."<hostname>"'
+  networking.hostName = "nixos";
   networking.networkmanager.enable = true;
   networking.firewall.enable = true;
   networking.firewall.allowedTCPPorts = [ 80 443 8448 3051 ];
-  networking.firewall.allowedUDPPorts = [ 80 443 8448 3051 5353 ];
+  networking.firewall.allowedUDPPorts = [ 80 443 8448 3051 ];
   networking.firewall.allowedUDPPortRanges = [
     { from = 49152; to = 65535; }
   ];
-
-  # ── mDNS / Avahi (sovransystemsos.local) ──────────────────
-  services.avahi = {
-    enable = true;
-    nssmdns4 = true;
-    publish = {
-      enable = true;
-      addresses = true;
-    };
-  };
 
   # ── Locale / Time ──────────────────────────────────────────
   time.timeZone = "America/Los_Angeles";
