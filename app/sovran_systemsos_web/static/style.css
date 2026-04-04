@@ -1594,21 +1594,48 @@ button.btn-reboot:hover:not(:disabled) {
   background-color: #fff;
 }
 
-/* ── Feature domain badge ────────────────────────────────────────── */
+/* ── Feature domain badge (consistent with tile domain badge) ────── */
 
 .feature-domain-badge {
   font-size: 0.75rem;
   font-weight: 600;
   margin-top: 6px;
   padding: 2px 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.feature-domain-icon {
+  flex-shrink: 0;
+}
+
+.feature-domain-label {
+  word-break: break-word;
 }
 
 .feature-domain-badge.configured {
-  color: var(--green);
+  color: #a6e3a1;
 }
 
 .feature-domain-badge.not-configured {
-  color: var(--yellow);
+  color: #f9e2af;
+}
+
+.feature-domain-label--checking {
+  color: var(--text-dim);
+}
+
+.feature-domain-label--ok {
+  color: #a6e3a1;
+}
+
+.feature-domain-label--warn {
+  color: #f9e2af;
+}
+
+.feature-domain-label--error {
+  color: #f38ba8;
 }
 
 /* ── Feature conflict warning ────────────────────────────────────── */
@@ -1825,6 +1852,47 @@ button.btn-reboot:hover:not(:disabled) {
 
 .tile-ports-label--loading {
   color: var(--text-dim);
+}
+
+/* ── Tile: Domain Status badge ──────────────────────────────────── */
+
+.tile-domain {
+  margin-top: 6px;
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  line-height: 1.4;
+  flex-wrap: wrap;
+}
+
+.tile-domain:hover {
+  color: var(--accent-color);
+}
+
+.tile-domain-icon {
+  flex-shrink: 0;
+}
+
+.tile-domain-label {
+  word-break: break-word;
+}
+
+.tile-domain-label--checking {
+  color: var(--text-dim);
+}
+
+.tile-domain-label--ok {
+  color: #a6e3a1;
+}
+
+.tile-domain-label--warn {
+  color: #f9e2af;
+}
+
+.tile-domain-label--error {
+  color: #f38ba8;
 }
 
 /* ── Sidebar: compact feature card overrides ─────────────────────── */
