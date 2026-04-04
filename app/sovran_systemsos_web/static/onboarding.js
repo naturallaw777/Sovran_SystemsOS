@@ -145,7 +145,7 @@ async function loadStep2() {
       + '<strong>Before you continue:</strong>'
       + '<ol style="margin:8px 0 0 16px; padding:0; line-height:1.7;">'
       + '<li>Create an account at <a href="https://njal.la" target="_blank" style="color:var(--accent-color);">https://njal.la</a></li>'
-      + '<li>Purchase your domain on Njal.la</li>'
+      + '<li>Purchase a new domain on Njal.la, or create a subdomain from a domain you already own. Tip: Subdomains are free to create — you only need to purchase one domain, and you can add as many subdomains as you need at no extra cost.</li>'
       + '<li>In the Njal.la web interface, create a <strong>Dynamic</strong> record pointing to this machine\'s external IP address:<br>'
       + '<span style="display:inline-block;margin-top:4px;padding:4px 12px;background:var(--card-color);border:1px solid var(--border-color);border-radius:6px;font-family:monospace;font-size:1.1em;font-weight:700;letter-spacing:0.03em;">' + escHtml(externalIp) + '</span></li>'
       + '<li>Njal.la will give you a curl command like:<br>'
@@ -553,6 +553,20 @@ function renderFeaturesStep(data) {
 }
 
 async function handleFeatureToggleStep5(feat, newEnabled, inputEl, labelEl) {
+  // For Bitcoin features being enabled, show a clear mutual-exclusivity confirmation
+  if (newEnabled && (feat.id === "bip110" || feat.id === "bitcoin-core")) {
+    var confirmMsg;
+    if (feat.id === "bip110") {
+      confirmMsg = "Only one Bitcoin node implementation can be active. Enabling Bitcoin Knots + BIP110 will disable Bitcoin Core (if active). Continue?";
+    } else {
+      confirmMsg = "Only one Bitcoin node implementation can be active. Enabling Bitcoin Core will disable Bitcoin Knots + BIP110 (if active). Continue?";
+    }
+    if (!confirm(confirmMsg)) {
+      if (inputEl) inputEl.checked = feat.enabled;
+      return;
+    }
+  }
+
   setStatus("step-5-rebuild-status", "Saving…", "info");
 
   // Collect nostr_npub if needed
