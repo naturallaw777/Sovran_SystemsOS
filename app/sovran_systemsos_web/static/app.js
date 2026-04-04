@@ -4,12 +4,9 @@
 
 const POLL_INTERVAL_SERVICES    = 5000;
 const POLL_INTERVAL_UPDATES     = 1800000;
-const POLL_INTERVAL_PORT_HEALTH = 15000;
 const UPDATE_POLL_INTERVAL      = 2000;
 const REBOOT_CHECK_INTERVAL     = 5000;
 const SUPPORT_TIMER_INTERVAL    = 1000;
-const BANNER_AUTO_FADE_DELAY    = 5000;
-const BANNER_FADE_TRANSITION_MS = 550;
 
 const CATEGORY_ORDER = [
   "infrastructure",
@@ -124,26 +121,34 @@ const $portReqBody   = document.getElementById("port-req-body");
 const $portReqClose  = document.getElementById("port-req-close-btn");
 
 // System status banner
-const $statusBanner  = document.getElementById("system-status-banner");
+// (removed — health is now shown per-tile via the composite health field)
 
 // ── Helpers ───────────────────────────────────────────────────────
 
 function tileId(svc) { return svc.unit + "::" + svc.name; }
 
-function statusClass(status) {
-  if (!status) return "unknown";
-  if (status === "active")   return "active";
-  if (status === "inactive") return "inactive";
-  if (status === "failed")   return "failed";
-  if (status === "disabled") return "disabled";
-  if (STATUS_LOADING_STATES.has(status)) return "loading";
+function statusClass(health) {
+  if (!health) return "unknown";
+  if (health === "healthy")         return "active";
+  if (health === "needs_attention") return "needs-attention";
+  if (health === "active")          return "active";   // backwards compat
+  if (health === "inactive")        return "inactive";
+  if (health === "failed")          return "failed";
+  if (health === "disabled")        return "disabled";
+  if (STATUS_LOADING_STATES.has(health)) return "loading";
   return "unknown";
 }
 
-function statusText(status, enabled) {
-  if (!enabled) return "disabled";
-  if (!status || status === "unknown") return "unknown";
-  return status;
+function statusText(health, enabled) {
+  if (!enabled) return "Disabled";
+  if (health === "healthy")         return "Active";
+  if (health === "needs_attention") return "Needs Attention";
+  if (health === "active")          return "Active";
+  if (health === "inactive")        return "Inactive";
+  if (health === "failed")          return "Failed";
+  if (!health || health === "unknown") return "Unknown";
+  if (STATUS_LOADING_STATES.has(health)) return health;
+  return health;
 }
 
 function escHtml(str) {
@@ -242,8 +247,8 @@ function renderSidebarSupport(supportServices) {
 
 function buildTile(svc) {
   var isSupport = svc.type === "support";
-  var sc = statusClass(svc.status);
-  var st = statusText(svc.status, svc.enabled);
+  var sc = statusClass(svc.health || svc.status);
+  var st = statusText(svc.health || svc.status, svc.enabled);
   var dis = !svc.enabled;
 
   var tile = document.createElement("div");
@@ -279,8 +284,8 @@ function updateTiles(services) {
     var id = CSS.escape(tileId(svc));
     var tile = $tilesArea.querySelector('.service-tile[data-tile-id="' + id + '"]');
     if (!tile) continue;
-    var sc = statusClass(svc.status);
-    var st = statusText(svc.status, svc.enabled);
+    var sc = statusClass(svc.health || svc.status);
+    var st = statusText(svc.health || svc.status, svc.enabled);
     var dot = tile.querySelector(".status-dot");
     var text = tile.querySelector(".status-text");
     if (dot) dot.className = "status-dot " + sc;
@@ -396,8 +401,8 @@ async function openServiceDetailModal(unit, name) {
     }
 
     // Section B: Status
-    var sc = statusClass(data.status);
-    var st = statusText(data.status, data.enabled);
+    var sc = statusClass(data.health || data.status);
+    var st = statusText(data.health || data.status, data.enabled);
     html += '<div class="svc-detail-section">' +
       '<div class="svc-detail-section-title">Status</div>' +
       '<div class="svc-detail-status">' +
@@ -425,26 +430,69 @@ async function openServiceDetailModal(unit, name) {
           statusIcon = "— Unknown";
           statusClass2 = "port-status-unknown";
         }
+        var desc = p.description;
+        var portNum = parseInt(p.port, 10);
+        if (portNum === 80 || portNum === 443) {
+          desc += " (shared — all services)";
+        }
         portTableRows += '<tr>' +
           '<td class="svc-detail-port-table-port">' + escHtml(p.port) + '</td>' +
           '<td class="svc-detail-port-table-proto">' + escHtml(p.protocol) + '</td>' +
-          '<td class="svc-detail-port-table-desc">' + escHtml(p.description) + '</td>' +
+          '<td class="svc-detail-port-table-desc">' + escHtml(desc) + '</td>' +
           '<td class="svc-detail-port-table-status ' + statusClass2 + '">' + statusIcon + '</td>' +
           '</tr>';
       });
 
       var troubleshootHtml = "";
       if (anyPortClosed) {
-        troubleshootHtml = '<div class="svc-detail-troubleshoot">' +
-          '<strong>⚠️ Some ports are not open yet. Here\'s how to fix it:</strong>' +
-          '<ol>' +
-            '<li>Log into your router\'s admin panel (usually <a href="http://192.168.1.1" target="_blank">http://192.168.1.1</a>)</li>' +
-            '<li>Find the <strong>Port Forwarding</strong> section</li>' +
-            '<li>Forward each closed port below to this machine\'s internal IP: <code>' + escHtml(data.internal_ip || "—") + '</code></li>' +
-            '<li>Save your router settings</li>' +
-          '</ol>' +
-          '<p style="margin-top:10px">💡 Search <em>"how to set up port forwarding on [your router model]"</em> for step-by-step instructions.</p>' +
-          '</div>';
+        var sharedPorts = [];
+        var specificPorts = [];
+        data.port_statuses.forEach(function(p) {
+          if (p.status === "closed") {
+            var portNum = parseInt(p.port, 10);
+            if (portNum === 80 || portNum === 443) {
+              sharedPorts.push(p);
+            } else {
+              specificPorts.push(p);
+            }
+          }
+        });
+
+        var troubleParts = [];
+
+        if (sharedPorts.length > 0) {
+          troubleParts.push(
+            '<strong>⚠️ Ports 80 and 443 need to be forwarded on your router.</strong>' +
+            '<p style="margin-top:8px">These are <strong>shared system ports</strong> — you only need to set them up once and they cover all your domain-based services ' +
+            '(BTCPayServer, Nextcloud, Matrix, WordPress, etc.).</p>' +
+            '<p style="margin-top:8px">If you already forwarded these ports during onboarding, you don\'t need to do it again. Otherwise:</p>' +
+            '<ol>' +
+              '<li>Log into your router\'s admin panel (usually <code>http://192.168.1.1</code>)</li>' +
+              '<li>Find the <strong>Port Forwarding</strong> section</li>' +
+              '<li>Forward port <strong>80 (TCP)</strong> and port <strong>443 (TCP)</strong> to your machine\'s internal IP: <code>' + escHtml(data.internal_ip || "—") + '</code></li>' +
+              '<li>Save your router settings</li>' +
+            '</ol>' +
+            '<p style="margin-top:8px">💡 Once these two ports are forwarded, you won\'t see this warning on any service again.</p>'
+          );
+        }
+
+        if (specificPorts.length > 0) {
+          var portList = specificPorts.map(function(p) {
+            return '<strong>' + escHtml(p.port) + ' (' + escHtml(p.protocol) + ')</strong> — ' + escHtml(p.description);
+          }).join('<br>');
+
+          troubleParts.push(
+            '<strong>⚠️ This service requires additional ports to be forwarded:</strong>' +
+            '<p style="margin-top:8px">' + portList + '</p>' +
+            '<ol>' +
+              '<li>Log into your router\'s admin panel</li>' +
+              '<li>Forward each port listed above to your machine\'s internal IP: <code>' + escHtml(data.internal_ip || "—") + '</code></li>' +
+              '<li>Save your router settings</li>' +
+            '</ol>'
+          );
+        }
+
+        troubleshootHtml = '<div class="svc-detail-troubleshoot">' + troubleParts.join('<hr style="border:none;border-top:1px solid rgba(255,255,255,0.1);margin:16px 0">') + '</div>';
       }
 
       html += '<div class="svc-detail-section">' +
@@ -1750,116 +1798,6 @@ if ($modal) $modal.addEventListener("click", function(e) { if (e.target === $mod
 if ($credsModal) $credsModal.addEventListener("click", function(e) { if (e.target === $credsModal) closeCredsModal(); });
 if ($supportModal) $supportModal.addEventListener("click", function(e) { if (e.target === $supportModal) closeSupportModal(); });
 
-// ── Port health banner ────────────────────────────────────────────
-
-var _bannerFadeTimer   = null;
-var _bannerDetailsOpen = false;
-
-async function loadPortHealth() {
-  if (!$statusBanner) return;
-  try {
-    var data = await apiFetch("/api/ports/health");
-    _renderPortHealthBanner(data);
-  } catch (_) {
-    // Silently ignore — banner stays hidden on error
-  }
-}
-
-function _renderPortHealthBanner(data) {
-  if (!$statusBanner) return;
-
-  // Clear any pending fade-out timer
-  if (_bannerFadeTimer) {
-    clearTimeout(_bannerFadeTimer);
-    _bannerFadeTimer = null;
-  }
-
-  var status       = data.status || "ok";
-  var totalPorts   = data.total_ports || 0;
-  var closedPorts  = data.closed_ports || 0;
-  var affectedSvcs = data.affected_services || [];
-
-  // No port requirements — hide banner
-  if (totalPorts === 0) {
-    $statusBanner.style.display = "none";
-    $statusBanner.className = "status-banner";
-    return;
-  }
-
-  // Build expandable details for warn/critical states
-  function buildDetailsHtml(svcs) {
-    if (!svcs.length) return "";
-    var rows = svcs.map(function(svc) {
-      var portList = (svc.closed_ports || []).map(function(p) {
-        return '🔴 <span class="status-banner-port">' + escHtml(p.port) + '/' + escHtml(p.protocol) + '</span>'
-          + (p.description ? ' <span style="opacity:0.7">— ' + escHtml(p.description) + '</span>' : '');
-      }).join(", ");
-      return '<tr><td>' + escHtml(svc.name) + '</td><td>' + portList + '</td></tr>';
-    }).join("");
-    return '<table class="status-banner-table">'
-      + '<thead><tr><th>Service</th><th>Closed Ports</th></tr></thead>'
-      + '<tbody>' + rows + '</tbody>'
-      + '</table>';
-  }
-
-  var html = "";
-  $statusBanner.className = "status-banner";
-
-  if (status === "ok") {
-    // Switching from warn/critical to ok: reset details-open state
-    _bannerDetailsOpen = false;
-    $statusBanner.classList.add("status-banner--ok");
-    html = "✅ All Systems Operational — All ports open for all enabled services";
-    $statusBanner.style.display = "block";
-    $statusBanner.style.opacity = "1";
-    $statusBanner.innerHTML = html;
-    // Auto-fade after BANNER_AUTO_FADE_DELAY
-    _bannerFadeTimer = setTimeout(function() {
-      $statusBanner.classList.add("status-banner--fade-out");
-      _bannerFadeTimer = setTimeout(function() {
-        $statusBanner.style.display = "none";
-      }, BANNER_FADE_TRANSITION_MS);
-    }, BANNER_AUTO_FADE_DELAY);
-    return;
-  }
-
-  if (status === "partial") {
-    $statusBanner.classList.add("status-banner--warn");
-    html = "⚠️ Some Services May Be Affected — " + closedPorts + " of " + totalPorts + " ports closed";
-  } else {
-    // critical
-    $statusBanner.classList.add("status-banner--critical");
-    html = "⚠ Some ports are closed — certain services may be affected";
-  }
-
-  var detailsId  = "status-banner-detail-body";
-  var toggleId   = "status-banner-toggle";
-  var detailsHtml = buildDetailsHtml(affectedSvcs);
-
-  html += ' <button class="status-banner-toggle" id="' + toggleId + '">'
-    + (_bannerDetailsOpen ? "Hide Details ▲" : "View Details ▼")
-    + '</button>'
-    + '<div class="status-banner-details" id="' + detailsId + '" style="display:'
-    + (_bannerDetailsOpen ? "block" : "none") + '">'
-    + detailsHtml
-    + '</div>';
-
-  $statusBanner.style.display = "block";
-  $statusBanner.style.opacity = "1";
-  $statusBanner.innerHTML = html;
-
-  var toggleBtn   = document.getElementById(toggleId);
-  var detailsBody = document.getElementById(detailsId);
-
-  if (toggleBtn && detailsBody) {
-    toggleBtn.addEventListener("click", function() {
-      _bannerDetailsOpen = !_bannerDetailsOpen;
-      detailsBody.style.display = _bannerDetailsOpen ? "block" : "none";
-      toggleBtn.textContent = _bannerDetailsOpen ? "Hide Details ▲" : "View Details ▼";
-    });
-  }
-}
-
 // ── Init ──────────────────────────────────────────────────────────
 
 async function init() {
@@ -1887,11 +1825,9 @@ async function init() {
     await refreshServices();
     loadNetwork();
     checkUpdates();
-    loadPortHealth();
 
     setInterval(refreshServices, POLL_INTERVAL_SERVICES);
     setInterval(checkUpdates, POLL_INTERVAL_UPDATES);
-    setInterval(loadPortHealth, POLL_INTERVAL_PORT_HEALTH);
 
     if (cfg.feature_manager) {
       loadFeatureManager();
@@ -1900,10 +1836,8 @@ async function init() {
     await refreshServices();
     loadNetwork();
     checkUpdates();
-    loadPortHealth();
     setInterval(refreshServices, POLL_INTERVAL_SERVICES);
     setInterval(checkUpdates, POLL_INTERVAL_UPDATES);
-    setInterval(loadPortHealth, POLL_INTERVAL_PORT_HEALTH);
   }
 }
 
