@@ -35,10 +35,20 @@
   networking.networkmanager.enable = true;
   networking.firewall.enable = true;
   networking.firewall.allowedTCPPorts = [ 80 443 8448 3051 ];
-  networking.firewall.allowedUDPPorts = [ 80 443 8448 3051 ];
+  networking.firewall.allowedUDPPorts = [ 80 443 8448 3051 5353 ];
   networking.firewall.allowedUDPPortRanges = [
     { from = 49152; to = 65535; }
   ];
+
+  # ── Avahi (mDNS) ───────────────────────────────────────────
+  # Advertise as sovransystemsos.local on the LAN without changing the system
+  # hostname (which must remain "nixos" for flake compatibility — see above).
+  services.avahi = {
+    enable = true;
+    hostName = "sovransystemsos";
+    nssmdns4 = true;
+    publish = { enable = true; addresses = true; };
+  };
 
   # ── Locale / Time ──────────────────────────────────────────
   time.timeZone = "America/Los_Angeles";
