@@ -1,4 +1,8 @@
+custom.nix
+role-state.nix
+*.iso
+*.zip
+*.pma
 __pycache__/
 *.pyc
 *.pyo
-
