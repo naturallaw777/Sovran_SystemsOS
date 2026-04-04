@@ -597,7 +597,7 @@ async function openServiceDetailModal(unit, name) {
       var addonBtnLabel    = feat.enabled ? "Disable Feature" : "Enable Feature";
       var addonBtnCls      = feat.enabled ? "btn btn-close-modal" : "btn btn-primary";
       html += '<div class="svc-detail-section">' +
-        '<div class="svc-detail-section-title">\uD83D\uDD27 Addon Feature</div>' +
+        '<div class="svc-detail-section-title">🔧 Addon Feature</div>' +
         '<p class="svc-detail-desc">This is an optional addon feature. You can enable or disable it at any time.</p>' +
         '<div class="svc-detail-addon-row">' +
           '<span class="svc-detail-addon-status ' + addonStatusCls + '">' + addonStatusLabel + '</span>' +
@@ -1293,7 +1293,7 @@ function closeSslEmailModal() {
 
 function openDomainSetupModal(feat, onSaved) {
   if (!$domainSetupModal) return;
-  if ($domainSetupTitle) $domainSetupTitle.textContent = "\uD83C\uDF10 Domain Setup \u2014 " + feat.name;
+  if ($domainSetupTitle) $domainSetupTitle.textContent = "🌐 Domain Setup — " + feat.name;
 
   var npubField = "";
   if (feat.id === "haven") {
@@ -1325,7 +1325,7 @@ function openDomainSetupModal(feat, onSaved) {
     '</ol>' +
     '</div>' +
     '<div class="domain-field-group"><label class="domain-field-label" for="domain-subdomain-input">Subdomain (e.g. myservice.example.com):</label><input class="domain-field-input" type="text" id="domain-subdomain-input" placeholder="myservice.example.com" /></div>' +
-    '<div class="domain-field-group"><label class="domain-field-label" for="domain-ddns-input">Njal.la DDNS Curl Command:</label><input class="domain-field-input" type="text" id="domain-ddns-input" placeholder="curl &quot;https://njal.la/update/?h=myservice.example.com&amp;k=abc123&amp;auto&quot;" /><p class="domain-field-hint">\u2139 Paste the curl URL from your Njal.la dashboard\'s Dynamic record</p></div>' +
+    '<div class="domain-field-group"><label class="domain-field-label" for="domain-ddns-input">Njal.la Dynamic DNS Update Command:</label><input class="domain-field-input" type="text" id="domain-ddns-input" placeholder="curl &quot;https://njal.la/update/?h=myservice.example.com&amp;k=abc123&amp;auto&quot;" /><p class="domain-field-hint">ℹ Paste the full curl command from your Njal.la dashboard\'s Dynamic record</p></div>' +
     npubField +
     '<div class="domain-field-actions"><button class="btn btn-close-modal" id="domain-setup-cancel-btn">Cancel</button><button class="btn btn-primary" id="domain-setup-save-btn">Save &amp; Enable</button></div>';
 
