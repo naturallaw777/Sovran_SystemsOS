@@ -401,8 +401,14 @@ async function openServiceDetailModal(unit, name) {
     }
 
     // Section B: Status
-    var sc = statusClass(data.health || data.status);
-    var st = statusText(data.health || data.status, data.enabled);
+    // When a feature override is present, use the feature's enabled state so the
+    // modal matches what the dashboard tile shows (feature toggle is authoritative).
+    var effectiveEnabled = data.feature ? data.feature.enabled : data.enabled;
+    var effectiveHealth  = data.feature && !data.feature.enabled
+      ? "disabled"
+      : (data.health || data.status);
+    var sc = statusClass(effectiveHealth);
+    var st = statusText(effectiveHealth, effectiveEnabled);
     html += '<div class="svc-detail-section">' +
       '<div class="svc-detail-section-title">Status</div>' +
       '<div class="svc-detail-status">' +
@@ -596,9 +602,34 @@ async function openServiceDetailModal(unit, name) {
       var addonStatusCls   = feat.enabled ? "addon-status--on" : "addon-status--off";
       var addonBtnLabel    = feat.enabled ? "Disable Feature" : "Enable Feature";
       var addonBtnCls      = feat.enabled ? "btn btn-close-modal" : "btn btn-primary";
+
+      // Section title: use a more specific label for mutually-exclusive Bitcoin node features
+      var addonSectionTitle = (feat.id === "bip110" || feat.id === "bitcoin-core")
+        ? "\u20BF Bitcoin Node Selection"
+        : "\uD83D\uDD27 Addon Feature";
+
+      // Description: prefer the feature's own description over a generic fallback
+      var addonDesc = feat.description
+        ? feat.description
+        : "This is an optional addon feature. You can enable or disable it at any time.";
+
+      // Conflicts warning: list mutually-exclusive feature names when present
+      var conflictsHtml = "";
+      if (feat.conflicts_with && feat.conflicts_with.length > 0) {
+        var conflictNames = feat.conflicts_with.map(function(cid) {
+          if (_featuresData && Array.isArray(_featuresData.features)) {
+            var cf = _featuresData.features.find(function(f) { return f.id === cid; });
+            if (cf) return cf.name;
+          }
+          return cid;
+        });
+        conflictsHtml = '<div class="feature-conflict-warning">\u26A0 Mutually exclusive with: ' + escHtml(conflictNames.join(", ")) + '</div>';
+      }
+
       html += '<div class="svc-detail-section">' +
-        '<div class="svc-detail-section-title">🔧 Addon Feature</div>' +
-        '<p class="svc-detail-desc">This is an optional addon feature. You can enable or disable it at any time.</p>' +
+        '<div class="svc-detail-section-title">' + addonSectionTitle + '</div>' +
+        '<p class="svc-detail-desc">' + escHtml(addonDesc) + '</p>' +
+        conflictsHtml +
         '<div class="svc-detail-addon-row">' +
           '<span class="svc-detail-addon-status ' + addonStatusCls + '">' + addonStatusLabel + '</span>' +
           '<button class="' + addonBtnCls + '" id="svc-detail-addon-btn">' + escHtml(addonBtnLabel) + '</button>' +
