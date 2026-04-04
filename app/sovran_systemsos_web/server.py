@@ -241,7 +241,6 @@ SERVICE_DOMAIN_MAP: dict[str, str] = {
     "phpfpm-wordpress.service":    "wordpress",
     "haven-relay.service":         "haven",
     "livekit.service":             "element-calling",
-    "caddy.service":               "matrix",  # Caddy serves the main domain
 }
 
 # For features that share a unit, disambiguate by icon field
@@ -1334,7 +1333,7 @@ async def api_service_detail(unit: str):
     }
 
     loop = asyncio.get_event_loop()
-    overrides, _ = await loop.run_in_executor(None, _read_hub_overrides)
+    overrides, nostr_npub = await loop.run_in_executor(None, _read_hub_overrides)
 
     # Find the service config entry
     entry = next((s for s in services if s.get("unit") == unit), None)
@@ -1478,6 +1477,41 @@ async def api_service_detail(unit: str):
     else:
         health = status  # loading states, etc.
 
+    # Build feature entry if this service is an addon feature
+    feature_entry: dict | None = None
+    if feat_id is not None:
+        feat_meta = next((f for f in FEATURE_REGISTRY if f["id"] == feat_id), None)
+        if feat_meta is not None:
+            domain_name_feat = feat_meta.get("domain_name")
+            domain_configured = True
+            if domain_name_feat:
+                domain_path_feat = os.path.join(DOMAINS_DIR, domain_name_feat)
+                try:
+                    with open(domain_path_feat, "r") as f:
+                        domain_configured = bool(f.read(256).strip())
+                except OSError:
+                    domain_configured = False
+            extra_fields = []
+            for ef in feat_meta.get("extra_fields", []):
+                ef_copy = dict(ef)
+                if ef["id"] == "nostr_npub":
+                    ef_copy["current_value"] = nostr_npub or ""
+                extra_fields.append(ef_copy)
+            feature_entry = {
+                "id": feat_id,
+                "name": feat_meta["name"],
+                "description": feat_meta["description"],
+                "category": feat_meta["category"],
+                "enabled": enabled,
+                "needs_domain": feat_meta.get("needs_domain", False),
+                "domain_configured": domain_configured,
+                "domain_name": domain_name_feat,
+                "needs_ddns": feat_meta.get("needs_ddns", False),
+                "extra_fields": extra_fields,
+                "conflicts_with": feat_meta.get("conflicts_with", []),
+                "port_requirements": feat_meta.get("port_requirements", []),
+            }
+
     return {
         "name": entry.get("name", ""),
         "unit": unit,
@@ -1495,6 +1529,7 @@ async def api_service_detail(unit: str):
         "port_statuses": port_statuses,
         "external_ip": external_ip,
         "internal_ip": internal_ip,
+        "feature": feature_entry,
     }
 
 
