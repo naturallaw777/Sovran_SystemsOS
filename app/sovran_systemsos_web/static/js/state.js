@@ -33,7 +33,6 @@ const $sidebarSupport = document.getElementById("sidebar-support");
 const $sidebarFeatures = document.getElementById("sidebar-features");
 const $updateBtn      = document.getElementById("btn-update");
 const $updateBadge    = document.getElementById("update-badge");
-const $refreshBtn     = document.getElementById("btn-refresh");
 const $internalIp     = document.getElementById("ip-internal");
 const $externalIp     = document.getElementById("ip-external");
 
