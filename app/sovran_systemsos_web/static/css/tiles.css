@@ -1,0 +1,279 @@
+/* ── Service tile card (status-only) ─────────────────────────────── */
+
+.service-tile {
+  width: 160px;
+  min-height: 130px;
+  background-color: var(--card-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px 12px 18px;
+  gap: 0;
+  transition: box-shadow 0.2s, border-color 0.2s;
+  position: relative;
+  cursor: pointer;
+}
+
+.service-tile:hover {
+  box-shadow: var(--shadow-hover);
+  border-color: #6c7086;
+}
+
+.service-tile.disabled {
+  opacity: 0.45;
+}
+
+.tile-icon {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+  margin-bottom: 10px;
+}
+
+.tile-icon-fallback {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--border-color);
+  border-radius: 12px;
+  color: var(--text-dim);
+  font-size: 1.5rem;
+  margin-bottom: 10px;
+}
+
+.tile-name {
+  font-size: 0.88rem;
+  font-weight: 600;
+  text-align: center;
+  color: var(--text-primary);
+  line-height: 1.3;
+  max-width: 140px;
+  word-break: break-word;
+  hyphens: auto;
+  min-height: 1.3em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tile-status {
+  font-size: 0.75rem;
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-secondary);
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background-color: var(--grey);
+}
+
+.status-dot.active         { background-color: var(--green); }
+.status-dot.inactive       { background-color: var(--red); }
+.status-dot.loading        { background-color: var(--yellow); animation: pulse-badge 1s infinite; }
+.status-dot.failed         { background-color: var(--red); }
+.status-dot.disabled       { background-color: var(--grey); }
+.status-dot.needs-attention { background-color: var(--yellow); }
+
+/* ── Service detail modal sections ───────────────────────────────── */
+
+.svc-detail-section {
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.svc-detail-section:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+.svc-detail-section-title {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+  margin-bottom: 10px;
+}
+
+.svc-detail-desc {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.svc-detail-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* ── Service detail: Domain ──────────────────────────────────────── */
+
+.svc-detail-domain-value {
+  font-size: 0.9rem;
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.tile-domain-label--ok {
+  color: var(--green);
+  font-weight: 600;
+}
+
+.tile-domain-label--warn {
+  color: var(--yellow);
+  font-weight: 600;
+}
+
+.tile-domain-label--error {
+  color: var(--red);
+  font-weight: 600;
+}
+
+/* ── Service detail: Port table ──────────────────────────────────── */
+
+.svc-detail-port-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+  margin-top: 8px;
+}
+
+.svc-detail-port-table th {
+  text-align: left;
+  color: var(--text-dim);
+  font-weight: 600;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.svc-detail-port-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(69, 71, 90, 0.4);
+  color: var(--text-primary);
+}
+
+.svc-detail-port-table tr:last-child td {
+  border-bottom: none;
+}
+
+.svc-detail-port-table-port {
+  font-family: 'JetBrains Mono', 'Fira Code', 'Source Code Pro', monospace;
+  font-weight: 600;
+  color: var(--accent-color);
+}
+
+.svc-detail-port-table-proto {
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.svc-detail-port-table-desc {
+  color: var(--text-secondary);
+}
+
+.svc-detail-port-table-status {
+  font-weight: 600;
+}
+
+.port-status-listening { color: var(--green); }
+.port-status-open      { color: var(--yellow); }
+.port-status-closed    { color: var(--red); }
+.port-status-unknown   { color: var(--text-dim); }
+
+/* ── Service detail: Troubleshoot box ────────────────────────────── */
+
+.svc-detail-troubleshoot {
+  margin-top: 12px;
+  padding: 14px 16px;
+  background-color: rgba(229, 165, 10, 0.08);
+  border: 1px solid rgba(229, 165, 10, 0.3);
+  border-radius: 10px;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.svc-detail-troubleshoot strong {
+  color: var(--yellow);
+}
+
+.svc-detail-troubleshoot ol {
+  margin-top: 8px;
+  padding-left: 20px;
+}
+
+.svc-detail-troubleshoot li {
+  margin-bottom: 4px;
+}
+
+.svc-detail-troubleshoot code {
+  background-color: rgba(137, 180, 250, 0.12);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.82rem;
+  color: var(--accent-color);
+}
+
+.svc-detail-troubleshoot a {
+  color: var(--accent-color);
+  text-decoration: none;
+}
+
+.svc-detail-troubleshoot a:hover {
+  text-decoration: underline;
+}
+
+/* ── Service detail: Addon feature toggle ────────────────────────── */
+
+.svc-detail-addon-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 12px;
+}
+
+.svc-detail-addon-status {
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.addon-status--on {
+  color: var(--green);
+}
+
+.addon-status--off {
+  color: var(--text-dim);
+}
+
+.feature-conflict-warning {
+  margin-top: 8px;
+  margin-bottom: 8px;
+  padding: 10px 14px;
+  background-color: rgba(229, 165, 10, 0.1);
+  border: 1px solid rgba(229, 165, 10, 0.3);
+  border-radius: 8px;
+  font-size: 0.82rem;
+  color: var(--yellow);
+  font-weight: 600;
+}

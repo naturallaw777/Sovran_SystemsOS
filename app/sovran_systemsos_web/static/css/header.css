@@ -1,0 +1,72 @@
+/* ── Header bar ─────────────────────────────────────────────────── */
+
+.header-bar {
+  background-color: var(--surface-color);
+  border-bottom: 1px solid var(--border-color);
+  padding: 16px 24px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  justify-content: flex-end;
+}
+
+.header-bar .title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  position: absolute;
+  left: 0;
+  right: 0;
+  text-align: center;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.header-logo {
+  height: 108px;
+  width: auto;
+  vertical-align: middle;
+  margin-right: 10px;
+}
+
+.role-badge {
+  background-color: var(--accent-color);
+  color: #1e1e2e;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 20px;
+  letter-spacing: 0.03em;
+}
+
+/* ── IP bar ─────────────────────────────────────────────────────── */
+
+.ip-bar {
+  background-color: var(--surface-color);
+  border-bottom: 1px solid var(--border-color);
+  padding: 8px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 32px;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+}
+
+.ip-bar .ip-label {
+  color: var(--text-dim);
+  margin-right: 6px;
+}
+
+.ip-bar .ip-value {
+  font-family: 'JetBrains Mono', 'Fira Code', 'Source Code Pro', monospace;
+  color: var(--accent-color);
+  font-weight: 600;
+}
+
+.ip-separator {
+  color: var(--border-color);
+}

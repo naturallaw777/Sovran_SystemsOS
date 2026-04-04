@@ -378,8 +378,6 @@ def _file_hash(filename: str) -> str:
     except FileNotFoundError:
         return "0"
 
-_APP_JS_HASH  = _file_hash("app.js")
-_STYLE_CSS_HASH = _file_hash("style.css")
 _ONBOARDING_JS_HASH = _file_hash("onboarding.js")
 
 # ── Update check helpers ──────────────────────────────────────────
@@ -1137,8 +1135,6 @@ def _verify_support_removed() -> bool:
 async def index(request: Request):
     return templates.TemplateResponse("index.html", {
         "request": request,
-        "app_js_hash": _APP_JS_HASH,
-        "style_css_hash": _STYLE_CSS_HASH,
     })
 
 
@@ -1147,7 +1143,6 @@ async def onboarding(request: Request):
     return templates.TemplateResponse("onboarding.html", {
         "request": request,
         "onboarding_js_hash": _ONBOARDING_JS_HASH,
-        "style_css_hash": _STYLE_CSS_HASH,
     })
 
 
