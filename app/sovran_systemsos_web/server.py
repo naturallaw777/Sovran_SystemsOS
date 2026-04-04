@@ -166,8 +166,8 @@ FEATURE_REGISTRY = [
     },
     {
         "id": "bip110",
-        "name": "BIP-110 (Bitcoin Better Money)",
-        "description": "Bitcoin Knots with BIP-110 consensus changes",
+        "name": "Bitcoin Knots + BIP110",
+        "description": "Only one Bitcoin node implementation can be active at a time: Bitcoin Knots (default), Bitcoin Knots + BIP110, or Bitcoin Core. Enabling this option replaces the default Bitcoin Knots with Bitcoin Knots + BIP110 consensus changes. It will disable the currently active alternative.",
         "category": "bitcoin",
         "needs_domain": False,
         "domain_name": None,
@@ -179,7 +179,7 @@ FEATURE_REGISTRY = [
     {
         "id": "bitcoin-core",
         "name": "Bitcoin Core",
-        "description": "Use Bitcoin Core instead of Bitcoin Knots",
+        "description": "Only one Bitcoin node implementation can be active at a time: Bitcoin Knots (default), Bitcoin Knots + BIP110, or Bitcoin Core. Enabling this option replaces the default Bitcoin Knots with Bitcoin Core. It will disable the currently active alternative.",
         "category": "bitcoin",
         "needs_domain": False,
         "domain_name": None,

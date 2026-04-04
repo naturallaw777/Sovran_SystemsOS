@@ -1316,7 +1316,7 @@ function openDomainSetupModal(feat, onSaved) {
     '<p><strong>Before continuing:</strong></p>' +
     '<ol>' +
     '<li>Create an account at <a href="https://njal.la" target="_blank" rel="noopener noreferrer" style="color:var(--accent-color);">https://njal.la</a></li>' +
-    '<li>Purchase your domain on Njal.la</li>' +
+    '<li>Purchase a new domain on Njal.la, or create a subdomain from a domain you already own. Tip: Subdomains are free to create — you only need to purchase one domain, and you can add as many subdomains as you need at no extra cost.</li>' +
     '<li>In the Njal.la web interface, create a <strong>Dynamic</strong> record pointing to this machine\'s external IP address:<br>' +
     '<span style="display:inline-block;margin-top:4px;padding:4px 10px;background:var(--card-color);border:1px solid var(--border-color);border-radius:6px;font-family:monospace;font-size:1em;font-weight:700;">' + escHtml(externalIp) + '</span></li>' +
     '<li>Njal.la will give you a curl command like:<br>' +
@@ -1595,10 +1595,15 @@ function handleFeatureToggle(feat, newEnabled) {
   }
 
   if (conflictNames.length > 0) {
-    openFeatureConfirm(
-      "This will disable " + conflictNames.join(", ") + ". Continue?",
-      proceedAfterConflictCheck
-    );
+    var confirmMsg;
+    if (feat.id === "bip110") {
+      confirmMsg = "Only one Bitcoin node implementation can be active. Enabling Bitcoin Knots + BIP110 will disable Bitcoin Core (if active). Continue?";
+    } else if (feat.id === "bitcoin-core") {
+      confirmMsg = "Only one Bitcoin node implementation can be active. Enabling Bitcoin Core will disable Bitcoin Knots + BIP110 (if active). Continue?";
+    } else {
+      confirmMsg = "This will disable " + conflictNames.join(", ") + ". Continue?";
+    }
+    openFeatureConfirm(confirmMsg, proceedAfterConflictCheck);
   } else {
     proceedAfterConflictCheck();
   }
