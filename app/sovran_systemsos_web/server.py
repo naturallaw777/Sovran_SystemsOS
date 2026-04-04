@@ -1198,6 +1198,12 @@ async def api_services():
     # Read runtime feature overrides from custom.nix Hub Managed section
     overrides, _ = await loop.run_in_executor(None, _read_hub_overrides)
 
+    # Cache port/firewall data once for the entire /api/services request
+    listening_ports, firewall_ports = await asyncio.gather(
+        loop.run_in_executor(None, _get_listening_ports),
+        loop.run_in_executor(None, _get_firewall_allowed_ports),
+    )
+
     async def get_status(entry):
         unit = entry.get("unit", "")
         scope = entry.get("type", "system")
@@ -1235,6 +1241,34 @@ async def api_services():
             except OSError:
                 domain = None
 
+        # Compute composite health
+        if not enabled:
+            health = "disabled"
+        elif status == "active":
+            has_port_issues = False
+            if port_requirements:
+                for p in port_requirements:
+                    ps = _check_port_status(
+                        str(p.get("port", "")),
+                        str(p.get("protocol", "TCP")),
+                        listening_ports,
+                        firewall_ports,
+                    )
+                    if ps == "closed":
+                        has_port_issues = True
+                        break
+            has_domain_issues = False
+            if needs_domain:
+                if not domain:
+                    has_domain_issues = True
+            health = "needs_attention" if (has_port_issues or has_domain_issues) else "healthy"
+        elif status == "inactive":
+            health = "inactive"
+        elif status == "failed":
+            health = "failed"
+        else:
+            health = status  # loading states, etc.
+
         return {
             "name": entry.get("name", ""),
             "unit": unit,
@@ -1243,6 +1277,7 @@ async def api_services():
             "enabled": enabled,
             "category": entry.get("category", "other"),
             "status": status,
+            "health": health,
             "has_credentials": has_credentials,
             "port_requirements": port_requirements,
             "needs_domain": needs_domain,
@@ -1424,11 +1459,31 @@ async def api_service_detail(unit: str):
                 "description": p.get("description", ""),
             })
 
+    # Compute composite health
+    if not enabled:
+        health = "disabled"
+    elif status == "active":
+        has_port_issues = any(p["status"] == "closed" for p in port_statuses)
+        has_domain_issues = False
+        if needs_domain:
+            if not domain:
+                has_domain_issues = True
+            elif domain_status and domain_status.get("status") not in ("connected", None):
+                has_domain_issues = True
+        health = "needs_attention" if (has_port_issues or has_domain_issues) else "healthy"
+    elif status == "inactive":
+        health = "inactive"
+    elif status == "failed":
+        health = "failed"
+    else:
+        health = status  # loading states, etc.
+
     return {
         "name": entry.get("name", ""),
         "unit": unit,
         "icon": icon,
         "status": status,
+        "health": health,
         "enabled": enabled,
         "description": SERVICE_DESCRIPTIONS.get(unit, ""),
         "has_credentials": has_credentials and bool(resolved_creds),
