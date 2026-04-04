@@ -1,0 +1,173 @@
+/* ── Domain setup modal ──────────────────────────────────────────── */
+
+domain-narrow-dialog {
+  max-width: 500px;
+}
+
+domain-field-group {
+  margin-bottom: 14px;
+}
+
+domain-field-label {
+  display: block;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+  font-weight: 600;
+}
+
+domain-field-input {
+  width: 100%;
+  background-color: #12121c;
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 0.9rem;
+  box-sizing: border-box;
+}
+
+domain-field-input:focus {
+  outline: none;
+  border-color: var(--accent-color);
+}
+
+domain-field-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 18px;
+  justify-content: flex-end;
+}
+
+/* ── Port Requirements modal ─────────────────────────────────────── */
+
+.domain-narrow-dialog {
+  max-width: 500px;
+}
+
+.domain-setup-intro {
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin-bottom: 16px;
+}
+
+.domain-setup-intro ol {
+  padding-left: 20px;
+  margin-top: 8px;
+}
+
+.domain-setup-intro li {
+  margin-bottom: 6px;
+}
+
+.domain-field-group {
+  margin-bottom: 14px;
+}
+
+.domain-field-label {
+  display: block;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+  font-weight: 600;
+}
+
+.domain-field-input {
+  width: 100%;
+  background-color: #12121c;
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 0.9rem;
+  box-sizing: border-box;
+}
+
+.domain-field-input:focus {
+  outline: none;
+  border-color: var(--accent-color);
+}
+
+.domain-field-hint {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  margin-top: 4px;
+  font-style: italic;
+}
+
+.domain-field-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 18px;
+  justify-content: flex-end;
+}
+
+.port-req-intro {
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin-bottom: 10px;
+}
+
+.port-req-hint {
+  font-size: 0.82rem;
+  color: var(--text-dim);
+  line-height: 1.6;
+  margin-top: 10px;
+  margin-bottom: 10px;
+}
+
+.port-req-internal-ip {
+  font-family: 'JetBrains Mono', 'Fira Code', 'Source Code Pro', monospace;
+  font-weight: 700;
+  color: var(--accent-color);
+}
+
+.port-req-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+  margin-top: 8px;
+  margin-bottom: 8px;
+}
+
+.port-req-table th {
+  text-align: left;
+  color: var(--text-dim);
+  font-weight: 600;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.port-req-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(69, 71, 90, 0.4);
+  color: var(--text-primary);
+}
+
+.port-req-table tr:last-child td {
+  border-bottom: none;
+}
+
+.port-req-port {
+  font-family: 'JetBrains Mono', 'Fira Code', 'Source Code Pro', monospace;
+  font-weight: 600;
+  color: var(--accent-color);
+}
+
+.port-req-proto {
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.port-req-desc {
+  color: var(--text-secondary);
+}
+
+.port-req-status {
+  font-weight: 600;
+}

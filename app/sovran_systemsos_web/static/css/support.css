@@ -1,0 +1,362 @@
+/* ── Tech Support modal ──────────────────────────────────────────── */
+
+.support-section {
+  text-align: center;
+}
+
+.support-icon-big {
+  font-size: 3rem;
+  margin-bottom: 12px;
+}
+
+.support-active-icon {
+  animation: pulse-badge 2s ease-in-out infinite;
+}
+
+.support-heading {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.support-active-heading {
+  color: var(--green);
+}
+
+.support-desc {
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin-bottom: 16px;
+  text-align: left;
+}
+
+.support-active-note {
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+  margin-bottom: 16px;
+}
+
+.support-info-box {
+  background-color: var(--card-color);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 14px 18px;
+  margin-bottom: 16px;
+  text-align: left;
+}
+
+.support-active-box {
+  border-color: var(--green);
+}
+
+.support-info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 0;
+}
+
+.support-info-label {
+  font-size: 0.82rem;
+  color: var(--text-dim);
+  font-weight: 600;
+}
+
+.support-info-value {
+  font-family: 'JetBrains Mono', 'Fira Code', 'Source Code Pro', monospace;
+  font-size: 0.88rem;
+  color: var(--accent-color);
+  font-weight: 600;
+}
+
+.support-info-hint {
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  margin-top: 6px;
+  font-style: italic;
+}
+
+.support-steps {
+  text-align: left;
+  margin-bottom: 16px;
+  padding: 14px 18px;
+  background-color: var(--card-color);
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+}
+
+.support-steps-title {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 8px;
+}
+
+.support-steps ol {
+  padding-left: 20px;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  line-height: 1.7;
+}
+
+.support-steps code {
+  background-color: rgba(137, 180, 250, 0.12);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.82rem;
+  color: var(--accent-color);
+}
+
+.support-btn-enable {
+  width: 100%;
+  padding: 12px;
+  border-radius: var(--radius-btn);
+  background-color: var(--accent-color);
+  color: #1e1e2e;
+  font-size: 0.95rem;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+
+.support-btn-enable:hover:not(:disabled) {
+  opacity: 0.88;
+}
+
+.support-btn-disable {
+  width: 100%;
+  padding: 12px;
+  border-radius: var(--radius-btn);
+  background-color: var(--red);
+  color: #fff;
+  font-size: 0.95rem;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+
+.support-btn-disable:hover:not(:disabled) {
+  opacity: 0.88;
+}
+
+.support-btn-done {
+  width: 100%;
+  padding: 12px;
+  border-radius: var(--radius-btn);
+  background-color: var(--accent-color);
+  color: #1e1e2e;
+  font-size: 0.95rem;
+  font-weight: 700;
+  margin-top: 16px;
+}
+
+.support-btn-done:hover:not(:disabled) {
+  opacity: 0.88;
+}
+
+.support-btn-auditlog {
+  width: 100%;
+  padding: 10px;
+  border-radius: var(--radius-btn);
+  background-color: var(--border-color);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-top: 8px;
+}
+
+.support-btn-auditlog:hover:not(:disabled) {
+  background-color: #5a5c72;
+}
+
+.support-fine-print {
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  font-style: italic;
+  margin-bottom: 8px;
+}
+
+.support-verify-box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin: 16px 0;
+  padding: 12px;
+  background-color: var(--card-color);
+  border-radius: 8px;
+}
+
+.support-verify-label {
+  font-size: 0.82rem;
+  color: var(--text-dim);
+  font-weight: 600;
+}
+
+.support-verify-value {
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.support-verify-value.verified-gone {
+  color: var(--green);
+}
+
+.support-verify-value.verify-warning {
+  color: var(--yellow);
+}
+
+/* ── Wallet protection ───────────────────────────────────────────── */
+
+.support-wallet-box {
+  text-align: left;
+  padding: 14px 18px;
+  border-radius: 10px;
+  margin-bottom: 16px;
+  border: 1px solid var(--border-color);
+}
+
+.support-wallet-protected {
+  background-color: rgba(46, 194, 126, 0.06);
+  border-color: rgba(46, 194, 126, 0.3);
+}
+
+.support-wallet-unlocked {
+  background-color: rgba(229, 165, 10, 0.06);
+  border-color: rgba(229, 165, 10, 0.3);
+}
+
+.support-wallet-warning {
+  background-color: rgba(224, 27, 36, 0.06);
+  border-color: rgba(224, 27, 36, 0.3);
+}
+
+.support-wallet-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.support-wallet-icon {
+  font-size: 1.2rem;
+}
+
+.support-wallet-title {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.support-wallet-desc {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin-bottom: 8px;
+}
+
+.support-wallet-paths {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0;
+}
+
+.support-wallet-paths li {
+  font-family: 'JetBrains Mono', 'Fira Code', 'Source Code Pro', monospace;
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  padding: 2px 0;
+}
+
+.support-wallet-unlock-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.support-unlock-select {
+  background-color: var(--card-color);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 0.82rem;
+}
+
+.support-btn-wallet-unlock {
+  padding: 8px 16px;
+  border-radius: var(--radius-btn);
+  background-color: var(--yellow);
+  color: #1e1e2e;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.support-btn-wallet-unlock:hover:not(:disabled) {
+  background-color: #c98d08;
+}
+
+.support-btn-wallet-lock {
+  padding: 8px 16px;
+  border-radius: var(--radius-btn);
+  background-color: var(--green);
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 700;
+  margin-top: 8px;
+}
+
+.support-btn-wallet-lock:hover:not(:disabled) {
+  background-color: #27ae6e;
+}
+
+/* ── Audit log ───────────────────────────────────────────────────── */
+
+.support-audit-container {
+  margin-top: 12px;
+  border-top: 1px solid var(--border-color);
+  padding-top: 12px;
+}
+
+.support-audit-log {
+  max-height: 200px;
+  overflow-y: auto;
+  background-color: #12121c;
+  border-radius: 8px;
+  padding: 10px 14px;
+}
+
+.support-audit-entry {
+  font-family: 'JetBrains Mono', 'Fira Code', 'Source Code Pro', monospace;
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  padding: 3px 0;
+  border-bottom: 1px solid rgba(69, 71, 90, 0.3);
+}
+
+.support-audit-entry:last-child {
+  border-bottom: none;
+}
+
+.support-audit-empty {
+  font-size: 0.82rem;
+  color: var(--text-dim);
+  text-align: center;
+  padding: 12px;
+}
+
+/* ── Tech Support tile ───────────────────────────────────────────── */
+
+.support-tile {
+  border-color: var(--accent-color);
+  border-width: 2px;
+  border-style: dashed;
+}
+
+.support-tile:hover {
+  border-color: #a8c8ff;
+  border-style: solid;
+}
