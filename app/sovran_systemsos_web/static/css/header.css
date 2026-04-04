@@ -5,18 +5,18 @@
   border-bottom: 1px solid var(--border-color);
   padding: 16px 24px;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
+  gap: 8px;
   position: sticky;
   top: 0;
   z-index: 100;
 }
 
-.header-center {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
+.header-logo {
+  height: 140px;
+  width: auto;
+  display: block;
 }
 
 .header-bar .title {
@@ -25,20 +25,10 @@
   color: var(--text-primary);
 }
 
-.header-right {
-  position: absolute;
-  right: 24px;
-  top: 50%;
-  transform: translateY(-50%);
+.header-buttons {
   display: flex;
   align-items: center;
   gap: 10px;
-}
-
-.header-logo {
-  height: 130px;
-  width: auto;
-  display: block;
 }
 
 .role-badge {
