@@ -575,9 +575,34 @@ async function openServiceDetailModal(unit, name) {
             '<button class="matrix-action-btn" id="matrix-change-pw-btn">🔑 Change Password</button>' +
           '</div>' : "") +
         '</div>';
-    } else if (!data.enabled) {
+    } else if (!data.enabled && !data.feature) {
       html += '<div class="svc-detail-section">' +
-        '<p class="creds-empty">This service is not enabled in your configuration. You can enable it from the <strong>Feature Manager</strong> in the sidebar.</p>' +
+        '<p class="creds-empty">This service is not enabled in your configuration.</p>' +
+        '</div>';
+    }
+
+    // Section F: Addon Feature toggle
+    if (data.feature) {
+      var feat = data.feature;
+      // Sync this feature into _featuresData so handleFeatureToggle can look up conflicts / ssl state
+      if (!_featuresData) {
+        _featuresData = { features: [feat], ssl_email_configured: false };
+      } else {
+        var fidx = _featuresData.features.findIndex(function(f) { return f.id === feat.id; });
+        if (fidx >= 0) { _featuresData.features[fidx] = feat; }
+        else { _featuresData.features.push(feat); }
+      }
+      var addonStatusLabel = feat.enabled ? "Enabled \u2713" : "Disabled";
+      var addonStatusCls   = feat.enabled ? "addon-status--on" : "addon-status--off";
+      var addonBtnLabel    = feat.enabled ? "Disable Feature" : "Enable Feature";
+      var addonBtnCls      = feat.enabled ? "btn btn-close-modal" : "btn btn-primary";
+      html += '<div class="svc-detail-section">' +
+        '<div class="svc-detail-section-title">🔧 Addon Feature</div>' +
+        '<p class="svc-detail-desc">This is an optional addon feature. You can enable or disable it at any time.</p>' +
+        '<div class="svc-detail-addon-row">' +
+          '<span class="svc-detail-addon-status ' + addonStatusCls + '">' + addonStatusLabel + '</span>' +
+          '<button class="' + addonBtnCls + '" id="svc-detail-addon-btn">' + escHtml(addonBtnLabel) + '</button>' +
+        '</div>' +
         '</div>';
     }
 
@@ -589,6 +614,17 @@ async function openServiceDetailModal(unit, name) {
       var changePwBtn = document.getElementById("matrix-change-pw-btn");
       if (addBtn) addBtn.addEventListener("click", function() { openMatrixCreateUserModal(unit, name); });
       if (changePwBtn) changePwBtn.addEventListener("click", function() { openMatrixChangePasswordModal(unit, name); });
+    }
+
+    if (data.feature) {
+      var addonBtn = document.getElementById("svc-detail-addon-btn");
+      if (addonBtn) {
+        var addonFeat = data.feature;
+        addonBtn.addEventListener("click", function() {
+          closeCredsModal();
+          handleFeatureToggle(addonFeat, !addonFeat.enabled);
+        });
+      }
     }
   } catch (err) {
     if ($credsBody) $credsBody.innerHTML = '<p class="creds-empty">Could not load service details.</p>';
@@ -1273,10 +1309,23 @@ function openDomainSetupModal(feat, onSaved) {
     npubField = '<div class="domain-field-group"><label class="domain-field-label" for="domain-npub-input">Nostr Public Key (npub1...):</label><input class="domain-field-input" type="text" id="domain-npub-input" placeholder="npub1..." value="' + escHtml(currentNpub) + '" /></div>';
   }
 
+  var externalIp = _cachedExternalIp || "your external IP";
+
   $domainSetupBody.innerHTML =
-    '<div class="domain-setup-intro"><p>Before continuing, you need:</p><ol><li>A subdomain purchased on njal.la</li><li>A Dynamic DNS record for it</li></ol></div>' +
-    '<div class="domain-field-group"><label class="domain-field-label" for="domain-subdomain-input">Subdomain:</label><input class="domain-field-input" type="text" id="domain-subdomain-input" placeholder="myservice.example.com" /></div>' +
-    '<div class="domain-field-group"><label class="domain-field-label" for="domain-ddns-input">Njal.la DDNS URL:</label><input class="domain-field-input" type="text" id="domain-ddns-input" placeholder="https://njal.la/update/?h=..." /><p class="domain-field-hint">ℹ Paste the curl URL from your Njal.la dashboard\'s Dynamic record</p></div>' +
+    '<div class="domain-setup-intro">' +
+    '<p><strong>Before continuing:</strong></p>' +
+    '<ol>' +
+    '<li>Create an account at <a href="https://njal.la" target="_blank" rel="noopener noreferrer" style="color:var(--accent-color);">https://njal.la</a></li>' +
+    '<li>Purchase your domain on Njal.la</li>' +
+    '<li>In the Njal.la web interface, create a <strong>Dynamic</strong> record pointing to this machine\'s external IP address:<br>' +
+    '<span style="display:inline-block;margin-top:4px;padding:4px 10px;background:var(--card-color);border:1px solid var(--border-color);border-radius:6px;font-family:monospace;font-size:1em;font-weight:700;">' + escHtml(externalIp) + '</span></li>' +
+    '<li>Njal.la will give you a curl command like:<br>' +
+    '<code style="font-size:0.8em;">curl &quot;https://njal.la/update/?h=sub.domain.com&amp;k=abc123&amp;auto&quot;</code></li>' +
+    '<li>Enter the subdomain and paste that curl command below</li>' +
+    '</ol>' +
+    '</div>' +
+    '<div class="domain-field-group"><label class="domain-field-label" for="domain-subdomain-input">Subdomain (e.g. myservice.example.com):</label><input class="domain-field-input" type="text" id="domain-subdomain-input" placeholder="myservice.example.com" /></div>' +
+    '<div class="domain-field-group"><label class="domain-field-label" for="domain-ddns-input">Njal.la Dynamic DNS Update Command:</label><input class="domain-field-input" type="text" id="domain-ddns-input" placeholder="curl &quot;https://njal.la/update/?h=myservice.example.com&amp;k=abc123&amp;auto&quot;" /><p class="domain-field-hint">ℹ Paste the full curl command from your Njal.la dashboard\'s Dynamic record</p></div>' +
     npubField +
     '<div class="domain-field-actions"><button class="btn btn-close-modal" id="domain-setup-cancel-btn">Cancel</button><button class="btn btn-primary" id="domain-setup-save-btn">Save &amp; Enable</button></div>';
 
@@ -1569,9 +1618,7 @@ async function loadFeatureManager() {
   try {
     var data = await apiFetch("/api/features");
     _featuresData = data;
-    renderFeatureManager(data);
-    // After rendering, do a batch domain check for all features that have a configured domain
-    _checkFeatureManagerDomains(data);
+    // Feature Manager is now integrated into tile modals; sidebar rendering removed.
   } catch (err) {
     console.warn("Failed to load features:", err);
   }
