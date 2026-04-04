@@ -231,6 +231,19 @@ SERVICE_PORT_REQUIREMENTS: dict[str, list[dict]] = {
     "haven-relay.service":              _PORTS_WEB,
 }
 
+# Maps service unit names to their domain file name in DOMAINS_DIR.
+# Only services that require a domain are listed here.
+SERVICE_DOMAIN_MAP: dict[str, str] = {
+    "matrix-synapse.service":      "matrix",
+    "btcpayserver.service":        "btcpayserver",
+    "vaultwarden.service":         "vaultwarden",
+    "phpfpm-nextcloud.service":    "nextcloud",
+    "phpfpm-wordpress.service":    "wordpress",
+    "haven-relay.service":         "haven",
+    "livekit.service":             "element-calling",
+    "caddy.service":               "matrix",  # Caddy serves the main domain
+}
+
 # For features that share a unit, disambiguate by icon field
 FEATURE_ICON_MAP = {
     "bip110": "bip110",
@@ -1123,6 +1136,18 @@ async def api_services():
 
         port_requirements = SERVICE_PORT_REQUIREMENTS.get(unit, [])
 
+        domain_key = SERVICE_DOMAIN_MAP.get(unit)
+        needs_domain = domain_key is not None
+        domain: str | None = None
+        if domain_key:
+            domain_path = os.path.join(DOMAINS_DIR, domain_key)
+            try:
+                with open(domain_path, "r") as f:
+                    val = f.read(512).strip()
+                    domain = val if val else None
+            except OSError:
+                domain = None
+
         return {
             "name": entry.get("name", ""),
             "unit": unit,
@@ -1133,6 +1158,8 @@ async def api_services():
             "status": status,
             "has_credentials": has_credentials,
             "port_requirements": port_requirements,
+            "needs_domain": needs_domain,
+            "domain": domain,
         }
 
     results = await asyncio.gather(*[get_status(s) for s in services])
@@ -1751,6 +1778,56 @@ async def api_domains_status():
         except FileNotFoundError:
             domains[name] = None
     return {"domains": domains}
+
+
+class DomainCheckRequest(BaseModel):
+    domains: list[str]
+
+
+@app.post("/api/domains/check")
+async def api_domains_check(req: DomainCheckRequest):
+    """Check DNS resolution for each domain and verify it points to this server."""
+    loop = asyncio.get_event_loop()
+    external_ip = await loop.run_in_executor(None, _get_external_ip)
+
+    def check_domain(domain: str) -> dict:
+        try:
+            results = socket.getaddrinfo(domain, None)
+            if not results:
+                return {
+                    "domain": domain, "status": "unresolvable",
+                    "resolved_ip": None, "expected_ip": external_ip,
+                }
+            resolved_ip = results[0][4][0]
+            if external_ip == "unavailable":
+                return {
+                    "domain": domain, "status": "error",
+                    "resolved_ip": resolved_ip, "expected_ip": external_ip,
+                }
+            if resolved_ip == external_ip:
+                return {
+                    "domain": domain, "status": "connected",
+                    "resolved_ip": resolved_ip, "expected_ip": external_ip,
+                }
+            return {
+                "domain": domain, "status": "dns_mismatch",
+                "resolved_ip": resolved_ip, "expected_ip": external_ip,
+            }
+        except socket.gaierror:
+            return {
+                "domain": domain, "status": "unresolvable",
+                "resolved_ip": None, "expected_ip": external_ip,
+            }
+        except Exception:
+            return {
+                "domain": domain, "status": "error",
+                "resolved_ip": None, "expected_ip": external_ip,
+            }
+
+    check_results = await asyncio.gather(*[
+        loop.run_in_executor(None, check_domain, d) for d in req.domains
+    ])
+    return {"domains": list(check_results)}
 
 
 # ── Matrix user management ────────────────────────────────────────

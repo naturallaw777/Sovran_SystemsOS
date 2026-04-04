@@ -269,7 +269,16 @@ function buildTile(svc) {
     portsHtml = '<div class="tile-ports" title="Click to view required router ports"><span class="tile-ports-icon">🔌</span><span class="tile-ports-label tile-ports-label--loading">Ports: ' + ports.length + ' required</span></div>';
   }
 
-  tile.innerHTML = infoBtn + '<img class="tile-icon" src="/static/icons/' + escHtml(svc.icon) + '.svg" alt="' + escHtml(svc.name) + '" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'"><div class="tile-icon-fallback" style="display:none">?</div><div class="tile-name">' + escHtml(svc.name) + '</div><div class="tile-status"><span class="status-dot ' + sc + '"></span><span class="status-text">' + st + '</span></div>' + portsHtml;
+  // Domain badge — ONLY for services that require a domain
+  var domainHtml = "";
+  if (svc.needs_domain) {
+    domainHtml = '<div class="tile-domain" title="Click to check domain status">'
+      + '<span class="tile-domain-icon">🌐</span>'
+      + '<span class="tile-domain-label tile-domain-label--checking">' + (svc.domain ? escHtml(svc.domain) : 'Not set') + '</span>'
+      + '</div>';
+  }
+
+  tile.innerHTML = infoBtn + '<img class="tile-icon" src="/static/icons/' + escHtml(svc.icon) + '.svg" alt="' + escHtml(svc.name) + '" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'"><div class="tile-icon-fallback" style="display:none">?</div><div class="tile-name">' + escHtml(svc.name) + '</div><div class="tile-status"><span class="status-dot ' + sc + '"></span><span class="status-text">' + st + '</span></div>' + portsHtml + domainHtml;
 
   var infoBtnEl = tile.querySelector(".tile-info-btn");
   if (infoBtnEl) {
@@ -319,6 +328,51 @@ function buildTile(svc) {
         .catch(function() {
           // Leave badge as-is on error
         });
+    }
+  }
+
+  // Domain badge async check
+  var domainEl = tile.querySelector(".tile-domain");
+  if (domainEl && svc.needs_domain) {
+    domainEl.style.cursor = "pointer";
+    domainEl.addEventListener("click", function(e) {
+      e.stopPropagation();
+    });
+
+    if (svc.domain) {
+      fetch("/api/domains/check", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ domains: [svc.domain] }),
+      })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          var d = (data.domains || [])[0];
+          var lbl = domainEl.querySelector(".tile-domain-label");
+          if (!lbl || !d) return;
+          lbl.classList.remove("tile-domain-label--checking");
+          if (d.status === "connected") {
+            lbl.className = "tile-domain-label tile-domain-label--ok";
+            lbl.textContent = svc.domain + " ✓";
+          } else if (d.status === "dns_mismatch") {
+            lbl.className = "tile-domain-label tile-domain-label--warn";
+            lbl.textContent = svc.domain + " (IP mismatch)";
+          } else if (d.status === "unresolvable") {
+            lbl.className = "tile-domain-label tile-domain-label--error";
+            lbl.textContent = svc.domain + " (DNS error)";
+          } else {
+            lbl.className = "tile-domain-label tile-domain-label--warn";
+            lbl.textContent = svc.domain + " (unknown)";
+          }
+        })
+        .catch(function() {});
+    } else {
+      var lbl = domainEl.querySelector(".tile-domain-label");
+      if (lbl) {
+        lbl.classList.remove("tile-domain-label--checking");
+        lbl.className = "tile-domain-label tile-domain-label--warn";
+        lbl.textContent = "Domain: Not set";
+      }
     }
   }
 
@@ -1398,9 +1452,92 @@ async function loadFeatureManager() {
     var data = await apiFetch("/api/features");
     _featuresData = data;
     renderFeatureManager(data);
+    // After rendering, do a batch domain check for all features that have a configured domain
+    _checkFeatureManagerDomains(data);
   } catch (err) {
     console.warn("Failed to load features:", err);
   }
+}
+
+function _checkFeatureManagerDomains(data) {
+  // Collect all features with a configured domain
+  var featsWithDomain = (data.features || []).filter(function(f) {
+    return f.needs_domain && f.domain_configured;
+  });
+  if (!featsWithDomain.length) return;
+
+  // Get the actual domain values from /api/domains/status, then check them
+  fetch("/api/domains/status")
+    .then(function(r) { return r.json(); })
+    .then(function(statusData) {
+      var domainFileMap = statusData.domains || {};
+      // Build list of domains to check and a map from domain value → feature id
+      var domainsToCheck = [];
+      var domainToFeatIds = {};
+      featsWithDomain.forEach(function(feat) {
+        var domainName = feat.domain_name;
+        var domainVal = domainName ? domainFileMap[domainName] : null;
+        if (domainVal) {
+          domainsToCheck.push(domainVal);
+          if (!domainToFeatIds[domainVal]) domainToFeatIds[domainVal] = [];
+          domainToFeatIds[domainVal].push(feat.id);
+        } else {
+          // Domain file missing — update badge to warn
+          _updateFeatureDomainBadge(feat.id, null, "unresolvable");
+        }
+      });
+
+      if (!domainsToCheck.length) return;
+
+      return fetch("/api/domains/check", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ domains: domainsToCheck }),
+      })
+        .then(function(r) { return r.json(); })
+        .then(function(checkData) {
+          (checkData.domains || []).forEach(function(d) {
+            var featIds = domainToFeatIds[d.domain] || [];
+            featIds.forEach(function(featId) {
+              _updateFeatureDomainBadge(featId, d.domain, d.status);
+            });
+          });
+        });
+    })
+    .catch(function() {});
+}
+
+function _updateFeatureDomainBadge(featId, domainVal, status) {
+  var section = $sidebarFeatures.querySelector(".feature-manager-section");
+  if (!section) return;
+  // Find the card — cards don't have a data-feat-id, so find via name match
+  var badges = section.querySelectorAll(".feature-domain-badge.configured");
+  badges.forEach(function(badge) {
+    var domainNameAttr = badge.getAttribute("data-domain-name");
+    // Match by domain_name attribute — we need to look up the feat's domain_name
+    var feat = _featuresData && _featuresData.features
+      ? _featuresData.features.find(function(f) { return f.id === featId; })
+      : null;
+    if (!feat) return;
+    if (domainNameAttr !== (feat.domain_name || "")) return;
+
+    var lbl = badge.querySelector(".feature-domain-label");
+    if (!lbl) return;
+    lbl.classList.remove("feature-domain-label--checking");
+    if (status === "connected") {
+      lbl.className = "feature-domain-label feature-domain-label--ok";
+      lbl.textContent = (domainVal || "Domain") + " ✓";
+    } else if (status === "dns_mismatch") {
+      lbl.className = "feature-domain-label feature-domain-label--warn";
+      lbl.textContent = (domainVal || "Domain") + " (IP mismatch)";
+    } else if (status === "unresolvable") {
+      lbl.className = "feature-domain-label feature-domain-label--error";
+      lbl.textContent = (domainVal || "Domain") + " (DNS error)";
+    } else {
+      lbl.className = "feature-domain-label feature-domain-label--warn";
+      lbl.textContent = (domainVal || "Domain") + " (unknown)";
+    }
+  });
 }
 
 function renderFeatureManager(data) {
@@ -1467,9 +1604,15 @@ function buildFeatureCard(feat) {
   var domainHtml = "";
   if (feat.needs_domain) {
     if (feat.domain_configured) {
-      domainHtml = '<div class="feature-domain-badge configured">🌐 Domain: Configured</div>';
+      domainHtml = '<div class="feature-domain-badge configured" data-domain-name="' + escHtml(feat.domain_name || '') + '">'
+        + '<span class="feature-domain-icon">🌐</span>'
+        + '<span class="feature-domain-label feature-domain-label--checking">Domain: Checking\u2026</span>'
+        + '</div>';
     } else {
-      domainHtml = '<div class="feature-domain-badge not-configured">🌐 Domain: Not configured</div>';
+      domainHtml = '<div class="feature-domain-badge not-configured">'
+        + '<span class="feature-domain-icon">🌐</span>'
+        + '<span class="feature-domain-label feature-domain-label--warn">Domain: Not configured</span>'
+        + '</div>';
     }
   }
 
