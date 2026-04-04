@@ -1316,7 +1316,168 @@ button.btn-reboot:hover:not(:disabled) {
   background-color: #5a5c72;
 }
 
-/* ── Feature Manager ─────────────────────────────────────────────── */
+/* ── Tech Support — wallet protection ────────────────────────────── */
+
+.support-wallet-box {
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  padding: 14px 18px;
+  margin: 0 auto 20px;
+  max-width: 460px;
+  text-align: left;
+}
+
+.support-wallet-protected {
+  border-color: var(--green);
+  background-color: rgba(30, 150, 96, 0.08);
+}
+
+.support-wallet-unlocked {
+  border-color: var(--yellow);
+  background-color: rgba(230, 180, 0, 0.08);
+}
+
+.support-wallet-warning {
+  border-color: var(--red);
+  background-color: rgba(220, 38, 38, 0.08);
+}
+
+.support-wallet-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.support-wallet-icon {
+  font-size: 1.2rem;
+}
+
+.support-wallet-title {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.support-wallet-desc {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  line-height: 1.55;
+  margin-bottom: 10px;
+}
+
+.support-wallet-paths {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 12px;
+}
+
+.support-wallet-paths li {
+  font-family: 'JetBrains Mono', 'Fira Code', 'Source Code Pro', monospace;
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  padding: 2px 0;
+}
+
+.support-wallet-paths li::before {
+  content: "🗂 ";
+}
+
+.support-wallet-unlock-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.support-unlock-select {
+  background-color: #1c1c2e;
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 0.85rem;
+}
+
+.support-btn-wallet-unlock {
+  background-color: var(--yellow);
+  color: #111;
+  padding: 7px 18px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  border-radius: 8px;
+}
+
+.support-btn-wallet-unlock:hover:not(:disabled) {
+  background-color: #c9a200;
+}
+
+.support-btn-wallet-lock {
+  background-color: var(--green);
+  color: #fff;
+  padding: 7px 18px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  border-radius: 8px;
+}
+
+.support-btn-wallet-lock:hover:not(:disabled) {
+  background-color: #1a8557;
+}
+
+.support-btn-auditlog {
+  background-color: transparent;
+  color: var(--accent-color);
+  border: 1px solid var(--accent-color);
+  padding: 6px 18px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  border-radius: 8px;
+  margin-top: 10px;
+}
+
+.support-btn-auditlog:hover:not(:disabled) {
+  background-color: rgba(100, 130, 220, 0.12);
+}
+
+/* ── Tech Support — audit log ────────────────────────────────────── */
+
+.support-audit-container {
+  margin: 0 auto;
+  max-width: 520px;
+  padding: 0 4px 12px;
+}
+
+.support-audit-log {
+  background-color: #0d0d1a;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 10px 14px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.support-audit-entry {
+  font-family: 'JetBrains Mono', 'Fira Code', 'Source Code Pro', monospace;
+  font-size: 0.76rem;
+  color: var(--text-secondary);
+  line-height: 1.7;
+  border-bottom: 1px solid #1e1e30;
+  padding: 2px 0;
+}
+
+.support-audit-entry:last-child {
+  border-bottom: none;
+}
+
+.support-audit-empty {
+  font-size: 0.82rem;
+  color: var(--text-dim);
+  text-align: center;
+  padding: 12px 0;
+}
+
+
 
 .feature-manager-section {
   margin-bottom: 32px;
