@@ -47,7 +47,7 @@ body {
 .header-bar {
   background-color: var(--surface-color);
   border-bottom: 1px solid var(--border-color);
-  padding: 10px 24px;
+  padding: 16px 24px;
   display: flex;
   align-items: center;
   gap: 16px;
@@ -70,7 +70,7 @@ body {
 }
 
 .header-logo {
-  height: 36px;
+  height: 108px;
   width: auto;
   vertical-align: middle;
   margin-right: 10px;
