@@ -245,7 +245,6 @@ function buildTile(svc) {
   var sc = statusClass(svc.status);
   var st = statusText(svc.status, svc.enabled);
   var dis = !svc.enabled;
-  var hasCreds = svc.has_credentials && svc.enabled;
 
   var tile = document.createElement("div");
   tile.className = "service-tile" + (dis ? " disabled" : "") + (isSupport ? " support-tile" : "");
@@ -260,121 +259,12 @@ function buildTile(svc) {
     return tile;
   }
 
-  var infoBtn = hasCreds ? '<button class="tile-info-btn" data-unit="' + escHtml(svc.unit) + '" title="Connection info">i</button>' : "";
+  tile.innerHTML = '<img class="tile-icon" src="/static/icons/' + escHtml(svc.icon) + '.svg" alt="' + escHtml(svc.name) + '" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'"><div class="tile-icon-fallback" style="display:none">?</div><div class="tile-name">' + escHtml(svc.name) + '</div><div class="tile-status"><span class="status-dot ' + sc + '"></span><span class="status-text">' + st + '</span></div>';
 
-  // Port requirements badge
-  var ports = svc.port_requirements || [];
-  var portsHtml = "";
-  if (ports.length > 0) {
-    portsHtml = '<div class="tile-ports" title="Click to view required router ports"><span class="tile-ports-icon">🔌</span><span class="tile-ports-label tile-ports-label--loading">Ports: ' + ports.length + ' required</span></div>';
-  }
-
-  // Domain badge — ONLY for services that require a domain
-  var domainHtml = "";
-  if (svc.needs_domain) {
-    domainHtml = '<div class="tile-domain" title="Click to check domain status">'
-      + '<span class="tile-domain-icon">🌐</span>'
-      + '<span class="tile-domain-label tile-domain-label--checking">' + (svc.domain ? escHtml(svc.domain) : 'Not set') + '</span>'
-      + '</div>';
-  }
-
-  tile.innerHTML = infoBtn + '<img class="tile-icon" src="/static/icons/' + escHtml(svc.icon) + '.svg" alt="' + escHtml(svc.name) + '" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'"><div class="tile-icon-fallback" style="display:none">?</div><div class="tile-name">' + escHtml(svc.name) + '</div><div class="tile-status"><span class="status-dot ' + sc + '"></span><span class="status-text">' + st + '</span></div>' + portsHtml + domainHtml;
-
-  var infoBtnEl = tile.querySelector(".tile-info-btn");
-  if (infoBtnEl) {
-    infoBtnEl.addEventListener("click", function(e) {
-      e.stopPropagation();
-      openCredsModal(svc.unit, svc.name);
-    });
-  }
-
-  var portsEl = tile.querySelector(".tile-ports");
-  if (portsEl) {
-    portsEl.style.cursor = "pointer";
-    portsEl.addEventListener("click", function(e) {
-      e.stopPropagation();
-      openPortRequirementsModal(svc.name, ports, null);
-    });
-
-    // Async: fetch port status and update badge summary
-    if (ports.length > 0) {
-      fetch("/api/ports/status", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ports: ports }),
-      })
-        .then(function(r) { return r.json(); })
-        .then(function(data) {
-          var listeningCount = 0;
-          (data.ports || []).forEach(function(p) {
-            if (p.status === "listening") listeningCount++;
-          });
-          var total = ports.length;
-          var labelEl = portsEl.querySelector(".tile-ports-label");
-          if (labelEl) {
-            labelEl.classList.remove("tile-ports-label--loading");
-            if (listeningCount === total) {
-              labelEl.className = "tile-ports-label tile-ports-all-ready";
-              labelEl.textContent = "Ports: " + total + "/" + total + " ready ✓";
-            } else if (listeningCount > 0) {
-              labelEl.className = "tile-ports-label tile-ports-partial";
-              labelEl.textContent = "Ports: " + listeningCount + "/" + total + " ready";
-            } else {
-              labelEl.className = "tile-ports-label tile-ports-none-ready";
-              labelEl.textContent = "Ports: " + total + " required";
-            }
-          }
-        })
-        .catch(function() {
-          // Leave badge as-is on error
-        });
-    }
-  }
-
-  // Domain badge async check
-  var domainEl = tile.querySelector(".tile-domain");
-  if (domainEl && svc.needs_domain) {
-    domainEl.style.cursor = "pointer";
-    domainEl.addEventListener("click", function(e) {
-      e.stopPropagation();
-    });
-
-    if (svc.domain) {
-      fetch("/api/domains/check", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ domains: [svc.domain] }),
-      })
-        .then(function(r) { return r.json(); })
-        .then(function(data) {
-          var d = (data.domains || [])[0];
-          var lbl = domainEl.querySelector(".tile-domain-label");
-          if (!lbl || !d) return;
-          lbl.classList.remove("tile-domain-label--checking");
-          if (d.status === "connected") {
-            lbl.className = "tile-domain-label tile-domain-label--ok";
-            lbl.textContent = svc.domain + " ✓";
-          } else if (d.status === "dns_mismatch") {
-            lbl.className = "tile-domain-label tile-domain-label--warn";
-            lbl.textContent = svc.domain + " (IP mismatch)";
-          } else if (d.status === "unresolvable") {
-            lbl.className = "tile-domain-label tile-domain-label--error";
-            lbl.textContent = svc.domain + " (DNS error)";
-          } else {
-            lbl.className = "tile-domain-label tile-domain-label--warn";
-            lbl.textContent = svc.domain + " (unknown)";
-          }
-        })
-        .catch(function() {});
-    } else {
-      var lbl = domainEl.querySelector(".tile-domain-label");
-      if (lbl) {
-        lbl.classList.remove("tile-domain-label--checking");
-        lbl.className = "tile-domain-label tile-domain-label--warn";
-        lbl.textContent = "Domain: Not set";
-      }
-    }
-  }
+  tile.style.cursor = "pointer";
+  tile.addEventListener("click", function() {
+    openServiceDetailModal(svc.unit, svc.name);
+  });
 
   return tile;
 }
@@ -435,6 +325,228 @@ async function checkUpdates() {
   } catch (_) {}
 }
 
+// ── Service detail modal ──────────────────────────────────────────
+
+function _renderCredsHtml(credentials, unit) {
+  var html = "";
+  for (var i = 0; i < credentials.length; i++) {
+    var cred = credentials[i];
+    var id = "cred-" + Math.random().toString(36).substring(2, 8);
+    var displayValue = linkify(cred.value);
+    var qrBlock = "";
+    if (cred.qrcode) {
+      qrBlock = '<div class="creds-qr-wrap"><img class="creds-qr-img" src="' + cred.qrcode + '" alt="QR Code for ' + escHtml(cred.label) + '"><div class="creds-qr-hint">Scan with Zeus app on your phone</div></div>';
+    }
+    html += '<div class="creds-row"><div class="creds-label">' + escHtml(cred.label) + '</div>' + qrBlock + '<div class="creds-value-wrap"><div class="creds-value" id="' + id + '">' + displayValue + '</div><button class="creds-copy-btn" data-target="' + id + '">Copy</button></div></div>';
+  }
+  return html;
+}
+
+function _attachCopyHandlers(container) {
+  container.querySelectorAll(".creds-copy-btn").forEach(function(btn) {
+    btn.addEventListener("click", function() {
+      var target = document.getElementById(btn.dataset.target);
+      if (!target) return;
+      var text = target.textContent;
+
+      function onSuccess() {
+        btn.textContent = "Copied!";
+        btn.classList.add("copied");
+        setTimeout(function() { btn.textContent = "Copy"; btn.classList.remove("copied"); }, 1500);
+      }
+
+      function fallbackCopy() {
+        var ta = document.createElement("textarea");
+        ta.value = text;
+        ta.style.position = "fixed";
+        ta.style.left = "-9999px";
+        document.body.appendChild(ta);
+        ta.select();
+        try {
+          document.execCommand("copy");
+          onSuccess();
+        } catch (e) {}
+        document.body.removeChild(ta);
+      }
+
+      if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(text).then(onSuccess).catch(fallbackCopy);
+      } else {
+        fallbackCopy();
+      }
+    });
+  });
+}
+
+async function openServiceDetailModal(unit, name) {
+  if (!$credsModal) return;
+  if ($credsTitle) $credsTitle.textContent = name;
+  if ($credsBody) $credsBody.innerHTML = '<p class="creds-loading">Loading…</p>';
+  $credsModal.classList.add("open");
+
+  try {
+    var data = await apiFetch("/api/service-detail/" + encodeURIComponent(unit));
+    var html = "";
+
+    // Section A: Description
+    if (data.description) {
+      html += '<div class="svc-detail-section">' +
+        '<p class="svc-detail-desc">' + escHtml(data.description) + '</p>' +
+        '</div>';
+    }
+
+    // Section B: Status
+    var sc = statusClass(data.status);
+    var st = statusText(data.status, data.enabled);
+    html += '<div class="svc-detail-section">' +
+      '<div class="svc-detail-section-title">Status</div>' +
+      '<div class="svc-detail-status">' +
+        '<span class="status-dot ' + sc + '"></span>' +
+        '<span>' + escHtml(st) + '</span>' +
+      '</div>' +
+      '</div>';
+
+    // Section C: Ports (only if service has port_requirements)
+    if (data.port_statuses && data.port_statuses.length > 0) {
+      var anyPortClosed = data.port_statuses.some(function(p) { return p.status === "closed"; });
+      var portTableRows = "";
+      data.port_statuses.forEach(function(p) {
+        var statusIcon, statusClass2;
+        if (p.status === "listening") {
+          statusIcon = "✅ Open";
+          statusClass2 = "port-status-listening";
+        } else if (p.status === "firewall_open") {
+          statusIcon = "🟡 Firewall open";
+          statusClass2 = "port-status-open";
+        } else if (p.status === "closed") {
+          statusIcon = "🔴 Closed";
+          statusClass2 = "port-status-closed";
+        } else {
+          statusIcon = "— Unknown";
+          statusClass2 = "port-status-unknown";
+        }
+        portTableRows += '<tr>' +
+          '<td class="svc-detail-port-table-port">' + escHtml(p.port) + '</td>' +
+          '<td class="svc-detail-port-table-proto">' + escHtml(p.protocol) + '</td>' +
+          '<td class="svc-detail-port-table-desc">' + escHtml(p.description) + '</td>' +
+          '<td class="svc-detail-port-table-status ' + statusClass2 + '">' + statusIcon + '</td>' +
+          '</tr>';
+      });
+
+      var troubleshootHtml = "";
+      if (anyPortClosed) {
+        troubleshootHtml = '<div class="svc-detail-troubleshoot">' +
+          '<strong>⚠️ Some ports are not open yet. Here\'s how to fix it:</strong>' +
+          '<ol>' +
+            '<li>Log into your router\'s admin panel (usually <a href="http://192.168.1.1" target="_blank">http://192.168.1.1</a>)</li>' +
+            '<li>Find the <strong>Port Forwarding</strong> section</li>' +
+            '<li>Forward each closed port below to this machine\'s internal IP: <code>' + escHtml(data.internal_ip || "—") + '</code></li>' +
+            '<li>Save your router settings</li>' +
+          '</ol>' +
+          '<p style="margin-top:10px">💡 Search <em>"how to set up port forwarding on [your router model]"</em> for step-by-step instructions.</p>' +
+          '</div>';
+      }
+
+      html += '<div class="svc-detail-section">' +
+        '<div class="svc-detail-section-title">Port Status</div>' +
+        '<table class="svc-detail-port-table">' +
+          '<thead><tr>' +
+            '<th>Port</th><th>Protocol</th><th>Description</th><th>Status</th>' +
+          '</tr></thead>' +
+          '<tbody>' + portTableRows + '</tbody>' +
+        '</table>' +
+        troubleshootHtml +
+        '</div>';
+    }
+
+    // Section D: Domain (only if service needs_domain)
+    if (data.needs_domain) {
+      var domainStatusHtml = "";
+      var ds = data.domain_status || {};
+      var domainBadge = "";
+
+      if (data.domain) {
+        if (ds.status === "connected") {
+          domainBadge = '<span class="svc-detail-domain-value"><span class="tile-domain-label--ok">✓ ' + escHtml(data.domain) + '</span></span>';
+        } else if (ds.status === "dns_mismatch") {
+          domainBadge = '<span class="svc-detail-domain-value"><span class="tile-domain-label--warn">⚠ ' + escHtml(data.domain) + ' (IP mismatch)</span></span>';
+          domainStatusHtml = '<div class="svc-detail-troubleshoot">' +
+            '<strong>⚠️ Your domain resolves to ' + escHtml(ds.resolved_ip || "unknown") + ' but your external IP is ' + escHtml(ds.expected_ip || "unknown") + '.</strong>' +
+            '<p style="margin-top:8px">This usually means the DNS record needs to be updated:</p>' +
+            '<ol>' +
+              '<li>Go to <a href="https://njal.la" target="_blank">njal.la</a> and log into your account</li>' +
+              '<li>Find your domain and check the Dynamic DNS record</li>' +
+              '<li>Make sure it points to your current external IP: <code>' + escHtml(ds.expected_ip || "—") + '</code></li>' +
+              '<li>If you set up a DDNS curl command during onboarding, verify it\'s running correctly</li>' +
+            '</ol>' +
+            '</div>';
+        } else if (ds.status === "unresolvable") {
+          domainBadge = '<span class="svc-detail-domain-value"><span class="tile-domain-label--error">✗ ' + escHtml(data.domain) + ' (DNS error)</span></span>';
+          domainStatusHtml = '<div class="svc-detail-troubleshoot">' +
+            '<strong>⚠️ This domain cannot be resolved. DNS is not configured yet.</strong>' +
+            '<p style="margin-top:8px">Let\'s get it set up:</p>' +
+            '<ol>' +
+              '<li>Go to <a href="https://njal.la" target="_blank">njal.la</a> and log into your account</li>' +
+              '<li>Find the domain you purchased for this service</li>' +
+              '<li>Create a Dynamic DNS record pointing to your external IP: <code>' + escHtml(ds.expected_ip || "—") + '</code></li>' +
+              '<li>Copy the DDNS curl command from Njal.la\'s dashboard</li>' +
+              '<li>You can re-enter it in the Feature Manager to update your configuration</li>' +
+            '</ol>' +
+            '</div>';
+        } else {
+          domainBadge = '<span class="svc-detail-domain-value">' + escHtml(data.domain) + '</span>';
+        }
+      } else {
+        domainBadge = '<span class="svc-detail-domain-value"><span class="tile-domain-label--warn">Not configured</span></span>';
+        domainStatusHtml = '<div class="svc-detail-troubleshoot">' +
+          '<strong>⚠️ No domain has been configured for this service yet.</strong>' +
+          '<p style="margin-top:8px">To get this service working:</p>' +
+          '<ol>' +
+            '<li>Purchase a subdomain at <a href="https://njal.la" target="_blank">njal.la</a> (if you haven\'t already)</li>' +
+            '<li>Go to the <strong>Feature Manager</strong> in the sidebar</li>' +
+            '<li>Find this service and configure your domain through the setup wizard</li>' +
+          '</ol>' +
+          '</div>';
+      }
+
+      html += '<div class="svc-detail-section">' +
+        '<div class="svc-detail-section-title">Domain</div>' +
+        domainBadge +
+        domainStatusHtml +
+        '</div>';
+    }
+
+    // Section E: Credentials & Links
+    if (data.has_credentials && data.credentials && data.credentials.length > 0) {
+      html += '<div class="svc-detail-section">' +
+        '<div class="svc-detail-section-title">Credentials &amp; Access</div>' +
+        _renderCredsHtml(data.credentials, unit) +
+        (unit === "matrix-synapse.service" ?
+          '<hr class="matrix-actions-divider"><div class="matrix-actions-row">' +
+            '<button class="matrix-action-btn" id="matrix-add-user-btn">➕ Add New User</button>' +
+            '<button class="matrix-action-btn" id="matrix-change-pw-btn">🔑 Change Password</button>' +
+          '</div>' : "") +
+        '</div>';
+    } else if (!data.enabled) {
+      html += '<div class="svc-detail-section">' +
+        '<p class="creds-empty">This service is not enabled in your configuration. You can enable it from the <strong>Feature Manager</strong> in the sidebar.</p>' +
+        '</div>';
+    }
+
+    $credsBody.innerHTML = html;
+    _attachCopyHandlers($credsBody);
+
+    if (unit === "matrix-synapse.service") {
+      var addBtn = document.getElementById("matrix-add-user-btn");
+      var changePwBtn = document.getElementById("matrix-change-pw-btn");
+      if (addBtn) addBtn.addEventListener("click", function() { openMatrixCreateUserModal(unit, name); });
+      if (changePwBtn) changePwBtn.addEventListener("click", function() { openMatrixChangePasswordModal(unit, name); });
+    }
+  } catch (err) {
+    if ($credsBody) $credsBody.innerHTML = '<p class="creds-empty">Could not load service details.</p>';
+  }
+}
+
 // ── Credentials info modal ────────────────────────────────────────
 
 async function openCredsModal(unit, name) {
@@ -448,17 +560,7 @@ async function openCredsModal(unit, name) {
       $credsBody.innerHTML = '<p class="creds-empty">No connection info available yet.</p>';
       return;
     }
-    var html = "";
-    for (var i = 0; i < data.credentials.length; i++) {
-      var cred = data.credentials[i];
-      var id = "cred-" + Math.random().toString(36).substring(2, 8);
-      var displayValue = linkify(cred.value);
-      var qrBlock = "";
-      if (cred.qrcode) {
-        qrBlock = '<div class="creds-qr-wrap"><img class="creds-qr-img" src="' + cred.qrcode + '" alt="QR Code for ' + escHtml(cred.label) + '"><div class="creds-qr-hint">Scan with Zeus app on your phone</div></div>';
-      }
-      html += '<div class="creds-row"><div class="creds-label">' + escHtml(cred.label) + '</div>' + qrBlock + '<div class="creds-value-wrap"><div class="creds-value" id="' + id + '">' + displayValue + '</div><button class="creds-copy-btn" data-target="' + id + '">Copy</button></div></div>';
-    }
+    var html = _renderCredsHtml(data.credentials, unit);
     if (unit === "matrix-synapse.service") {
       html += '<hr class="matrix-actions-divider"><div class="matrix-actions-row">' +
         '<button class="matrix-action-btn" id="matrix-add-user-btn">➕ Add New User</button>' +
@@ -466,39 +568,7 @@ async function openCredsModal(unit, name) {
         '</div>';
     }
     $credsBody.innerHTML = html;
-    $credsBody.querySelectorAll(".creds-copy-btn").forEach(function(btn) {
-      btn.addEventListener("click", function() {
-        var target = document.getElementById(btn.dataset.target);
-        if (!target) return;
-        var text = target.textContent;
-
-        function onSuccess() {
-          btn.textContent = "Copied!";
-          btn.classList.add("copied");
-          setTimeout(function() { btn.textContent = "Copy"; btn.classList.remove("copied"); }, 1500);
-        }
-
-        function fallbackCopy() {
-          var ta = document.createElement("textarea");
-          ta.value = text;
-          ta.style.position = "fixed";
-          ta.style.left = "-9999px";
-          document.body.appendChild(ta);
-          ta.select();
-          try {
-            document.execCommand("copy");
-            onSuccess();
-          } catch (e) {}
-          document.body.removeChild(ta);
-        }
-
-        if (navigator.clipboard && window.isSecureContext) {
-          navigator.clipboard.writeText(text).then(onSuccess).catch(fallbackCopy);
-        } else {
-          fallbackCopy();
-        }
-      });
-    });
+    _attachCopyHandlers($credsBody);
     if (unit === "matrix-synapse.service") {
       var addBtn = document.getElementById("matrix-add-user-btn");
       var changePwBtn = document.getElementById("matrix-change-pw-btn");
@@ -525,7 +595,7 @@ function openMatrixCreateUserModal(unit, name) {
     '<div class="matrix-form-result" id="matrix-create-result"></div>';
 
   document.getElementById("matrix-create-back-btn").addEventListener("click", function() {
-    openCredsModal(unit, name);
+    openServiceDetailModal(unit, name);
   });
 
   document.getElementById("matrix-create-submit-btn").addEventListener("click", async function() {
@@ -579,7 +649,7 @@ function openMatrixChangePasswordModal(unit, name) {
     '<div class="matrix-form-result" id="matrix-chpw-result"></div>';
 
   document.getElementById("matrix-chpw-back-btn").addEventListener("click", function() {
-    openCredsModal(unit, name);
+    openServiceDetailModal(unit, name);
   });
 
   document.getElementById("matrix-chpw-submit-btn").addEventListener("click", async function() {

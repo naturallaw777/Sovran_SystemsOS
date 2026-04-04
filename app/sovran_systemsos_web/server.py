@@ -256,6 +256,93 @@ ROLE_LABELS = {
     "node":                "Bitcoin Node",
 }
 
+SERVICE_DESCRIPTIONS: dict[str, str] = {
+    "bitcoind.service": (
+        "The foundation of your financial sovereignty. Your node independently verifies "
+        "every transaction and block — no banks, no intermediaries, no trust required. "
+        "Powered by Sovran_SystemsOS, your node is always on and fully synced."
+    ),
+    "electrs.service": (
+        "Your own Electrum indexing server. Connect any Electrum-compatible wallet "
+        "directly to your node for maximum privacy — your transactions never touch "
+        "a third-party server. Sovran_SystemsOS keeps it running and indexed automatically."
+    ),
+    "lnd.service": (
+        "Your Lightning Network node for instant, low-fee Bitcoin payments. "
+        "LND powers your Zeus wallet, Ride The Lightning dashboard, and BTCPayServer's "
+        "Lightning capabilities. With Sovran_SystemsOS, it's always connected and ready."
+    ),
+    "rtl.service": (
+        "Your personal Lightning Network command center. Open channels, manage liquidity, "
+        "send payments, and monitor your node — all from a clean browser interface. "
+        "Sovran_SystemsOS gives you full visibility into your Lightning operations."
+    ),
+    "btcpayserver.service": (
+        "Your own payment processor — accept Bitcoin and Lightning payments directly, "
+        "with zero fees to any third party. No Stripe, no Square, no middleman. "
+        "Sovran_SystemsOS makes running a production-grade payment gateway as simple as flipping a switch."
+    ),
+    "zeus-connect-setup.service": (
+        "Connect the Zeus mobile wallet to your Lightning node. Send and receive "
+        "Lightning payments from your phone, backed by your own infrastructure. "
+        "Scan the QR code and your phone becomes a sovereign wallet."
+    ),
+    "mempool.service": (
+        "Your own blockchain explorer and mempool visualizer. Monitor transactions, "
+        "fee estimates, and blocks in real time — verified by your node, not someone else's. "
+        "Sovran_SystemsOS runs it locally so your queries stay private."
+    ),
+    "matrix-synapse.service": (
+        "Your own encrypted messaging server. Chat, call, and collaborate using Element "
+        "or any Matrix client — every message is end-to-end encrypted and stored on hardware you control. "
+        "No corporate surveillance, no data harvesting. Sovran_SystemsOS makes private communication effortless."
+    ),
+    "livekit.service": (
+        "Encrypted voice and video calling, integrated directly with your Matrix server. "
+        "Private video conferences without Zoom, Google Meet, or any third-party cloud. "
+        "Sovran_SystemsOS handles the infrastructure — you just make the call."
+    ),
+    "vaultwarden.service": (
+        "Your own password manager, compatible with all Bitwarden apps. Store passwords, "
+        "credit cards, and secure notes across every device — synced through your server, "
+        "never a third-party cloud. Sovran_SystemsOS keeps your vault always accessible and always private."
+    ),
+    "phpfpm-nextcloud.service": (
+        "Your private cloud — file storage, calendar, contacts, and collaboration tools "
+        "all running on your own hardware. Think Google Drive and Google Docs, but without Google. "
+        "Sovran_SystemsOS delivers a full productivity suite that you actually own."
+    ),
+    "phpfpm-wordpress.service": (
+        "Your own publishing platform, powered by the world's most popular CMS. "
+        "Build websites, blogs, or online stores with full creative control and zero monthly hosting fees. "
+        "Sovran_SystemsOS hosts it on your infrastructure — your content, your rules."
+    ),
+    "haven-relay.service": (
+        "Your own Nostr relay for censorship-resistant social networking. Publish and receive notes "
+        "on the Nostr protocol from infrastructure you control — no platform can silence you. "
+        "Sovran_SystemsOS keeps your relay online and connected to the network."
+    ),
+    "caddy.service": (
+        "The automatic HTTPS web server and reverse proxy powering all your services. "
+        "Caddy handles SSL certificates, domain routing, and secure connections behind the scenes. "
+        "Sovran_SystemsOS configures it automatically — you never have to touch a config file."
+    ),
+    "tor.service": (
+        "The onion router, providing .onion addresses for your services. Access your node, "
+        "wallet, and apps from anywhere in the world — privately and without port forwarding. "
+        "Sovran_SystemsOS integrates Tor natively across your entire stack."
+    ),
+    "gnome-remote-desktop.service": (
+        "Access your server's full desktop environment from anywhere using any RDP client. "
+        "Manage your system visually without being physically present. "
+        "Sovran_SystemsOS sets up secure remote access with generated credentials — connect and go."
+    ),
+    "root-password-setup.service": (
+        "Your system account credentials. These are the keys to your Sovran_SystemsOS machine — "
+        "root access, user accounts, and SSH passphrases. Keep them safe."
+    ),
+}
+
 # ── App setup ────────────────────────────────────────────────────
 
 _BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -1194,6 +1281,165 @@ async def api_credentials(unit: str):
     return {
         "name": entry.get("name", ""),
         "credentials": resolved,
+    }
+
+
+@app.get("/api/service-detail/{unit}")
+async def api_service_detail(unit: str):
+    """Return comprehensive details for a single service — status, credentials,
+    port health, domain health, description, and IPs — in one API call."""
+    cfg = load_config()
+    services = cfg.get("services", [])
+
+    # Build reverse map: unit → feature_id
+    unit_to_feature = {
+        u: feat_id
+        for feat_id, u in FEATURE_SERVICE_MAP.items()
+        if u is not None
+    }
+
+    loop = asyncio.get_event_loop()
+    overrides, _ = await loop.run_in_executor(None, _read_hub_overrides)
+
+    # Find the service config entry
+    entry = next((s for s in services if s.get("unit") == unit), None)
+    if entry is None:
+        raise HTTPException(status_code=404, detail="Service not found")
+
+    icon = entry.get("icon", "")
+    enabled = entry.get("enabled", True)
+
+    feat_id = unit_to_feature.get(unit)
+    if feat_id is None:
+        feat_id = FEATURE_ICON_MAP.get(icon)
+    if feat_id is not None and feat_id in overrides:
+        enabled = overrides[feat_id]
+
+    # Service status
+    if enabled:
+        status = await loop.run_in_executor(
+            None, lambda: sysctl.is_active(unit, entry.get("type", "system"))
+        )
+    else:
+        status = "disabled"
+
+    # Credentials
+    creds_list = entry.get("credentials", [])
+    has_credentials = len(creds_list) > 0
+    resolved_creds: list[dict] = []
+    if has_credentials:
+        for cred in creds_list:
+            result = await loop.run_in_executor(None, _resolve_credential, cred)
+            if result:
+                resolved_creds.append(result)
+
+    # Domain
+    domain_key = SERVICE_DOMAIN_MAP.get(unit)
+    needs_domain = domain_key is not None
+    domain: str | None = None
+    if domain_key:
+        domain_path = os.path.join(DOMAINS_DIR, domain_key)
+        try:
+            with open(domain_path, "r") as f:
+                val = f.read(512).strip()
+                domain = val if val else None
+        except OSError:
+            domain = None
+
+    # IPs
+    internal_ip, external_ip = await asyncio.gather(
+        loop.run_in_executor(None, _get_internal_ip),
+        loop.run_in_executor(None, _get_external_ip),
+    )
+    _save_internal_ip(internal_ip)
+
+    # Domain status check
+    domain_status: dict | None = None
+    if needs_domain:
+        if domain:
+            def _check_one_domain(d: str) -> dict:
+                try:
+                    results = socket.getaddrinfo(d, None)
+                    if not results:
+                        return {
+                            "status": "unresolvable",
+                            "resolved_ip": None,
+                            "expected_ip": external_ip,
+                        }
+                    resolved_ip = results[0][4][0]
+                    if external_ip == "unavailable":
+                        return {
+                            "status": "error",
+                            "resolved_ip": resolved_ip,
+                            "expected_ip": external_ip,
+                        }
+                    if resolved_ip == external_ip:
+                        return {
+                            "status": "connected",
+                            "resolved_ip": resolved_ip,
+                            "expected_ip": external_ip,
+                        }
+                    return {
+                        "status": "dns_mismatch",
+                        "resolved_ip": resolved_ip,
+                        "expected_ip": external_ip,
+                    }
+                except socket.gaierror:
+                    return {
+                        "status": "unresolvable",
+                        "resolved_ip": None,
+                        "expected_ip": external_ip,
+                    }
+                except Exception:
+                    return {
+                        "status": "error",
+                        "resolved_ip": None,
+                        "expected_ip": external_ip,
+                    }
+
+            domain_status = await loop.run_in_executor(None, _check_one_domain, domain)
+        else:
+            domain_status = {
+                "status": "not_set",
+                "resolved_ip": None,
+                "expected_ip": external_ip,
+            }
+
+    # Port requirements and statuses
+    port_requirements = SERVICE_PORT_REQUIREMENTS.get(unit, [])
+    port_statuses: list[dict] = []
+    if port_requirements:
+        listening, allowed = await asyncio.gather(
+            loop.run_in_executor(None, _get_listening_ports),
+            loop.run_in_executor(None, _get_firewall_allowed_ports),
+        )
+        for p in port_requirements:
+            port_str = str(p.get("port", ""))
+            protocol = str(p.get("protocol", "TCP"))
+            ps = _check_port_status(port_str, protocol, listening, allowed)
+            port_statuses.append({
+                "port": port_str,
+                "protocol": protocol,
+                "status": ps,
+                "description": p.get("description", ""),
+            })
+
+    return {
+        "name": entry.get("name", ""),
+        "unit": unit,
+        "icon": icon,
+        "status": status,
+        "enabled": enabled,
+        "description": SERVICE_DESCRIPTIONS.get(unit, ""),
+        "has_credentials": has_credentials and bool(resolved_creds),
+        "credentials": resolved_creds,
+        "needs_domain": needs_domain,
+        "domain": domain,
+        "domain_status": domain_status,
+        "port_requirements": port_requirements,
+        "port_statuses": port_statuses,
+        "external_ip": external_ip,
+        "internal_ip": internal_ip,
     }
 
 
