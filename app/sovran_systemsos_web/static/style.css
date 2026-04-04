@@ -428,7 +428,7 @@ button:disabled {
 
 .service-tile {
   width: 160px;
-  min-height: 150px;
+  min-height: 130px;
   background-color: var(--card-color);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-card);
@@ -441,6 +441,7 @@ button:disabled {
   gap: 0;
   transition: box-shadow 0.2s, border-color 0.2s;
   position: relative;
+  cursor: pointer;
 }
 
 .service-tile:hover {
@@ -450,32 +451,6 @@ button:disabled {
 
 .service-tile.disabled {
   opacity: 0.45;
-}
-
-/* Info badge on tiles with credentials */
-.tile-info-btn {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  background-color: var(--accent-color);
-  color: #1e1e2e;
-  font-size: 0.75rem;
-  font-weight: 800;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  border: none;
-  transition: transform 0.15s, background-color 0.15s;
-  line-height: 1;
-}
-
-.tile-info-btn:hover {
-  transform: scale(1.15);
-  background-color: #a8c8ff;
 }
 
 .tile-icon {
@@ -1723,29 +1698,6 @@ button.btn-reboot:hover:not(:disabled) {
 
 /* ── Tile: Port Requirements badge ──────────────────────────────── */
 
-.tile-ports {
-  margin-top: 6px;
-  font-size: 0.7rem;
-  color: var(--text-secondary);
-  display: flex;
-  align-items: flex-start;
-  gap: 4px;
-  line-height: 1.4;
-  flex-wrap: wrap;
-}
-
-.tile-ports:hover {
-  color: var(--accent-color);
-}
-
-.tile-ports-icon {
-  flex-shrink: 0;
-}
-
-.tile-ports-label {
-  word-break: break-word;
-}
-
 /* ── Port Requirements Modal ────────────────────────────────────── */
 
 .port-req-intro {
@@ -1837,52 +1789,7 @@ button.btn-reboot:hover:not(:disabled) {
   font-size: 0.95em;
 }
 
-/* Tile port badge status colours */
-.tile-ports-all-ready {
-  color: #a6e3a1;
-}
-
-.tile-ports-partial {
-  color: #f9e2af;
-}
-
-.tile-ports-none-ready {
-  color: var(--text-secondary);
-}
-
-.tile-ports-label--loading {
-  color: var(--text-dim);
-}
-
-/* ── Tile: Domain Status badge ──────────────────────────────────── */
-
-.tile-domain {
-  margin-top: 6px;
-  font-size: 0.7rem;
-  color: var(--text-secondary);
-  display: flex;
-  align-items: flex-start;
-  gap: 4px;
-  line-height: 1.4;
-  flex-wrap: wrap;
-}
-
-.tile-domain:hover {
-  color: var(--accent-color);
-}
-
-.tile-domain-icon {
-  flex-shrink: 0;
-}
-
-.tile-domain-label {
-  word-break: break-word;
-}
-
-.tile-domain-label--checking {
-  color: var(--text-dim);
-}
-
+/* Domain status colour helpers (used in detail modal) */
 .tile-domain-label--ok {
   color: #a6e3a1;
 }
@@ -1893,6 +1800,123 @@ button.btn-reboot:hover:not(:disabled) {
 
 .tile-domain-label--error {
   color: #f38ba8;
+}
+
+/* ── Service detail modal sections ──────────────────────────────── */
+
+.svc-detail-section {
+  margin-bottom: 24px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.svc-detail-section:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+.svc-detail-desc {
+  font-size: 0.92rem;
+  line-height: 1.7;
+  color: var(--text-secondary);
+}
+
+.svc-detail-section-title {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+  margin-bottom: 12px;
+}
+
+.svc-detail-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+.svc-detail-troubleshoot {
+  background-color: rgba(229, 165, 10, 0.08);
+  border: 1px solid rgba(229, 165, 10, 0.25);
+  border-radius: 10px;
+  padding: 16px 20px;
+  margin-top: 14px;
+  font-size: 0.85rem;
+  line-height: 1.7;
+  color: var(--text-secondary);
+}
+
+.svc-detail-troubleshoot ol {
+  margin: 10px 0 0 20px;
+  padding: 0;
+}
+
+.svc-detail-troubleshoot li {
+  margin-bottom: 4px;
+}
+
+.svc-detail-troubleshoot code {
+  background-color: #12121c;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.85rem;
+}
+
+/* Port status table inside detail modal */
+.svc-detail-port-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.svc-detail-port-table th {
+  text-align: left;
+  padding: 6px 10px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-dim);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.svc-detail-port-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(69, 71, 90, 0.3);
+}
+
+.svc-detail-port-table-port {
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--accent-color);
+  white-space: nowrap;
+}
+
+.svc-detail-port-table-proto {
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.svc-detail-port-table-desc {
+  color: var(--text-primary);
+}
+
+.svc-detail-port-table-status {
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+/* Domain status badge in detail modal */
+.svc-detail-domain-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 /* ── Sidebar: compact feature card overrides ─────────────────────── */
