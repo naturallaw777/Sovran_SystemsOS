@@ -1,0 +1,137 @@
+/* Sovran_SystemsOS Hub — Web UI Stylesheet
+   Dark theme matching the Adwaita dark aesthetic
+   v6 — Status-only tiles (no controls) */
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --bg-color:        #1e1e2e;
+  --surface-color:   #2a2a3c;
+  --card-color:      #313244;
+  --border-color:    #45475a;
+  --text-primary:    #cdd6f4;
+  --text-secondary:  #a6adc8;
+  --text-dim:        #6c7086;
+  --accent-color:    #89b4fa;
+  --green:           #2ec27e;
+  --yellow:          #e5a50a;
+  --red:             #e01b24;
+  --grey:            #888888;
+  --radius-card:     18px;
+  --radius-btn:      8px;
+  --shadow-card:     0 2px 8px rgba(0,0,0,0.4);
+  --shadow-hover:    0 6px 20px rgba(0,0,0,0.6);
+}
+
+html, body {
+  height: 100%;
+}
+
+body {
+  font-family: 'Cantarell', 'Inter', 'Segoe UI', sans-serif;
+  background-color: var(--bg-color);
+  color: var(--text-primary);
+  line-height: 1.5;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ── Login page ──────────────────────────────────────────────────── */
+
+.login-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 24px;
+}
+
+.login-card {
+  background-color: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: 20px;
+  padding: 48px 40px;
+  width: 100%;
+  max-width: 400px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+}
+
+.login-header {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.login-logo {
+  height: 64px;
+  margin-bottom: 16px;
+}
+
+.login-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.form-group label {
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+
+.form-group input {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-btn);
+  background-color: var(--card-color);
+  color: var(--text-primary);
+  font-size: 0.92rem;
+}
+
+.form-group input:focus {
+  outline: none;
+  border-color: var(--accent-color);
+}
+
+.btn-login {
+  width: 100%;
+  padding: 12px;
+  border-radius: var(--radius-btn);
+  background-color: var(--accent-color);
+  color: #1e1e2e;
+  font-size: 0.95rem;
+  font-weight: 700;
+  margin-top: 8px;
+}
+
+.btn-login:hover {
+  opacity: 0.88;
+}
+
+.login-error {
+  background-color: rgba(224, 27, 36, 0.12);
+  border: 1px solid var(--red);
+  color: #f87171;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  display: none;
+}
+
+.login-error.visible {
+  display: block;
+}
