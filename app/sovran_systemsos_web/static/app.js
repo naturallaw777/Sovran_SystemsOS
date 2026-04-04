@@ -268,7 +268,7 @@ function buildTile(svc) {
 
   tile.style.cursor = "pointer";
   tile.addEventListener("click", function() {
-    openServiceDetailModal(svc.unit, svc.name);
+    openServiceDetailModal(svc.unit, svc.name, svc.icon);
   });
 
   return tile;
@@ -383,14 +383,16 @@ function _attachCopyHandlers(container) {
   });
 }
 
-async function openServiceDetailModal(unit, name) {
+async function openServiceDetailModal(unit, name, icon) {
   if (!$credsModal) return;
   if ($credsTitle) $credsTitle.textContent = name;
   if ($credsBody) $credsBody.innerHTML = '<p class="creds-loading">Loading…</p>';
   $credsModal.classList.add("open");
 
   try {
-    var data = await apiFetch("/api/service-detail/" + encodeURIComponent(unit));
+    var url = "/api/service-detail/" + encodeURIComponent(unit);
+    if (icon) url += "?icon=" + encodeURIComponent(icon);
+    var data = await apiFetch(url);
     var html = "";
 
     // Section A: Description
@@ -643,8 +645,8 @@ async function openServiceDetailModal(unit, name) {
     if (unit === "matrix-synapse.service") {
       var addBtn = document.getElementById("matrix-add-user-btn");
       var changePwBtn = document.getElementById("matrix-change-pw-btn");
-      if (addBtn) addBtn.addEventListener("click", function() { openMatrixCreateUserModal(unit, name); });
-      if (changePwBtn) changePwBtn.addEventListener("click", function() { openMatrixChangePasswordModal(unit, name); });
+      if (addBtn) addBtn.addEventListener("click", function() { openMatrixCreateUserModal(unit, name, icon); });
+      if (changePwBtn) changePwBtn.addEventListener("click", function() { openMatrixChangePasswordModal(unit, name, icon); });
     }
 
     if (data.feature) {
@@ -695,7 +697,7 @@ async function openCredsModal(unit, name) {
   }
 }
 
-function openMatrixCreateUserModal(unit, name) {
+function openMatrixCreateUserModal(unit, name, icon) {
   if (!$credsBody) return;
   $credsBody.innerHTML =
     '<div class="matrix-form-group"><label class="matrix-form-label" for="matrix-new-username">Username</label>' +
@@ -710,7 +712,7 @@ function openMatrixCreateUserModal(unit, name) {
     '<div class="matrix-form-result" id="matrix-create-result"></div>';
 
   document.getElementById("matrix-create-back-btn").addEventListener("click", function() {
-    openServiceDetailModal(unit, name);
+    openServiceDetailModal(unit, name, icon);
   });
 
   document.getElementById("matrix-create-submit-btn").addEventListener("click", async function() {
@@ -750,7 +752,7 @@ function openMatrixCreateUserModal(unit, name) {
   });
 }
 
-function openMatrixChangePasswordModal(unit, name) {
+function openMatrixChangePasswordModal(unit, name, icon) {
   if (!$credsBody) return;
   $credsBody.innerHTML =
     '<div class="matrix-form-group"><label class="matrix-form-label" for="matrix-chpw-username">Username (localpart only, e.g. <em>alice</em>)</label>' +
@@ -764,7 +766,7 @@ function openMatrixChangePasswordModal(unit, name) {
     '<div class="matrix-form-result" id="matrix-chpw-result"></div>';
 
   document.getElementById("matrix-chpw-back-btn").addEventListener("click", function() {
-    openServiceDetailModal(unit, name);
+    openServiceDetailModal(unit, name, icon);
   });
 
   document.getElementById("matrix-chpw-submit-btn").addEventListener("click", async function() {
