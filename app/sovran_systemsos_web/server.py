@@ -80,13 +80,10 @@ WALLET_UNLOCK_DURATION_DEFAULT = 3600  # seconds (1 hour)
 
 # Wallet paths protected by default from the support user
 PROTECTED_WALLET_PATHS: list[str] = [
-    "/var/lib/lnd",
-    "/root/.lnd",
-    "/var/lib/sparrow",
-    "/root/.sparrow",
-    "/root/.bisq",
     "/etc/nix-bitcoin-secrets",
     "/var/lib/bitcoind",
+    "/var/lib/lnd",
+    "/home",
 ]
 
 CATEGORY_ORDER = [

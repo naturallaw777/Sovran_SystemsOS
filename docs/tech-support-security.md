@@ -38,13 +38,10 @@ The following directories are locked by default when a support session starts:
 
 | Path | Contents |
 |------|----------|
-| `/var/lib/lnd` | LND wallet and channel database |
-| `/root/.lnd` | LND wallet (alternate location) |
-| `/var/lib/sparrow` | Sparrow wallet data |
-| `/root/.sparrow` | Sparrow wallet (alternate location) |
-| `/root/.bisq` | Bisq wallet and keys |
 | `/etc/nix-bitcoin-secrets` | nix-bitcoin generated secrets |
 | `/var/lib/bitcoind` | Bitcoin Core chainstate and wallet |
+| `/var/lib/lnd` | LND wallet and channel database |
+| `/home` | User home directories |
 
 Paths are only locked if they exist on disk at the time the session starts.
 
@@ -235,9 +232,8 @@ sed -i '/sovransystemsos-support/d' /root/.ssh/authorized_keys
 rm -f /var/lib/secrets/support-wallet-unlock
 
 # Re-apply wallet ACL protections
-setfacl -R -m u:sovran-support:--- /var/lib/lnd /root/.lnd \
-  /var/lib/sparrow /root/.sparrow /root/.bisq \
-  /etc/nix-bitcoin-secrets /var/lib/bitcoind 2>/dev/null || true
+setfacl -R -m u:sovran-support:--- /etc/nix-bitcoin-secrets \
+  /var/lib/bitcoind /var/lib/lnd /home 2>/dev/null || true
 
 # Restart sshd to drop any active connections
 systemctl restart sshd
