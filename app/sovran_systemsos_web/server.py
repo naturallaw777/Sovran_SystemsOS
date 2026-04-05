@@ -1425,6 +1425,63 @@ async def api_upgrade_to_server():
     return {"ok": True, "status": "rebuilding"}
 
 
+# ── Bitcoin IBD sync helper ───────────────────────────────────────
+
+BITCOIN_DATADIR = "/run/media/Second_Drive/BTCEcoandBackup/Bitcoin_Node"
+
+# Simple in-process cache: (timestamp, result)
+_btc_sync_cache: tuple[float, dict | None] = (0.0, None)
+_BTC_SYNC_CACHE_TTL = 5  # seconds
+
+
+def _get_bitcoin_sync_info() -> dict | None:
+    """Call bitcoin-cli getblockchaininfo and return parsed JSON, or None on error.
+
+    Results are cached for _BTC_SYNC_CACHE_TTL seconds to avoid hammering
+    bitcoin-cli on every /api/services poll cycle.
+    """
+    global _btc_sync_cache
+    now = time.monotonic()
+    cached_at, cached_val = _btc_sync_cache
+    if now - cached_at < _BTC_SYNC_CACHE_TTL:
+        return cached_val
+
+    try:
+        result = subprocess.run(
+            ["bitcoin-cli", f"-datadir={BITCOIN_DATADIR}", "getblockchaininfo"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        if result.returncode != 0:
+            _btc_sync_cache = (now, None)
+            return None
+        info = json.loads(result.stdout)
+        _btc_sync_cache = (now, info)
+        return info
+    except Exception:
+        _btc_sync_cache = (now, None)
+        return None
+
+
+@app.get("/api/bitcoin/sync")
+async def api_bitcoin_sync():
+    """Return Bitcoin blockchain sync status directly from bitcoin-cli."""
+    loop = asyncio.get_event_loop()
+    info = await loop.run_in_executor(None, _get_bitcoin_sync_info)
+    if info is None:
+        return JSONResponse(
+            status_code=503,
+            content={"error": "bitcoin-cli unavailable or bitcoind not running"},
+        )
+    return {
+        "blocks": info.get("blocks", 0),
+        "headers": info.get("headers", 0),
+        "verificationprogress": info.get("verificationprogress", 0),
+        "initialblockdownload": info.get("initialblockdownload", False),
+    }
+
+
 @app.get("/api/services")
 async def api_services():
     cfg = load_config()
@@ -1486,6 +1543,10 @@ async def api_services():
                 domain = None
 
         # Compute composite health
+        sync_progress: float | None = None
+        sync_blocks: int | None = None
+        sync_headers: int | None = None
+        sync_ibd: bool | None = None
         if not enabled:
             health = "disabled"
         elif status == "active":
@@ -1506,6 +1567,15 @@ async def api_services():
                 if not domain:
                     has_domain_issues = True
             health = "needs_attention" if (has_port_issues or has_domain_issues) else "healthy"
+            # Check Bitcoin IBD state
+            if unit == "bitcoind.service":
+                sync = await loop.run_in_executor(None, _get_bitcoin_sync_info)
+                if sync and sync.get("initialblockdownload"):
+                    health = "syncing"
+                    sync_progress = sync.get("verificationprogress", 0)
+                    sync_blocks = sync.get("blocks", 0)
+                    sync_headers = sync.get("headers", 0)
+                    sync_ibd = True
         elif status == "inactive":
             health = "inactive"
         elif status == "failed":
@@ -1513,7 +1583,7 @@ async def api_services():
         else:
             health = status  # loading states, etc.
 
-        return {
+        service_data: dict = {
             "name": entry.get("name", ""),
             "unit": unit,
             "type": scope,
@@ -1527,6 +1597,12 @@ async def api_services():
             "needs_domain": needs_domain,
             "domain": domain,
         }
+        if sync_ibd is not None:
+            service_data["sync_ibd"] = sync_ibd
+            service_data["sync_progress"] = sync_progress
+            service_data["sync_blocks"] = sync_blocks
+            service_data["sync_headers"] = sync_headers
+        return service_data
 
     results = await asyncio.gather(*[get_status(s) for s in services])
     return list(results)
@@ -1708,6 +1784,10 @@ async def api_service_detail(unit: str, icon: str | None = None):
             })
 
     # Compute composite health
+    sync_progress: float | None = None
+    sync_blocks: int | None = None
+    sync_headers: int | None = None
+    sync_ibd: bool | None = None
     if not enabled:
         health = "disabled"
     elif status == "active":
@@ -1719,6 +1799,15 @@ async def api_service_detail(unit: str, icon: str | None = None):
             elif domain_status and domain_status.get("status") not in ("connected", None):
                 has_domain_issues = True
         health = "needs_attention" if (has_port_issues or has_domain_issues) else "healthy"
+        # Check Bitcoin IBD state
+        if unit == "bitcoind.service":
+            sync = await loop.run_in_executor(None, _get_bitcoin_sync_info)
+            if sync and sync.get("initialblockdownload"):
+                health = "syncing"
+                sync_progress = sync.get("verificationprogress", 0)
+                sync_blocks = sync.get("blocks", 0)
+                sync_headers = sync.get("headers", 0)
+                sync_ibd = True
     elif status == "inactive":
         health = "inactive"
     elif status == "failed":
@@ -1761,7 +1850,7 @@ async def api_service_detail(unit: str, icon: str | None = None):
                 "port_requirements": feat_meta.get("port_requirements", []),
             }
 
-    return {
+    service_detail: dict = {
         "name": entry.get("name", ""),
         "unit": unit,
         "icon": icon,
@@ -1780,6 +1869,12 @@ async def api_service_detail(unit: str, icon: str | None = None):
         "internal_ip": internal_ip,
         "feature": feature_entry,
     }
+    if sync_ibd is not None:
+        service_detail["sync_ibd"] = sync_ibd
+        service_detail["sync_progress"] = sync_progress
+        service_detail["sync_blocks"] = sync_blocks
+        service_detail["sync_headers"] = sync_headers
+    return service_detail
 
 
 @app.get("/api/network")

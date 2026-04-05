@@ -12,6 +12,7 @@ function statusClass(health) {
   if (health === "inactive")        return "inactive";
   if (health === "failed")          return "failed";
   if (health === "disabled")        return "disabled";
+  if (health === "syncing")         return "syncing";
   if (STATUS_LOADING_STATES.has(health)) return "loading";
   return "unknown";
 }
@@ -23,6 +24,7 @@ function statusText(health, enabled) {
   if (health === "active")          return "Active";
   if (health === "inactive")        return "Inactive";
   if (health === "failed")          return "Failed";
+  if (health === "syncing")         return "Syncing\u2026";
   if (!health || health === "unknown") return "Unknown";
   if (STATUS_LOADING_STATES.has(health)) return health;
   return health;

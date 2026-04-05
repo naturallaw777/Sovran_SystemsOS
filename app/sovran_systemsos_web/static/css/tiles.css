@@ -85,6 +85,65 @@
 .status-dot.failed         { background-color: var(--red); }
 .status-dot.disabled       { background-color: var(--grey); }
 .status-dot.needs-attention { background-color: var(--yellow); }
+.status-dot.syncing        { background-color: #f5a623; animation: pulse-badge 1.5s infinite; }
+
+/* ── Bitcoin IBD sync progress bar ──────────────────────────────── */
+
+.tile-sync-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  margin-top: 6px;
+}
+
+.tile-sync-label {
+  font-size: 0.72rem;
+  color: #f5a623;
+  font-weight: 600;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.tile-sync-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  width: 100%;
+}
+
+.tile-sync-bar-track {
+  flex: 1;
+  height: 6px;
+  background-color: var(--border-color);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.tile-sync-bar-fill {
+  height: 100%;
+  background-color: #f5a623;
+  border-radius: 3px;
+  transition: width 0.6s ease;
+  min-width: 2px;
+}
+
+.tile-sync-percent {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #f5a623;
+  white-space: nowrap;
+  min-width: 2.5em;
+  text-align: right;
+}
+
+.tile-sync-eta {
+  font-size: 0.68rem;
+  color: var(--text-dim);
+  text-align: center;
+  white-space: nowrap;
+}
 
 /* ── Service detail modal sections ───────────────────────────────── */
 

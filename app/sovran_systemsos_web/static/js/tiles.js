@@ -1,5 +1,9 @@
 "use strict";
 
+// ── Bitcoin IBD sync state (for ETA calculation) ──────────────────
+// Keyed by tileId: { progress: float, timestamp: ms }
+var _btcSyncPrev = {};
+
 // ── Render: initial build ─────────────────────────────────────────
 
 function buildTiles(services, categoryLabels) {
@@ -123,6 +127,29 @@ function buildTile(svc) {
     return tile;
   }
 
+  if (svc.sync_ibd) {
+    var pct = Math.round((svc.sync_progress || 0) * 100);
+    var id = tileId(svc);
+    var eta = _calcBtcEta(id, svc.sync_progress || 0);
+    tile.innerHTML =
+      '<img class="tile-icon" src="/static/icons/' + escHtml(svc.icon) + '.svg" alt="' + escHtml(svc.name) + '" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'">' +
+      '<div class="tile-icon-fallback" style="display:none">?</div>' +
+      '<div class="tile-name">' + escHtml(svc.name) + '</div>' +
+      '<div class="tile-sync-container">' +
+        '<div class="tile-sync-label">\u23F3 Syncing Timechain</div>' +
+        '<div class="tile-sync-bar-row">' +
+          '<div class="tile-sync-bar-track"><div class="tile-sync-bar-fill" style="width:' + pct + '%"></div></div>' +
+          '<span class="tile-sync-percent">' + pct + '%</span>' +
+        '</div>' +
+        '<div class="tile-sync-eta">' + escHtml(eta) + '</div>' +
+      '</div>';
+    tile.style.cursor = "pointer";
+    tile.addEventListener("click", function() {
+      openServiceDetailModal(svc.unit, svc.name, svc.icon);
+    });
+    return tile;
+  }
+
   tile.innerHTML = '<img class="tile-icon" src="/static/icons/' + escHtml(svc.icon) + '.svg" alt="' + escHtml(svc.name) + '" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'"><div class="tile-icon-fallback" style="display:none">?</div><div class="tile-name">' + escHtml(svc.name) + '</div><div class="tile-status"><span class="status-dot ' + sc + '"></span><span class="status-text">' + st + '</span></div>';
 
   tile.style.cursor = "pointer";
@@ -135,6 +162,23 @@ function buildTile(svc) {
 
 // ── Render: live update ───────────────────────────────────────────
 
+// Calculate ETA text for Bitcoin IBD and track progress history.
+function _calcBtcEta(id, progress) {
+  var now = Date.now();
+  var prev = _btcSyncPrev[id];
+  // Only update the cache when progress has actually advanced
+  if (!prev || prev.progress < progress) {
+    _btcSyncPrev[id] = { progress: progress, timestamp: now };
+  }
+  if (!prev || prev.progress >= progress) return "Estimating\u2026";
+  var elapsed = (now - prev.timestamp) / 1000; // seconds
+  if (elapsed <= 0) return "Estimating\u2026";
+  var rate = (progress - prev.progress) / elapsed; // progress per second
+  if (rate <= 0) return "Estimating\u2026";
+  var remaining = (1.0 - progress) / rate;
+  return "\u007E" + formatDuration(remaining) + " remaining";
+}
+
 function updateTiles(services) {
   _servicesCache = services;
   for (var i = 0; i < services.length; i++) {
@@ -143,12 +187,38 @@ function updateTiles(services) {
     var id = CSS.escape(tileId(svc));
     var tile = $tilesArea.querySelector('.service-tile[data-tile-id="' + id + '"]');
     if (!tile) continue;
-    var sc = statusClass(svc.health || svc.status);
-    var st = statusText(svc.health || svc.status, svc.enabled);
-    var dot = tile.querySelector(".status-dot");
-    var text = tile.querySelector(".status-text");
-    if (dot) dot.className = "status-dot " + sc;
-    if (text) text.textContent = st;
+
+    if (svc.sync_ibd) {
+      // If tile was previously normal, rebuild it with the sync layout
+      if (!tile.querySelector(".tile-sync-container")) {
+        var newTile = buildTile(svc);
+        tile.parentNode.replaceChild(newTile, tile);
+        continue;
+      }
+      // Update progress bar values in-place
+      var pct = Math.round((svc.sync_progress || 0) * 100);
+      var etaText = _calcBtcEta(tileId(svc), svc.sync_progress || 0);
+      var fill = tile.querySelector(".tile-sync-bar-fill");
+      var pctEl = tile.querySelector(".tile-sync-percent");
+      var etaEl = tile.querySelector(".tile-sync-eta");
+      if (fill) fill.style.width = pct + "%";
+      if (pctEl) pctEl.textContent = pct + "%";
+      if (etaEl) etaEl.textContent = etaText;
+    } else {
+      // IBD finished or not syncing — if tile had sync layout rebuild it normally
+      if (tile.querySelector(".tile-sync-container")) {
+        delete _btcSyncPrev[tileId(svc)];
+        var normalTile = buildTile(svc);
+        tile.parentNode.replaceChild(normalTile, tile);
+        continue;
+      }
+      var sc = statusClass(svc.health || svc.status);
+      var st = statusText(svc.health || svc.status, svc.enabled);
+      var dot = tile.querySelector(".status-dot");
+      var text = tile.querySelector(".status-text");
+      if (dot) dot.className = "status-dot " + sc;
+      if (text) text.textContent = st;
+    }
   }
 }
 
