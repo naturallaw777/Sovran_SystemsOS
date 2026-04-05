@@ -814,7 +814,6 @@ class InstallerWindow(Adw.ApplicationWindow):
         status = Adw.StatusPage()
         status.set_title("Drives Ready")
         status.set_description("Your drives have been partitioned successfully.")
-        status.set_icon_name("emblem-ok-symbolic")
         status.set_vexpand(True)
 
         details = Adw.PreferencesGroup()
@@ -883,6 +882,7 @@ class InstallerWindow(Adw.ApplicationWindow):
         run(["sudo", "mkdir", "-p", "/etc/nixos"])
         run(["sudo", "cp", "/mnt/etc/nixos/role-state.nix", "/etc/nixos/role-state.nix"])
         run(["sudo", "cp", "/mnt/etc/nixos/custom.nix", "/etc/nixos/custom.nix"])
+        run(["sudo", "cp", "/mnt/etc/nixos/hardware-configuration.nix", "/etc/nixos/hardware-configuration.nix"])
 
         run_stream([
             "sudo", "nixos-install",
