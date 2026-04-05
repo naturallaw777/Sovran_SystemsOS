@@ -33,6 +33,43 @@ if ($modal) $modal.addEventListener("click", function(e) { if (e.target === $mod
 if ($credsModal) $credsModal.addEventListener("click", function(e) { if (e.target === $credsModal) closeCredsModal(); });
 if ($supportModal) $supportModal.addEventListener("click", function(e) { if (e.target === $supportModal) closeSupportModal(); });
 
+// Upgrade modal
+if ($upgradeCloseBtn) $upgradeCloseBtn.addEventListener("click", closeUpgradeModal);
+if ($upgradeCancelBtn) $upgradeCancelBtn.addEventListener("click", closeUpgradeModal);
+if ($upgradeModal) $upgradeModal.addEventListener("click", function(e) { if (e.target === $upgradeModal) closeUpgradeModal(); });
+
+// ── Upgrade modal functions ───────────────────────────────────────
+
+function openUpgradeModal() {
+  if ($upgradeModal) $upgradeModal.classList.add("open");
+}
+
+function closeUpgradeModal() {
+  if ($upgradeModal) $upgradeModal.classList.remove("open");
+}
+
+async function doUpgradeToServer() {
+  var confirmBtn = $upgradeConfirmBtn;
+  if (confirmBtn) { confirmBtn.disabled = true; confirmBtn.textContent = "Upgrading…"; }
+  closeUpgradeModal();
+
+  // Reuse the rebuild modal to show progress
+  _rebuildFeatureName = "Server + Desktop";
+  _rebuildIsEnabling = true;
+  openRebuildModal();
+
+  try {
+    await apiFetch("/api/role/upgrade-to-server", { method: "POST" });
+  } catch (err) {
+    if ($rebuildStatus) $rebuildStatus.textContent = "✗ Upgrade failed: " + err.message;
+    if ($rebuildSpinner) $rebuildSpinner.classList.remove("spinning");
+    if ($rebuildClose) $rebuildClose.disabled = false;
+    if (confirmBtn) { confirmBtn.disabled = false; confirmBtn.textContent = "Yes, Upgrade"; }
+  }
+}
+
+if ($upgradeConfirmBtn) $upgradeConfirmBtn.addEventListener("click", doUpgradeToServer);
+
 // ── Init ──────────────────────────────────────────────────────────
 
 async function init() {
@@ -49,6 +86,7 @@ async function init() {
 
   try {
     var cfg = await apiFetch("/api/config");
+    _currentRole = cfg.role || "server_plus_desktop";
     if (cfg.category_order) {
       for (var i = 0; i < cfg.category_order.length; i++) {
         _categoryLabels[cfg.category_order[i][0]] = cfg.category_order[i][1];

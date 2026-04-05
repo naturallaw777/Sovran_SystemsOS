@@ -172,6 +172,40 @@
     </div>
   </div>
 
+  <!-- Upgrade Modal (Node → Server+Desktop) -->
+  <div class="modal-overlay" id="upgrade-modal" role="dialog" aria-modal="true" aria-labelledby="upgrade-modal-title">
+    <div class="creds-dialog upgrade-dialog">
+      <div class="creds-header">
+        <span class="creds-title" id="upgrade-modal-title">🚀 Upgrade to Server + Desktop</span>
+        <button class="creds-close-btn" id="upgrade-close-btn" title="Close">✕</button>
+      </div>
+      <div class="creds-body">
+        <p class="support-desc">
+          Upgrading to the full <strong>Server + Desktop</strong> experience will unlock all services —
+          encrypted messaging, password management, cloud storage, website hosting, and more.
+        </p>
+        <div class="upgrade-info-box">
+          <p class="upgrade-info-title">⚠ What you should know:</p>
+          <ul class="upgrade-info-list">
+            <li>You will need to purchase domains for your services (we recommend <a href="https://njal.la" target="_blank" rel="noopener noreferrer">njal.la</a>)</li>
+            <li>Some services require ports to be opened on your router</li>
+          </ul>
+        </div>
+        <p class="support-desc">
+          <strong>Don't worry</strong> — the Hub will walk you through every step after the upgrade.
+          Domain setup, port forwarding, and configuration are all guided.
+        </p>
+        <p class="support-desc upgrade-rebuild-note">
+          The system will rebuild after upgrading. This may take several minutes.
+        </p>
+        <div class="domain-field-actions">
+          <button class="btn btn-close-modal" id="upgrade-cancel-btn">Cancel</button>
+          <button class="btn btn-primary" id="upgrade-confirm-btn">Yes, Upgrade</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Reboot overlay -->
   <div class="reboot-overlay" id="reboot-overlay">
     <div class="reboot-card">
