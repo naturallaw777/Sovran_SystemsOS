@@ -37,21 +37,26 @@ FILE=/var/lib/beacons/file_fixes_and_new_services/add-custom-nix/completed
 touch /etc/nixos/custom.nix
 
 /run/current-system/sw/bin/cat > /etc/nixos/custom.nix <<- "EOF"
+{ config, lib, ... }:
 
-{config, pkgs, lib, ...}:
-
-# Add custom NixOS modules here.
-
-let
-   personalization = import ./personalization.nix;
-   
-   in
 {
+  ###########################################################
+  #                                                         #
+  #              Sovran_SystemsOS — custom.nix              #
+  #                                                         #
+  #  Services, features, and roles are managed by the       #
+  #  Sovran Hub. Any changes you make through the Hub       #
+  #  will appear in the "Hub Managed" section below.        #
+  #                                                         #
+  #  If you want to add your own NixOS modules or           #
+  #  configuration, place them here — outside of the        #
+  #  Hub Managed section.                                   #
+  #                                                         #
+  ###########################################################
 
-
+  # ─── Add your custom NixOS configuration below ───────────
 
 }
-
 EOF
 
 
