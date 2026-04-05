@@ -36,7 +36,6 @@
   networking.firewall.enable = true;
   networking.firewall.allowedTCPPorts = [ 80 443 8448 3051 ];
   networking.firewall.allowedUDPPorts = [ 80 443 8448 3051 5353 ];
-  ];
 
   # ── Avahi (mDNS) ───────────────────────────────────────────
   # Advertise as sovransystemsos.local on the LAN without changing the system
