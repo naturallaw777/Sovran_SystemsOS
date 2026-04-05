@@ -1,6 +1,7 @@
 <p align="center">
-  <img src="https://github.com/user-attachments/assets/sovran-systems-logo.png" alt="Sovran Systems" width="300"/>
+  <img src="https://github.com/user-attachments/assets/f62d7a90-d8b5-4c74-aa7f-50961fbaeb5c" alt="Sovran Systems" width="300"/>
 </p>
+
 
 <h1 align="center">Sovran_SystemsOS</h1>
 
@@ -24,14 +25,15 @@ Sovran_SystemsOS is a purpose-built, fully declarative operating system construc
 
 Every component of the system is defined in Nix. There are no imperative scripts, no hidden state, and no black boxes. What you declare is exactly what runs. The entire operating system can be rebuilt, replicated, or audited from source at any time.
 
-<p align="center">
-  <img src="[https://github.com/user-attachments/assets/sovran-hub-screenshot.png](https://github.com/user-attachments/assets/5e9babe8-ca59-465c-9dda-d2ee46d2d4c2)" alt="Sovran_SystemsOS Hub Dashboard" width="800"/>
-</p>
-
 ---
 
 ## The Sovran_SystemsOS Hub
 
+
+<p align="center">
+  <img width="1945" height="1000" alt="Screenshot From 2026-04-05 01-03-08" src="https://github.com/user-attachments/assets/00f0fbbe-1dfb-4128-a907-fca05ab4ace4" />
+  </p>
+  
 The **Sovran_SystemsOS Hub** is the central management dashboard for the entire operating system. Accessible through a local web interface, it provides a unified view of all running infrastructure, Bitcoin services, and application status in real time.
 
 From the Hub, operators can:
