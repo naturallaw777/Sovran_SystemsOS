@@ -750,12 +750,12 @@ class InstallerWindow(Adw.ApplicationWindow):
         GLib.idle_add(append_text, buf, "\n=== Formatting partitions ===\n")
         boot_p1 = f"{boot_path}p1" if "nvme" in boot_path else f"{boot_path}1"
         boot_p2 = f"{boot_path}p2" if "nvme" in boot_path else f"{boot_path}2"
+        data_p1 = (f"{data_path}p1" if "nvme" in data_path else f"{data_path}1") if data_path else None
 
         run_stream(["sudo", "mkfs.vfat", "-F", "32", boot_p1], buf)
         run_stream(["sudo", "mkfs.ext4", "-F", "-L", "sovran_systemsos", boot_p2], buf)
 
-        if data_path:
-            data_p1 = f"{data_path}p1" if "nvme" in data_path else f"{data_path}1"
+        if data_p1:
             run_stream(["sudo", "mkfs.ext4", "-F", "-L", "BTCEcoandBackup", data_p1], buf)
 
         # ── Mount filesystems ──
@@ -764,8 +764,7 @@ class InstallerWindow(Adw.ApplicationWindow):
         run_stream(["sudo", "mkdir", "-p", "/mnt/boot/efi"], buf)
         run_stream(["sudo", "mount", "-o", "umask=0077,defaults", boot_p1, "/mnt/boot/efi"], buf)
 
-        if data_path:
-            data_p1 = f"{data_path}p1" if "nvme" in data_path else f"{data_path}1"
+        if data_p1:
             run_stream(["sudo", "mkdir", "-p", "/mnt/run/media/Second_Drive"], buf)
             run_stream(["sudo", "mount", data_p1, "/mnt/run/media/Second_Drive"], buf)
 
