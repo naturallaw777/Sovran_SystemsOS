@@ -301,7 +301,8 @@ function renderBackupReady(drives) {
   if (drives.length > 0) {
     driveSelector = [
       '<label class="support-info-label" style="display:block;margin-bottom:6px;">Select drive:</label>',
-      '<select id="backup-drive-select" class="support-unlock-select" style="width:100%;margin-bottom:14px;">',
+      '<div style="display:flex;gap:8px;align-items:center;margin-bottom:14px;">',
+        '<select id="backup-drive-select" class="support-unlock-select" style="flex:1;">',
     ].join("");
     for (var i = 0; i < drives.length; i++) {
       var d = drives[i];
@@ -310,6 +311,8 @@ function renderBackupReady(drives) {
         '</option>';
     }
     driveSelector += '</select>';
+    driveSelector += '<button class="btn support-btn-auditlog" id="btn-backup-refresh" style="white-space:nowrap;">&#x21bb; Refresh</button>';
+    driveSelector += '</div>';
     driveSelector += '<button class="btn support-btn-enable" id="btn-start-backup">Start Backup</button>';
   } else {
     driveSelector = [
@@ -331,7 +334,15 @@ function renderBackupReady(drives) {
     '<div class="support-section">',
     '<div class="support-icon-big">\ud83d\udcbe</div>',
     '<h3 class="support-heading">Manual Backup</h3>',
-    '<p class="support-desc">Back up your Sovran_SystemsOS data to an external USB hard drive.</p>',
+
+    '<div class="support-wallet-box support-wallet-protected" style="margin-bottom:16px;">',
+      '<p class="support-wallet-desc">',
+        'Your Sovran Pro already backs up your data automatically to its internal second drive. ',
+        'This manual backup lets you create an additional copy on an external USB drive \u2014 ',
+        'storing your data in a third location, outside the computer, for maximum protection ',
+        'against hardware failure or physical damage.',
+      '</p>',
+    '</div>',
 
     '<div class="support-steps">',
       '<div class="support-steps-title">Requirements</div>',
@@ -353,7 +364,7 @@ function renderBackupReady(drives) {
       '</ol>',
     '</div>',
 
-    '<div class="support-wallet-box support-wallet-protected">',
+    '<div class="support-wallet-box support-wallet-warning">',
       '<div class="support-wallet-header">',
         '<span class="support-wallet-icon">\u23f1\ufe0f</span>',
         '<span class="support-wallet-title">Time Estimate</span>',
@@ -367,9 +378,13 @@ function renderBackupReady(drives) {
 
   if (drives.length > 0) {
     document.getElementById("btn-start-backup").addEventListener("click", startBackup);
+    document.getElementById("btn-backup-refresh").addEventListener("click", function() {
+      $supportBody.innerHTML = '<p class="creds-loading">Scanning for external drives\u2026</p>';
+      detectDrivesAndRender();
+    });
   } else {
     document.getElementById("btn-backup-refresh").addEventListener("click", function() {
-      $supportBody.innerHTML = '<p class="creds-loading">Detecting external drives\u2026</p>';
+      $supportBody.innerHTML = '<p class="creds-loading">Scanning for external drives\u2026</p>';
       detectDrivesAndRender();
     });
   }
