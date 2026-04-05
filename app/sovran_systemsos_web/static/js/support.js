@@ -259,3 +259,215 @@ function closeSupportModal() {
   stopSupportTimer();
   stopWalletUnlockTimer();
 }
+
+// ── Manual Backup modal ───────────────────────────────────────────
+
+var _backupPollTimer = null;
+var _backupLogOffset = 0;
+
+function openBackupModal() {
+  if (!$supportModal) return;
+  $supportModal.classList.add("open");
+  $supportBody.innerHTML = '<p class="creds-loading">Detecting external drives\u2026</p>';
+  detectDrivesAndRender();
+}
+
+async function detectDrivesAndRender() {
+  try {
+    // Check whether a backup is already in progress
+    var status = await apiFetch("/api/backup/status?offset=0");
+    if (status.running) {
+      renderBackupRunning();
+      _backupLogOffset = status.offset || 0;
+      if (status.log) {
+        var logDiv = document.getElementById("backup-log");
+        if (logDiv) { logDiv.insertAdjacentText("beforeend", status.log); logDiv.scrollTop = logDiv.scrollHeight; }
+      }
+      startBackupPoll();
+      return;
+    }
+  } catch (_) {}
+
+  try {
+    var data = await apiFetch("/api/backup/drives");
+    renderBackupReady(data.drives || []);
+  } catch (err) {
+    $supportBody.innerHTML = '<p class="creds-empty">Could not detect drives. Please try again.</p>';
+  }
+}
+
+function renderBackupReady(drives) {
+  var driveSelector = "";
+  if (drives.length > 0) {
+    driveSelector = [
+      '<label class="support-info-label" style="display:block;margin-bottom:6px;">Select drive:</label>',
+      '<select id="backup-drive-select" class="support-unlock-select" style="width:100%;margin-bottom:14px;">',
+    ].join("");
+    for (var i = 0; i < drives.length; i++) {
+      var d = drives[i];
+      driveSelector += '<option value="' + escHtml(d.path) + '">' +
+        escHtml(d.name) + ' \u2014 ' + d.free_gb + ' GB free / ' + d.total_gb + ' GB total' +
+        '</option>';
+    }
+    driveSelector += '</select>';
+    driveSelector += '<button class="btn support-btn-enable" id="btn-start-backup">Start Backup</button>';
+  } else {
+    driveSelector = [
+      '<div class="support-wallet-box support-wallet-warning">',
+        '<div class="support-wallet-header">',
+          '<span class="support-wallet-icon">\u26a0\ufe0f</span>',
+          '<span class="support-wallet-title">No External Drive Detected</span>',
+        '</div>',
+        '<p class="support-wallet-desc">',
+          'No USB drive was found under /run/media/. ',
+          'Make sure the drive is plugged in and mounted, then click Refresh.',
+        '</p>',
+      '</div>',
+      '<button class="btn support-btn-auditlog" id="btn-backup-refresh">&#x21bb; Refresh</button>',
+    ].join("");
+  }
+
+  $supportBody.innerHTML = [
+    '<div class="support-section">',
+    '<div class="support-icon-big">\ud83d\udcbe</div>',
+    '<h3 class="support-heading">Manual Backup</h3>',
+    '<p class="support-desc">Back up your Sovran_SystemsOS data to an external USB hard drive.</p>',
+
+    '<div class="support-steps">',
+      '<div class="support-steps-title">Requirements</div>',
+      '<ol class="support-backup-steps">',
+        '<li>USB hard drive plugged into one of the open USB ports on your Sovran Pro</li>',
+        '<li>At least 500 GB of free space on the drive</li>',
+        '<li>Drive must be formatted as <strong>exFAT</strong></li>',
+      '</ol>',
+    '</div>',
+
+    '<div class="support-steps">',
+      '<div class="support-steps-title">What gets backed up</div>',
+      '<ol class="support-backup-steps">',
+        '<li>NixOS configuration (<code>/etc/nixos</code>)</li>',
+        '<li>Bitcoin &amp; Lightning wallet data (<code>/var/lib/lnd</code>)</li>',
+        '<li>nix-bitcoin secrets (<code>/etc/nix-bitcoin-secrets</code>)</li>',
+        '<li>Domain configurations (<code>/var/lib/domains</code>)</li>',
+        '<li>Home directory (<code>/home</code>)</li>',
+      '</ol>',
+    '</div>',
+
+    '<div class="support-wallet-box support-wallet-protected">',
+      '<div class="support-wallet-header">',
+        '<span class="support-wallet-icon">\u23f1\ufe0f</span>',
+        '<span class="support-wallet-title">Time Estimate</span>',
+      '</div>',
+      '<p class="support-wallet-desc">This backup can take <strong>up to 4 hours</strong> depending on the amount of data stored on your Sovran Pro and the speed of your external hard drive. Be patient\u2026</p>',
+    '</div>',
+
+    driveSelector,
+    '</div>',
+  ].join("");
+
+  if (drives.length > 0) {
+    document.getElementById("btn-start-backup").addEventListener("click", startBackup);
+  } else {
+    document.getElementById("btn-backup-refresh").addEventListener("click", function() {
+      $supportBody.innerHTML = '<p class="creds-loading">Detecting external drives\u2026</p>';
+      detectDrivesAndRender();
+    });
+  }
+}
+
+async function startBackup() {
+  var btn = document.getElementById("btn-start-backup");
+  if (btn) { btn.disabled = true; btn.textContent = "Starting\u2026"; }
+  var sel = document.getElementById("backup-drive-select");
+  var target = sel ? sel.value : "";
+  try {
+    _backupLogOffset = 0;
+    await apiFetch("/api/backup/run" + (target ? "?target=" + encodeURIComponent(target) : ""), { method: "POST" });
+    renderBackupRunning();
+    startBackupPoll();
+  } catch (err) {
+    if (btn) { btn.disabled = false; btn.textContent = "Start Backup"; }
+    alert("Failed to start backup: " + (err.message || "Unknown error"));
+  }
+}
+
+function renderBackupRunning() {
+  $supportBody.innerHTML = [
+    '<div class="support-section">',
+    '<div class="support-icon-big support-active-icon">\ud83d\udcbe</div>',
+    '<h3 class="support-heading support-active-heading">Backup In Progress</h3>',
+    '<div class="support-wallet-box support-wallet-warning">',
+      '<div class="support-wallet-header">',
+        '<span class="support-wallet-icon">\u26a0\ufe0f</span>',
+        '<span class="support-wallet-title">Do Not Unplug</span>',
+      '</div>',
+      '<p class="support-wallet-desc">Do not remove the USB drive while the backup is running. This could corrupt the backup and your drive.</p>',
+    '</div>',
+    '<div class="modal-log" id="backup-log" style="text-align:left;"></div>',
+    '</div>',
+  ].join("");
+}
+
+function startBackupPoll() {
+  stopBackupPoll();
+  _backupPollTimer = setInterval(pollBackupStatus, 2000);
+  pollBackupStatus();
+}
+
+function stopBackupPoll() {
+  if (_backupPollTimer) { clearInterval(_backupPollTimer); _backupPollTimer = null; }
+}
+
+async function pollBackupStatus() {
+  try {
+    var data = await apiFetch("/api/backup/status?offset=" + _backupLogOffset);
+    var logDiv = document.getElementById("backup-log");
+    if (logDiv && data.log) {
+      logDiv.insertAdjacentText("beforeend", data.log);
+      logDiv.scrollTop = logDiv.scrollHeight;
+    }
+    _backupLogOffset = data.offset;
+    if (!data.running) {
+      stopBackupPoll();
+      renderBackupDone(data.result === "success");
+    }
+  } catch (_) {}
+}
+
+function renderBackupDone(success) {
+  var logDiv = document.getElementById("backup-log");
+  var logContent = logDiv ? logDiv.textContent : "";
+
+  if (success) {
+    $supportBody.innerHTML = [
+      '<div class="support-section">',
+      '<div class="support-icon-big">\u2705</div>',
+      '<h3 class="support-heading">All Finished!</h3>',
+      '<div class="support-wallet-box support-wallet-protected">',
+        '<div class="support-wallet-header">',
+          '<span class="support-wallet-icon">\u23cf\ufe0f</span>',
+          '<span class="support-wallet-title">Eject Your Drive</span>',
+        '</div>',
+        '<p class="support-wallet-desc">Please eject the drive before removing it from your Sovran Pro.</p>',
+      '</div>',
+      '<div class="modal-log" id="backup-log-done" style="text-align:left;"></div>',
+      '<button class="btn support-btn-done" id="btn-backup-close">Close</button>',
+      '</div>',
+    ].join("");
+    var doneLog = document.getElementById("backup-log-done");
+    if (doneLog) { doneLog.textContent = logContent; doneLog.scrollTop = doneLog.scrollHeight; }
+  } else {
+    $supportBody.innerHTML = [
+      '<div class="support-section">',
+      '<div class="support-icon-big">\u26a0\ufe0f</div>',
+      '<h3 class="support-heading">Backup Failed</h3>',
+      '<p class="support-desc">The backup did not complete successfully. Please check that the USB drive is still connected, has enough free space, and is formatted as exFAT. Then try again.</p>',
+      '<div class="modal-log" id="backup-log-fail" style="text-align:left;"></div>',
+      '<button class="btn support-btn-done" id="btn-backup-close">Close</button>',
+      '</div>',
+    ].join("");
+    var failLog = document.getElementById("backup-log-fail");
+    if (failLog) { failLog.textContent = logContent; failLog.scrollTop = failLog.scrollHeight; }
+  }
+  document.getElementById("btn-backup-close").addEventListener("click", closeSupportModal);
+}

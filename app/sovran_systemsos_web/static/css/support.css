@@ -360,3 +360,17 @@
   border-color: #a8c8ff;
   border-style: solid;
 }
+
+/* ── Manual Backup ───────────────────────────────────────────────── */
+
+.support-backup-steps {
+  padding-left: 20px;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  line-height: 1.8;
+  margin: 8px 0 0 0;
+}
+
+.support-backup-steps li {
+  margin-bottom: 4px;
+}

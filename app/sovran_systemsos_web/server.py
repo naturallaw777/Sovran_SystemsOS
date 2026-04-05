@@ -40,6 +40,10 @@ REBUILD_LOG    = "/var/log/sovran-hub-rebuild.log"
 REBUILD_STATUS = "/var/log/sovran-hub-rebuild.status"
 REBUILD_UNIT   = "sovran-hub-rebuild.service"
 
+BACKUP_LOG    = "/var/log/sovran-hub-backup.log"
+BACKUP_STATUS = "/var/log/sovran-hub-backup.status"
+BACKUP_SCRIPT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "scripts", "sovran-hub-backup.sh")
+
 CUSTOM_NIX  = "/etc/nixos/custom.nix"
 HUB_BEGIN   = "  # ── Hub Managed (do not edit) ──────────────"
 HUB_END     = "  # ── End Hub Managed ────────────────────────"
@@ -741,6 +745,66 @@ def _read_rebuild_log(offset: int = 0) -> tuple[str, int]:
             return chunk.decode(errors="replace"), offset + len(chunk)
     except FileNotFoundError:
         return "", 0
+
+
+# ── Backup helpers ────────────────────────────────────────────────
+
+def _read_backup_status() -> str:
+    """Read the backup status file. Returns RUNNING, SUCCESS, FAILED, or IDLE."""
+    try:
+        with open(BACKUP_STATUS, "r") as f:
+            return f.read().strip()
+    except FileNotFoundError:
+        return "IDLE"
+
+
+def _read_backup_log(offset: int = 0) -> tuple[str, int]:
+    """Read the backup log file from the given byte offset.
+    Returns (new_text, new_offset)."""
+    try:
+        with open(BACKUP_LOG, "rb") as f:
+            f.seek(0, 2)
+            size = f.tell()
+            if offset > size:
+                offset = 0
+            f.seek(offset)
+            chunk = f.read()
+            return chunk.decode(errors="replace"), offset + len(chunk)
+    except FileNotFoundError:
+        return "", 0
+
+
+def _detect_external_drives() -> list[dict]:
+    """Scan /run/media/ for mounted external drives.
+    Returns a list of dicts with name, path, free_gb, total_gb."""
+    drives = []
+    media_root = "/run/media"
+    if not os.path.isdir(media_root):
+        return drives
+    try:
+        for user in os.listdir(media_root):
+            user_path = os.path.join(media_root, user)
+            if not os.path.isdir(user_path):
+                continue
+            for drive in os.listdir(user_path):
+                drive_path = os.path.join(user_path, drive)
+                if not os.path.isdir(drive_path):
+                    continue
+                try:
+                    st = os.statvfs(drive_path)
+                    total_gb = round((st.f_blocks * st.f_frsize) / (1024 ** 3), 1)
+                    free_gb  = round((st.f_bavail * st.f_frsize) / (1024 ** 3), 1)
+                    drives.append({
+                        "name":     drive,
+                        "path":     drive_path,
+                        "free_gb":  free_gb,
+                        "total_gb": total_gb,
+                    })
+                except OSError:
+                    pass
+    except OSError:
+        pass
+    return drives
 
 
 # ── custom.nix Hub Managed section helpers ────────────────────────
@@ -1854,6 +1918,66 @@ async def api_support_audit_log(limit: int = 100):
     loop = asyncio.get_event_loop()
     lines = await loop.run_in_executor(None, _get_support_audit_log, limit)
     return {"entries": lines}
+
+
+# ── Backup endpoints ──────────────────────────────────────────────
+
+@app.get("/api/backup/status")
+async def api_backup_status(offset: int = 0):
+    """Poll endpoint: reads backup status file + log file."""
+    loop = asyncio.get_event_loop()
+    status = await loop.run_in_executor(None, _read_backup_status)
+    new_log, new_offset = await loop.run_in_executor(None, _read_backup_log, offset)
+    running = (status == "RUNNING")
+    result = "pending" if running else status.lower()
+    return {
+        "running": running,
+        "result":  result,
+        "log":     new_log,
+        "offset":  new_offset,
+    }
+
+
+@app.get("/api/backup/drives")
+async def api_backup_drives():
+    """Return a list of detected external drives under /run/media/."""
+    loop = asyncio.get_event_loop()
+    drives = await loop.run_in_executor(None, _detect_external_drives)
+    return {"drives": drives}
+
+
+@app.post("/api/backup/run")
+async def api_backup_run(target: str = ""):
+    """Start the backup script as a background subprocess.
+    Returns immediately; progress is read via /api/backup/status.
+    """
+    loop = asyncio.get_event_loop()
+    status = await loop.run_in_executor(None, _read_backup_status)
+    if status == "RUNNING":
+        return {"ok": True, "status": "already_running"}
+
+    # Clear stale log before starting
+    try:
+        with open(BACKUP_LOG, "w") as f:
+            f.write("")
+    except OSError:
+        pass
+
+    env = dict(os.environ)
+    if target:
+        env["BACKUP_TARGET"] = target
+
+    # Fire-and-forget: the script writes its own status/log files.
+    # Progress is read by the client via /api/backup/status (same pattern
+    # as /api/updates/run and the rebuild feature).
+    await asyncio.create_subprocess_exec(
+        "/usr/bin/env", "bash", BACKUP_SCRIPT,
+        stdout=asyncio.subprocess.DEVNULL,
+        stderr=asyncio.subprocess.DEVNULL,
+        env=env,
+    )
+
+    return {"ok": True, "status": "started"}
 
 
 # ── Feature Manager endpoints ─────────────────────────────────────
