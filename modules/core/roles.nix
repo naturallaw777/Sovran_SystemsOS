@@ -48,6 +48,7 @@
       element-calling = lib.mkEnableOption "Element Video and Audio Calling";
       bitcoin-core = lib.mkEnableOption "Bitcoin Core";
       rdp = lib.mkEnableOption "Gnome Remote Desktop";
+      sshd = lib.mkEnableOption "SSH remote access";
     };
 
     # ── Web exposure (controls Caddy vhosts) ──────────────────

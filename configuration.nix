@@ -167,22 +167,6 @@ backup	/etc/nix-bitcoin-secrets/	localhost/
   # ── Tor ────────────────────────────────────────────────────
   services.tor = { enable = true; client.enable = true; torsocks.enable = true; };
 
-  # ── SSH ────────────────────────────────────────────────────
-  services.openssh = {
-    enable = true;
-    settings = {
-      PasswordAuthentication = false;
-      KbdInteractiveAuthentication = false;
-      PermitRootLogin = "yes";
-    };
-  };
-
-  # ── Fail2Ban ───────────────────────────────────────────────
-  services.fail2ban = {
-    enable = true;
-    ignoreIP = [ "127.0.0.0/8" "10.0.0.0/8" "172.16.0.0/12" "192.168.0.0/16" "8.8.8.8" ];
-  };
-
   # ── Garbage Collection ─────────────────────────────────────
   nix.gc = { automatic = true; dates = "weekly"; options = "--delete-older-than 7d"; };
 
