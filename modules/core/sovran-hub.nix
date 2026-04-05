@@ -230,6 +230,22 @@ let
       install -d $out/share/sovran-hub/icons
       cp icons/* $out/share/sovran-hub/icons/ 2>/dev/null || true
 
+      install -d $out/share/icons/hicolor/scalable/apps
+      cp sovran_systemsos_web/static/logo-light.svg $out/share/icons/hicolor/scalable/apps/sovran-hub.svg
+
+      install -d $out/share/applications
+      cat > $out/share/applications/sovran-hub.desktop <<DESKTOP
+[Desktop Entry]
+Type=Application
+Name=Sovran Hub
+Comment=Open Sovran_SystemsOS Hub dashboard
+Exec=xdg-open http://localhost:8937
+Icon=sovran-hub
+Terminal=false
+Categories=System;
+StartupNotify=false
+DESKTOP
+
       install -d $out/bin
       cat > $out/bin/sovran-hub-web <<LAUNCHER
 #!${pkgs.python3}/bin/python3
@@ -292,6 +308,8 @@ in
         ExecStart = "${rebuild-script}";
       };
     };
+
+    environment.systemPackages = [ sovran-hub-web ];
 
     networking.firewall.allowedTCPPorts = [ 3051 8937 60847 ];
 
