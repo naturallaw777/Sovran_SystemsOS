@@ -880,7 +880,8 @@ class InstallerWindow(Adw.ApplicationWindow):
             "sudo", "nixos-install",
             "--root", "/mnt",
             "--flake", "/mnt/etc/nixos#nixos",
-            "--no-root-password"
+            "--no-root-password",
+            "--impure"
         ], buf)
 
         GLib.idle_add(self.push_complete)
