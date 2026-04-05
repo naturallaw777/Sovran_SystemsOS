@@ -55,7 +55,6 @@ in
     gsettings-desktop-schemas
     adwaita-icon-theme
     util-linux
-    disko
     parted
     dosfstools
     e2fsprogs
