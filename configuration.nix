@@ -36,8 +36,6 @@
   networking.firewall.enable = true;
   networking.firewall.allowedTCPPorts = [ 80 443 8448 3051 ];
   networking.firewall.allowedUDPPorts = [ 80 443 8448 3051 5353 ];
-  networking.firewall.allowedUDPPortRanges = [
-    { from = 49152; to = 65535; }
   ];
 
   # ── Avahi (mDNS) ───────────────────────────────────────────
