@@ -339,6 +339,23 @@ class InstallerWindow(Adw.ApplicationWindow):
              "Node (Bitcoin-only)"),
         ]
 
+        # Detect internal (non-USB) drives to gate role availability
+        try:
+            raw = run(["lsblk", "-b", "-dno", "NAME,SIZE,TYPE,RO,TRAN", "-e", "7,11"])
+            internal_disks = []
+            for line in raw.splitlines():
+                parts = line.split()
+                if len(parts) >= 4 and parts[2] == "disk" and parts[3] == "0":
+                    tran = parts[4] if len(parts) >= 5 else ""
+                    if tran != "usb":
+                        internal_disks.append(parts[0])
+        except Exception:
+            internal_disks = []
+
+        has_second_drive = len(internal_disks) >= 2
+
+        NEEDS_DATA_DRIVE = {"Server+Desktop", "Node (Bitcoin-only)"}
+
         self._role_radios = []
         radio_group = None
         cards_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
@@ -348,14 +365,22 @@ class InstallerWindow(Adw.ApplicationWindow):
         for label, desc, key in roles:
             card = Adw.ActionRow()
             card.set_title(label)
-            card.set_subtitle(desc)
+
+            available = has_second_drive or key not in NEEDS_DATA_DRIVE
+            if not available:
+                card.set_subtitle(desc + "\n⚠ Requires a second internal drive (not detected)")
+                card.set_sensitive(False)
+            else:
+                card.set_subtitle(desc)
 
             radio = Gtk.CheckButton()
             radio.set_name(key)
-            if radio_group is None:
+            radio.set_sensitive(available)
+
+            if radio_group is None and available:
                 radio_group = radio
                 radio.set_active(True)
-            else:
+            elif radio_group is not None:
                 radio.set_group(radio_group)
 
             card.add_prefix(radio)
