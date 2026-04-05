@@ -58,11 +58,22 @@ function renderSidebarSupport(supportServices) {
     btn.addEventListener("click", function() { openSupportModal(); });
     $sidebarSupport.appendChild(btn);
   }
-  if (supportServices.length > 0) {
-    var hr = document.createElement("hr");
-    hr.className = "sidebar-divider";
-    $sidebarSupport.appendChild(hr);
-  }
+
+  // ── Manual Backup button
+  var backupBtn = document.createElement("button");
+  backupBtn.className = "sidebar-support-btn";
+  backupBtn.innerHTML =
+    '<span class="sidebar-support-icon">💾</span>' +
+    '<span class="sidebar-support-text">' +
+      '<span class="sidebar-support-title">Manual Backup</span>' +
+      '<span class="sidebar-support-hint">Back up to external drive</span>' +
+    '</span>';
+  backupBtn.addEventListener("click", function() { openBackupModal(); });
+  $sidebarSupport.appendChild(backupBtn);
+
+  var hr = document.createElement("hr");
+  hr.className = "sidebar-divider";
+  $sidebarSupport.appendChild(hr);
 }
 
 function buildTile(svc) {
