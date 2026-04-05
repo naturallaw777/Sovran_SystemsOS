@@ -351,13 +351,13 @@
 /* ── Tech Support tile ───────────────────────────────────────────── */
 
 .support-tile {
-  border-color: var(--accent-color);
-  border-width: 2px;
-  border-style: dashed;
+  border-color: var(--border-color);
+  border-width: 1px;
+  border-style: solid;
 }
 
 .support-tile:hover {
-  border-color: #a8c8ff;
+  border-color: var(--accent-color);
   border-style: solid;
 }
 

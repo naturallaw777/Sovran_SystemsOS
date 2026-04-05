@@ -774,10 +774,94 @@ def _read_backup_log(offset: int = 0) -> tuple[str, int]:
         return "", 0
 
 
+_INTERNAL_LABELS  = {"BTCEcoandBackup", "sovran_systemsos"}
+_INTERNAL_MOUNTS  = {"/", "/boot/efi"}
+_INTERNAL_MOUNT_PREFIX = "/run/media/Second_Drive"
+
+
+def _is_internal_mount(mnt: str) -> bool:
+    """Return True if *mnt* is a known internal system path."""
+    if mnt in _INTERNAL_MOUNTS:
+        return True
+    if mnt == _INTERNAL_MOUNT_PREFIX or mnt.startswith(_INTERNAL_MOUNT_PREFIX + "/"):
+        return True
+    return False
+
+
 def _detect_external_drives() -> list[dict]:
-    """Scan /run/media/ for mounted external drives.
-    Returns a list of dicts with name, path, free_gb, total_gb."""
-    drives = []
+    """Scan for mounted external USB drives.
+
+    Uses ``lsblk`` to identify genuinely removable/hotplug devices and
+    filters out internal system drives (BTCEcoandBackup, sovran_systemsos,
+    /boot/efi, /run/media/Second_Drive).  Falls back to scanning
+    /run/media/ directly if lsblk is unavailable, applying the same
+    label/path filters.
+
+    Returns a list of dicts with name, path, free_gb, total_gb.
+    """
+    import json as _json
+    import subprocess as _subprocess
+
+    drives: list[dict] = []
+    seen_paths: set[str] = set()
+
+    # ── Primary path: lsblk JSON ────────────────────────────────
+    try:
+        result = _subprocess.run(
+            ["lsblk", "-J", "-o", "NAME,LABEL,MOUNTPOINT,HOTPLUG,RM,TYPE"],
+            capture_output=True, text=True, timeout=10
+        )
+        if result.returncode == 0:
+            data = _json.loads(result.stdout)
+
+            def _flatten(devs: list) -> list:
+                out = []
+                for d in devs:
+                    out.append(d)
+                    out.extend(_flatten(d.get("children") or []))
+                return out
+
+            for dev in _flatten(data.get("blockdevices", [])):
+                dev_type   = dev.get("type", "")
+                hotplug    = str(dev.get("hotplug", "0"))
+                rm         = str(dev.get("rm", "0"))
+                label      = dev.get("label") or ""
+                mountpoint = dev.get("mountpoint") or ""
+
+                if dev_type not in ("part", "disk"):
+                    continue
+                if hotplug != "1" and rm != "1":
+                    continue
+                if not mountpoint:
+                    continue
+                if label in _INTERNAL_LABELS:
+                    continue
+                if _is_internal_mount(mountpoint):
+                    continue
+                if mountpoint in seen_paths:
+                    continue
+
+                try:
+                    st = os.statvfs(mountpoint)
+                    total_gb = round((st.f_blocks * st.f_frsize) / (1024 ** 3), 1)
+                    free_gb  = round((st.f_bavail * st.f_frsize) / (1024 ** 3), 1)
+                    name = label if label else os.path.basename(mountpoint)
+                    drives.append({
+                        "name":     name,
+                        "path":     mountpoint,
+                        "free_gb":  free_gb,
+                        "total_gb": total_gb,
+                    })
+                    seen_paths.add(mountpoint)
+                except OSError:
+                    pass
+
+            if drives:
+                return drives
+    except Exception:  # lsblk not available or JSON parse error
+        pass
+
+    # ── Fallback: scan /run/media/ ───────────────────────────────
     media_root = "/run/media"
     if not os.path.isdir(media_root):
         return drives
@@ -786,20 +870,27 @@ def _detect_external_drives() -> list[dict]:
             user_path = os.path.join(media_root, user)
             if not os.path.isdir(user_path):
                 continue
-            for drive in os.listdir(user_path):
-                drive_path = os.path.join(user_path, drive)
+            for drive_name in os.listdir(user_path):
+                drive_path = os.path.join(user_path, drive_name)
                 if not os.path.isdir(drive_path):
+                    continue
+                if drive_name in _INTERNAL_LABELS:
+                    continue
+                if _is_internal_mount(drive_path):
+                    continue
+                if drive_path in seen_paths:
                     continue
                 try:
                     st = os.statvfs(drive_path)
                     total_gb = round((st.f_blocks * st.f_frsize) / (1024 ** 3), 1)
                     free_gb  = round((st.f_bavail * st.f_frsize) / (1024 ** 3), 1)
                     drives.append({
-                        "name":     drive,
+                        "name":     drive_name,
                         "path":     drive_path,
                         "free_gb":  free_gb,
                         "total_gb": total_gb,
                     })
+                    seen_paths.add(drive_path)
                 except OSError:
                     pass
     except OSError:
