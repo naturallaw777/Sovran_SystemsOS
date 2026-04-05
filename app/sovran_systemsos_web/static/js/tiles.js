@@ -45,6 +45,20 @@ function buildTiles(services, categoryLabels) {
 
 function renderSidebarSupport(supportServices) {
   $sidebarSupport.innerHTML = "";
+
+  // ── Update System button (above Tech Help)
+  var sidebarUpdateBtn = document.createElement("button");
+  sidebarUpdateBtn.className = "sidebar-support-btn";
+  sidebarUpdateBtn.id = "sidebar-btn-update";
+  sidebarUpdateBtn.innerHTML =
+    '<span class="sidebar-support-icon">🔄</span>' +
+    '<span class="sidebar-support-text">' +
+      '<span class="sidebar-support-title">Update System</span>' +
+      '<span class="sidebar-support-hint" id="sidebar-update-hint">Check for updates</span>' +
+    '</span>';
+  sidebarUpdateBtn.addEventListener("click", function() { openUpdateModal(); });
+  $sidebarSupport.appendChild(sidebarUpdateBtn);
+
   for (var i = 0; i < supportServices.length; i++) {
     var svc = supportServices[i];
     var btn = document.createElement("button");
@@ -170,7 +184,18 @@ async function checkUpdates() {
   try {
     var data = await apiFetch("/api/updates/check");
     var hasUpdates = !!data.available;
-    if ($updateBadge) $updateBadge.classList.toggle("visible", hasUpdates);
-    if ($updateBtn) $updateBtn.classList.toggle("has-updates", hasUpdates);
+    var sidebarUpdateBtn = document.getElementById("sidebar-btn-update");
+    var sidebarUpdateHint = document.getElementById("sidebar-update-hint");
+    if (sidebarUpdateBtn) {
+      if (hasUpdates) {
+        sidebarUpdateBtn.style.borderColor = "#2ec27e";
+        sidebarUpdateBtn.style.backgroundColor = "rgba(46, 194, 126, 0.08)";
+        if (sidebarUpdateHint) sidebarUpdateHint.textContent = "Updates available!";
+      } else {
+        sidebarUpdateBtn.style.borderColor = "";
+        sidebarUpdateBtn.style.backgroundColor = "";
+        if (sidebarUpdateHint) sidebarUpdateHint.textContent = "System is up to date";
+      }
+    }
   } catch (_) {}
 }
