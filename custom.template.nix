@@ -76,6 +76,7 @@
   #  │ element-calling      │ LiveKit server for Matrix      │
   #  │ rdp                  │ GNOME Remote Desktop (RDP)     │
   #  │ bitcoin-core         │ Bitcoin Core GUI desktop app   │
+  #  │ sshd                 │ SSH remote access (for support) │
   #  └─────────────────────┴─────���──────────────────────────┘
   #
   #  Example — enable element video calling:
