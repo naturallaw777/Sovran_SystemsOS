@@ -117,11 +117,8 @@ class InstallerWindow(Adw.ApplicationWindow):
         self.nav = Adw.NavigationView()
         self.set_content(self.nav)
 
-        # Check for internet before anything else
-        if check_internet():
-            self.push_welcome()
-        else:
-            self.push_no_internet()
+        # Always show the landing/welcome page first
+        self.push_landing()
 
     # ── Navigation helpers ─────────────────────────────────────────────────
 
@@ -197,54 +194,93 @@ class InstallerWindow(Adw.ApplicationWindow):
 
         return box
 
-    # ── No Internet Screen ─────────────────────────────────────────────────
+    # ── Landing / Welcome Screen ───────────────────────────────────────────
 
-    def push_no_internet(self):
+    def push_landing(self):
+        """First screen: always shown. Welcomes the user and checks connectivity."""
         outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
 
-        status = Adw.StatusPage()
-        status.set_title("No Internet Connection")
-        status.set_description(
-            "An active internet connection is required to install Sovran_SystemsOS.\n\n"
-            "Please connect an Ethernet cable or configure Wi-Fi,\n"
-            "then press Retry."
-        )
-        status.set_icon_name("network-offline-symbolic")
-        status.set_vexpand(True)
-        outer.append(status)
+        # Hero
+        hero = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        hero.set_margin_top(40)
+        hero.set_margin_bottom(16)
+        hero.set_halign(Gtk.Align.CENTER)
 
+        if os.path.exists(LOGO):
+            try:
+                img = Gtk.Image.new_from_file(LOGO)
+                img.set_pixel_size(320)
+                hero.append(img)
+            except Exception:
+                pass
+
+        title = Gtk.Label()
+        title.set_markup("<span size='xx-large' weight='heavy'>Welcome to Sovran SystemsOS</span>")
+        title.set_margin_top(8)
+        hero.append(title)
+
+        sub = Gtk.Label()
+        sub.set_markup("<span size='large' style='italic' foreground='#888888'>Be Digitally Sovereign</span>")
+        hero.append(sub)
+
+        outer.append(hero)
+
+        sep = Gtk.Separator()
+        sep.set_margin_start(40)
+        sep.set_margin_end(40)
+        sep.set_margin_top(8)
+        outer.append(sep)
+
+        # Internet requirement notice
+        notice = Gtk.Label()
+        notice.set_markup(
+            "<span size='medium'>"
+            "Before installation begins, please ensure you have an <b>active internet connection</b>.\n"
+            "Sovran SystemsOS downloads packages during installation and requires internet access\n"
+            "to complete the process.  Connect via <b>Ethernet cable</b> or configure <b>Wi-Fi</b> now."
+            "</span>"
+        )
+        notice.set_justify(Gtk.Justification.CENTER)
+        notice.set_wrap(True)
+        notice.set_margin_top(20)
+        notice.set_margin_start(48)
+        notice.set_margin_end(48)
+        outer.append(notice)
+
+        # Inline offline warning banner (hidden by default)
+        self._offline_banner = Adw.Banner()
+        self._offline_banner.set_title(
+            "No internet connection detected. Please connect Ethernet or Wi-Fi and try again."
+        )
+        self._offline_banner.set_revealed(False)
+        self._offline_banner.set_margin_top(12)
+        self._offline_banner.set_margin_start(40)
+        self._offline_banner.set_margin_end(40)
+        outer.append(self._offline_banner)
+
+        outer.append(Gtk.Label(label="", vexpand=True))
+
+        # Check & Continue button
         btn_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
         btn_box.set_halign(Gtk.Align.CENTER)
         btn_box.set_margin_bottom(32)
 
-        retry_btn = Gtk.Button(label="Retry")
-        retry_btn.add_css_class("suggested-action")
-        retry_btn.add_css_class("pill")
-        retry_btn.connect("clicked", self.on_retry_internet)
-        btn_box.append(retry_btn)
+        connect_btn = Gtk.Button(label="Check Connection & Continue  →")
+        connect_btn.add_css_class("suggested-action")
+        connect_btn.add_css_class("pill")
+        connect_btn.connect("clicked", self._on_landing_connect)
+        btn_box.append(connect_btn)
 
         outer.append(btn_box)
 
-        self.push_page("No Internet", outer)
+        self.push_page("Sovran_SystemsOS Installer", outer)
 
-    def on_retry_internet(self, btn):
+    def _on_landing_connect(self, btn):
         if check_internet():
-            # Pop the no-internet page and proceed to welcome
-            try:
-                self.nav.pop()
-            except Exception:
-                pass
+            self._offline_banner.set_revealed(False)
             self.push_welcome()
         else:
-            dlg = Adw.MessageDialog()
-            dlg.set_transient_for(self)
-            dlg.set_heading("Still Offline")
-            dlg.set_body(
-                "Could not reach the internet.\n"
-                "Please check your network connection and try again."
-            )
-            dlg.add_response("ok", "OK")
-            dlg.present()
+            self._offline_banner.set_revealed(True)
 
     # ── Step 1: Welcome & Role ─────────────────────────────────────────────
 
@@ -341,140 +377,7 @@ class InstallerWindow(Adw.ApplicationWindow):
             if radio.get_active():
                 self.role = radio.get_name()
                 break
-        self.push_port_requirements()
-
-    # ── Step 1b: Port Requirements Notice ─────────────────────────────────
-
-    def push_port_requirements(self):
-        """Inform the user about required router/firewall ports before install."""
-        outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
-
-        # Detect internal IP at install time
-        internal_ip = "this machine's LAN IP"
-        try:
-            import subprocess as _sp
-            _r = _sp.run(["hostname", "-I"], capture_output=True, text=True, timeout=5)
-            if _r.returncode == 0:
-                _parts = _r.stdout.strip().split()
-                if _parts:
-                    internal_ip = _parts[0]
-        except Exception:
-            pass
-
-        # Warning banner
-        banner = Adw.Banner()
-        banner.set_title(
-            "⚠  Port Forwarding Setup Required — configure your router before install"
-        )
-        banner.set_revealed(True)
-        banner.set_margin_top(16)
-        banner.set_margin_start(40)
-        banner.set_margin_end(40)
-        outer.append(banner)
-
-        intro = Gtk.Label()
-        intro.set_markup(
-            "<span foreground='#a6adc8'>"
-            "Many Sovran_SystemsOS features require <b>port forwarding</b> to be configured "
-            "in your router's admin panel. This means telling your router to forward "
-            "specific ports to <b>this machine's internal LAN IP</b>.\n\n"
-            "Services like Element Video/Audio Calling and Matrix Federation "
-            "<b>will not work for clients outside your LAN</b> unless these ports are "
-            "forwarded to this machine."
-            "</span>"
-        )
-        intro.set_wrap(True)
-        intro.set_justify(Gtk.Justification.FILL)
-        intro.set_margin_top(14)
-        intro.set_margin_start(40)
-        intro.set_margin_end(40)
-        outer.append(intro)
-
-        ip_label = Gtk.Label()
-        ip_label.set_markup(
-            f"<span foreground='#89b4fa' font_desc='monospace'>"
-            f"  Forward ports to this machine's internal IP:  <b>{internal_ip}</b>"
-            f"</span>"
-        )
-        ip_label.set_margin_top(10)
-        ip_label.set_margin_start(40)
-        ip_label.set_margin_end(40)
-        outer.append(ip_label)
-
-        sw = Gtk.ScrolledWindow()
-        sw.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
-        sw.set_vexpand(True)
-        sw.set_margin_start(40)
-        sw.set_margin_end(40)
-        sw.set_margin_top(12)
-        sw.set_margin_bottom(8)
-
-        ports_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
-
-        port_sections = [
-            (
-                "🌐  Web / HTTPS  (all domain-based services)",
-                [("80", "TCP", "HTTP (redirects to HTTPS)"),
-                 ("443", "TCP", "HTTPS")],
-            ),
-            (
-                "💬  Matrix Federation  (Matrix-Synapse)",
-                [("8448", "TCP", "Server-to-server federation")],
-            ),
-            (
-                "🎥  Element Video & Audio Calling  (LiveKit / Element-call)",
-                [("7881",         "TCP",     "LiveKit WebRTC signalling"),
-                 ("7882-7894",    "UDP",     "LiveKit media streams"),
-                 ("5349",         "TCP",     "TURN over TLS"),
-                 ("3478",         "UDP",     "TURN (STUN / relay)"),
-                 ("30000-40000",  "TCP/UDP", "TURN relay (WebRTC media)")],
-            ),
-            (
-                "🖥  Remote SSH  (optional — only if you want WAN SSH access)",
-                [("22", "TCP", "SSH")],
-            ),
-        ]
-
-        for section_title, rows in port_sections:
-            group = Adw.PreferencesGroup()
-            group.set_title(section_title)
-
-            for port, proto, desc in rows:
-                row = Adw.ActionRow()
-                row.set_title(f"Port {port}  ({proto})")
-                row.set_subtitle(desc)
-                group.add(row)
-
-            ports_box.append(group)
-
-        note = Gtk.Label()
-        note.set_markup(
-            "<span foreground='#6c7086' size='small'>"
-            "ℹ  In your router's admin panel (usually at 192.168.1.1), find the "
-            "\"<b>Port Forwarding</b>\" section and add a rule for each port above with "
-            "the destination set to <b>this machine's internal IP</b>.  "
-            "These ports only need to be forwarded to this specific machine — "
-            "this does <b>NOT</b> expose your entire network.\n"
-            "To verify forwarding is working, test from a device on a different network "
-            "(e.g. a phone on mobile data) or check your router's port forwarding page."
-            "</span>"
-        )
-        note.set_wrap(True)
-        note.set_justify(Gtk.Justification.FILL)
-        note.set_margin_top(8)
-        ports_box.append(note)
-
-        sw.set_child(ports_box)
-        outer.append(sw)
-
-        outer.append(self.nav_row(
-            back_label="←  Back",
-            back_cb=lambda b: self.nav.pop(),
-            next_label="I Understand  →",
-            next_cb=lambda b: self.push_disk_detect(),
-        ))
-
-        self.push_page("Network Port Requirements", outer, show_back=True)
+        self.push_disk_detect()
 
     # ── Step 2a: Disk Detect ──────────────────────────────────────────────
 
@@ -773,7 +676,6 @@ class InstallerWindow(Adw.ApplicationWindow):
         status = Adw.StatusPage()
         status.set_title(title)
         status.set_description(subtitle)
-        status.set_icon_name("emblem-synchronizing-symbolic")
         status.set_vexpand(False)
         outer.append(status)
 
@@ -830,10 +732,10 @@ class InstallerWindow(Adw.ApplicationWindow):
         cmd = [
             "sudo", "disko", "--mode", "destroy,format,mount",
             f"{FLAKE}/iso/disko.nix",
-            "--arg", "device", f'"{boot_path}"'
+            "--arg", "device", boot_path
         ]
         if data_path:
-            cmd += ["--arg", "dataDevice", f'"{data_path}"']
+            cmd += ["--arg", "dataDevice", data_path]
         run_stream(cmd, buf)
 
         GLib.idle_add(append_text, buf, "\n=== Generating hardware config ===\n")
