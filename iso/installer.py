@@ -876,6 +876,14 @@ class InstallerWindow(Adw.ApplicationWindow):
             if not os.path.exists(f):
                 raise RuntimeError(f"Required file missing: {f}")
 
+        # The flake.nix imports /etc/nixos/role-state.nix and /etc/nixos/custom.nix
+        # as absolute paths. With --impure, Nix resolves these on the live ISO host,
+        # not under /mnt. Copy them so they exist on the host filesystem too.
+        GLib.idle_add(append_text, buf, "Copying config files to host /etc/nixos for flake evaluation...\n")
+        run(["sudo", "mkdir", "-p", "/etc/nixos"])
+        run(["sudo", "cp", "/mnt/etc/nixos/role-state.nix", "/etc/nixos/role-state.nix"])
+        run(["sudo", "cp", "/mnt/etc/nixos/custom.nix", "/etc/nixos/custom.nix"])
+
         run_stream([
             "sudo", "nixos-install",
             "--root", "/mnt",
