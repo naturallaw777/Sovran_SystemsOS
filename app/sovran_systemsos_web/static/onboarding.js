@@ -1,10 +1,10 @@
 /* Sovran_SystemsOS Hub — First-Boot Onboarding Wizard
-   Drives the 6-step post-install setup flow. */
+   Drives the 5-step post-install setup flow. */
 "use strict";
 
 // ── Constants ─────────────────────────────────────────────────────
 
-const TOTAL_STEPS = 6;
+const TOTAL_STEPS = 5;
 
 // Domains that may need configuration, with service unit mapping for enabled check
 const DOMAIN_DEFS = [
@@ -17,18 +17,11 @@ const DOMAIN_DEFS = [
   { name: "wordpress",       label: "WordPress",                    unit: "phpfpm-wordpress.service", needsDdns: true },
 ];
 
-const REBUILD_POLL_INTERVAL = 2000;
-
 // ── State ─────────────────────────────────────────────────────────
 
 var _currentStep  = 1;
 var _servicesData = null;
 var _domainsData  = null;
-var _featuresData = null;
-
-var _rebuildPollTimer  = null;
-var _rebuildLogOffset  = 0;
-var _rebuildFinished   = false;
 
 // ── Helpers ───────────────────────────────────────────────────────
 
@@ -89,7 +82,6 @@ function showStep(step) {
   if (step === 2) loadStep2();
   if (step === 3) loadStep3();
   if (step === 4) loadStep4();
-  if (step === 5) loadStep5();
 }
 
 // ── Step 1: Welcome ───────────────────────────────────────────────
@@ -454,217 +446,10 @@ async function loadStep4() {
   });
 }
 
-// ── Step 5: Feature Manager ───────────────────────────────────────
-
-async function loadStep5() {
-  var body = document.getElementById("step-5-body");
-  if (!body) return;
-  body.innerHTML = '<p class="onboarding-loading">Loading features…</p>';
-
-  try {
-    _featuresData = await apiFetch("/api/features");
-  } catch (err) {
-    body.innerHTML = '<p class="onboarding-error">⚠ Could not load features: ' + escHtml(err.message) + '</p>';
-    return;
-  }
-
-  renderFeaturesStep(_featuresData);
-}
-
-function renderFeaturesStep(data) {
-  var body = document.getElementById("step-5-body");
-  if (!body) return;
-
-  var SUBCATEGORY_LABELS = {
-    "infrastructure": "🔧 Infrastructure",
-    "bitcoin":        "₿ Bitcoin",
-    "communication":  "💬 Communication",
-    "nostr":          "📡 Nostr",
-  };
-
-  var SUBCATEGORY_ORDER = ["infrastructure", "bitcoin", "communication", "nostr"];
-
-  var grouped = {};
-  (data.features || []).forEach(function(f) {
-    var cat = f.category || "other";
-    if (!grouped[cat]) grouped[cat] = [];
-    grouped[cat].push(f);
-  });
-
-  var html = "";
-  var orderedCats = SUBCATEGORY_ORDER.filter(function(k) { return grouped[k]; });
-  Object.keys(grouped).forEach(function(k) {
-    if (orderedCats.indexOf(k) === -1) orderedCats.push(k);
-  });
-
-  orderedCats.forEach(function(catKey) {
-    var feats = grouped[catKey];
-    if (!feats || feats.length === 0) return;
-
-    var catLabel = SUBCATEGORY_LABELS[catKey] || catKey;
-    html += '<div class="onboarding-feat-group">';
-    html += '<div class="onboarding-feat-group-title">' + escHtml(catLabel) + '</div>';
-
-    feats.forEach(function(feat) {
-      var domainHtml = "";
-      if (feat.needs_domain) {
-        if (feat.domain_configured) {
-          domainHtml = '<span class="onboarding-feat-domain onboarding-feat-domain--ok">🌐 Domain configured</span>';
-        } else {
-          domainHtml = '<span class="onboarding-feat-domain onboarding-feat-domain--missing">🌐 Domain not set</span>';
-        }
-      }
-
-      html += '<div class="onboarding-feat-card" id="feat-card-' + escHtml(feat.id) + '">';
-      html += '<div class="onboarding-feat-info">';
-      html += '<div class="onboarding-feat-name">' + escHtml(feat.name) + '</div>';
-      html += '<div class="onboarding-feat-desc">' + escHtml(feat.description) + '</div>';
-      html += domainHtml;
-      html += '</div>';
-      html += '<label class="feature-toggle' + (feat.enabled ? " active" : "") + '" title="Toggle ' + escHtml(feat.name) + '">';
-      html += '<input type="checkbox" class="feature-toggle-input" data-feat-id="' + escHtml(feat.id) + '"' + (feat.enabled ? " checked" : "") + ' />';
-      html += '<span class="feature-toggle-slider"></span>';
-      html += '</label>';
-      html += '</div>';
-    });
-
-    html += '</div>';
-  });
-
-  body.innerHTML = html;
-
-  // Wire up toggles
-  body.querySelectorAll(".feature-toggle-input").forEach(function(input) {
-    var featId = input.dataset.featId;
-    var label  = input.closest(".feature-toggle");
-    var feat   = (data.features || []).find(function(f) { return f.id === featId; });
-    if (!feat) return;
-
-    input.addEventListener("change", function() {
-      var newEnabled = input.checked;
-      // Revert UI until confirmed/done
-      input.checked = feat.enabled;
-      if (newEnabled) { if (label) label.classList.remove("active"); }
-      else            { if (label) label.classList.add("active"); }
-
-      handleFeatureToggleStep5(feat, newEnabled, input, label);
-    });
-  });
-}
-
-async function handleFeatureToggleStep5(feat, newEnabled, inputEl, labelEl) {
-  // For Bitcoin features being enabled, show a clear mutual-exclusivity confirmation
-  if (newEnabled && (feat.id === "bip110" || feat.id === "bitcoin-core")) {
-    var confirmMsg;
-    if (feat.id === "bip110") {
-      confirmMsg = "Only one Bitcoin node implementation can be active. Enabling Bitcoin Knots + BIP110 will disable Bitcoin Core (if active). Continue?";
-    } else {
-      confirmMsg = "Only one Bitcoin node implementation can be active. Enabling Bitcoin Core will disable Bitcoin Knots + BIP110 (if active). Continue?";
-    }
-    if (!confirm(confirmMsg)) {
-      if (inputEl) inputEl.checked = feat.enabled;
-      return;
-    }
-  }
-
-  setStatus("step-5-rebuild-status", "Saving…", "info");
-
-  // Collect nostr_npub if needed
-  var extra = {};
-  if (newEnabled && feat.id === "haven") {
-    var npub = prompt("Enter your Nostr public key (npub1…):");
-    if (!npub || !npub.trim()) {
-      setStatus("step-5-rebuild-status", "⚠ npub required for Haven", "error");
-      return;
-    }
-    extra.nostr_npub = npub.trim();
-  }
-
-  try {
-    await apiFetch("/api/features/toggle", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ feature: feat.id, enabled: newEnabled, extra: extra }),
-    });
-  } catch (err) {
-    setStatus("step-5-rebuild-status", "⚠ " + err.message, "error");
-    return;
-  }
-
-  // Update local state
-  feat.enabled = newEnabled;
-  if (inputEl) inputEl.checked = newEnabled;
-  if (labelEl) {
-    if (newEnabled) labelEl.classList.add("active");
-    else            labelEl.classList.remove("active");
-  }
-
-  setStatus("step-5-rebuild-status", "✓ Feature updated — system rebuild started", "ok");
-  startRebuildPoll();
-}
-
-// ── Rebuild progress polling ──────────────────────────────────────
-
-function startRebuildPoll() {
-  _rebuildLogOffset = 0;
-  _rebuildFinished  = false;
-
-  var modal    = document.getElementById("ob-rebuild-modal");
-  var statusEl = document.getElementById("ob-rebuild-status");
-  var logEl    = document.getElementById("ob-rebuild-log");
-  var closeBtn = document.getElementById("ob-rebuild-close");
-  var spinner  = document.getElementById("ob-rebuild-spinner");
-
-  if (modal) modal.style.display = "flex";
-  if (statusEl) statusEl.textContent = "Rebuilding…";
-  if (logEl) logEl.textContent = "";
-  if (closeBtn) closeBtn.disabled = true;
-  if (spinner) spinner.style.display = "";
-
-  if (_rebuildPollTimer) clearInterval(_rebuildPollTimer);
-  _rebuildPollTimer = setInterval(pollRebuild, REBUILD_POLL_INTERVAL);
-}
-
-async function pollRebuild() {
-  if (_rebuildFinished) {
-    clearInterval(_rebuildPollTimer);
-    return;
-  }
-
-  try {
-    var data = await apiFetch("/api/rebuild/status?offset=" + _rebuildLogOffset);
-    var logEl    = document.getElementById("ob-rebuild-log");
-    var statusEl = document.getElementById("ob-rebuild-status");
-    var closeBtn = document.getElementById("ob-rebuild-close");
-    var spinner  = document.getElementById("ob-rebuild-spinner");
-
-    if (data.log && logEl) {
-      logEl.textContent += data.log;
-      logEl.scrollTop = logEl.scrollHeight;
-      _rebuildLogOffset = data.offset || _rebuildLogOffset;
-    }
-
-    if (!data.running) {
-      _rebuildFinished = true;
-      clearInterval(_rebuildPollTimer);
-      if (data.result === "success" || data.result === "ok") {
-        if (statusEl) statusEl.textContent = "✓ Rebuild complete";
-        if (spinner)  spinner.style.display = "none";
-        setStatus("step-5-rebuild-status", "✓ Rebuild complete", "ok");
-      } else {
-        if (statusEl) statusEl.textContent = "⚠ Rebuild finished with issues";
-        if (spinner)  spinner.style.display = "none";
-        setStatus("step-5-rebuild-status", "⚠ Rebuild finished with issues — see log", "error");
-      }
-      if (closeBtn) closeBtn.disabled = false;
-    }
-  } catch (_) {}
-}
-
-// ── Step 6: Complete ──────────────────────────────────────────────
+// ── Step 5: Complete ──────────────────────────────────────────────
 
 async function completeOnboarding() {
-  var btn = document.getElementById("step-6-finish");
+  var btn = document.getElementById("step-5-finish");
   if (btn) { btn.disabled = true; btn.textContent = "Finishing…"; }
 
   try {
@@ -698,32 +483,19 @@ function wireNavButtons() {
   var s3next = document.getElementById("step-3-next");
   if (s3next) s3next.addEventListener("click", function() { showStep(4); });
 
-  // Step 4 → 5
+  // Step 4 → 5 (Complete)
   var s4next = document.getElementById("step-4-next");
   if (s4next) s4next.addEventListener("click", function() { showStep(5); });
 
-  // Step 5 → 6
-  var s5next = document.getElementById("step-5-next");
-  if (s5next) s5next.addEventListener("click", function() { showStep(6); });
-
-  // Step 6: finish
-  var s6finish = document.getElementById("step-6-finish");
-  if (s6finish) s6finish.addEventListener("click", completeOnboarding);
+  // Step 5: finish
+  var s5finish = document.getElementById("step-5-finish");
+  if (s5finish) s5finish.addEventListener("click", completeOnboarding);
 
   // Back buttons
   document.querySelectorAll(".onboarding-btn-back").forEach(function(btn) {
     var prev = parseInt(btn.dataset.prev, 10);
     btn.addEventListener("click", function() { showStep(prev); });
   });
-
-  // Rebuild modal close
-  var rebuildClose = document.getElementById("ob-rebuild-close");
-  if (rebuildClose) {
-    rebuildClose.addEventListener("click", function() {
-      var modal = document.getElementById("ob-rebuild-modal");
-      if (modal) modal.style.display = "none";
-    });
-  }
 }
 
 // ── Init ──────────────────────────────────────────────────────────
