@@ -38,7 +38,8 @@ def run(cmd):
 
 def run_stream(cmd, buf):
     log(f"$ {' '.join(cmd)}")
-    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                            stdin=subprocess.DEVNULL, text=True)
     for line in proc.stdout:
         log(line.rstrip())
         GLib.idle_add(append_text, buf, line)
@@ -731,6 +732,7 @@ class InstallerWindow(Adw.ApplicationWindow):
         GLib.idle_add(append_text, buf, "\n=== Partitioning drives ===\n")
         cmd = [
             "sudo", "disko", "--mode", "destroy,format,mount",
+            "--yes-wipe-all-disks",
             f"{FLAKE}/iso/disko.nix",
             "--arg", "device", boot_path
         ]
@@ -848,7 +850,8 @@ class InstallerWindow(Adw.ApplicationWindow):
         run_stream([
             "sudo", "nixos-install",
             "--root", "/mnt",
-            "--flake", "/mnt/etc/nixos#nixos"
+            "--flake", "/mnt/etc/nixos#nixos",
+            "--no-root-password"
         ], buf)
 
         GLib.idle_add(self.push_complete)
