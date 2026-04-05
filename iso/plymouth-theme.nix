@@ -34,11 +34,6 @@ logo = Image("logo.png");
 logo_sprite = Sprite(logo);
 logo_sprite.SetX((Window.GetWidth() - logo.GetWidth()) / 2);
 logo_sprite.SetY((Window.GetHeight() - logo.GetHeight()) / 2);
-
-spinner = Sprite();
-spinner.SetImage(Spinner());
-spinner.SetX((Window.GetWidth() - spinner.GetImage().GetWidth()) / 2);
-spinner.SetY((Window.GetHeight() + logo.GetHeight()) / 2 + 20);
 EOF
   '';
 }
