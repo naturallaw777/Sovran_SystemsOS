@@ -293,5 +293,7 @@ in
       };
     };
 
+    networking.firewall.allowedTCPPorts = [ 3051 8937 60847 ];
+
   };
 }
