@@ -36,8 +36,6 @@
       <span class="onboarding-step-dot" data-step="4">4</span>
       <span class="onboarding-step-connector"></span>
       <span class="onboarding-step-dot" data-step="5">5</span>
-      <span class="onboarding-step-connector"></span>
-      <span class="onboarding-step-dot" data-step="6">6</span>
     </div>
 
     <!-- Step panels -->
@@ -140,30 +138,8 @@
         </div>
       </div>
 
-      <!-- ── Step 5: Feature Manager ── -->
+      <!-- ── Step 5: Complete ── -->
       <div class="onboarding-panel" id="step-5" style="display:none">
-        <div class="onboarding-step-header">
-          <span class="onboarding-step-icon">⚙️</span>
-          <h2 class="onboarding-step-title">Feature Manager</h2>
-          <p class="onboarding-step-desc">
-            Enable or disable optional features. Toggling a feature will start
-            a system rebuild in the background.
-          </p>
-        </div>
-        <div class="onboarding-card onboarding-card--scroll" id="step-5-body">
-          <p class="onboarding-loading">Loading features…</p>
-        </div>
-        <div id="step-5-rebuild-status" class="onboarding-save-status"></div>
-        <div class="onboarding-footer">
-          <button class="btn btn-close-modal onboarding-btn-back" data-prev="4">← Back</button>
-          <button class="btn btn-primary onboarding-btn-next" id="step-5-next">
-            Continue →
-          </button>
-        </div>
-      </div>
-
-      <!-- ── Step 6: Complete ── -->
-      <div class="onboarding-panel" id="step-6" style="display:none">
         <div class="onboarding-hero">
           <div class="onboarding-logo">✅</div>
           <h1 class="onboarding-title">Your Sovran_SystemsOS is Ready!</h1>
@@ -178,12 +154,11 @@
             <li>✅ Domain configuration saved</li>
             <li>✅ Port forwarding reviewed</li>
             <li>✅ Credentials noted</li>
-            <li>✅ Features configured</li>
           </ul>
         </div>
         <div class="onboarding-footer">
-          <button class="btn btn-close-modal onboarding-btn-back" data-prev="5">← Back</button>
-          <button class="btn btn-primary" id="step-6-finish">
+          <button class="btn btn-close-modal onboarding-btn-back" data-prev="4">← Back</button>
+          <button class="btn btn-primary" id="step-5-finish">
             Go to Dashboard →
           </button>
         </div>
@@ -191,21 +166,6 @@
 
     </div><!-- /panel-wrap -->
   </div><!-- /shell -->
-
-  <!-- Rebuild progress modal (reused from main app) -->
-  <div class="modal-overlay" id="ob-rebuild-modal" role="dialog" aria-modal="true" aria-labelledby="ob-rebuild-title">
-    <div class="modal-dialog">
-      <div class="modal-header">
-        <span class="modal-title" id="ob-rebuild-title">Rebuilding System…</span>
-        <div class="modal-spinner" id="ob-rebuild-spinner"></div>
-        <span class="modal-status" id="ob-rebuild-status">Please wait</span>
-      </div>
-      <div class="modal-log" id="ob-rebuild-log" aria-live="polite"></div>
-      <div class="modal-footer">
-        <button class="btn btn-close-modal" id="ob-rebuild-close" disabled>Close</button>
-      </div>
-    </div>
-  </div>
 
   <script src="/static/onboarding.js?v={{ onboarding_js_hash }}"></script>
 </body>
