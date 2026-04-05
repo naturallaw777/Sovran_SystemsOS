@@ -501,8 +501,17 @@ class InstallerWindow(Adw.ApplicationWindow):
         self.boot_disk, self.boot_size = disks[0]
         self.data_disk, self.data_size = None, None
 
+        BYTES_128GB = 128 * 1024 ** 3
+        if self.role == "Desktop Only" and self.boot_size < BYTES_128GB:
+            self.show_error(
+                f"Boot disk /dev/{self.boot_disk} is only "
+                f"{human_size(self.boot_size)}.  "
+                f"The Desktop Only role requires at least 128 GB."
+            )
+            return
+
         BYTES_2TB = 2 * 1024 ** 4
-        if len(disks) >= 2:
+        if self.role != "Desktop Only" and len(disks) >= 2:
             d, s = disks[-1]
             if s >= BYTES_2TB:
                 self.data_disk, self.data_size = d, s
@@ -528,7 +537,7 @@ class InstallerWindow(Adw.ApplicationWindow):
             data_row.set_subtitle(f"/dev/{self.data_disk}  —  {human_size(self.data_size)}")
             data_row.add_prefix(symbolic_icon("drive-harddisk-symbolic"))
             disk_group.add(data_row)
-        else:
+        elif self.role != "Desktop Only":
             no_row = Adw.ActionRow()
             no_row.set_title("Data Disk")
             no_row.set_subtitle("None detected  (requires 2 TB or larger)")
