@@ -25,7 +25,7 @@ Sovran_SystemsOS is a purpose-built, fully declarative operating system construc
 Every component of the system is defined in Nix. There are no imperative scripts, no hidden state, and no black boxes. What you declare is exactly what runs. The entire operating system can be rebuilt, replicated, or audited from source at any time.
 
 <p align="center">
-  <img src="https://github.com/user-attachments/assets/sovran-hub-screenshot.png" alt="Sovran_SystemsOS Hub Dashboard" width="800"/>
+  <img src="[https://github.com/user-attachments/assets/sovran-hub-screenshot.png](https://github.com/user-attachments/assets/5e9babe8-ca59-465c-9dda-d2ee46d2d4c2)" alt="Sovran_SystemsOS Hub Dashboard" width="800"/>
 </p>
 
 ---
