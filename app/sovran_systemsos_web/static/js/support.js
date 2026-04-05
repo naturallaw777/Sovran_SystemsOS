@@ -27,12 +27,12 @@ function renderSupportSshdOff() {
     '<div class="support-wallet-box support-wallet-protected">',
       '<div class="support-wallet-header"><span class="support-wallet-icon">🔐</span><span class="support-wallet-title">SSH is Off</span></div>',
       '<p class="support-wallet-desc">SSH (remote login) is <strong>disabled by default</strong> on your Sovran Pro. Clicking the button below will enable SSH and trigger a system rebuild. Once complete, you can then grant support access.</p>',
-      '<p class="support-wallet-desc">When you end the support session, you can disable SSH again from the Feature Manager to return to the default secure state.</p>',
+      '<p class="support-wallet-desc">When you end the support session, you\'ll be able to disable SSH to return to the default secure state.</p>',
     '</div>',
     '<div class="support-steps"><div class="support-steps-title">Steps:</div><ol>',
       '<li>Enable SSH (triggers a system rebuild — takes a few minutes)</li>',
       '<li>Grant Sovran Systems temporary support access</li>',
-      '<li>End the session when done — SSH can be disabled again from the Feature Manager</li>',
+      '<li>End the session when done — you\'ll be prompted to disable SSH</li>',
     '</ol></div>',
     '<button class="btn support-btn-enable" id="btn-sshd-enable">Enable SSH</button>',
     '<p class="support-fine-print">This will trigger a NixOS rebuild. Your machine will remain operational during the rebuild.</p>',
@@ -116,7 +116,7 @@ function renderSupportInactive() {
       '<li>All session events are logged for your audit</li>',
     '</ol></div>',
     '<button class="btn support-btn-enable" id="btn-support-enable">Enable Support Access</button>',
-    '<p class="support-fine-print">You can revoke access at any time. When finished, you can disable SSH from the Feature Manager to return to the default secure state.</p>',
+    '<p class="support-fine-print">You can revoke access at any time. When you end the session, you\'ll be able to disable SSH to return to the default secure state.</p>',
     '</div>',
   ].join("");
   document.getElementById("btn-support-enable").addEventListener("click", enableSupport);
@@ -207,8 +207,22 @@ function renderSupportRemoved(verified) {
   var msg = verified ? "The Sovran Systems SSH key has been completely removed from your machine. We no longer have any access." : "The key removal was requested but could not be fully verified. Please reboot to ensure it is gone.";
   var vclass = verified ? "verified-gone" : "verify-warning";
   var vlabel = verified ? "✓ Removed — No access" : "⚠ Verify by rebooting";
-  $supportBody.innerHTML = '<div class="support-section"><div class="support-icon-big">' + icon + '</div><h3 class="support-heading">Support Session Ended</h3><p class="support-desc">' + escHtml(msg) + '</p><div class="support-verify-box"><span class="support-verify-label">SSH Key Status:</span><span class="support-verify-value ' + vclass + '">' + vlabel + '</span></div><div class="support-wallet-box support-wallet-protected" style="margin-top:12px;"><div class="support-wallet-header"><span class="support-wallet-icon">🔐</span><span class="support-wallet-title">Disable SSH When Done</span></div><p class="support-wallet-desc">SSH is still enabled on your machine. For maximum security, disable it from the <strong>Feature Manager</strong> when you no longer need remote access.</p></div><button class="btn support-btn-done" id="btn-support-done">Done</button></div>';
+  $supportBody.innerHTML = [
+    '<div class="support-section">',
+    '<div class="support-icon-big">' + icon + '</div>',
+    '<h3 class="support-heading">Support Session Ended</h3>',
+    '<p class="support-desc">' + escHtml(msg) + '</p>',
+    '<div class="support-verify-box"><span class="support-verify-label">SSH Key Status:</span><span class="support-verify-value ' + vclass + '">' + vlabel + '</span></div>',
+    '<div class="support-wallet-box support-wallet-protected" style="margin-top:12px;">',
+      '<div class="support-wallet-header"><span class="support-wallet-icon">🔐</span><span class="support-wallet-title">Disable SSH When Done</span></div>',
+      '<p class="support-wallet-desc">SSH is still enabled on your machine. Click below to turn it off and return to the default secure state.</p>',
+      '<button class="btn support-btn-enable" id="btn-sshd-disable">Disable SSH</button>',
+    '</div>',
+    '<button class="btn support-btn-done" id="btn-support-done">Done</button>',
+    '</div>',
+  ].join("");
   document.getElementById("btn-support-done").addEventListener("click", closeSupportModal);
+  document.getElementById("btn-sshd-disable").addEventListener("click", disableSshd);
 }
 
 async function enableSupport() {
@@ -236,6 +250,59 @@ async function disableSupport() {
     if (btn) { btn.disabled = false; btn.textContent = "End Support Session"; }
     alert("Failed to disable support access. Please try again.");
   }
+}
+
+async function disableSshd() {
+  var btn = document.getElementById("btn-sshd-disable");
+  if (btn) { btn.disabled = true; btn.textContent = "Disabling SSH…"; }
+  try {
+    await apiFetch("/api/features/toggle", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ feature: "sshd", enabled: false }),
+    });
+    $supportBody.innerHTML = [
+      '<div class="support-section">',
+      '<div class="support-icon-big">⚙️</div>',
+      '<h3 class="support-heading">Disabling SSH…</h3>',
+      '<p class="support-desc">A system rebuild is in progress to turn off SSH. This may take a few minutes.</p>',
+      '<p class="creds-loading" id="sshd-disable-status">Rebuilding system…</p>',
+      '</div>',
+    ].join("");
+    pollForSshdDisabled();
+  } catch (err) {
+    if (btn) { btn.disabled = false; btn.textContent = "Disable SSH"; }
+    alert("Failed to disable SSH. Please try again.");
+  }
+}
+
+function pollForSshdDisabled() {
+  var attempts = 0;
+  var maxAttempts = 60; // 5 minutes (5s interval)
+  var interval = setInterval(async function() {
+    attempts++;
+    try {
+      var status = await apiFetch("/api/support/status");
+      var el = document.getElementById("sshd-disable-status");
+      if (!status.sshd_enabled) {
+        clearInterval(interval);
+        $supportBody.innerHTML = [
+          '<div class="support-section">',
+          '<div class="support-icon-big">🔐</div>',
+          '<h3 class="support-heading">SSH is Off</h3>',
+          '<p class="support-desc">SSH has been disabled. Your machine is back to its default secure state.</p>',
+          '<button class="btn support-btn-done" id="btn-support-done">Done</button>',
+          '</div>',
+        ].join("");
+        document.getElementById("btn-support-done").addEventListener("click", closeSupportModal);
+      } else if (attempts >= maxAttempts) {
+        clearInterval(interval);
+        if (el) el.textContent = "Rebuild is taking longer than expected. Please close this dialog and try again.";
+      } else {
+        if (el) el.textContent = "Rebuilding system… (" + attempts * 5 + "s)";
+      }
+    } catch (_) {}
+  }, 5000);
 }
 
 async function walletUnlock() {
