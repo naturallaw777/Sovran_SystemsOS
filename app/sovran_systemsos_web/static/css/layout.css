@@ -82,6 +82,62 @@
   margin: 16px 0;
 }
 
+/* ── Sidebar: Upgrade button (Node role) ────────────────────────── */
+
+.sidebar-upgrade-btn {
+  border-color: var(--accent-color);
+  background-color: rgba(137, 180, 250, 0.06);
+  margin-top: 8px;
+}
+
+.sidebar-upgrade-btn:hover {
+  background-color: rgba(137, 180, 250, 0.14);
+  border-color: var(--accent-color);
+}
+
+.sidebar-upgrade-btn .sidebar-support-hint {
+  color: var(--accent-color);
+}
+
+/* ── Upgrade modal ──────────────────────────────────────────────── */
+
+.upgrade-dialog {
+  max-width: 480px;
+}
+
+.upgrade-info-box {
+  background-color: var(--card-color);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 14px 18px;
+  margin-bottom: 14px;
+}
+
+.upgrade-info-title {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.upgrade-info-list {
+  padding-left: 20px;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  line-height: 1.7;
+  margin: 0;
+}
+
+.upgrade-info-list a {
+  color: var(--accent-color);
+}
+
+.upgrade-rebuild-note {
+  font-style: italic;
+  color: var(--text-dim);
+  font-size: 0.82rem;
+}
+
 /* ── Tiles area ─────────────────────────────────────────────────── */
 
 #tiles-area {
