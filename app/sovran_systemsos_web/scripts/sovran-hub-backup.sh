@@ -18,6 +18,8 @@ BACKUP_LOG="/var/log/sovran-hub-backup.log"
 BACKUP_STATUS="/var/log/sovran-hub-backup.status"
 MEDIA_ROOT="/run/media"
 MIN_FREE_GB=10
+HUB_CONFIG_JSON="/var/lib/sovran-hub/config.json"
+ROLE_STATE_NIX="/etc/nixos/role-state.nix"
 
 # ── Internal drive labels/paths to NEVER use as backup targets ───
 INTERNAL_LABELS=("BTCEcoandBackup" "sovran_systemsos")
@@ -125,6 +127,40 @@ for d in flatten(data.get('blockdevices', [])):
   echo "$target"
 }
 
+# ── Detect the configured system role ───────────────────────────
+#
+# Priority:
+#   1. Hub config JSON  (/var/lib/sovran-hub/config.json)  — "role" key
+#   2. role-state.nix   (/etc/nixos/role-state.nix)        — grep for true flag
+#   3. Default: server_plus_desktop
+
+detect_role() {
+  local role="server_plus_desktop"
+
+  # 1. Try the Hub config JSON
+  if [[ -f "$HUB_CONFIG_JSON" ]] && command -v python3 &>/dev/null; then
+    local r
+    r=$(python3 -c \
+      "import json,sys; d=json.load(open(sys.argv[1])); print(d.get('role',''))" \
+      "$HUB_CONFIG_JSON" 2>/dev/null || true)
+    if [[ -n "$r" ]]; then
+      echo "$r"
+      return
+    fi
+  fi
+
+  # 2. Fall back to parsing role-state.nix
+  if [[ -f "$ROLE_STATE_NIX" ]]; then
+    if grep -q 'roles\.desktop = lib\.mkDefault true' "$ROLE_STATE_NIX" 2>/dev/null; then
+      role="desktop"
+    elif grep -q 'roles\.node = lib\.mkDefault true' "$ROLE_STATE_NIX" 2>/dev/null; then
+      role="node"
+    fi
+  fi
+
+  echo "$role"
+}
+
 # ── Initialise log file ──────────────────────────────────────────
 
 : > "$BACKUP_LOG"
@@ -132,6 +168,17 @@ set_status "RUNNING"
 
 log "=== Sovran_SystemsOS External Hub Backup ==="
 log "Starting backup process…"
+
+# ── Detect system role ───────────────────────────────────────────
+
+ROLE="$(detect_role)"
+case "$ROLE" in
+  desktop)            ROLE_LABEL="Desktop Only" ;;
+  node)               ROLE_LABEL="Node (Bitcoin-only)" ;;
+  server_plus_desktop) ROLE_LABEL="Server + Desktop" ;;
+  *)                  ROLE_LABEL="$ROLE" ;;
+esac
+log "Detected role: $ROLE_LABEL"
 
 # ── Detect target drive ──────────────────────────────────────────
 
@@ -190,16 +237,29 @@ log ""
 log "── Stage 2/4: Secrets ───────────────────────────────────────"
 mkdir -p "$BACKUP_DIR/secrets"
 
-for SRC in /etc/nix-bitcoin-secrets /var/lib/domains; do
-  if [[ -e "$SRC" ]]; then
-    rsync -a --info=progress2 "$SRC" "$BACKUP_DIR/secrets/" 2>&1 | tee -a "$BACKUP_LOG" || \
-      log "WARNING: Could not copy $SRC — continuing."
-  else
-    log "  (not found: $SRC — skipping)"
-  fi
-done
+if [[ "$ROLE" == "desktop" ]]; then
+  log "Skipping /etc/nix-bitcoin-secrets — not applicable for Desktop Only role."
+  # /var/lib/domains is still backed up if present (hub state)
+  for SRC in /var/lib/domains; do
+    if [[ -e "$SRC" ]]; then
+      rsync -a --info=progress2 "$SRC" "$BACKUP_DIR/secrets/" 2>&1 | tee -a "$BACKUP_LOG" || \
+        log "WARNING: Could not copy $SRC — continuing."
+    else
+      log "  (not found: $SRC — skipping)"
+    fi
+  done
+else
+  for SRC in /etc/nix-bitcoin-secrets /var/lib/domains; do
+    if [[ -e "$SRC" ]]; then
+      rsync -a --info=progress2 "$SRC" "$BACKUP_DIR/secrets/" 2>&1 | tee -a "$BACKUP_LOG" || \
+        log "WARNING: Could not copy $SRC — continuing."
+    else
+      log "  (not found: $SRC — skipping)"
+    fi
+  done
+fi
 
-# Hub state files from /var/lib/secrets/
+# Hub state files from /var/lib/secrets/ (backed up for all roles)
 if [[ -d /var/lib/secrets ]]; then
   mkdir -p "$BACKUP_DIR/secrets/hub-state"
   rsync -a --info=progress2 /var/lib/secrets/ "$BACKUP_DIR/secrets/hub-state/" 2>&1 | tee -a "$BACKUP_LOG" || \
@@ -230,7 +290,9 @@ fi
 
 log ""
 log "── Stage 4/4: Wallet and node data (/var/lib/lnd) ──────────"
-if [[ -d /var/lib/lnd ]]; then
+if [[ "$ROLE" == "desktop" ]]; then
+  log "Skipping Stage 4 (LND wallet data) — not applicable for Desktop Only role."
+elif [[ -d /var/lib/lnd ]]; then
   rsync -a --info=progress2 \
     --exclude='logs/' \
     /var/lib/lnd/ "$BACKUP_DIR/lnd/" 2>&1 | tee -a "$BACKUP_LOG" || \
@@ -248,6 +310,7 @@ log "Generating BACKUP_MANIFEST.txt …"
   echo "Sovran_SystemsOS Backup Manifest"
   echo "Generated: $(date)"
   echo "Hostname:  $(hostname)"
+  echo "Role:      $ROLE_LABEL"
   echo "Target:    $TARGET"
   echo ""
   echo "Contents:"
