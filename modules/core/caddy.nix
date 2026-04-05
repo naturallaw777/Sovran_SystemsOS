@@ -156,7 +156,7 @@ EOF
       # ── RTL (LAN access) ────────────────────────────
       cat >> /run/caddy/Caddyfile <<EOF
 
-:3051 {
+http://127.0.0.1:3051, http://sovransystemsos.local:3051 {
   reverse_proxy :3050
   encode gzip zstd
 }
@@ -165,7 +165,7 @@ EOF
       # ── Mempool (LAN access) ────────────────────────
       cat >> /run/caddy/Caddyfile <<EOF
 
-:60847 {
+http://127.0.0.1:60847, http://sovransystemsos.local:60847 {
   reverse_proxy :60845
   encode gzip zstd
 }
