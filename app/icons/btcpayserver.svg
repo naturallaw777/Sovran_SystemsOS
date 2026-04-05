@@ -1,1 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><circle cx="32" cy="32" r="30" fill="#51B13E"/><text x="32" y="44" font-family="sans-serif" font-size="28" font-weight="bold" fill="white" text-anchor="middle">PAY</text></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect x="4" y="10" width="56" height="44" rx="6" fill="#0F3147"/>
+  <path d="M24 20 L24 44 L31.5 44 C36 44 39 41.5 39 37.5 C39 35 38 33.5 36 32.5 C37.5 31.5 38.5 30 38.5 27.5 C38.5 23.5 36 20 31 20 L31 17 L28 17 L28 20 Z M27 22 L27 30 L31 30 C33 30 35 29 35 26.5 C35 24.5 33.5 23 31.5 23 L28 23 L28 20 L27 20 Z M27 33 L27 42 L31.5 42 C34 42 36 40.5 36 38 C36 36 34.5 34.5 32 34.5 L27 34.5 Z" fill="#51B13E"/>
+  <path d="M44 26 L40 32 L44 32 L40 38 L50 30 L46 30 L50 26 Z" fill="#51B13E"/>
+</svg>
