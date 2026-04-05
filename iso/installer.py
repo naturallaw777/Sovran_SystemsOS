@@ -728,27 +728,18 @@ class InstallerWindow(Adw.ApplicationWindow):
         # Short settle so the kernel finishes re-reading
         time.sleep(2)
 
-        # ── Now run disko on a clean disk ──
-        GLib.idle_add(append_text, buf, "\n=== Partitioning drives ===\n")
-        cmd_destroy = [
-            "sudo", "disko", "--mode", "destroy",
-            "--yes-wipe-all-disks",
-            f"{FLAKE}/iso/disko.nix",
-            "--arg", "device", boot_path
-        ]
-        if data_path:
-            cmd_destroy += ["--arg", "dataDevice", data_path]
-        run_stream(cmd_destroy, buf)
-
-        GLib.idle_add(append_text, buf, "\n=== Formatting and mounting drives ===\n")
-        cmd_format = [
+        # ── Now run disko to partition, format, and mount ──
+        # Disks are already wiped clean by sgdisk/wipefs above,
+        # so we only need disko to create partitions, format, and mount.
+        GLib.idle_add(append_text, buf, "\n=== Partitioning and formatting drives ===\n")
+        cmd = [
             "sudo", "disko", "--mode", "format,mount",
             f"{FLAKE}/iso/disko.nix",
             "--arg", "device", boot_path
         ]
         if data_path:
-            cmd_format += ["--arg", "dataDevice", data_path]
-        run_stream(cmd_format, buf)
+            cmd += ["--arg", "dataDevice", data_path]
+        run_stream(cmd, buf)
 
         GLib.idle_add(append_text, buf, "\n=== Generating hardware config ===\n")
         run_stream(["sudo", "nixos-generate-config", "--root", "/mnt"], buf)
