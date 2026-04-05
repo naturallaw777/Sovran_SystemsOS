@@ -2152,7 +2152,7 @@ async def api_support_enable():
     if not sshd_on:
         raise HTTPException(
             status_code=400,
-            detail="SSH must be enabled first. Please enable SSH Remote Access in the Feature Manager, then try again.",
+            detail="SSH must be enabled first. Please enable SSH Remote Access, then try again.",
         )
 
     ok = await loop.run_in_executor(None, _enable_support)
