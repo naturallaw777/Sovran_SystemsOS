@@ -4,16 +4,22 @@ let
   cfg = config.sovran_systemsOS;
 
   monitoredServices =
-    # ── Infrastructure (always present) ────────────────────────
+    # ── Infrastructure — System Passwords (always present) ─────
     [
-      { name = "Caddy"; unit = "caddy.service"; type = "system"; icon = "caddy"; enabled = true;  category = "infrastructure"; credentials = []; }
-      { name = "Tor";   unit = "tor.service";   type = "system"; icon = "tor";   enabled = true;  category = "infrastructure"; credentials = []; }
       { name = "System Passwords"; unit = "root-password-setup.service"; type = "system"; icon = "passwords"; enabled = true; category = "infrastructure"; credentials = [
         { label = "Free Account — Username"; value = "free"; }
         { label = "Free Account — Password"; file = "/var/lib/secrets/free-password"; }
         { label = "Root Password"; file = "/var/lib/secrets/root-password"; }
         { label = "SSH Local Access"; value = "ssh root@localhost  /  Passphrase: gosovransystems"; }
       ]; }
+    ]
+    # ── Infrastructure — Caddy + Tor (NOT desktop-only) ────────
+    ++ lib.optionals (!cfg.roles.desktop) [
+      { name = "Caddy"; unit = "caddy.service"; type = "system"; icon = "caddy"; enabled = true;  category = "infrastructure"; credentials = []; }
+      { name = "Tor";   unit = "tor.service";   type = "system"; icon = "tor";   enabled = true;  category = "infrastructure"; credentials = []; }
+    ]
+    # ── Infrastructure — Remote Desktop (roles with a desktop) ─
+    ++ lib.optionals (!cfg.roles.node) [
       { name = "Remote Desktop"; unit = "gnome-remote-desktop.service"; type = "system"; icon = "rdp"; enabled = cfg.features.rdp; category = "infrastructure"; credentials = [
         { label = "Username"; file = "/var/lib/gnome-remote-desktop/rdp-username"; }
         { label = "Password"; file = "/var/lib/gnome-remote-desktop/rdp-password"; }
@@ -22,7 +28,7 @@ let
       ]; }
     ]
     # ── Bitcoin Base (node implementations) ────────────────────
-    ++ [
+    ++ lib.optionals cfg.services.bitcoin [
       { name = "Bitcoin Knots + BIP110"; unit = "bitcoind.service"; type = "system"; icon = "bip110";        enabled = cfg.features.bip110;        category = "bitcoin-base"; credentials = [
         { label = "Tor Address"; file = "/var/lib/tor/onion/bitcoind/hostname"; prefix = "http://"; }
       ]; }
@@ -34,7 +40,7 @@ let
       ]; }
     ]
     # ── Bitcoin Apps (services on top of the node) ─────────────
-    ++ [
+    ++ lib.optionals cfg.services.bitcoin [
       { name = "Electrs";            unit = "electrs.service";      type = "system"; icon = "electrs";      enabled = cfg.services.bitcoin;  category = "bitcoin-apps"; credentials = [
         { label = "Tor Address"; file = "/var/lib/tor/onion/electrs/hostname"; prefix = "http://"; }
         { label = "Port"; value = "50001"; }
@@ -58,8 +64,8 @@ let
         { label = "Local Network"; file = "/var/lib/secrets/internal-ip"; prefix = "http://"; suffix = ":60847"; }
       ]; }
     ]
-    # ── Communication ──────────────────────────────────────────
-    ++ [
+    # ── Communication (server+desktop only) ────────────────────
+    ++ lib.optionals cfg.roles.server_plus_desktop [
       { name = "Matrix-Synapse"; unit = "matrix-synapse.service"; type = "system"; icon = "synapse"; enabled = cfg.services.synapse;          category = "communication"; credentials = [
         { label = "Homeserver URL";   file = "/var/lib/secrets/matrix-homeserver-url"; }
         { label = "Admin Username";   file = "/var/lib/secrets/matrix-admin-username"; }
@@ -69,8 +75,8 @@ let
       ]; }
       { name = "Element-Call";   unit = "livekit.service";        type = "system"; icon = "element-calling"; enabled = cfg.features.element-calling;  category = "communication"; credentials = []; }
     ]
-    # ── Self-Hosted Apps ───────────────────────────────────────
-    ++ [
+    # ── Self-Hosted Apps (server+desktop only) ─────────────────
+    ++ lib.optionals cfg.roles.server_plus_desktop [
       { name = "VaultWarden"; unit = "vaultwarden.service";      type = "system"; icon = "vaultwarden"; enabled = cfg.services.vaultwarden; category = "apps"; credentials = [
         { label = "URL"; file = "/var/lib/domains/vaultwarden"; prefix = "https://"; }
         { label = "Admin Panel"; file = "/var/lib/domains/vaultwarden"; prefix = "https://"; suffix = "/admin"; }
@@ -83,11 +89,11 @@ let
         { label = "Credentials"; file = "/var/lib/secrets/wordpress-admin"; multiline = true; }
       ]; }
     ]
-    # ── Nostr / Relay ──────────────────────────────────────────
-    ++ [
+    # ── Nostr / Relay (server+desktop only) ────────────────────
+    ++ lib.optionals cfg.roles.server_plus_desktop [
       { name = "Haven Relay"; unit = "haven-relay.service"; type = "system"; icon = "haven"; enabled = cfg.features.haven; category = "nostr"; credentials = []; }
     ]
-    # ── Support ────────────────────────────────────────────────
+    # ── Support (always present) ────────────────────────────────
     ++ [
       { name = "Tech Support"; unit = "sovran-tech-support"; type = "support"; icon = "support"; enabled = true; category = "support"; credentials = []; }
     ];

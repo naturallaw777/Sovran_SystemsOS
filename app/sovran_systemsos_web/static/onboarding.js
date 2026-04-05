@@ -6,6 +6,16 @@
 
 const TOTAL_STEPS = 4;
 
+// Steps to skip per role (steps 2 and 3 involve domain/port setup)
+const ROLE_SKIP_STEPS = {
+  "desktop": [2, 3],
+  "node":    [2, 3],
+};
+
+// ── Role state (loaded at init) ───────────────────────────────────
+
+var _onboardingRole = "server_plus_desktop";
+
 // Domains that may need configuration, with service unit mapping for enabled check
 const DOMAIN_DEFS = [
   { name: "matrix",          label: "Matrix (Synapse)",             unit: "matrix-synapse.service",   needsDdns: true },
@@ -81,6 +91,22 @@ function showStep(step) {
   // Lazy-load step content
   if (step === 2) loadStep2();
   if (step === 3) loadStep3();
+}
+
+// Return the next step number, skipping over role-excluded steps
+function nextStep(current) {
+  var skip = ROLE_SKIP_STEPS[_onboardingRole] || [];
+  var next = current + 1;
+  while (next < TOTAL_STEPS && skip.indexOf(next) !== -1) next++;
+  return next;
+}
+
+// Return the previous step number, skipping over role-excluded steps
+function prevStep(current) {
+  var skip = ROLE_SKIP_STEPS[_onboardingRole] || [];
+  var prev = current - 1;
+  while (prev > 1 && skip.indexOf(prev) !== -1) prev--;
+  return prev;
 }
 
 // ── Step 1: Welcome ───────────────────────────────────────────────
@@ -319,9 +345,9 @@ async function completeOnboarding() {
 // ── Event wiring ──────────────────────────────────────────────────
 
 function wireNavButtons() {
-  // Step 1 → 2
+  // Step 1 → next (may skip 2+3 for desktop/node)
   var s1next = document.getElementById("step-1-next");
-  if (s1next) s1next.addEventListener("click", function() { showStep(2); });
+  if (s1next) s1next.addEventListener("click", function() { showStep(nextStep(1)); });
 
   // Step 2 → 3 (save first)
   var s2next = document.getElementById("step-2-next");
@@ -331,12 +357,12 @@ function wireNavButtons() {
     await saveStep2();
     s2next.disabled = false;
     s2next.textContent = "Save & Continue →";
-    showStep(3);
+    showStep(nextStep(2));
   });
 
   // Step 3 → 4 (Complete)
   var s3next = document.getElementById("step-3-next");
-  if (s3next) s3next.addEventListener("click", function() { showStep(4); });
+  if (s3next) s3next.addEventListener("click", function() { showStep(nextStep(3)); });
 
   // Step 4: finish
   var s4finish = document.getElementById("step-4-finish");
@@ -345,7 +371,7 @@ function wireNavButtons() {
   // Back buttons
   document.querySelectorAll(".onboarding-btn-back").forEach(function(btn) {
     var prev = parseInt(btn.dataset.prev, 10);
-    btn.addEventListener("click", function() { showStep(prev); });
+    btn.addEventListener("click", function() { showStep(prevStep(prev + 1)); });
   });
 }
 
@@ -359,6 +385,12 @@ document.addEventListener("DOMContentLoaded", async function() {
       window.location.href = "/";
       return;
     }
+  } catch (_) {}
+
+  // Load role so step-skipping is applied before wiring nav buttons
+  try {
+    var cfg = await apiFetch("/api/config");
+    if (cfg.role) _onboardingRole = cfg.role;
   } catch (_) {}
 
   wireNavButtons();
