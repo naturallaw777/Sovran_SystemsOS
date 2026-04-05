@@ -1,10 +1,10 @@
 /* Sovran_SystemsOS Hub — First-Boot Onboarding Wizard
-   Drives the 5-step post-install setup flow. */
+   Drives the 4-step post-install setup flow. */
 "use strict";
 
 // ── Constants ─────────────────────────────────────────────────────
 
-const TOTAL_STEPS = 5;
+const TOTAL_STEPS = 4;
 
 // Domains that may need configuration, with service unit mapping for enabled check
 const DOMAIN_DEFS = [
@@ -81,7 +81,6 @@ function showStep(step) {
   // Lazy-load step content
   if (step === 2) loadStep2();
   if (step === 3) loadStep3();
-  if (step === 4) loadStep4();
 }
 
 // ── Step 1: Welcome ───────────────────────────────────────────────
@@ -302,154 +301,10 @@ async function loadStep3() {
   body.innerHTML = html;
 }
 
-// ── Step 4: Credentials ───────────────────────────────────────────
-
-async function loadStep4() {
-  var body = document.getElementById("step-4-body");
-  if (!body) return;
-  body.innerHTML = '<p class="onboarding-loading">Loading credentials…</p>';
-
-  if (!_servicesData) {
-    try {
-      _servicesData = await apiFetch("/api/services");
-    } catch (err) {
-      body.innerHTML = '<p class="onboarding-error">⚠ Could not load services: ' + escHtml(err.message) + '</p>';
-      return;
-    }
-  }
-
-  // Find services with credentials that are enabled
-  var credsServices = (_servicesData || []).filter(function(svc) {
-    return svc.has_credentials && svc.enabled;
-  });
-
-  if (credsServices.length === 0) {
-    body.innerHTML = '<p class="onboarding-body-text">No credentials found for your current configuration.</p>';
-    return;
-  }
-
-  body.innerHTML = '<p class="onboarding-loading">Loading credentials…</p>';
-
-  // Fetch all credentials in parallel
-  var fetches = credsServices.map(function(svc) {
-    return apiFetch("/api/credentials/" + encodeURIComponent(svc.unit))
-      .then(function(data) { return { svc: svc, data: data, error: null }; })
-      .catch(function(err) { return { svc: svc, data: null, error: err.message }; });
-  });
-  var allCreds = await Promise.all(fetches);
-
-  // Group by category
-  var CATEGORY_ORDER_LOCAL = [
-    ["infrastructure", "🔧 Infrastructure"],
-    ["bitcoin-base",   "₿ Bitcoin Base"],
-    ["bitcoin-apps",   "₿ Bitcoin Apps"],
-    ["communication",  "💬 Communication"],
-    ["apps",           "📦 Self-Hosted Apps"],
-    ["nostr",          "📡 Nostr"],
-  ];
-
-  var grouped = {};
-  allCreds.forEach(function(item) {
-    var cat = item.svc.category || "other";
-    if (!grouped[cat]) grouped[cat] = [];
-    grouped[cat].push(item);
-  });
-
-  var html = '<div class="onboarding-creds-notice">💡 Save these credentials somewhere safe. You can always view them again from the Hub dashboard.</div>';
-
-  CATEGORY_ORDER_LOCAL.forEach(function(pair) {
-    var catKey = pair[0];
-    var catLabel = pair[1];
-    if (!grouped[catKey] || grouped[catKey].length === 0) return;
-
-    html += '<div class="onboarding-creds-category">';
-    html += '<div class="onboarding-creds-category-title">' + escHtml(catLabel) + '</div>';
-
-    grouped[catKey].forEach(function(item) {
-      html += '<div class="onboarding-creds-service">';
-      html += '<div class="onboarding-creds-service-name">' + escHtml(item.svc.name) + '</div>';
-
-      if (item.error) {
-        html += '<p class="onboarding-error">⚠ ' + escHtml(item.error) + '</p>';
-      } else if (item.data && item.data.credentials) {
-        item.data.credentials.forEach(function(cred) {
-          html += '<div class="onboarding-cred-row">';
-          html += '<span class="onboarding-cred-label">' + escHtml(cred.label || "") + '</span>';
-          if (cred.value) {
-            var isSecret = /password|secret|key|token/i.test(cred.label || "");
-            if (isSecret) {
-              html += '<span class="onboarding-cred-value onboarding-cred-secret" title="Click to reveal">'
-                + '<span class="onboarding-cred-hidden">••••••••</span>'
-                + '<span class="onboarding-cred-real" style="display:none">' + escHtml(cred.value) + '</span>'
-                + '<button class="onboarding-cred-reveal-btn">Show</button>'
-                + '</span>';
-            } else {
-              html += '<span class="onboarding-cred-value">' + escHtml(cred.value) + '</span>';
-            }
-          }
-          html += '</div>';
-        });
-      }
-
-      html += '</div>';
-    });
-
-    html += '</div>';
-  });
-
-  // Remaining categories not in the order
-  Object.keys(grouped).forEach(function(catKey) {
-    var inOrder = CATEGORY_ORDER_LOCAL.some(function(p) { return p[0] === catKey; });
-    if (inOrder || !grouped[catKey] || grouped[catKey].length === 0) return;
-
-    html += '<div class="onboarding-creds-category">';
-    html += '<div class="onboarding-creds-category-title">' + escHtml(catKey) + '</div>';
-    grouped[catKey].forEach(function(item) {
-      html += '<div class="onboarding-creds-service">';
-      html += '<div class="onboarding-creds-service-name">' + escHtml(item.svc.name) + '</div>';
-      if (item.error) {
-        html += '<p class="onboarding-error">⚠ ' + escHtml(item.error) + '</p>';
-      } else if (item.data && item.data.credentials) {
-        item.data.credentials.forEach(function(cred) {
-          if (cred.value) {
-            html += '<div class="onboarding-cred-row">';
-            html += '<span class="onboarding-cred-label">' + escHtml(cred.label || "") + '</span>';
-            html += '<span class="onboarding-cred-value">' + escHtml(cred.value) + '</span>';
-            html += '</div>';
-          }
-        });
-      }
-      html += '</div>';
-    });
-    html += '</div>';
-  });
-
-  body.innerHTML = html;
-
-  // Wire up reveal buttons
-  body.querySelectorAll(".onboarding-cred-secret").forEach(function(el) {
-    var btn     = el.querySelector(".onboarding-cred-reveal-btn");
-    var hidden  = el.querySelector(".onboarding-cred-hidden");
-    var real    = el.querySelector(".onboarding-cred-real");
-    if (!btn || !hidden || !real) return;
-    btn.addEventListener("click", function() {
-      if (real.style.display === "none") {
-        real.style.display = "";
-        hidden.style.display = "none";
-        btn.textContent = "Hide";
-      } else {
-        real.style.display = "none";
-        hidden.style.display = "";
-        btn.textContent = "Show";
-      }
-    });
-  });
-}
-
-// ── Step 5: Complete ──────────────────────────────────────────────
+// ── Step 4: Complete ──────────────────────────────────────────────
 
 async function completeOnboarding() {
-  var btn = document.getElementById("step-5-finish");
+  var btn = document.getElementById("step-4-finish");
   if (btn) { btn.disabled = true; btn.textContent = "Finishing…"; }
 
   try {
@@ -479,17 +334,13 @@ function wireNavButtons() {
     showStep(3);
   });
 
-  // Step 3 → 4
+  // Step 3 → 4 (Complete)
   var s3next = document.getElementById("step-3-next");
   if (s3next) s3next.addEventListener("click", function() { showStep(4); });
 
-  // Step 4 → 5 (Complete)
-  var s4next = document.getElementById("step-4-next");
-  if (s4next) s4next.addEventListener("click", function() { showStep(5); });
-
-  // Step 5: finish
-  var s5finish = document.getElementById("step-5-finish");
-  if (s5finish) s5finish.addEventListener("click", completeOnboarding);
+  // Step 4: finish
+  var s4finish = document.getElementById("step-4-finish");
+  if (s4finish) s4finish.addEventListener("click", completeOnboarding);
 
   // Back buttons
   document.querySelectorAll(".onboarding-btn-back").forEach(function(btn) {
