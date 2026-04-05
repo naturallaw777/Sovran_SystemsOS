@@ -1,11 +1,16 @@
 #!/usr/bin/env bash
-# ── Sovran Hub Backup Script ─────────────────────────────────────
+# ── Sovran Hub External Backup Script ────────────────────────────
 # Backs up Sovran_SystemsOS data to an external USB hard drive.
 # Designed for the Hub web UI (no GUI dependencies).
 #
+# Your Sovran Pro already backs up your data automatically to its
+# internal second drive (BTCEcoandBackup at /run/media/Second_Drive).
+# This script creates an additional copy on an external USB drive —
+# storing your data in a third location for maximum protection.
+#
 # Usage:
 #   BACKUP_TARGET=/run/media/<user>/<drive> bash sovran-hub-backup.sh
-#   (or run with no env var to auto-detect the first external drive)
+#   (or run with no env var to auto-detect the first external USB drive)
 
 set -euo pipefail
 
@@ -13,6 +18,10 @@ BACKUP_LOG="/var/log/sovran-hub-backup.log"
 BACKUP_STATUS="/var/log/sovran-hub-backup.status"
 MEDIA_ROOT="/run/media"
 MIN_FREE_GB=10
+
+# ── Internal drive labels/paths to NEVER use as backup targets ───
+INTERNAL_LABELS=("BTCEcoandBackup" "sovran_systemsos")
+INTERNAL_MOUNTS=("/run/media/Second_Drive" "/boot/efi" "/")
 
 # ── Logging helpers ──────────────────────────────────────────────
 
@@ -31,33 +40,113 @@ fail() {
   exit 1
 }
 
+# ── Check whether a mount point is an internal drive ────────────
+
+is_internal() {
+  local mnt="$1"
+  # Reject known internal mount points and their subdirectories
+  for internal in "${INTERNAL_MOUNTS[@]}"; do
+    if [[ "$mnt" == "$internal" || "$mnt" == "${internal}/"* ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+# ── Use lsblk to find the first genuine external USB drive ───────
+
+find_external_drive() {
+  local target=""
+  # lsblk JSON output: NAME,LABEL,MOUNTPOINT,HOTPLUG,RM,TYPE
+  if command -v lsblk &>/dev/null; then
+    while IFS=$'\t' read -r dev_type hotplug removable label mountpoint; do
+      # Must be a partition or disk, and be removable/hotplug
+      [[ "$dev_type" == "part" || "$dev_type" == "disk" ]] || continue
+      [[ "$hotplug" == "1" || "$removable" == "1" ]] || continue
+      [[ -n "$mountpoint" ]] || continue
+
+      # Filter out internal labels
+      local skip=0
+      for lbl in "${INTERNAL_LABELS[@]}"; do
+        [[ "$label" == "$lbl" ]] && skip=1 && break
+      done
+      [[ "$skip" -eq 1 ]] && continue
+
+      # Filter out internal mount points
+      is_internal "$mountpoint" && continue
+
+      if mountpoint -q "$mountpoint" 2>/dev/null; then
+        target="$mountpoint"
+        break
+      fi
+    done < <(lsblk -J -o NAME,LABEL,MOUNTPOINT,HOTPLUG,RM,TYPE 2>/dev/null | \
+      python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+def flatten(devs):
+    for d in devs:
+        yield d
+        for c in d.get('children', []):
+            yield from flatten([c])
+for d in flatten(data.get('blockdevices', [])):
+    print('\t'.join([
+        d.get('type') or '',
+        str(d.get('hotplug') or '0'),
+        str(d.get('rm') or '0'),
+        d.get('label') or '',
+        d.get('mountpoint') or '',
+    ]))
+" 2>/dev/null || true)
+  fi
+
+  # Fallback: walk /run/media/ if lsblk produced nothing
+  if [[ -z "$target" && -d "$MEDIA_ROOT" ]]; then
+    while IFS= read -r -d '' mnt; do
+      is_internal "$mnt" && continue
+      # Check label via lsblk on the device backing this mount
+      local dev
+      dev=$(findmnt -n -o SOURCE "$mnt" 2>/dev/null || true)
+      if [[ -n "$dev" ]]; then
+        local lbl
+        lbl=$(lsblk -n -o LABEL "$dev" 2>/dev/null || true)
+        local skip=0
+        for internal_lbl in "${INTERNAL_LABELS[@]}"; do
+          [[ "$lbl" == "$internal_lbl" ]] && skip=1 && break
+        done
+        [[ "$skip" -eq 1 ]] && continue
+      fi
+      if mountpoint -q "$mnt" 2>/dev/null; then
+        target="$mnt"
+        break
+      fi
+    done < <(find "$MEDIA_ROOT" -mindepth 2 -maxdepth 2 -type d -print0 2>/dev/null)
+  fi
+
+  echo "$target"
+}
+
 # ── Initialise log file ──────────────────────────────────────────
 
 : > "$BACKUP_LOG"
 set_status "RUNNING"
 
-log "=== Sovran_SystemsOS Hub Backup ==="
+log "=== Sovran_SystemsOS External Hub Backup ==="
 log "Starting backup process…"
 
 # ── Detect target drive ──────────────────────────────────────────
 
 if [[ -n "${BACKUP_TARGET:-}" ]]; then
   TARGET="$BACKUP_TARGET"
+  # Safety: never allow internal drives even if explicitly passed
+  if is_internal "$TARGET"; then
+    fail "Target '$TARGET' is an internal system drive and cannot be used for external backup."
+  fi
   log "Using specified backup target: $TARGET"
 else
-  log "Auto-detecting external drives under $MEDIA_ROOT …"
-  TARGET=""
-  if [[ -d "$MEDIA_ROOT" ]]; then
-    # Walk /run/media/<user>/<drive>
-    while IFS= read -r -d '' mnt; do
-      if mountpoint -q "$mnt" 2>/dev/null; then
-        TARGET="$mnt"
-        break
-      fi
-    done < <(find "$MEDIA_ROOT" -mindepth 2 -maxdepth 2 -type d -print0 2>/dev/null)
-  fi
+  log "Auto-detecting external USB drives…"
+  TARGET="$(find_external_drive)"
   if [[ -z "$TARGET" ]]; then
-    fail "No external drive detected under $MEDIA_ROOT. " \
+    fail "No external USB drive detected. " \
          "Please plug in an exFAT-formatted USB drive (≥500 GB) and try again."
   fi
   log "Detected external drive: $TARGET"
@@ -169,5 +258,6 @@ log "Manifest written to $BACKUP_DIR/BACKUP_MANIFEST.txt"
 # ── Done ─────────────────────────────────────────────────────────
 
 log ""
-log "All Finished! Please eject the drive before removing it from your Sovran Pro."
+log "All Finished! Your data is now backed up to a third location."
+log "Please eject the drive safely before removing it from your Sovran Pro."
 set_status "SUCCESS"
