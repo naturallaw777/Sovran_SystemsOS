@@ -1,7 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <rect x="4" y="8" width="56" height="48" rx="10" fill="#0DBD8B"/>
-  <rect x="12" y="18" width="5" height="28" rx="2" fill="white"/>
-  <path d="M17 18 C17 18 22 18 25 22 C28 26 28 30 25 34 C22 38 17 38 17 38 L17 46 L22 46 C22 46 31 46 36 38 C39 34 39 28 36 22 C33 16 24 14 17 14 Z" fill="white" opacity="0.15"/>
-  <path d="M17 18 C22 18 26 20 28 24 C30 28 30 32 28 36 C26 40 22 42 17 42" fill="none" stroke="white" stroke-width="4" stroke-linecap="round"/>
-  <rect x="47" y="18" width="5" height="28" rx="2" fill="white"/>
+  <rect x="2" y="2" width="60" height="60" rx="10" fill="#0DBD8B"/>
+  <rect x="7" y="16" width="4" height="32" fill="white"/>
+  <rect x="7" y="16" width="9" height="4" fill="white"/>
+  <rect x="7" y="44" width="9" height="4" fill="white"/>
+  <path d="M18,48 L18,33 C18,18 32,18 32,33 C32,18 46,18 46,33 L46,48" fill="none" stroke="white" stroke-width="5" stroke-linecap="square" stroke-linejoin="round"/>
+  <rect x="53" y="16" width="4" height="32" fill="white"/>
+  <rect x="48" y="16" width="9" height="4" fill="white"/>
+  <rect x="48" y="44" width="9" height="4" fill="white"/>
 </svg>
