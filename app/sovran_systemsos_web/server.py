@@ -259,6 +259,20 @@ ROLE_LABELS = {
     "node":                "Bitcoin Node",
 }
 
+# Categories shown per role (None = show all)
+ROLE_CATEGORIES: dict[str, set[str] | None] = {
+    "server_plus_desktop": None,
+    "desktop":             {"infrastructure", "support", "feature-manager"},
+    "node":                {"infrastructure", "bitcoin-base", "bitcoin-apps", "support", "feature-manager"},
+}
+
+# Features shown per role (None = show all)
+ROLE_FEATURES: dict[str, set[str] | None] = {
+    "server_plus_desktop": None,
+    "desktop":             {"rdp"},
+    "node":                {"bip110", "bitcoin-core", "mempool"},
+}
+
 SERVICE_DESCRIPTIONS: dict[str, str] = {
     "bitcoind.service": (
         "The foundation of your financial sovereignty. Your node independently verifies "
@@ -1322,12 +1336,67 @@ async def api_onboarding_complete():
 async def api_config():
     cfg = load_config()
     role = cfg.get("role", "server_plus_desktop")
+    allowed_cats = ROLE_CATEGORIES.get(role)
+    cats = CATEGORY_ORDER if allowed_cats is None else [
+        c for c in CATEGORY_ORDER if c[0] in allowed_cats
+    ]
     return {
         "role": role,
         "role_label": ROLE_LABELS.get(role, role),
-        "category_order": CATEGORY_ORDER,
+        "category_order": cats,
         "feature_manager": True,
     }
+
+
+ROLE_STATE_NIX = """\
+# THIS FILE IS AUTO-GENERATED. DO NOT EDIT.
+{ config, lib, ... }:
+{
+  sovran_systemsOS.roles.server_plus_desktop = lib.mkDefault true;
+  sovran_systemsOS.roles.desktop = lib.mkDefault false;
+  sovran_systemsOS.roles.node = lib.mkDefault false;
+}
+"""
+
+
+@app.post("/api/role/upgrade-to-server")
+async def api_upgrade_to_server():
+    """Upgrade from Node role to Server+Desktop role by writing role-state.nix and rebuilding."""
+    cfg = load_config()
+    if cfg.get("role", "server_plus_desktop") != "node":
+        raise HTTPException(status_code=400, detail="Upgrade is only available for the Node role.")
+
+    try:
+        with open("/etc/nixos/role-state.nix", "w") as f:
+            f.write(ROLE_STATE_NIX)
+    except OSError as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to write role-state.nix: {exc}")
+
+    # Reset onboarding so the wizard runs for the newly unlocked services
+    try:
+        os.remove(ONBOARDING_FLAG)
+    except FileNotFoundError:
+        pass
+
+    # Clear stale rebuild log
+    try:
+        open(REBUILD_LOG, "w").close()
+    except OSError:
+        pass
+
+    await asyncio.create_subprocess_exec(
+        "systemctl", "reset-failed", REBUILD_UNIT,
+        stdout=asyncio.subprocess.DEVNULL,
+        stderr=asyncio.subprocess.DEVNULL,
+    )
+    proc = await asyncio.create_subprocess_exec(
+        "systemctl", "start", "--no-block", REBUILD_UNIT,
+        stdout=asyncio.subprocess.DEVNULL,
+        stderr=asyncio.subprocess.DEVNULL,
+    )
+    await proc.wait()
+
+    return {"ok": True, "status": "rebuilding"}
 
 
 @app.get("/api/services")
@@ -2082,8 +2151,14 @@ async def api_features():
     ssl_email_path = os.path.join(DOMAINS_DIR, "sslemail")
     ssl_email_configured = os.path.exists(ssl_email_path)
 
+    role = load_config().get("role", "server_plus_desktop")
+    allowed_features = ROLE_FEATURES.get(role)
+    registry = FEATURE_REGISTRY if allowed_features is None else [
+        f for f in FEATURE_REGISTRY if f["id"] in allowed_features
+    ]
+
     features = []
-    for feat in FEATURE_REGISTRY:
+    for feat in registry:
         feat_id = feat["id"]
 
         # Determine enabled state:

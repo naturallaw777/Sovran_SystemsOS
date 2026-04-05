@@ -71,6 +71,20 @@ function renderSidebarSupport(supportServices) {
   backupBtn.addEventListener("click", function() { openBackupModal(); });
   $sidebarSupport.appendChild(backupBtn);
 
+  // ── Upgrade button (Node role only)
+  if (_currentRole === "node") {
+    var upgradeBtn = document.createElement("button");
+    upgradeBtn.className = "sidebar-support-btn sidebar-upgrade-btn";
+    upgradeBtn.innerHTML =
+      '<span class="sidebar-support-icon">🚀</span>' +
+      '<span class="sidebar-support-text">' +
+        '<span class="sidebar-support-title">Upgrade to Full Server</span>' +
+        '<span class="sidebar-support-hint">Unlock all services</span>' +
+      '</span>';
+    upgradeBtn.addEventListener("click", function() { openUpgradeModal(); });
+    $sidebarSupport.appendChild(upgradeBtn);
+  }
+
   var hr = document.createElement("hr");
   hr.className = "sidebar-divider";
   $sidebarSupport.appendChild(hr);

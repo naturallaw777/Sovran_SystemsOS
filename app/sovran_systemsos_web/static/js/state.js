@@ -15,6 +15,9 @@ let _supportStatus        = null;   // last fetched /api/support/status payload
 let _walletUnlockTimerInt = null;
 let _cachedExternalIp = null;
 
+// Current role (set during init from /api/config)
+let _currentRole = "server_plus_desktop";
+
 // Feature Manager state
 let _featuresData         = null;
 let _rebuildLog           = "";
@@ -88,6 +91,12 @@ const $featureConfirmClose   = document.getElementById("feature-confirm-close-bt
 const $portReqModal  = document.getElementById("port-requirements-modal");
 const $portReqBody   = document.getElementById("port-req-body");
 const $portReqClose  = document.getElementById("port-req-close-btn");
+
+// Upgrade modal (Node → Server+Desktop)
+const $upgradeModal       = document.getElementById("upgrade-modal");
+const $upgradeConfirmBtn  = document.getElementById("upgrade-confirm-btn");
+const $upgradeCancelBtn   = document.getElementById("upgrade-cancel-btn");
+const $upgradeCloseBtn    = document.getElementById("upgrade-close-btn");
 
 // System status banner
 // (removed — health is now shown per-tile via the composite health field)
