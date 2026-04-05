@@ -192,6 +192,21 @@ FEATURE_REGISTRY = [
         "conflicts_with": ["bip110"],
         "port_requirements": [],
     },
+    {
+        "id": "btcpay-web",
+        "name": "BTCPay Server Web Access",
+        "description": "Expose BTCPay Server to the internet via your domain. When disabled, BTCPay Server still runs locally but is not accessible from the web.",
+        "category": "bitcoin",
+        "needs_domain": True,
+        "domain_name": "btcpayserver",
+        "needs_ddns": True,
+        "extra_fields": [],
+        "conflicts_with": [],
+        "port_requirements": [
+            {"port": "80",  "protocol": "TCP", "description": "HTTP (redirect to HTTPS)"},
+            {"port": "443", "protocol": "TCP", "description": "HTTPS"},
+        ],
+    },
 ]
 
 # Map feature IDs to their systemd units in config.json
@@ -202,6 +217,7 @@ FEATURE_SERVICE_MAP = {
     "mempool": "mempool.service",
     "bip110": None,
     "bitcoin-core": None,
+    "btcpay-web": "btcpayserver.service",
 }
 
 # Port requirements for service tiles (keyed by unit name or icon)
@@ -270,7 +286,7 @@ ROLE_CATEGORIES: dict[str, set[str] | None] = {
 ROLE_FEATURES: dict[str, set[str] | None] = {
     "server_plus_desktop": None,
     "desktop":             {"rdp"},
-    "node":                {"rdp", "bip110", "bitcoin-core", "mempool"},
+    "node":                {"rdp", "bip110", "bitcoin-core", "mempool", "btcpay-web"},
 }
 
 SERVICE_DESCRIPTIONS: dict[str, str] = {
@@ -932,6 +948,11 @@ def _read_hub_overrides() -> tuple[dict, str | None]:
             section,
         ):
             features[m.group(1)] = m.group(2) == "true"
+        for m in re.finditer(
+            r'sovran_systemsOS\.web\.btcpayserver\s*=\s*(?:lib\.mkForce\s+)?(true|false)\s*;',
+            section,
+        ):
+            features["btcpay-web"] = m.group(1) == "true"
         m2 = re.search(
             r'sovran_systemsOS\.nostr_npub\s*=\s*(?:lib\.mkForce\s+)?"([^"]*)"',
             section,
@@ -948,7 +969,10 @@ def _write_hub_overrides(features: dict, nostr_npub: str | None) -> None:
     lines = []
     for feat_id, enabled in features.items():
         val = "true" if enabled else "false"
-        lines.append(f"  sovran_systemsOS.features.{feat_id} = lib.mkForce {val};")
+        if feat_id == "btcpay-web":
+            lines.append(f"  sovran_systemsOS.web.btcpayserver = lib.mkForce {val};")
+        else:
+            lines.append(f"  sovran_systemsOS.features.{feat_id} = lib.mkForce {val};")
     if nostr_npub:
         lines.append(f'  sovran_systemsOS.nostr_npub = lib.mkForce "{nostr_npub}";')
     hub_block = (
@@ -990,6 +1014,8 @@ def _write_hub_overrides(features: dict, nostr_npub: str | None) -> None:
 def _is_feature_enabled_in_config(feature_id: str) -> bool | None:
     """Check if a feature's service appears as enabled in the running config.json.
     Returns True/False if found, None if the feature has no mapped service."""
+    if feature_id == "btcpay-web":
+        return False  # Default off in Node role; only on via explicit hub toggle
     unit = FEATURE_SERVICE_MAP.get(feature_id)
     if unit is None:
         return None  # bip110, bitcoin-core — can't determine from config
