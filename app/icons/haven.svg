@@ -5,8 +5,8 @@
   <circle cx="50" cy="22" r="4" fill="#9B4FDE"/>
   <circle cx="14" cy="42" r="4" fill="#9B4FDE"/>
   <circle cx="50" cy="42" r="4" fill="#9B4FDE"/>
-  <line x1="32" y1="32" x2="14" y2="22" stroke="#7B2FBE" stroke-width="2"/>
-  <line x1="32" y1="32" x2="50" y2="22" stroke="#7B2FBE" stroke-width="2"/>
-  <line x1="32" y1="32" x2="14" y2="42" stroke="#7B2FBE" stroke-width="2"/>
-  <line x1="32" y1="32" x2="50" y2="42" stroke="#7B2FBE" stroke-width="2"/>
+  <rect x="17" y="24" width="14" height="2.5" rx="1" transform="rotate(-26 17 24)" fill="#7B2FBE"/>
+  <rect x="33" y="24" width="14" height="2.5" rx="1" transform="rotate(26 47 24)" fill="#7B2FBE"/>
+  <rect x="17" y="38" width="14" height="2.5" rx="1" transform="rotate(26 17 40)" fill="#7B2FBE"/>
+  <rect x="33" y="38" width="14" height="2.5" rx="1" transform="rotate(-26 47 40)" fill="#7B2FBE"/>
 </svg>
