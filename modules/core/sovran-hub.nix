@@ -8,7 +8,7 @@ let
     [
       { name = "Caddy"; unit = "caddy.service"; type = "system"; icon = "caddy"; enabled = true;  category = "infrastructure"; credentials = []; }
       { name = "Tor";   unit = "tor.service";   type = "system"; icon = "tor";   enabled = true;  category = "infrastructure"; credentials = []; }
-      { name = "System Passwords"; unit = "root-password-setup.service"; type = "system"; icon = "system"; enabled = true; category = "infrastructure"; credentials = [
+      { name = "System Passwords"; unit = "root-password-setup.service"; type = "system"; icon = "passwords"; enabled = true; category = "infrastructure"; credentials = [
         { label = "Free Account — Username"; value = "free"; }
         { label = "Free Account — Password"; file = "/var/lib/secrets/free-password"; }
         { label = "Root Password"; file = "/var/lib/secrets/root-password"; }
@@ -67,7 +67,7 @@ let
         { label = "Test Username";    file = "/var/lib/secrets/matrix-test-username"; }
         { label = "Test Password";    file = "/var/lib/secrets/matrix-test-password"; }
       ]; }
-      { name = "Element-Call";   unit = "livekit.service";        type = "system"; icon = "livekit"; enabled = cfg.features.element-calling;  category = "communication"; credentials = []; }
+      { name = "Element-Call";   unit = "livekit.service";        type = "system"; icon = "element-calling"; enabled = cfg.features.element-calling;  category = "communication"; credentials = []; }
     ]
     # ── Self-Hosted Apps ───────────────────────────────────────
     ++ [

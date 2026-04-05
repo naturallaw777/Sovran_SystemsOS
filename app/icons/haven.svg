@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <!-- Background circle -->
+  <circle cx="128" cy="128" r="120" fill="#5B21B6"/>
+  <!-- Outer signal arc (top-left) -->
+  <path d="M60 128 A68 68 0 0 1 128 60" stroke="#A78BFA" stroke-width="14" stroke-linecap="round" fill="none"/>
+  <!-- Outer signal arc (top-right) -->
+  <path d="M128 60 A68 68 0 0 1 196 128" stroke="#A78BFA" stroke-width="14" stroke-linecap="round" fill="none"/>
+  <!-- Middle signal arc (top-left) -->
+  <path d="M82 128 A46 46 0 0 1 128 82" stroke="#C4B5FD" stroke-width="12" stroke-linecap="round" fill="none"/>
+  <!-- Middle signal arc (top-right) -->
+  <path d="M128 82 A46 46 0 0 1 174 128" stroke="#C4B5FD" stroke-width="12" stroke-linecap="round" fill="none"/>
+  <!-- Inner signal arc (top-left) -->
+  <path d="M104 128 A24 24 0 0 1 128 104" stroke="#EDE9FE" stroke-width="10" stroke-linecap="round" fill="none"/>
+  <!-- Inner signal arc (top-right) -->
+  <path d="M128 104 A24 24 0 0 1 152 128" stroke="#EDE9FE" stroke-width="10" stroke-linecap="round" fill="none"/>
+  <!-- Center antenna dot -->
+  <circle cx="128" cy="128" r="14" fill="#F5F3FF"/>
+  <!-- Antenna mast -->
+  <rect x="122" y="128" width="12" height="52" rx="4" fill="#DDD6FE"/>
+  <!-- Base platform -->
+  <rect x="96" y="176" width="64" height="12" rx="6" fill="#7C3AED"/>
+  <rect x="108" y="188" width="40" height="10" rx="5" fill="#6D28D9"/>
+</svg>
