@@ -10,7 +10,7 @@
 }
 
 .support-active-icon {
-  animation: pulse-badge 2s ease-in-out infinite;
+  animation: none;
 }
 
 .support-heading {
