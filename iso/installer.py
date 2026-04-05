@@ -471,14 +471,15 @@ class InstallerWindow(Adw.ApplicationWindow):
             back_label="←  Back",
             back_cb=lambda b: self.nav.pop(),
             next_label="I Understand  →",
-            next_cb=lambda b: self.push_disk_confirm(),
+            next_cb=lambda b: self.push_disk_detect(),
         ))
 
         self.push_page("Network Port Requirements", outer, show_back=True)
 
-    # ── Step 2: Disk Confirm ───────────────────────────────────────────────
+    # ── Step 2a: Disk Detect ──────────────────────────────────────────────
 
-    def push_disk_confirm(self):
+    def push_disk_detect(self):
+        """Detect internal drives and show the interactive disk selection page."""
         try:
             raw = run(["lsblk", "-b", "-dno", "NAME,SIZE,TYPE,RO,TRAN", "-e", "7,11"])
         except Exception as e:
@@ -491,31 +492,208 @@ class InstallerWindow(Adw.ApplicationWindow):
             if len(parts) >= 4 and parts[2] == "disk" and parts[3] == "0":
                 tran = parts[4] if len(parts) >= 5 else ""
                 if tran != "usb":
-                    disks.append((parts[0], int(parts[1])))
+                    disks.append((parts[0], int(parts[1]), tran))
 
         if not disks:
             self.show_error("No valid internal drives found. USB drives are excluded.")
             return
 
-        disks.sort(key=lambda x: x[1])
-        self.boot_disk, self.boot_size = disks[0]
-        self.data_disk, self.data_size = None, None
+        self.push_disk_select(disks)
 
-        BYTES_128GB = 128 * 1024 ** 3
-        if self.role == "Desktop Only" and self.boot_size < BYTES_128GB:
-            self.show_error(
-                f"Boot disk /dev/{self.boot_disk} is only "
-                f"{human_size(self.boot_size)}.  "
-                f"The Desktop Only role requires at least 128 GB."
+    # ── Step 2b: Disk Select ──────────────────────────────────────────────
+
+    def push_disk_select(self, disks):
+        """Interactive disk-selection page: pick OS drive and (optionally) data drive."""
+
+        BYTES_256GB = 256 * 1024 ** 3
+        BYTES_2TB   = 2 * 10 ** 12
+
+        # Sort ascending by size so the default selection (index 0) is the smallest
+        disks = sorted(disks, key=lambda x: x[1])
+
+        outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+
+        scroll = Gtk.ScrolledWindow()
+        scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        scroll.set_vexpand(True)
+
+        inner = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+
+        # ── OS Drive group ────────────────────────────────────────────
+        os_group = Adw.PreferencesGroup()
+        os_group.set_title("OS Drive  (NixOS Boot + Root)")
+        os_group.set_description(
+            "Choose the drive for the NixOS installation.  Minimum 256 GB required."
+        )
+        os_group.set_margin_top(24)
+        os_group.set_margin_start(40)
+        os_group.set_margin_end(40)
+
+        self._os_disk_radios = []
+        os_radio_group = None
+
+        for name, size, tran in disks:
+            row = Adw.ActionRow()
+            row.set_title(f"/dev/{name}")
+            type_label = tran.upper() if tran else "Disk"
+            meets = "✓ Meets 256 GB minimum" if size >= BYTES_256GB else "✗ Below 256 GB minimum"
+            row.set_subtitle(f"{human_size(size)}  ·  {type_label}  —  {meets}")
+            row.add_prefix(symbolic_icon("drive-harddisk-symbolic"))
+
+            radio = Gtk.CheckButton()
+            radio.set_name(name)
+            if os_radio_group is None:
+                os_radio_group = radio
+                radio.set_active(True)
+            else:
+                radio.set_group(os_radio_group)
+
+            row.add_suffix(radio)
+            row.set_activatable_widget(radio)
+            self._os_disk_radios.append(radio)
+            os_group.add(row)
+
+        inner.append(os_group)
+
+        # ── Data Drive group (skipped for Desktop Only) ───────────────
+        self._data_disk_radios = []
+
+        if self.role != "Desktop Only":
+            data_group = Adw.PreferencesGroup()
+            data_group.set_title("Bitcoin Timechain & Backups Drive")
+            data_group.set_description(
+                "💡 Tip: Always assign your LARGEST drive here.  "
+                "The full Bitcoin timechain is over 700 GB and grows continuously — "
+                "a 2 TB or larger drive is required."
             )
+            data_group.set_margin_top(20)
+            data_group.set_margin_start(40)
+            data_group.set_margin_end(40)
+
+            data_radio_group = None
+
+            # "None" option
+            none_row = Adw.ActionRow()
+            none_row.set_title("None  (skip data drive)")
+            none_row.set_subtitle("Bitcoin node functionality will be unavailable")
+            none_radio = Gtk.CheckButton()
+            none_radio.set_name("")
+            data_radio_group = none_radio
+            none_radio.set_active(True)
+            none_row.add_suffix(none_radio)
+            none_row.set_activatable_widget(none_radio)
+            self._data_disk_radios.append(none_radio)
+            data_group.add(none_row)
+
+            for name, size, tran in disks:
+                row = Adw.ActionRow()
+                row.set_title(f"/dev/{name}")
+                type_label = tran.upper() if tran else "Disk"
+                meets = "✓ Meets 2 TB minimum" if size >= BYTES_2TB else "✗ Below 2 TB minimum"
+                row.set_subtitle(f"{human_size(size)}  ·  {type_label}  —  {meets}")
+                row.add_prefix(symbolic_icon("drive-harddisk-symbolic"))
+
+                radio = Gtk.CheckButton()
+                radio.set_name(name)
+                radio.set_group(data_radio_group)
+
+                row.add_suffix(radio)
+                row.set_activatable_widget(radio)
+                self._data_disk_radios.append(radio)
+                data_group.add(row)
+
+            inner.append(data_group)
+
+        scroll.set_child(inner)
+        outer.append(scroll)
+        outer.append(self.nav_row(
+            back_label="←  Back",
+            back_cb=lambda b: self.nav.pop(),
+            next_label="Next  →",
+            next_cb=lambda b: self._on_disk_select_next(disks),
+        ))
+
+        self.push_page("Select Drives", outer, show_back=True)
+
+    def _on_disk_select_next(self, disks):
+        """Validate the user's disk selections and advance to the ERASE confirmation."""
+        BYTES_256GB = 256 * 1024 ** 3
+        BYTES_2TB   = 2 * 10 ** 12
+
+        size_map = {name: size for name, size, _ in disks}
+
+        # Read OS disk selection
+        os_name = None
+        for radio in self._os_disk_radios:
+            if radio.get_active():
+                os_name = radio.get_name()
+                break
+
+        # Read data disk selection (empty string = None chosen)
+        data_name = None
+        if self._data_disk_radios:
+            for radio in self._data_disk_radios:
+                if radio.get_active():
+                    sel = radio.get_name()
+                    data_name = sel if sel else None
+                    break
+
+        os_size   = size_map.get(os_name, 0)
+        data_size = size_map.get(data_name, 0) if data_name else 0
+
+        # Validate OS drive size
+        if os_size < BYTES_256GB:
+            dlg = Adw.MessageDialog()
+            dlg.set_transient_for(self)
+            dlg.set_heading("OS Drive Too Small")
+            dlg.set_body(
+                f"The selected OS drive (/dev/{os_name}, {human_size(os_size)}) "
+                f"does not meet the 256 GB minimum.  Please choose a larger drive."
+            )
+            dlg.add_response("ok", "OK")
+            dlg.present()
             return
 
-        BYTES_2TB = 2 * 1024 ** 4
-        if self.role != "Desktop Only" and len(disks) >= 2:
-            d, s = disks[-1]
-            if s >= BYTES_2TB:
-                self.data_disk, self.data_size = d, s
+        # Validate data drive size (when one was selected)
+        if data_name and data_size < BYTES_2TB:
+            dlg = Adw.MessageDialog()
+            dlg.set_transient_for(self)
+            dlg.set_heading("Bitcoin Drive Too Small")
+            dlg.set_body(
+                f"The selected Bitcoin Timechain & Backups drive "
+                f"(/dev/{data_name}, {human_size(data_size)}) "
+                f"does not meet the 2 TB minimum.  "
+                f"Please choose a larger drive or select \"None\"."
+            )
+            dlg.add_response("ok", "OK")
+            dlg.present()
+            return
 
+        # Validate no duplicate selection
+        if data_name and data_name == os_name:
+            dlg = Adw.MessageDialog()
+            dlg.set_transient_for(self)
+            dlg.set_heading("Same Drive Selected Twice")
+            dlg.set_body(
+                "You cannot use the same drive for both the OS and "
+                "Bitcoin Timechain & Backups.  Please choose different drives."
+            )
+            dlg.add_response("ok", "OK")
+            dlg.present()
+            return
+
+        # Commit selections
+        self.boot_disk  = os_name
+        self.boot_size  = os_size
+        self.data_disk  = data_name
+        self.data_size  = data_size if data_name else None
+
+        self.push_disk_confirm()
+
+    # ── Step 2c: Disk Confirm (ERASE confirmation) ────────────────────────
+
+    def push_disk_confirm(self):
+        """Show the selected drives and ask the user to type ERASE to confirm."""
         outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
 
         # Disk info group
@@ -526,23 +704,17 @@ class InstallerWindow(Adw.ApplicationWindow):
         disk_group.set_margin_end(40)
 
         boot_row = Adw.ActionRow()
-        boot_row.set_title("Boot Disk")
+        boot_row.set_title("OS Disk")
         boot_row.set_subtitle(f"/dev/{self.boot_disk}  —  {human_size(self.boot_size)}")
         boot_row.add_prefix(symbolic_icon("drive-harddisk-symbolic"))
         disk_group.add(boot_row)
 
         if self.data_disk:
             data_row = Adw.ActionRow()
-            data_row.set_title("Data Disk")
+            data_row.set_title("Bitcoin Timechain & Backups Disk")
             data_row.set_subtitle(f"/dev/{self.data_disk}  —  {human_size(self.data_size)}")
             data_row.add_prefix(symbolic_icon("drive-harddisk-symbolic"))
             disk_group.add(data_row)
-        elif self.role != "Desktop Only":
-            no_row = Adw.ActionRow()
-            no_row.set_title("Data Disk")
-            no_row.set_subtitle("None detected  (requires 2 TB or larger)")
-            no_row.add_prefix(symbolic_icon("drive-harddisk-symbolic"))
-            disk_group.add(no_row)
 
         outer.append(disk_group)
 
@@ -633,6 +805,7 @@ class InstallerWindow(Adw.ApplicationWindow):
 
     def do_partition(self, buf):
         boot_path = f"/dev/{self.boot_disk}"
+        data_path = f"/dev/{self.data_disk}" if self.data_disk else None
 
         # ── Wipe disk(s) to clear stale GPT/MBR data before disko ──
         GLib.idle_add(append_text, buf, "=== Wiping disk(s) ===\n")
@@ -640,14 +813,13 @@ class InstallerWindow(Adw.ApplicationWindow):
         run_stream(["sudo", "sgdisk", "--zap-all", boot_path], buf)
         run_stream(["sudo", "wipefs", "--all", "--force", boot_path], buf)
 
-        if self.data_disk:
-            data_path = f"/dev/{self.data_disk}"
+        if data_path:
             run_stream(["sudo", "sgdisk", "--zap-all", data_path], buf)
             run_stream(["sudo", "wipefs", "--all", "--force", data_path], buf)
 
         # Inform the kernel of the wiped partition tables
         run_stream(["sudo", "partprobe", boot_path], buf)
-        if self.data_disk:
+        if data_path:
             run_stream(["sudo", "partprobe", data_path], buf)
 
         # Short settle so the kernel finishes re-reading
@@ -656,12 +828,12 @@ class InstallerWindow(Adw.ApplicationWindow):
         # ── Now run disko on a clean disk ──
         GLib.idle_add(append_text, buf, "\n=== Partitioning drives ===\n")
         cmd = [
-            "sudo", "disko", "--mode", "disko",
+            "sudo", "disko", "--mode", "destroy,format,mount",
             f"{FLAKE}/iso/disko.nix",
             "--arg", "device", f'"{boot_path}"'
         ]
-        if self.data_disk:
-            cmd += ["--arg", "dataDevice", f'"/dev/{self.data_disk}"']
+        if data_path:
+            cmd += ["--arg", "dataDevice", f'"{data_path}"']
         run_stream(cmd, buf)
 
         GLib.idle_add(append_text, buf, "\n=== Generating hardware config ===\n")
