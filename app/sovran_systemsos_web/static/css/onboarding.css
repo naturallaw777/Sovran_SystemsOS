@@ -1,3 +1,580 @@
+/* ── Onboarding wizard ──────────────────────────────────────────── */
+
+.onboarding-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  min-height: 100vh;
+  background-color: var(--bg-color);
+  padding: 24px 16px 48px;
+  overflow-y: auto;
+}
+
+.onboarding-shell {
+  width: 100%;
+  max-width: 680px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+/* Progress bar */
+
+.onboarding-progress-bar {
+  width: 100%;
+  height: 4px;
+  background-color: var(--card-color);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-bottom: 24px;
+}
+
+.onboarding-progress-fill {
+  height: 100%;
+  background-color: var(--accent-color);
+  border-radius: 2px;
+  transition: width 0.4s ease;
+  width: 20%;
+}
+
+/* Step indicator dots */
+
+.onboarding-steps-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  margin-bottom: 28px;
+}
+
+.onboarding-step-dot {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background-color: var(--card-color);
+  border: 2px solid var(--border-color);
+  color: var(--text-dim);
+  font-size: 0.78rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background-color 0.2s, border-color 0.2s, color 0.2s;
+}
+
+.onboarding-step-dot.active {
+  background-color: var(--accent-color);
+  border-color: var(--accent-color);
+  color: #1e1e2e;
+}
+
+.onboarding-step-dot.completed {
+  background-color: var(--green);
+  border-color: var(--green);
+  color: #1e1e2e;
+}
+
+.onboarding-step-connector {
+  flex: 1;
+  height: 2px;
+  background-color: var(--border-color);
+  min-width: 24px;
+  max-width: 80px;
+  transition: background-color 0.2s;
+}
+
+/* Panel wrapper and panels */
+
+.onboarding-panel-wrap {
+  position: relative;
+}
+
+.onboarding-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  animation: panel-fade-in 0.25s ease-out;
+}
+
+@keyframes panel-fade-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Hero / welcome section */
+
+.onboarding-hero {
+  text-align: center;
+  padding: 16px 0 4px;
+}
+
+.onboarding-logo {
+  margin-bottom: 16px;
+  font-size: 3rem;
+}
+
+.onboarding-logo-img {
+  height: 90px;
+  width: auto;
+}
+
+.onboarding-title {
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+  line-height: 1.2;
+}
+
+.onboarding-subtitle {
+  font-size: 1rem;
+  color: var(--text-secondary);
+}
+
+/* Cards */
+
+.onboarding-card {
+  background-color: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-card);
+  padding: 24px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.onboarding-card--scroll {
+  max-height: 360px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-color) transparent;
+}
+
+.onboarding-card--ports {
+  overflow: visible;
+}
+
+/* Body text */
+
+.onboarding-body-text {
+  font-size: 0.92rem;
+  color: var(--text-secondary);
+  line-height: 1.65;
+}
+
+.onboarding-body-text--dim {
+  color: var(--text-dim);
+  font-size: 0.85rem;
+}
+
+/* Role row */
+
+.onboarding-role-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background-color: var(--card-color);
+  border-radius: 8px;
+}
+
+.onboarding-role-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.onboarding-role-badge {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--accent-color);
+  background-color: rgba(137, 180, 250, 0.12);
+  padding: 3px 10px;
+  border-radius: 20px;
+  border: 1px solid rgba(137, 180, 250, 0.3);
+}
+
+/* Step header */
+
+.onboarding-step-header {
+  padding-bottom: 4px;
+}
+
+.onboarding-step-icon {
+  font-size: 2rem;
+  display: block;
+  margin-bottom: 8px;
+}
+
+.onboarding-step-title {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.onboarding-step-desc {
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+/* Footer / navigation */
+
+.onboarding-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 4px;
+}
+
+.onboarding-btn-next {
+  /* inherits from .btn.btn-primary */
+}
+
+.onboarding-btn-back {
+  /* inherits from .btn.btn-close-modal */
+}
+
+/* Domain configuration (Step 2) */
+
+.onboarding-domain-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.onboarding-domain-group:last-child {
+  border-bottom: none;
+}
+
+.onboarding-domain-group--email {
+  /* email-specific variant */
+}
+
+.onboarding-domain-label {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.onboarding-domain-label--sub {
+  font-size: 0.78rem;
+  font-weight: 400;
+  color: var(--text-dim);
+}
+
+.onboarding-domain-input,
+.domain-field-input {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-btn);
+  background-color: var(--card-color);
+  color: var(--text-primary);
+  font-size: 0.88rem;
+  font-family: 'Cantarell', 'Inter', 'Segoe UI', sans-serif;
+  transition: border-color 0.15s;
+}
+
+.onboarding-domain-input:focus,
+.domain-field-input:focus {
+  outline: none;
+  border-color: var(--accent-color);
+}
+
+.onboarding-hint {
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  line-height: 1.5;
+}
+
+.onboarding-hint--inline {
+  display: inline;
+}
+
+/* Port forwarding (Step 3) */
+
+.onboarding-port-note {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.onboarding-port-ip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background-color: var(--card-color);
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+}
+
+.onboarding-port-ip-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.onboarding-port-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.onboarding-port-section-title {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.onboarding-port-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.onboarding-port-table thead th {
+  text-align: left;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.onboarding-port-table td {
+  padding: 8px 8px;
+  border-bottom: 1px solid rgba(69, 71, 90, 0.4);
+  color: var(--text-secondary);
+  vertical-align: middle;
+}
+
+.onboarding-port-table tr:last-child td {
+  border-bottom: none;
+}
+
+.onboarding-port-totals {
+  padding: 10px 14px;
+  background-color: var(--card-color);
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.onboarding-port-warn {
+  padding: 10px 14px;
+  background-color: rgba(229, 165, 10, 0.1);
+  border: 1px solid rgba(229, 165, 10, 0.35);
+  border-radius: 8px;
+  font-size: 0.85rem;
+  color: var(--yellow);
+  line-height: 1.5;
+}
+
+.onboarding-port-details {
+  font-size: 0.85rem;
+}
+
+.onboarding-port-details-summary {
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--accent-color);
+  list-style: none;
+  user-select: none;
+}
+
+.onboarding-port-details-summary::-webkit-details-marker {
+  display: none;
+}
+
+.onboarding-port-details-summary::before {
+  content: '▶ ';
+  font-size: 0.65em;
+}
+
+.onboarding-port-details[open] .onboarding-port-details-summary::before {
+  content: '▼ ';
+}
+
+/* Credentials (Step 4) */
+
+.onboarding-creds-notice {
+  padding: 12px 16px;
+  background-color: rgba(137, 180, 250, 0.08);
+  border: 1px solid rgba(137, 180, 250, 0.25);
+  border-radius: 8px;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  line-height: 1.55;
+}
+
+.onboarding-creds-category {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.onboarding-creds-category:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.onboarding-creds-category-title {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 2px;
+}
+
+.onboarding-creds-service {
+  background-color: var(--card-color);
+  border-radius: 8px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.onboarding-creds-service-name {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+
+.onboarding-cred-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.82rem;
+}
+
+.onboarding-cred-label {
+  color: var(--text-dim);
+  font-size: 0.78rem;
+  min-width: 80px;
+  flex-shrink: 0;
+}
+
+.onboarding-cred-value {
+  color: var(--text-primary);
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 0.82rem;
+  word-break: break-all;
+  flex: 1;
+}
+
+.onboarding-cred-secret {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+}
+
+.onboarding-cred-hidden {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 0.82rem;
+  color: var(--text-dim);
+  letter-spacing: 0.1em;
+}
+
+.onboarding-cred-real {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 0.82rem;
+  color: var(--text-primary);
+  word-break: break-all;
+  display: none;
+}
+
+.onboarding-cred-reveal-btn {
+  font-size: 0.72rem;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background-color: rgba(137, 180, 250, 0.1);
+  border: 1px solid rgba(137, 180, 250, 0.25);
+  color: var(--accent-color);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 0.15s;
+}
+
+.onboarding-cred-reveal-btn:hover {
+  background-color: rgba(137, 180, 250, 0.2);
+}
+
+/* Completion checklist (Step 5) */
+
+.onboarding-checklist {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.onboarding-checklist li {
+  font-size: 0.92rem;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Status & feedback */
+
+.onboarding-loading {
+  font-size: 0.88rem;
+  color: var(--text-dim);
+  text-align: center;
+  padding: 16px 0;
+  font-style: italic;
+}
+
+.onboarding-error {
+  font-size: 0.85rem;
+  color: var(--red);
+  padding: 10px 14px;
+  background-color: rgba(224, 27, 36, 0.1);
+  border: 1px solid rgba(224, 27, 36, 0.3);
+  border-radius: 8px;
+  line-height: 1.5;
+}
+
+.onboarding-save-status {
+  font-size: 0.85rem;
+  min-height: 1.2em;
+  transition: color 0.2s;
+}
+
+.onboarding-save-status--ok {
+  color: var(--green);
+}
+
+.onboarding-save-status--error {
+  color: var(--red);
+}
+
+.onboarding-save-status--info {
+  color: var(--text-secondary);
+}
+
 /* ── Reboot overlay ─────────────────────────────────────────────── */
 
 .reboot-overlay {
