@@ -730,15 +730,25 @@ class InstallerWindow(Adw.ApplicationWindow):
 
         # ── Now run disko on a clean disk ──
         GLib.idle_add(append_text, buf, "\n=== Partitioning drives ===\n")
-        cmd = [
-            "sudo", "disko", "--mode", "destroy,format,mount",
+        cmd_destroy = [
+            "sudo", "disko", "--mode", "destroy",
             "--yes-wipe-all-disks",
             f"{FLAKE}/iso/disko.nix",
             "--arg", "device", boot_path
         ]
         if data_path:
-            cmd += ["--arg", "dataDevice", data_path]
-        run_stream(cmd, buf)
+            cmd_destroy += ["--arg", "dataDevice", data_path]
+        run_stream(cmd_destroy, buf)
+
+        GLib.idle_add(append_text, buf, "\n=== Formatting and mounting drives ===\n")
+        cmd_format = [
+            "sudo", "disko", "--mode", "format,mount",
+            f"{FLAKE}/iso/disko.nix",
+            "--arg", "device", boot_path
+        ]
+        if data_path:
+            cmd_format += ["--arg", "dataDevice", data_path]
+        run_stream(cmd_format, buf)
 
         GLib.idle_add(append_text, buf, "\n=== Generating hardware config ===\n")
         run_stream(["sudo", "nixos-generate-config", "--root", "/mnt"], buf)
