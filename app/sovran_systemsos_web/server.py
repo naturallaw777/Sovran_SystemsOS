@@ -270,7 +270,7 @@ ROLE_CATEGORIES: dict[str, set[str] | None] = {
 ROLE_FEATURES: dict[str, set[str] | None] = {
     "server_plus_desktop": None,
     "desktop":             {"rdp"},
-    "node":                {"bip110", "bitcoin-core", "mempool"},
+    "node":                {"rdp", "bip110", "bitcoin-core", "mempool"},
 }
 
 SERVICE_DESCRIPTIONS: dict[str, str] = {

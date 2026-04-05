@@ -18,8 +18,8 @@ let
       { name = "Caddy"; unit = "caddy.service"; type = "system"; icon = "caddy"; enabled = true;  category = "infrastructure"; credentials = []; }
       { name = "Tor";   unit = "tor.service";   type = "system"; icon = "tor";   enabled = true;  category = "infrastructure"; credentials = []; }
     ]
-    # ── Infrastructure — Remote Desktop (roles with a desktop) ─
-    ++ lib.optionals (!cfg.roles.node) [
+    # ── Infrastructure — Remote Desktop (all roles) ─────────────
+    ++ [
       { name = "Remote Desktop"; unit = "gnome-remote-desktop.service"; type = "system"; icon = "rdp"; enabled = cfg.features.rdp; category = "infrastructure"; credentials = [
         { label = "Username"; file = "/var/lib/gnome-remote-desktop/rdp-username"; }
         { label = "Password"; file = "/var/lib/gnome-remote-desktop/rdp-password"; }
