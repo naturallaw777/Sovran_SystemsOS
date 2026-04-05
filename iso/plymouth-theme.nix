@@ -10,15 +10,15 @@ pkgs.stdenv.mkDerivation {
     mkdir -p $out/share/plymouth/themes/sovran
     cp ${./assets/splash-logo.png} $out/share/plymouth/themes/sovran/logo.png
 
-    cat > $out/share/plymouth/themes/sovran/sovran.plymouth <<'EOF'
+    cat > $out/share/plymouth/themes/sovran/sovran.plymouth <<EOF
 [Plymouth Theme]
 Name=Sovran Systems
 Description=Sovran Systems Splash
 ModuleName=script
 
 [script]
-ImageDir=/share/plymouth/themes/sovran
-ScriptFile=/share/plymouth/themes/sovran/sovran.script
+ImageDir=$out/share/plymouth/themes/sovran
+ScriptFile=$out/share/plymouth/themes/sovran/sovran.script
 EOF
 
     cat > $out/share/plymouth/themes/sovran/sovran.script <<'EOF'
