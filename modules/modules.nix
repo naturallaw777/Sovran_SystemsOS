@@ -32,5 +32,6 @@
     ./mempool.nix
     ./bitcoin-core.nix
     ./rdp.nix
+    ./sshd.nix
   ];
 }

@@ -193,6 +193,20 @@ FEATURE_REGISTRY = [
         "port_requirements": [],
     },
     {
+        "id": "sshd",
+        "name": "SSH Remote Access",
+        "description": "Enable SSH for remote terminal access. Required for Tech Support. Disabled by default for security — enable only when needed.",
+        "category": "support",
+        "needs_domain": False,
+        "domain_name": None,
+        "needs_ddns": False,
+        "extra_fields": [],
+        "conflicts_with": [],
+        "port_requirements": [
+            {"port": "22", "protocol": "TCP", "description": "SSH"},
+        ],
+    },
+    {
         "id": "btcpay-web",
         "name": "BTCPay Server Web Access",
         "description": "Expose BTCPay Server to the internet via your domain. When disabled, BTCPay Server still runs locally but is not accessible from the web.",
@@ -218,6 +232,7 @@ FEATURE_SERVICE_MAP = {
     "bip110": None,
     "bitcoin-core": None,
     "btcpay-web": "btcpayserver.service",
+    "sshd": "sshd.service",
 }
 
 # Port requirements for service tiles (keyed by unit name or icon)
@@ -249,6 +264,8 @@ SERVICE_PORT_REQUIREMENTS: dict[str, list[dict]] = {
     "phpfpm-nextcloud.service":         _PORTS_WEB,
     "phpfpm-wordpress.service":         _PORTS_WEB,
     "haven-relay.service":              _PORTS_WEB,
+    # SSH (only open when feature is enabled)
+    "sshd.service":                     [{"port": "22", "protocol": "TCP", "description": "SSH"}],
 }
 
 # Maps service unit names to their domain file name in DOMAINS_DIR.
@@ -285,8 +302,8 @@ ROLE_CATEGORIES: dict[str, set[str] | None] = {
 # Features shown per role (None = show all)
 ROLE_FEATURES: dict[str, set[str] | None] = {
     "server_plus_desktop": None,
-    "desktop":             {"rdp"},
-    "node":                {"rdp", "bip110", "bitcoin-core", "mempool", "btcpay-web"},
+    "desktop":             {"rdp", "sshd"},
+    "node":                {"rdp", "bip110", "bitcoin-core", "mempool", "btcpay-web", "sshd"},
 }
 
 SERVICE_DESCRIPTIONS: dict[str, str] = {
@@ -369,6 +386,12 @@ SERVICE_DESCRIPTIONS: dict[str, str] = {
         "Access your server's full desktop environment from anywhere using any RDP client. "
         "Manage your system visually without being physically present. "
         "Sovran_SystemsOS sets up secure remote access with generated credentials — connect and go."
+    ),
+    "sshd.service": (
+        "Secure Shell (SSH) remote access. When enabled, authorized users can connect "
+        "to your machine over the network via encrypted terminal sessions. "
+        "Sovran_SystemsOS keeps SSH disabled by default for maximum security — "
+        "enable it only when you need remote access or Tech Support."
     ),
     "root-password-setup.service": (
         "Your system account credentials. These are the keys to your Sovran_SystemsOS machine — "
@@ -1024,6 +1047,15 @@ def _is_feature_enabled_in_config(feature_id: str) -> bool | None:
         if svc.get("unit") == unit:
             return svc.get("enabled", False)
     return None
+
+
+def _is_sshd_feature_enabled() -> bool:
+    """Check if the sshd feature is enabled via hub overrides or config."""
+    overrides, _ = _read_hub_overrides()
+    if "sshd" in overrides:
+        return bool(overrides["sshd"])
+    config_state = _is_feature_enabled_in_config("sshd")
+    return bool(config_state) if config_state is not None else False
 
 
 # ── Tech Support helpers ──────────────────────────────────────────
@@ -2091,11 +2123,13 @@ async def api_support_status():
     """Check if tech support SSH access is currently enabled."""
     loop = asyncio.get_event_loop()
     active = await loop.run_in_executor(None, _is_support_active)
+    sshd_enabled = await loop.run_in_executor(None, _is_sshd_feature_enabled)
     session = await loop.run_in_executor(None, _get_support_session_info)
     unlock_info = await loop.run_in_executor(None, _get_wallet_unlock_info)
     wallet_unlocked = bool(unlock_info)
     return {
         "active": active,
+        "sshd_enabled": sshd_enabled,
         "enabled_at": session.get("enabled_at"),
         "enabled_at_human": session.get("enabled_at_human"),
         "wallet_protected": session.get("wallet_protected", False),
@@ -2109,8 +2143,18 @@ async def api_support_status():
 
 @app.post("/api/support/enable")
 async def api_support_enable():
-    """Add the Sovran support SSH key to allow remote tech support."""
+    """Add the Sovran support SSH key to allow remote tech support.
+    Requires the sshd feature to be enabled first."""
     loop = asyncio.get_event_loop()
+
+    # Gate: SSH feature must be enabled before support can be activated
+    sshd_on = await loop.run_in_executor(None, _is_sshd_feature_enabled)
+    if not sshd_on:
+        raise HTTPException(
+            status_code=400,
+            detail="SSH must be enabled first. Please enable SSH Remote Access in the Feature Manager, then try again.",
+        )
+
     ok = await loop.run_in_executor(None, _enable_support)
     if not ok:
         raise HTTPException(status_code=500, detail="Failed to enable support access")
