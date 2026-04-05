@@ -34,8 +34,9 @@ let _rebuildIsEnabling    = true;
 const $tilesArea      = document.getElementById("tiles-area");
 const $sidebarSupport = document.getElementById("sidebar-support");
 const $sidebarFeatures = document.getElementById("sidebar-features");
-const $updateBtn      = document.getElementById("btn-update");
-const $updateBadge    = document.getElementById("update-badge");
+// No longer needed — Update System moved to sidebar
+// const $updateBtn      = document.getElementById("btn-update");
+// const $updateBadge    = document.getElementById("update-badge");
 const $internalIp     = document.getElementById("ip-internal");
 const $externalIp     = document.getElementById("ip-external");
 

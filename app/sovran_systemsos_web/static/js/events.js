@@ -2,7 +2,7 @@
 
 // ── Event listeners ───────────────────────────────────────────────
 
-if ($updateBtn) $updateBtn.addEventListener("click", openUpdateModal);
+// if ($updateBtn) $updateBtn.addEventListener("click", openUpdateModal); // moved to sidebar in tiles.js
 if ($btnCloseModal) $btnCloseModal.addEventListener("click", closeUpdateModal);
 if ($btnReboot) $btnReboot.addEventListener("click", doReboot);
 if ($btnSave) $btnSave.addEventListener("click", saveErrorReport);
