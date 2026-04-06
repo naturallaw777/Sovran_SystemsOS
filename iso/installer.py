@@ -927,7 +927,6 @@ class InstallerWindow(Adw.ApplicationWindow):
         status = Adw.StatusPage()
         status.set_title("Installation Complete!")
         status.set_description("Welcome to Sovran SystemsOS.")
-        status.set_icon_name("emblem-ok-symbolic")
         status.set_vexpand(True)
 
         creds_group = Adw.PreferencesGroup()
@@ -949,7 +948,7 @@ class InstallerWindow(Adw.ApplicationWindow):
         note_row.set_title("App Passwords")
         note_row.set_subtitle(
             "After rebooting, all app passwords (Nextcloud, Bitcoin, Matrix, etc.) "
-            "will be saved to a secure PDF in your Documents folder."
+            "will be available in the Sovran Hub on your dashboard."
         )
         creds_group.add(note_row)
 
@@ -959,9 +958,8 @@ class InstallerWindow(Adw.ApplicationWindow):
         outer.append(content_box)
 
         reboot_btn = Gtk.Button(label="Reboot Now")
-        reboot_btn.add_css_class("suggested-action")
+        reboot_btn.add_css_class("success")
         reboot_btn.add_css_class("pill")
-        reboot_btn.add_css_class("destructive-action")
         reboot_btn.connect("clicked", lambda b: subprocess.run(["sudo", "reboot"]))
 
         nav = Gtk.Box()
