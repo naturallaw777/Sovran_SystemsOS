@@ -10,6 +10,7 @@
     ./core/ssh-bootstrap.nix
     ./core/tech-support.nix
     ./core/sovran_systemsos-desktop.nix
+    ./core/sshd-localhost.nix
     ./core/sovran-hub.nix
 
     # ── Always on (no flag) ───────────────────────────────────
