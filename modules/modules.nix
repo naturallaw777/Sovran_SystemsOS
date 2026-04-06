@@ -9,7 +9,6 @@
     ./core/njalla.nix
     ./core/ssh-bootstrap.nix
     ./core/tech-support.nix
-    ./core/sovran-manage-domains.nix
     ./core/sovran_systemsos-desktop.nix
     ./core/sovran-hub.nix
 
