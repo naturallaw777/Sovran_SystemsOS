@@ -23,7 +23,7 @@
 IP=$(dig @resolver4.opendns.com myip.opendns.com +short -4)
 
 ## Add DDNS entries below — one curl per line
-## Run 'sudo sovran-setup-domains' to configure automatically
+## Managed via Sovran Hub web interface
 SCRIPT
 
       chmod 700 /var/lib/njalla/njalla.sh
