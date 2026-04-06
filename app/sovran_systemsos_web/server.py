@@ -2400,7 +2400,7 @@ async def api_features_toggle(req: FeatureToggleRequest):
                     status_code=400,
                     detail=(
                         "Element Calling requires a Matrix domain to be configured. "
-                        "Please run `sovran-setup-domains` first or configure the Matrix domain."
+                        "Element Calling requires a Matrix domain to be configured. Please configure it through the Sovran Hub web interface."
                     ),
                 )
 
