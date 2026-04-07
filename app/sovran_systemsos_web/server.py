@@ -3139,3 +3139,55 @@ async def _startup_save_ip():
     loop = asyncio.get_event_loop()
     ip = await loop.run_in_executor(None, _get_internal_ip)
     _save_internal_ip(ip)
+
+
+# ── Startup: recover stale RUNNING status files ──────────────────
+
+_SAFE_UNIT_RE = re.compile(r'^[a-zA-Z0-9@._\-]+\.service$')
+
+
+def _recover_stale_status(status_file: str, log_file: str, unit_name: str):
+    """If status_file says RUNNING but the systemd unit is not active, reset to FAILED."""
+    if not _SAFE_UNIT_RE.match(unit_name):
+        return
+
+    try:
+        with open(status_file, "r") as f:
+            status = f.read().strip()
+    except FileNotFoundError:
+        return
+
+    if status != "RUNNING":
+        return
+
+    try:
+        result = subprocess.run(
+            ["systemctl", "is-active", unit_name],
+            capture_output=True, text=True, timeout=10,
+        )
+        active = result.stdout.strip() == "active"
+    except Exception:
+        active = False
+
+    if not active:
+        try:
+            with open(status_file, "w") as f:
+                f.write("FAILED")
+        except OSError:
+            pass
+        try:
+            with open(log_file, "a") as f:
+                f.write(
+                    "\n[Hub] Process was interrupted (stale RUNNING status detected"
+                    " on startup). Marking as failed.\n"
+                )
+        except OSError:
+            pass
+
+
+@app.on_event("startup")
+async def _startup_recover_stale_status():
+    """Reset stale RUNNING status files left by interrupted update/rebuild jobs."""
+    loop = asyncio.get_event_loop()
+    await loop.run_in_executor(None, _recover_stale_status, UPDATE_STATUS, UPDATE_LOG, UPDATE_UNIT)
+    await loop.run_in_executor(None, _recover_stale_status, REBUILD_STATUS, REBUILD_LOG, REBUILD_UNIT)
