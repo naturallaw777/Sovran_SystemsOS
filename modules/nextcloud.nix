@@ -67,7 +67,7 @@ lib.mkIf config.sovran_systemsOS.services.nextcloud {
       RemainAfterExit = true;
     };
 
-    path = with pkgs; [ curl unzip php pwgen coreutils ];
+    path = with pkgs; [ curl unzip php pwgen coreutils shadow ];
 
     script = ''
       set -euo pipefail
