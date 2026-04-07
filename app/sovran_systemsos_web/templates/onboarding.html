@@ -34,6 +34,8 @@
       <span class="onboarding-step-dot" data-step="3">3</span>
       <span class="onboarding-step-connector"></span>
       <span class="onboarding-step-dot" data-step="4">4</span>
+      <span class="onboarding-step-connector"></span>
+      <span class="onboarding-step-dot" data-step="5">5</span>
     </div>
 
     <!-- Step panels -->
@@ -70,53 +72,93 @@
         </div>
       </div>
 
-      <!-- ── Step 2: Domain Configuration ── -->
+      <!-- ── Step 2: Njal.la Account Setup ── -->
       <div class="onboarding-panel" id="step-2" style="display:none">
+        <div class="onboarding-step-header">
+          <span class="onboarding-step-icon">🔒</span>
+          <h2 class="onboarding-step-title">Get Your Njal.la Account</h2>
+          <p class="onboarding-step-desc">
+            Sovran_SystemsOS routes all public traffic through a private VPS tunnel, keeping your home IP completely hidden.
+            You'll need two things from <a href="https://njal.la" target="_blank" style="color:var(--accent-color);">njal.la</a>:
+          </p>
+        </div>
+        <div class="onboarding-card">
+          <ol style="line-height:2;padding-left:1.4em;">
+            <li>
+              <strong>Create a Njal.la account</strong> —
+              <a href="https://njal.la" target="_blank" style="color:var(--accent-color);">njal.la</a>
+              accepts Bitcoin and doesn't require personal information.
+            </li>
+            <li>
+              <strong>Purchase a domain</strong> (~$15/year) — you'll use this for Matrix, Nextcloud, and your other services.
+              Subdomains are free, so one domain covers everything.
+            </li>
+            <li>
+              <strong>Purchase the cheapest VPS</strong> (~$5/month) — the smallest server (512 MB RAM) is more than enough.
+              You'll get a VPS IP address and a root password — keep them handy for the next step.
+            </li>
+          </ol>
+          <p class="onboarding-body-text" style="margin-top:12px;padding:10px 12px;background:rgba(0,200,100,0.07);border:1px solid rgba(0,200,100,0.25);border-radius:8px;">
+            ✅ <strong>No router port forwarding needed</strong> — your home IP stays completely private.
+            All internet traffic routes through the VPS.
+          </p>
+        </div>
+        <div class="onboarding-footer">
+          <button class="btn btn-close-modal onboarding-btn-back" data-prev="1">← Back</button>
+          <button class="btn btn-primary onboarding-btn-next" id="step-2-next">
+            I have everything — Continue →
+          </button>
+        </div>
+      </div>
+
+      <!-- ── Step 3: Connect VPS ── -->
+      <div class="onboarding-panel" id="step-3" style="display:none">
+        <div class="onboarding-step-header">
+          <span class="onboarding-step-icon">🔗</span>
+          <h2 class="onboarding-step-title">Connect Your VPS</h2>
+          <p class="onboarding-step-desc">
+            Enter your Njal.la VPS credentials. The Hub will automatically install
+            WireGuard and configure the secure tunnel — this takes about a minute.
+          </p>
+        </div>
+        <div class="onboarding-card" id="step-3-body">
+          <p class="onboarding-loading">Loading…</p>
+        </div>
+        <div class="onboarding-footer">
+          <button class="btn btn-close-modal onboarding-btn-back" data-prev="2">← Back</button>
+          <button class="btn btn-primary" id="step-3-connect-btn">
+            Connect &amp; Setup Tunnel
+          </button>
+          <button class="btn btn-close-modal" id="step-3-next" title="Skip if tunnel is already set up">
+            Skip →
+          </button>
+        </div>
+      </div>
+
+      <!-- ── Step 4: Domain Configuration ── -->
+      <div class="onboarding-panel" id="step-4" style="display:none">
         <div class="onboarding-step-header">
           <span class="onboarding-step-icon">🌐</span>
           <h2 class="onboarding-step-title">Domain Configuration</h2>
           <p class="onboarding-step-desc">
-            Sovran_SystemsOS uses <strong><a href="https://njal.la" target="_blank" style="color: var(--accent-color);">Njal.la</a></strong> for domains and Dynamic DNS.
-            First, create an account at <strong>Njal.la</strong> and purchase a new domain, or create a subdomain from a domain you already own. Tip: Subdomains are free to create — you only need to purchase one domain, and you can add as many subdomains as you need at no extra cost.
-            Then, in the Njal.la web interface, create a <strong>Dynamic</strong> record pointing to this machine's external IP address (shown below).
-            Finally, paste the DDNS curl command from your Njal.la dashboard for each service below.
+            Point your Njal.la DDNS records to your <strong>VPS IP address</strong> (shown below).
+            Enter each subdomain and its Njal.la Dynamic DNS curl command.
           </p>
         </div>
-        <div class="onboarding-card onboarding-card--scroll" id="step-2-body">
+        <div class="onboarding-card onboarding-card--scroll" id="step-4-body">
           <p class="onboarding-loading">Loading service information…</p>
         </div>
-        <div id="step-2-status" class="onboarding-save-status"></div>
+        <div id="step-4-status" class="onboarding-save-status"></div>
         <div class="onboarding-footer">
-          <button class="btn btn-close-modal onboarding-btn-back" data-prev="1">← Back</button>
-          <button class="btn btn-primary onboarding-btn-next" id="step-2-next">
+          <button class="btn btn-close-modal onboarding-btn-back" data-prev="3">← Back</button>
+          <button class="btn btn-primary onboarding-btn-next" id="step-4-next">
             Save &amp; Continue →
           </button>
         </div>
       </div>
 
-      <!-- ── Step 3: Port Forwarding ── -->
-      <div class="onboarding-panel" id="step-3" style="display:none">
-        <div class="onboarding-step-header">
-          <span class="onboarding-step-icon">🔌</span>
-          <h2 class="onboarding-step-title">Port Forwarding Check</h2>
-          <p class="onboarding-step-desc">
-            Forward these ports on your router to this machine. Each port only needs to be opened once — they are shared across all your services.
-            <strong>Ports 80 and 443 must be open for SSL certificates to work.</strong>
-          </p>
-        </div>
-        <div class="onboarding-card onboarding-card--ports" id="step-3-body">
-          <p class="onboarding-loading">Checking ports…</p>
-        </div>
-        <div class="onboarding-footer">
-          <button class="btn btn-close-modal onboarding-btn-back" data-prev="2">← Back</button>
-          <button class="btn btn-primary onboarding-btn-next" id="step-3-next">
-            Continue →
-          </button>
-        </div>
-      </div>
-
-      <!-- ── Step 4: Complete ── -->
-      <div class="onboarding-panel" id="step-4" style="display:none">
+      <!-- ── Step 5: Complete ── -->
+      <div class="onboarding-panel" id="step-5" style="display:none">
         <div class="onboarding-hero">
           <div class="onboarding-logo">✅</div>
           <h1 class="onboarding-title">Your Sovran_SystemsOS is Ready!</h1>
@@ -128,13 +170,13 @@
             monitor your services, manage credentials, and make changes at any time.
           </p>
           <ul class="onboarding-checklist" id="onboarding-checklist">
+            <li>✅ VPS tunnel configured — home IP private</li>
             <li>✅ Domain configuration saved</li>
-            <li>✅ Port forwarding reviewed</li>
           </ul>
         </div>
         <div class="onboarding-footer">
-          <button class="btn btn-close-modal onboarding-btn-back" data-prev="3">← Back</button>
-          <button class="btn btn-primary" id="step-4-finish">
+          <button class="btn btn-close-modal onboarding-btn-back" data-prev="4">← Back</button>
+          <button class="btn btn-primary" id="step-5-finish">
             Go to Dashboard →
           </button>
         </div>

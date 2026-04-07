@@ -54,6 +54,16 @@ NJALLA_SCRIPT     = "/var/lib/njalla/njalla.sh"
 INTERNAL_IP_FILE = "/var/lib/secrets/internal-ip"
 ZEUS_CONNECT_FILE = "/var/lib/secrets/zeus-connect-url"
 
+# ── Tunnel (VPS WireGuard) constants ─────────────────────────────
+
+TUNNEL_STATE_DIR       = "/var/lib/sovran-tunnel"
+TUNNEL_CONFIG_FILE     = "/var/lib/sovran-tunnel/tunnel.json"
+TUNNEL_WG_PRIVKEY_FILE = "/var/lib/sovran-tunnel/wg-privatekey"
+TUNNEL_WG_PUBKEY_FILE  = "/var/lib/sovran-tunnel/wg-publickey"
+TUNNEL_HUB_SSH_KEY     = "/var/lib/sovran-tunnel/hub-mgmt-key"  # private key for Hub→VPS mgmt SSH
+TUNNEL_SETUP_SCRIPT    = os.path.join(os.path.dirname(os.path.abspath(__file__)), "scripts", "vps-tunnel-setup.sh")
+VPS_MGMT_USER          = "sovran-mgmt"
+
 REBOOT_COMMAND = ["reboot"]
 
 ONBOARDING_FLAG = "/var/lib/sovran/onboarding-complete"
@@ -112,7 +122,6 @@ FEATURE_REGISTRY = [
         "needs_ddns": False,
         "extra_fields": [],
         "conflicts_with": [],
-        "port_requirements": [],
     },
     {
         "id": "haven",
@@ -132,8 +141,6 @@ FEATURE_REGISTRY = [
             },
         ],
         "conflicts_with": [],
-        # Haven uses only 80/443, already covered by the main install alert
-        "port_requirements": [],
     },
     {
         "id": "element-calling",
@@ -146,15 +153,6 @@ FEATURE_REGISTRY = [
         "extra_fields": [],
         "conflicts_with": [],
         "requires": ["matrix_domain"],
-        "port_requirements": [
-            {"port": "80",          "protocol": "TCP",     "description": "HTTP (redirect to HTTPS)"},
-            {"port": "443",         "protocol": "TCP",     "description": "HTTPS (domain)"},
-            {"port": "7881",        "protocol": "TCP",     "description": "LiveKit WebRTC signalling"},
-            {"port": "7882-7894",   "protocol": "UDP",     "description": "LiveKit media streams"},
-            {"port": "5349",        "protocol": "TCP",     "description": "TURN over TLS"},
-            {"port": "3478",        "protocol": "UDP",     "description": "TURN (STUN/relay)"},
-            {"port": "30000-40000", "protocol": "TCP/UDP", "description": "TURN relay (WebRTC)"},
-        ],
     },
     {
         "id": "mempool",
@@ -166,7 +164,6 @@ FEATURE_REGISTRY = [
         "needs_ddns": False,
         "extra_fields": [],
         "conflicts_with": [],
-        "port_requirements": [],
     },
     {
         "id": "bip110",
@@ -178,7 +175,6 @@ FEATURE_REGISTRY = [
         "needs_ddns": False,
         "extra_fields": [],
         "conflicts_with": ["bitcoin-core"],
-        "port_requirements": [],
     },
     {
         "id": "bitcoin-core",
@@ -190,7 +186,6 @@ FEATURE_REGISTRY = [
         "needs_ddns": False,
         "extra_fields": [],
         "conflicts_with": ["bip110"],
-        "port_requirements": [],
     },
     {
         "id": "sshd",
@@ -202,9 +197,6 @@ FEATURE_REGISTRY = [
         "needs_ddns": False,
         "extra_fields": [],
         "conflicts_with": [],
-        "port_requirements": [
-            {"port": "22", "protocol": "TCP", "description": "SSH"},
-        ],
     },
     {
         "id": "btcpay-web",
@@ -216,10 +208,6 @@ FEATURE_REGISTRY = [
         "needs_ddns": True,
         "extra_fields": [],
         "conflicts_with": [],
-        "port_requirements": [
-            {"port": "80",  "protocol": "TCP", "description": "HTTP (redirect to HTTPS)"},
-            {"port": "443", "protocol": "TCP", "description": "HTTPS"},
-        ],
     },
 ]
 
@@ -233,39 +221,6 @@ FEATURE_SERVICE_MAP = {
     "bitcoin-core": None,
     "btcpay-web": "btcpayserver.service",
     "sshd": "sshd.service",
-}
-
-# Port requirements for service tiles (keyed by unit name or icon)
-# Services using only 80/443 for domain access share the same base list.
-_PORTS_WEB = [
-    {"port": "80",  "protocol": "TCP", "description": "HTTP (redirect to HTTPS)"},
-    {"port": "443", "protocol": "TCP", "description": "HTTPS"},
-]
-_PORTS_MATRIX_FEDERATION = _PORTS_WEB + [
-    {"port": "8448", "protocol": "TCP", "description": "Matrix server-to-server federation"},
-]
-_PORTS_ELEMENT_CALLING = _PORTS_WEB + [
-    {"port": "7881",        "protocol": "TCP",     "description": "LiveKit WebRTC signalling"},
-    {"port": "7882-7894",   "protocol": "UDP",     "description": "LiveKit media streams"},
-    {"port": "5349",        "protocol": "TCP",     "description": "TURN over TLS"},
-    {"port": "3478",        "protocol": "UDP",     "description": "TURN (STUN/relay)"},
-    {"port": "30000-40000", "protocol": "TCP/UDP", "description": "TURN relay (WebRTC)"},
-]
-
-SERVICE_PORT_REQUIREMENTS: dict[str, list[dict]] = {
-    # Infrastructure
-    "caddy.service":                    _PORTS_WEB,
-    # Communication
-    "matrix-synapse.service":           _PORTS_MATRIX_FEDERATION,
-    "livekit.service":                  _PORTS_ELEMENT_CALLING,
-    # Domain-based apps (80/443)
-    "btcpayserver.service":             _PORTS_WEB,
-    "vaultwarden.service":              _PORTS_WEB,
-    "phpfpm-nextcloud.service":         _PORTS_WEB,
-    "phpfpm-wordpress.service":         _PORTS_WEB,
-    "haven-relay.service":              _PORTS_WEB,
-    # SSH (only open when feature is enabled)
-    "sshd.service":                     [{"port": "22", "protocol": "TCP", "description": "SSH"}],
 }
 
 # Maps service unit names to their domain file name in DOMAINS_DIR.
@@ -535,140 +490,6 @@ def _get_external_ip() -> str:
 
 
 # ── Port status helpers (local-only, no external calls) ──────────
-
-def _get_listening_ports() -> dict[str, set[int]]:
-    """Return sets of TCP and UDP ports that have services actively listening.
-
-    Uses ``ss -tlnp`` for TCP and ``ss -ulnp`` for UDP.  Returns a dict with
-    keys ``"tcp"`` and ``"udp"`` whose values are sets of integer port numbers.
-    """
-    result: dict[str, set[int]] = {"tcp": set(), "udp": set()}
-    for proto, flag in (("tcp", "-tlnp"), ("udp", "-ulnp")):
-        try:
-            proc = subprocess.run(
-                ["ss", flag],
-                capture_output=True, text=True, timeout=10,
-            )
-            for line in proc.stdout.splitlines():
-                # Column 4 is the local address:port (e.g. "0.0.0.0:443" or "[::]:443")
-                parts = line.split()
-                if len(parts) < 5:
-                    continue
-                addr = parts[4]
-                # strip IPv6 brackets and extract port after last ":"
-                port_str = addr.rsplit(":", 1)[-1]
-                try:
-                    result[proto].add(int(port_str))
-                except ValueError:
-                    pass
-        except Exception:
-            pass
-    return result
-
-
-def _get_firewall_allowed_ports() -> dict[str, set[int]]:
-    """Return sets of TCP and UDP ports that the firewall allows.
-
-    Tries ``nft list ruleset`` first (NixOS default), then falls back to
-    ``iptables -L -n``.  Returns a dict with keys ``"tcp"`` and ``"udp"``.
-    """
-    result: dict[str, set[int]] = {"tcp": set(), "udp": set()}
-
-    # ── nftables ─────────────────────────────────────────────────
-    try:
-        proc = subprocess.run(
-            ["nft", "list", "ruleset"],
-            capture_output=True, text=True, timeout=10,
-        )
-        if proc.returncode == 0:
-            text = proc.stdout
-            # Match patterns like: tcp dport 443 accept  or  tcp dport { 80, 443 }
-            for proto in ("tcp", "udp"):
-                for m in re.finditer(
-                    rf'{proto}\s+dport\s+\{{?([^}};\n]+)\}}?', text
-                ):
-                    raw = m.group(1)
-                    for token in re.split(r'[\s,]+', raw):
-                        token = token.strip()
-                        if re.match(r'^\d+$', token):
-                            result[proto].add(int(token))
-                        elif re.match(r'^(\d+)-(\d+)$', token):
-                            lo, hi = token.split("-")
-                            result[proto].update(range(int(lo), int(hi) + 1))
-            return result
-    except Exception:
-        pass
-
-    # ── iptables fallback ─────────────────────────────────────────
-    try:
-        proc = subprocess.run(
-            ["iptables", "-L", "-n"],
-            capture_output=True, text=True, timeout=10,
-        )
-        if proc.returncode == 0:
-            for line in proc.stdout.splitlines():
-                # e.g. ACCEPT tcp  -- ... dpt:443  or  dpts:7882:7894
-                m = re.search(r'(tcp|udp).*dpts?:(\d+)(?::(\d+))?', line)
-                if m:
-                    proto_match = m.group(1)
-                    lo = int(m.group(2))
-                    hi = int(m.group(3)) if m.group(3) else lo
-                    result[proto_match].update(range(lo, hi + 1))
-    except Exception:
-        pass
-
-    return result
-
-
-def _port_range_to_ints(port_str: str) -> list[int]:
-    """Convert a port string like ``"443"``, ``"7882-7894"`` to a list of ints."""
-    port_str = port_str.strip()
-    if re.match(r'^\d+$', port_str):
-        return [int(port_str)]
-    m = re.match(r'^(\d+)-(\d+)$', port_str)
-    if m:
-        return list(range(int(m.group(1)), int(m.group(2)) + 1))
-    return []
-
-
-def _check_port_status(
-    port_str: str,
-    protocol: str,
-    listening: dict[str, set[int]],
-    allowed: dict[str, set[int]],
-) -> str:
-    """Return ``"listening"``, ``"firewall_open"``, ``"closed"``, or ``"unknown"``."""
-    protos = []
-    p = protocol.upper()
-    if "TCP" in p:
-        protos.append("tcp")
-    if "UDP" in p:
-        protos.append("udp")
-    if not protos:
-        protos = ["tcp"]
-
-    ports = _port_range_to_ints(port_str)
-    if not ports:
-        return "unknown"
-
-    ports_set = set(ports)
-    is_listening = any(
-        pt in ports_set
-        for proto_key in protos
-        for pt in listening.get(proto_key, set())
-    )
-    is_allowed = any(
-        pt in allowed.get(proto_key, set())
-        for proto_key in protos
-        for pt in ports_set
-    )
-
-    if is_listening and is_allowed:
-        return "listening"
-    if is_allowed:
-        return "firewall_open"
-    return "closed"
-
 
 # ── QR code helper ────────────────────────────────────────────────
 
@@ -1228,12 +1049,137 @@ def _get_wallet_unlock_info() -> dict:
         return {}
 
 
+# ── Tunnel (VPS WireGuard) helpers ───────────────────────────────
+
+def _read_tunnel_config() -> dict | None:
+    """Read tunnel configuration from TUNNEL_CONFIG_FILE. Returns None if not set up."""
+    try:
+        with open(TUNNEL_CONFIG_FILE, "r") as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return None
+
+
+def _get_vps_ip() -> str | None:
+    """Return the VPS public IP from tunnel config, or None if not configured."""
+    cfg = _read_tunnel_config()
+    if cfg:
+        return cfg.get("vps_ip") or cfg.get("vps_endpoint", "").split(":")[0] or None
+    return None
+
+
+def _tunnel_ssh(command: str, timeout: int = 15) -> tuple[int, str]:
+    """Run a management command on the VPS via SSH using the Hub management key.
+
+    Returns (returncode, output_str).
+    """
+    cfg = _read_tunnel_config()
+    if not cfg:
+        return (1, "Tunnel not configured")
+
+    vps_ip = cfg.get("vps_ip") or cfg.get("vps_endpoint", "").split(":")[0]
+    mgmt_user = cfg.get("mgmt_user", VPS_MGMT_USER)
+
+    if not vps_ip or not os.path.exists(TUNNEL_HUB_SSH_KEY):
+        return (1, "Tunnel SSH key or VPS IP not available")
+
+    try:
+        result = subprocess.run(
+            [
+                "ssh",
+                "-i", TUNNEL_HUB_SSH_KEY,
+                "-o", "StrictHostKeyChecking=no",
+                "-o", "ConnectTimeout=10",
+                "-o", "BatchMode=yes",
+                f"{mgmt_user}@{vps_ip}",
+                command,
+            ],
+            capture_output=True, text=True, timeout=timeout,
+        )
+        return (result.returncode, (result.stdout + result.stderr).strip())
+    except subprocess.TimeoutExpired:
+        return (1, "SSH connection timed out")
+    except Exception as exc:
+        return (1, str(exc))
+
+
+def _vps_enable_ssh_forward() -> bool:
+    """Enable port 22 forwarding on the VPS through the tunnel."""
+    cfg = _read_tunnel_config()
+    if not cfg:
+        return False  # No tunnel configured — SSH access is local only
+    wan_iface = cfg.get("wan_iface", "eth0")
+    home_wg_ip = cfg.get("home_wg_ip", "10.99.0.2")
+    rc, out = _tunnel_ssh(f"sudo /etc/sovran/ssh-forward.sh enable {wan_iface} {home_wg_ip}")
+    return rc == 0
+
+
+def _vps_disable_ssh_forward() -> bool:
+    """Disable port 22 forwarding on the VPS."""
+    cfg = _read_tunnel_config()
+    if not cfg:
+        return False  # No tunnel configured
+    wan_iface = cfg.get("wan_iface", "eth0")
+    home_wg_ip = cfg.get("home_wg_ip", "10.99.0.2")
+    rc, out = _tunnel_ssh(f"sudo /etc/sovran/ssh-forward.sh disable {wan_iface} {home_wg_ip}")
+    return rc == 0
+
+
+def _get_tunnel_status() -> dict:
+    """Return current WireGuard tunnel health information."""
+    cfg = _read_tunnel_config()
+    if not cfg:
+        return {"configured": False, "connected": False}
+
+    vps_ip = cfg.get("vps_ip", "")
+    wg_iface = "wg0"
+
+    # Check WireGuard handshake age (seconds since last handshake)
+    connected = False
+    handshake_age: int | None = None
+    bytes_rx: int | None = None
+    bytes_tx: int | None = None
+
+    try:
+        result = subprocess.run(
+            ["wg", "show", wg_iface, "dump"],
+            capture_output=True, text=True, timeout=5,
+        )
+        if result.returncode == 0:
+            for line in result.stdout.splitlines():
+                parts = line.split("\t")
+                # Peer line: pubkey, preshared, endpoint, allowed-ips, last-handshake, rx, tx, keepalive
+                if len(parts) >= 7:
+                    last_hs = int(parts[4]) if parts[4].isdigit() else 0
+                    if last_hs > 0:
+                        handshake_age = int(time.time()) - last_hs
+                        connected = handshake_age < 180  # < 3 minutes = connected
+                    rx_raw = parts[5]
+                    tx_raw = parts[6]
+                    bytes_rx = int(rx_raw) if rx_raw.isdigit() else None
+                    bytes_tx = int(tx_raw) if tx_raw.isdigit() else None
+                    break
+    except Exception:
+        pass
+
+    return {
+        "configured": True,
+        "connected": connected,
+        "vps_ip": vps_ip,
+        "handshake_age_seconds": handshake_age,
+        "bytes_received": bytes_rx,
+        "bytes_sent": bytes_tx,
+        "wg_interface": wg_iface,
+    }
+
+
 def _enable_support() -> bool:
     """Add the Sovran support public key to the restricted support user's authorized_keys.
 
     Falls back to root's authorized_keys if the support user cannot be created.
     Applies POSIX ACLs to wallet directories to prevent access by the support
     user without explicit user consent.
+    Also enables port 22 forwarding through the VPS tunnel if configured.
     """
     try:
         use_restricted_user = _ensure_support_user()
@@ -1271,6 +1217,11 @@ def _enable_support() -> bool:
         acl_applied = _apply_wallet_acls() if use_restricted_user else False
         wallet_paths = _get_existing_wallet_paths()
 
+        # Enable VPS SSH forwarding if tunnel is configured
+        vps_ssh_forwarding = False
+        if _read_tunnel_config():
+            vps_ssh_forwarding = _vps_enable_ssh_forward()
+
         session_info = {
             "enabled_at": time.time(),
             "enabled_at_human": time.strftime("%Y-%m-%d %H:%M:%S %Z"),
@@ -1278,6 +1229,7 @@ def _enable_support() -> bool:
             "wallet_protected": use_restricted_user,
             "acl_applied": acl_applied,
             "protected_paths": wallet_paths,
+            "vps_ssh_forwarding": vps_ssh_forwarding,
         }
         os.makedirs(os.path.dirname(SUPPORT_STATUS_FILE), exist_ok=True)
         with open(SUPPORT_STATUS_FILE, "w") as f:
@@ -1286,7 +1238,7 @@ def _enable_support() -> bool:
         _log_support_audit(
             "SUPPORT_ENABLED",
             f"restricted_user={use_restricted_user} acl_applied={acl_applied} "
-            f"protected_paths={len(wallet_paths)}",
+            f"protected_paths={len(wallet_paths)} vps_ssh_forward={vps_ssh_forwarding}",
         )
         return True
     except Exception:
@@ -1327,6 +1279,10 @@ def _disable_support() -> bool:
 
         # Re-apply ACLs to ensure wallet access is revoked
         _revoke_wallet_acls()
+
+        # Disable VPS SSH forwarding if tunnel is configured
+        if _read_tunnel_config():
+            _vps_disable_ssh_forward()
 
         # Remove session metadata
         try:
@@ -1531,12 +1487,6 @@ async def api_services():
     # Read runtime feature overrides from custom.nix Hub Managed section
     overrides, _ = await loop.run_in_executor(None, _read_hub_overrides)
 
-    # Cache port/firewall data once for the entire /api/services request
-    listening_ports, firewall_ports = await asyncio.gather(
-        loop.run_in_executor(None, _get_listening_ports),
-        loop.run_in_executor(None, _get_firewall_allowed_ports),
-    )
-
     async def get_status(entry):
         unit = entry.get("unit", "")
         scope = entry.get("type", "system")
@@ -1560,8 +1510,6 @@ async def api_services():
         creds = entry.get("credentials", [])
         has_credentials = len(creds) > 0
 
-        port_requirements = SERVICE_PORT_REQUIREMENTS.get(unit, [])
-
         domain_key = SERVICE_DOMAIN_MAP.get(unit)
         needs_domain = domain_key is not None
         domain: str | None = None
@@ -1582,23 +1530,11 @@ async def api_services():
         if not enabled:
             health = "disabled"
         elif status == "active":
-            has_port_issues = False
-            if port_requirements:
-                for p in port_requirements:
-                    ps = _check_port_status(
-                        str(p.get("port", "")),
-                        str(p.get("protocol", "TCP")),
-                        listening_ports,
-                        firewall_ports,
-                    )
-                    if ps == "closed":
-                        has_port_issues = True
-                        break
             has_domain_issues = False
             if needs_domain:
                 if not domain:
                     has_domain_issues = True
-            health = "needs_attention" if (has_port_issues or has_domain_issues) else "healthy"
+            health = "needs_attention" if has_domain_issues else "healthy"
             # Check Bitcoin IBD state
             if unit == "bitcoind.service":
                 sync = await loop.run_in_executor(None, _get_bitcoin_sync_info)
@@ -1625,7 +1561,6 @@ async def api_services():
             "status": status,
             "health": health,
             "has_credentials": has_credentials,
-            "port_requirements": port_requirements,
             "needs_domain": needs_domain,
             "domain": domain,
         }
@@ -1796,25 +1731,6 @@ async def api_service_detail(unit: str, icon: str | None = None):
                 "expected_ip": external_ip,
             }
 
-    # Port requirements and statuses
-    port_requirements = SERVICE_PORT_REQUIREMENTS.get(unit, [])
-    port_statuses: list[dict] = []
-    if port_requirements:
-        listening, allowed = await asyncio.gather(
-            loop.run_in_executor(None, _get_listening_ports),
-            loop.run_in_executor(None, _get_firewall_allowed_ports),
-        )
-        for p in port_requirements:
-            port_str = str(p.get("port", ""))
-            protocol = str(p.get("protocol", "TCP"))
-            ps = _check_port_status(port_str, protocol, listening, allowed)
-            port_statuses.append({
-                "port": port_str,
-                "protocol": protocol,
-                "status": ps,
-                "description": p.get("description", ""),
-            })
-
     # Compute composite health
     sync_progress: float | None = None
     sync_blocks: int | None = None
@@ -1823,14 +1739,13 @@ async def api_service_detail(unit: str, icon: str | None = None):
     if not enabled:
         health = "disabled"
     elif status == "active":
-        has_port_issues = any(p["status"] == "closed" for p in port_statuses)
         has_domain_issues = False
         if needs_domain:
             if not domain:
                 has_domain_issues = True
             elif domain_status and domain_status.get("status") not in ("connected", None):
                 has_domain_issues = True
-        health = "needs_attention" if (has_port_issues or has_domain_issues) else "healthy"
+        health = "needs_attention" if has_domain_issues else "healthy"
         # Check Bitcoin IBD state
         if unit == "bitcoind.service":
             sync = await loop.run_in_executor(None, _get_bitcoin_sync_info)
@@ -1879,7 +1794,6 @@ async def api_service_detail(unit: str, icon: str | None = None):
                 "needs_ddns": feat_meta.get("needs_ddns", False),
                 "extra_fields": extra_fields,
                 "conflicts_with": feat_meta.get("conflicts_with", []),
-                "port_requirements": feat_meta.get("port_requirements", []),
             }
 
     service_detail: dict = {
@@ -1895,8 +1809,6 @@ async def api_service_detail(unit: str, icon: str | None = None):
         "needs_domain": needs_domain,
         "domain": domain,
         "domain_status": domain_status,
-        "port_requirements": port_requirements,
-        "port_statuses": port_statuses,
         "external_ip": external_ip,
         "internal_ip": internal_ip,
         "feature": feature_entry,
@@ -1918,133 +1830,9 @@ async def api_network():
     )
     # Keep the internal-ip file in sync for credential lookups
     _save_internal_ip(internal)
-    return {"internal_ip": internal, "external_ip": external}
-
-
-class PortCheckRequest(BaseModel):
-    ports: list[dict]
-
-
-@app.post("/api/ports/status")
-async def api_ports_status(req: PortCheckRequest):
-    """Check port status locally using ss and firewall rules — no external calls."""
-    loop = asyncio.get_event_loop()
-    internal_ip, listening, allowed = await asyncio.gather(
-        loop.run_in_executor(None, _get_internal_ip),
-        loop.run_in_executor(None, _get_listening_ports),
-        loop.run_in_executor(None, _get_firewall_allowed_ports),
-    )
-
-    port_results = []
-    for p in req.ports:
-        port_str = str(p.get("port", ""))
-        protocol = str(p.get("protocol", "TCP"))
-        status = _check_port_status(port_str, protocol, listening, allowed)
-        port_results.append({
-            "port": port_str,
-            "protocol": protocol,
-            "status": status,
-        })
-
-    return {"internal_ip": internal_ip, "ports": port_results}
-
-
-@app.get("/api/ports/health")
-async def api_ports_health():
-    """Aggregate port health across all enabled services."""
-    cfg = load_config()
-    services = cfg.get("services", [])
-
-    # Build reverse map: unit → feature_id (for features with a unit)
-    unit_to_feature = {
-        unit: feat_id
-        for feat_id, unit in FEATURE_SERVICE_MAP.items()
-        if unit is not None
-    }
-
-    loop = asyncio.get_event_loop()
-
-    # Read runtime feature overrides from custom.nix Hub Managed section
-    overrides, _ = await loop.run_in_executor(None, _read_hub_overrides)
-
-    # Collect port requirements for enabled services only
-    enabled_port_requirements: list[tuple[str, str, list[dict]]] = []
-    for entry in services:
-        unit = entry.get("unit", "")
-        icon = entry.get("icon", "")
-        enabled = entry.get("enabled", True)
-
-        feat_id = unit_to_feature.get(unit)
-        if feat_id is None:
-            feat_id = FEATURE_ICON_MAP.get(icon)
-        if feat_id is not None and feat_id in overrides:
-            enabled = overrides[feat_id]
-
-        if not enabled:
-            continue
-
-        ports = SERVICE_PORT_REQUIREMENTS.get(unit, [])
-        if ports:
-            enabled_port_requirements.append((entry.get("name", unit), unit, ports))
-
-    # If no enabled services have port requirements, return ok with zero ports
-    if not enabled_port_requirements:
-        return {
-            "total_ports": 0,
-            "open_ports": 0,
-            "closed_ports": 0,
-            "status": "ok",
-            "affected_services": [],
-        }
-
-    # Run port checks in parallel
-    listening, allowed = await asyncio.gather(
-        loop.run_in_executor(None, _get_listening_ports),
-        loop.run_in_executor(None, _get_firewall_allowed_ports),
-    )
-
-    total_ports = 0
-    open_ports = 0
-    affected_services = []
-
-    for name, unit, ports in enabled_port_requirements:
-        closed = []
-        for p in ports:
-            port_str = str(p.get("port", ""))
-            protocol = str(p.get("protocol", "TCP"))
-            status = _check_port_status(port_str, protocol, listening, allowed)
-            total_ports += 1
-            if status in ("listening", "firewall_open"):
-                open_ports += 1
-            else:
-                closed.append({
-                    "port": port_str,
-                    "protocol": protocol,
-                    "description": p.get("description", ""),
-                })
-        if closed:
-            affected_services.append({
-                "name": name,
-                "unit": unit,
-                "closed_ports": closed,
-            })
-
-    closed_ports = total_ports - open_ports
-
-    if closed_ports == 0:
-        health_status = "ok"
-    elif open_ports == 0:
-        health_status = "critical"
-    else:
-        health_status = "partial"
-
-    return {
-        "total_ports": total_ports,
-        "open_ports": open_ports,
-        "closed_ports": closed_ports,
-        "status": health_status,
-        "affected_services": affected_services,
-    }
+    # Return VPS IP if tunnel is configured (used by domain setup UI)
+    vps_ip = await loop.run_in_executor(None, _get_vps_ip)
+    return {"internal_ip": internal, "external_ip": external, "vps_ip": vps_ip}
 
 
 @app.get("/api/updates/check")
@@ -2127,6 +1915,10 @@ async def api_support_status():
     session = await loop.run_in_executor(None, _get_support_session_info)
     unlock_info = await loop.run_in_executor(None, _get_wallet_unlock_info)
     wallet_unlocked = bool(unlock_info)
+
+    # If tunnel is configured, report the VPS IP as the SSH address
+    vps_ip = await loop.run_in_executor(None, _get_vps_ip)
+
     return {
         "active": active,
         "sshd_enabled": sshd_enabled,
@@ -2138,6 +1930,7 @@ async def api_support_status():
         "wallet_unlocked": wallet_unlocked,
         "wallet_unlocked_until": unlock_info.get("expires_at") if wallet_unlocked else None,
         "wallet_unlocked_until_human": unlock_info.get("expires_at_human") if wallet_unlocked else None,
+        "ssh_address": vps_ip,  # VPS IP when tunnel is active, None otherwise
     }
 
 
@@ -2243,6 +2036,247 @@ async def api_support_audit_log(limit: int = 100):
     loop = asyncio.get_event_loop()
     lines = await loop.run_in_executor(None, _get_support_audit_log, limit)
     return {"entries": lines}
+
+
+# ── Tunnel endpoints ──────────────────────────────────────────────
+
+class TunnelSetupRequest(BaseModel):
+    vps_ip: str
+    vps_password: str
+
+
+def _run_tunnel_setup(vps_ip: str, vps_password: str) -> None:
+    """SSH into the VPS and run the bootstrap script.  Writes progress to the
+    rebuild log so the frontend can stream it via /api/rebuild/status.
+    """
+    import shlex
+
+    log_file = REBUILD_LOG
+    status_file = REBUILD_STATUS
+
+    def log(msg: str) -> None:
+        with open(log_file, "a") as f:
+            f.write(msg + "\n")
+
+    try:
+        with open(status_file, "w") as f:
+            f.write("RUNNING")
+        with open(log_file, "w") as f:
+            f.write("")
+
+        log("══════════════════════════════════════════════")
+        log(f"  Sovran VPS Tunnel Setup — {time.strftime('%Y-%m-%d %H:%M:%S')}")
+        log("══════════════════════════════════════════════")
+        log("")
+
+        # Ensure tunnel state directory exists
+        os.makedirs(TUNNEL_STATE_DIR, mode=0o700, exist_ok=True)
+
+        # Generate local WireGuard keypair if not already present
+        home_privkey: str
+        home_pubkey: str
+        if os.path.exists(TUNNEL_WG_PRIVKEY_FILE) and os.path.exists(TUNNEL_WG_PUBKEY_FILE):
+            log("── Reusing existing local WireGuard keypair")
+            with open(TUNNEL_WG_PRIVKEY_FILE, "r") as f:
+                home_privkey = f.read().strip()
+            with open(TUNNEL_WG_PUBKEY_FILE, "r") as f:
+                home_pubkey = f.read().strip()
+        else:
+            log("── Generating local WireGuard keypair…")
+            priv_result = subprocess.run(
+                ["wg", "genkey"], capture_output=True, text=True, timeout=10
+            )
+            if priv_result.returncode != 0:
+                raise RuntimeError("wg genkey failed: " + priv_result.stderr)
+            home_privkey = priv_result.stdout.strip()
+            pub_result = subprocess.run(
+                ["wg", "pubkey"], input=home_privkey, capture_output=True, text=True, timeout=10
+            )
+            if pub_result.returncode != 0:
+                raise RuntimeError("wg pubkey failed: " + pub_result.stderr)
+            home_pubkey = pub_result.stdout.strip()
+            with open(TUNNEL_WG_PRIVKEY_FILE, "w") as f:
+                f.write(home_privkey + "\n")
+            os.chmod(TUNNEL_WG_PRIVKEY_FILE, 0o600)
+            with open(TUNNEL_WG_PUBKEY_FILE, "w") as f:
+                f.write(home_pubkey + "\n")
+            log(f"   Local pubkey: {home_pubkey}")
+
+        # Read the bootstrap script
+        if not os.path.exists(TUNNEL_SETUP_SCRIPT):
+            raise RuntimeError(f"Bootstrap script not found: {TUNNEL_SETUP_SCRIPT}")
+        with open(TUNNEL_SETUP_SCRIPT, "r") as f:
+            script_content = f.read()
+
+        log(f"── Connecting to VPS at {vps_ip}…")
+
+        # Use sshpass + ssh to run the bootstrap script on the VPS
+        # sshpass is used only for the initial setup; afterwards Hub uses SSH key
+        home_wg_ip = "10.99.0.2"
+        remote_cmd = (
+            f"bash -s -- {shlex.quote(home_pubkey)} {shlex.quote(home_wg_ip)}"
+        )
+
+        ssh_cmd = [
+            "sshpass", "-p", vps_password,
+            "ssh",
+            "-o", "StrictHostKeyChecking=no",
+            "-o", "ConnectTimeout=15",
+            f"root@{vps_ip}",
+            remote_cmd,
+        ]
+
+        log("── Running VPS bootstrap script…")
+        proc = subprocess.Popen(
+            ssh_cmd,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+        )
+
+        assert proc.stdout is not None
+        raw_output_lines: list[str] = []
+        for line in proc.stdout:
+            line = line.rstrip("\n")
+            raw_output_lines.append(line)
+            if not line.startswith("---SOVRAN-TUNNEL-OUTPUT"):
+                log(line)
+
+        proc.wait()
+        if proc.returncode != 0:
+            raise RuntimeError(f"VPS bootstrap script failed (exit {proc.returncode})")
+
+        # Parse structured output
+        output_block = "\n".join(raw_output_lines)
+        begin_marker = "---SOVRAN-TUNNEL-OUTPUT-BEGIN---"
+        end_marker = "---SOVRAN-TUNNEL-OUTPUT-END---"
+        parsed: dict[str, str] = {}
+        if begin_marker in output_block and end_marker in output_block:
+            block = output_block.split(begin_marker, 1)[1].split(end_marker, 1)[0]
+            for kv_line in block.strip().splitlines():
+                kv_line = kv_line.strip()
+                if "=" in kv_line:
+                    k, v = kv_line.split("=", 1)
+                    parsed[k.strip()] = v.strip()
+        else:
+            raise RuntimeError("VPS bootstrap output not found in script output")
+
+        vps_pubkey = parsed.get("VPS_PUBKEY", "")
+        vps_endpoint = parsed.get("VPS_ENDPOINT", f"{vps_ip}:51820")
+        vps_wg_ip = parsed.get("VPS_WG_IP", "10.99.0.1")
+        wan_iface = parsed.get("WAN_IFACE", "eth0")
+        mgmt_user = parsed.get("MGMT_USER", VPS_MGMT_USER)
+        hub_mgmt_privkey_b64 = parsed.get("HUB_MGMT_PRIVKEY_B64", "")
+
+        if not vps_pubkey:
+            raise RuntimeError("VPS public key not found in bootstrap output")
+
+        log(f"   VPS WireGuard public key: {vps_pubkey}")
+        log(f"   VPS endpoint: {vps_endpoint}")
+
+        # Save Hub management SSH private key
+        if hub_mgmt_privkey_b64:
+            hub_mgmt_privkey = base64.b64decode(hub_mgmt_privkey_b64).decode("utf-8")
+            with open(TUNNEL_HUB_SSH_KEY, "w") as f:
+                f.write(hub_mgmt_privkey)
+            os.chmod(TUNNEL_HUB_SSH_KEY, 0o600)
+            log("   Hub management SSH key saved")
+
+        # Write tunnel config
+        tunnel_cfg = {
+            "vps_ip": vps_ip,
+            "vps_endpoint": vps_endpoint,
+            "vps_pubkey": vps_pubkey,
+            "vps_wg_ip": vps_wg_ip,
+            "home_wg_ip": home_wg_ip,
+            "wan_iface": wan_iface,
+            "mgmt_user": mgmt_user,
+            "setup_at": time.strftime("%Y-%m-%d %H:%M:%S %Z"),
+        }
+        with open(TUNNEL_CONFIG_FILE, "w") as f:
+            json.dump(tunnel_cfg, f, indent=2)
+        os.chmod(TUNNEL_CONFIG_FILE, 0o600)
+        log("   Tunnel configuration saved")
+
+        log("")
+        log("── Writing local NixOS WireGuard configuration…")
+        # The tunnel.nix module reads TUNNEL_CONFIG_FILE at build time;
+        # trigger a rebuild to activate the WireGuard interface.
+        log("")
+        log("══════════════════════════════════════════════")
+        log("  ✓ Tunnel setup completed successfully")
+        log(f"  VPS IP: {vps_ip}")
+        log(f"  WireGuard peer: {vps_endpoint}")
+        log("══════════════════════════════════════════════")
+
+        with open(status_file, "w") as f:
+            f.write("SUCCESS")
+
+        # Trigger a NixOS rebuild to activate the WireGuard interface
+        subprocess.Popen(
+            ["systemctl", "start", "--no-block", REBUILD_UNIT],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+
+    except Exception as exc:
+        log(f"\n[ERROR] {exc}")
+        log("══════════════════════════════════════════════")
+        log("  ✗ Tunnel setup failed — see errors above")
+        log("══════════════════════════════════════════════")
+        with open(status_file, "w") as f:
+            f.write("FAILED")
+
+
+@app.post("/api/tunnel/setup")
+async def api_tunnel_setup(req: TunnelSetupRequest):
+    """SSH into the VPS and run the WireGuard bootstrap script.
+    Progress is streamed via /api/rebuild/status (same log pattern as rebuilds)."""
+    if not req.vps_ip.strip():
+        raise HTTPException(status_code=400, detail="VPS IP address is required")
+    if not req.vps_password.strip():
+        raise HTTPException(status_code=400, detail="VPS root password is required")
+
+    # Fire and forget — progress is read via /api/rebuild/status
+    loop = asyncio.get_event_loop()
+    loop.run_in_executor(None, _run_tunnel_setup, req.vps_ip.strip(), req.vps_password.strip())
+
+    return {"ok": True, "status": "running"}
+
+
+@app.get("/api/tunnel/status")
+async def api_tunnel_status():
+    """Return current VPS WireGuard tunnel health."""
+    loop = asyncio.get_event_loop()
+    status = await loop.run_in_executor(None, _get_tunnel_status)
+    return status
+
+
+@app.post("/api/tunnel/ssh-forward/enable")
+async def api_tunnel_ssh_forward_enable():
+    """Enable port 22 forwarding through the VPS tunnel (called by Tech Support enable)."""
+    loop = asyncio.get_event_loop()
+    cfg = await loop.run_in_executor(None, _read_tunnel_config)
+    if not cfg:
+        raise HTTPException(status_code=404, detail="No tunnel configured")
+    ok = await loop.run_in_executor(None, _vps_enable_ssh_forward)
+    if not ok:
+        raise HTTPException(status_code=500, detail="Failed to enable SSH forwarding on VPS")
+    return {"ok": True, "message": "SSH port 22 forwarding enabled on VPS"}
+
+
+@app.post("/api/tunnel/ssh-forward/disable")
+async def api_tunnel_ssh_forward_disable():
+    """Disable port 22 forwarding through the VPS tunnel."""
+    loop = asyncio.get_event_loop()
+    cfg = await loop.run_in_executor(None, _read_tunnel_config)
+    if not cfg:
+        raise HTTPException(status_code=404, detail="No tunnel configured")
+    ok = await loop.run_in_executor(None, _vps_disable_ssh_forward)
+    if not ok:
+        raise HTTPException(status_code=500, detail="Failed to disable SSH forwarding on VPS")
+    return {"ok": True, "message": "SSH port 22 forwarding disabled on VPS"}
 
 
 # ── Backup endpoints ──────────────────────────────────────────────
@@ -2367,7 +2401,6 @@ async def api_features():
             "needs_ddns": feat.get("needs_ddns", False),
             "extra_fields": extra_fields,
             "conflicts_with": feat.get("conflicts_with", []),
-            "port_requirements": feat.get("port_requirements", []),
         }
         if "requires" in feat:
             entry["requires"] = feat["requires"]

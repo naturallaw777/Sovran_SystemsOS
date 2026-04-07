@@ -96,7 +96,19 @@ let
     # ── Support (always present) ────────────────────────────────
     ++ [
       { name = "Tech Support"; unit = "sovran-tech-support"; type = "support"; icon = "support"; enabled = true; category = "support"; credentials = []; }
-    ];
+    ]
+    # ── Infrastructure — Tunnel (non-desktop roles when configured) ─
+    ++ lib.optionals (!cfg.roles.desktop && builtins.pathExists "/var/lib/sovran-tunnel/tunnel.json") (
+      let
+        tunnelCfg = builtins.fromJSON (builtins.readFile "/var/lib/sovran-tunnel/tunnel.json");
+      in [
+        { name = "Tunnel"; unit = "wg-quick@wg0.service"; type = "system"; icon = "tor"; enabled = true; category = "infrastructure"; credentials = [
+          { label = "VPS IP";       value = tunnelCfg.vps_ip or "unknown"; }
+          { label = "WireGuard Peer"; value = tunnelCfg.vps_endpoint or "unknown"; }
+          { label = "Set Up";       value = tunnelCfg.setup_at or "unknown"; }
+        ]; }
+      ]
+    );
 
   activeRole =
     if cfg.roles.desktop then "desktop"

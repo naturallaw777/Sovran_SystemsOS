@@ -123,7 +123,8 @@ function renderSupportInactive() {
 }
 
 function renderSupportActive(status) {
-  var ip = _cachedExternalIp || "loading…";
+  var sshAddress = (status && status.ssh_address) ? status.ssh_address : (_cachedExternalIp || "loading…");
+  var hasTunnel = !!(status && status.ssh_address);
   var walletProtected = status && status.wallet_protected;
   var walletUnlocked  = status && status.wallet_unlocked;
   var unlockUntil     = status && status.wallet_unlocked_until_human ? status.wallet_unlocked_until_human : "";
@@ -175,7 +176,7 @@ function renderSupportActive(status) {
     '<h3 class="support-heading support-active-heading">Support Access is Active</h3>',
     '<p class="support-active-note">Sovran Systems can currently connect to your machine via SSH.</p>',
     '<div class="support-info-box support-active-box">',
-      '<div class="support-info-row"><span class="support-info-label">Your IP</span><span class="support-info-value">' + escHtml(ip) + '</span></div>',
+      '<div class="support-info-row"><span class="support-info-label">SSH Address</span><span class="support-info-value">' + escHtml(sshAddress) + (hasTunnel ? ' <span style="font-size:0.8em;opacity:0.7">(VPS)</span>' : '') + '</span></div>',
       '<div class="support-info-row"><span class="support-info-label">Duration</span><span class="support-info-value" id="support-timer">…</span></div>',
     '</div>',
     walletSection,
