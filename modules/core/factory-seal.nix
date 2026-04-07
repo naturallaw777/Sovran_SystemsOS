@@ -116,6 +116,14 @@ EOF
         exit 0
       fi
 
+      # If the user completed Hub onboarding, they've addressed security
+      [ -f /var/lib/sovran/onboarding-complete ] && exit 0
+
+      # If the free password has been changed from the factory default, no warning needed
+      if [ -f /var/lib/secrets/free-password ]; then
+        [ "$(cat /var/lib/secrets/free-password)" != "free" ] && exit 0
+      fi
+
       # No flags at all + secrets exist = legacy (pre-seal era) machine
       if [ -f /var/lib/secrets/root-password ]; then
         mkdir -p /var/lib/sovran
