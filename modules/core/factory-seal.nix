@@ -1,0 +1,115 @@
+{ config, pkgs, lib, ... }:
+
+let
+  sovran-factory-seal = pkgs.writeShellScriptBin "sovran-factory-seal" ''
+    set -euo pipefail
+
+    if [ "$(id -u)" -ne 0 ]; then
+      echo "Error: must be run as root." >&2
+      exit 1
+    fi
+
+    echo ""
+    echo "╔══════════════════════════════════════════════════════════════╗"
+    echo "║          ⚠  SOVRAN FACTORY SEAL — WARNING  ⚠               ║"
+    echo "╠══════════════════════════════════════════════════════════════╣"
+    echo "║  This command will PERMANENTLY DELETE:                       ║"
+    echo "║    • All generated passwords and secrets                     ║"
+    echo "║    • LND wallet data (seed words, channels, macaroons)       ║"
+    echo "║    • SSH factory login key                                   ║"
+    echo "║    • Application databases (Matrix, Nextcloud, WordPress)    ║"
+    echo "║    • Vaultwarden database                                    ║"
+    echo "║                                                              ║"
+    echo "║  After sealing, all credentials will be regenerated fresh   ║"
+    echo "║  when the customer boots the device for the first time.     ║"
+    echo "║                                                              ║"
+    echo "║  DO NOT run this on a customer's live system.               ║"
+    echo "╚══════════════════════════════════════════════════════════════╝"
+    echo ""
+    echo -n "Type SEAL to confirm: "
+    read -r CONFIRM
+    if [ "$CONFIRM" != "SEAL" ]; then
+      echo "Aborted." >&2
+      exit 1
+    fi
+
+    echo ""
+    echo "Sealing system..."
+
+    # ── 1. Delete all generated secrets ──────────────────────────────
+    echo "  Wiping secrets..."
+    [ -d /var/lib/secrets ] && find /var/lib/secrets -mindepth 1 -delete || true
+    rm -rf /var/lib/matrix-synapse/registration-secret
+    rm -rf /var/lib/matrix-synapse/db-password
+    rm -rf /var/lib/gnome-remote-desktop/rdp-password
+    rm -rf /var/lib/gnome-remote-desktop/rdp-username
+    rm -rf /var/lib/gnome-remote-desktop/rdp-credentials
+    rm -rf /var/lib/livekit/livekit_keyFile
+    rm -rf /etc/nix-bitcoin-secrets/*
+
+    # ── 2. Wipe LND wallet (seed words, wallet DB, macaroons) ────────
+    echo "  Wiping LND wallet data..."
+    rm -rf /var/lib/lnd/*
+
+    # ── 3. Wipe SSH factory key so it regenerates with new passphrase ─
+    echo "  Removing SSH factory key..."
+    rm -f /home/free/.ssh/factory_login /home/free/.ssh/factory_login.pub
+    if [ -f /root/.ssh/authorized_keys ]; then
+      sed -i '/factory_login/d' /root/.ssh/authorized_keys
+    fi
+
+    # ── 4. Drop application databases ────────────────────────────────
+    echo "  Dropping application databases..."
+    sudo -u postgres psql -c "DROP DATABASE IF EXISTS \"matrix-synapse\";" 2>/dev/null || true
+    sudo -u postgres psql -c "DROP DATABASE IF EXISTS nextclouddb;" 2>/dev/null || true
+    mysql -u root -e "DROP DATABASE IF EXISTS wordpressdb;" 2>/dev/null || true
+
+    # ── 5. Remove application config files (so init services re-run) ─
+    echo "  Removing application config files..."
+    rm -rf /var/lib/www/wordpress/wp-config.php
+    rm -rf /var/lib/www/nextcloud/config/config.php
+
+    # ── 6. Wipe Vaultwarden database ──────────────────────────────────
+    echo "  Wiping Vaultwarden data..."
+    rm -rf /var/lib/bitwarden_rs/*
+    rm -rf /var/lib/vaultwarden/*
+
+    # ── 7. Set sealed flag and remove onboarded flag ─────────────────
+    echo "  Setting sealed flag..."
+    touch /var/lib/sovran-factory-sealed
+    rm -f /var/lib/sovran-customer-onboarded
+
+    echo ""
+    echo "System sealed. Power off now or the system will shut down in 10 seconds."
+    sleep 10
+    poweroff
+  '';
+
+in
+{
+  environment.systemPackages = [ sovran-factory-seal ];
+
+  # ── Legacy security check: warn existing (pre-seal) machines ───────
+  systemd.services.sovran-legacy-security-check = {
+    description = "Check for legacy (pre-factory-seal) security status";
+    wantedBy = [ "multi-user.target" ];
+    after = [ "local-fs.target" ];
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+    };
+    path = [ pkgs.coreutils ];
+    script = ''
+      # If already onboarded or sealed, nothing to do
+      [ -f /var/lib/sovran-customer-onboarded ] && exit 0
+      [ -f /var/lib/sovran-factory-sealed ] && exit 0
+
+      # If secrets exist but no sealed/onboarded flag, this is a legacy machine
+      if [ -f /var/lib/secrets/root-password ]; then
+        mkdir -p /var/lib/sovran
+        echo "legacy" > /var/lib/sovran/security-status
+        echo "This system was deployed before the factory seal feature. Your passwords may be known to the factory. Please change your passwords through the Sovran Hub." > /var/lib/sovran/security-warning
+      fi
+    '';
+  };
+}
