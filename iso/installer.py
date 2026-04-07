@@ -917,6 +917,19 @@ class InstallerWindow(Adw.ApplicationWindow):
             "--impure"
         ], buf)
 
+        # Clean up /mnt/etc/nixos — only 5 files are needed post-install.
+        # configuration.nix and modules/ were needed during nixos-install
+        # for flake evaluation, but are now baked into the Nix store via
+        # self.nixosModules.Sovran_SystemsOS.
+        GLib.idle_add(append_text, buf, "Cleaning up /mnt/etc/nixos...\n")
+        keep = {"flake.nix", "flake.lock", "hardware-configuration.nix",
+                "role-state.nix", "custom.nix"}
+        nixos_dir = "/mnt/etc/nixos"
+        for entry in os.listdir(nixos_dir):
+            if entry not in keep:
+                path = os.path.join(nixos_dir, entry)
+                run(["sudo", "rm", "-rf", path])
+
         GLib.idle_add(self.push_complete)
 
     # ── Step 6: Complete ───────────────────────────────────────────────────
