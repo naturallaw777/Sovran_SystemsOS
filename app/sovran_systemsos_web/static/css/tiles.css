@@ -71,6 +71,13 @@
   color: var(--text-secondary);
 }
 
+.tile-version {
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  margin-top: 2px;
+  text-align: center;
+}
+
 .status-dot {
   width: 8px;
   height: 8px;
