@@ -1860,10 +1860,6 @@ async def api_services():
                 btc_ver = _format_bitcoin_version(raw_ver, icon=icon)
                 service_data["bitcoin_version"] = btc_ver  # backwards compat
                 service_data["version"] = btc_ver
-        elif unit != "bitcoind.service":
-            svc_ver = await loop.run_in_executor(None, _get_service_version, unit)
-            if svc_ver is not None:
-                service_data["version"] = svc_ver
         return service_data
 
     results = await asyncio.gather(*[get_status(s) for s in services])
@@ -2143,11 +2139,6 @@ async def api_service_detail(unit: str, icon: str | None = None):
             btc_ver = _format_bitcoin_version(raw_ver, icon=icon)
             service_detail["bitcoin_version"] = btc_ver  # backwards compat
             service_detail["version"] = btc_ver
-    elif unit != "bitcoind.service":
-        loop = asyncio.get_event_loop()
-        svc_ver = await loop.run_in_executor(None, _get_service_version, unit)
-        if svc_ver is not None:
-            service_detail["version"] = svc_ver
     return service_detail
 
 
