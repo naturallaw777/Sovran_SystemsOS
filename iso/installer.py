@@ -19,7 +19,7 @@ DEPLOYED_FLAKE = """\
   description = "Sovran_SystemsOS for the Sovran Pro from Sovran Systems";
 
   inputs = {
-    Sovran_Systems.url = "git+https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS";
+    Sovran_Systems.url = "git+https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS?ref=staging-dev";
   };
 
   outputs = { self, Sovran_Systems, ... }@inputs: {
