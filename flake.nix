@@ -31,7 +31,7 @@
 			];
 		};
 
-		nixosConfigurations.sovran-iso = nixpkgs.lib.nixosSystem {
+		nixosConfigurations.sovran_systemsos-iso = nixpkgs.lib.nixosSystem {
 			modules = [
 				{ nixpkgs.hostPlatform = "x86_64-linux"; }
 				({ config, pkgs, ... }: { nixpkgs.overlays = [ overlay-stable ]; })
