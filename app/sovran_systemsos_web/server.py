@@ -57,6 +57,7 @@ ZEUS_CONNECT_FILE = "/var/lib/secrets/zeus-connect-url"
 REBOOT_COMMAND = ["reboot"]
 
 ONBOARDING_FLAG = "/var/lib/sovran/onboarding-complete"
+AUTOLAUNCH_DISABLE_FLAG = "/var/lib/sovran/hub-autolaunch-disabled"
 
 # ── Tech Support constants ────────────────────────────────────────
 
@@ -1388,6 +1389,39 @@ async def api_onboarding_complete():
     except OSError as exc:
         raise HTTPException(status_code=500, detail=f"Could not write flag file: {exc}")
     return {"ok": True}
+
+
+# ── Auto-launch endpoints ─────────────────────────────────────────
+
+@app.get("/api/autolaunch/status")
+async def api_autolaunch_status():
+    """Check if Hub auto-launch on login is enabled."""
+    disabled = os.path.exists(AUTOLAUNCH_DISABLE_FLAG)
+    return {"enabled": not disabled}
+
+
+class AutolaunchToggleRequest(BaseModel):
+    enabled: bool
+
+
+@app.post("/api/autolaunch/toggle")
+async def api_autolaunch_toggle(req: AutolaunchToggleRequest):
+    """Enable or disable Hub auto-launch on login."""
+    if req.enabled:
+        # Remove the disable flag to enable auto-launch
+        try:
+            os.remove(AUTOLAUNCH_DISABLE_FLAG)
+        except FileNotFoundError:
+            pass
+    else:
+        # Create the disable flag to suppress auto-launch
+        os.makedirs(os.path.dirname(AUTOLAUNCH_DISABLE_FLAG), exist_ok=True)
+        try:
+            with open(AUTOLAUNCH_DISABLE_FLAG, "w") as f:
+                f.write("")
+        except OSError as exc:
+            raise HTTPException(status_code=500, detail=f"Could not write flag file: {exc}")
+    return {"ok": True, "enabled": req.enabled}
 
 
 @app.get("/api/config")
