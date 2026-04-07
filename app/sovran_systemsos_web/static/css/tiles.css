@@ -343,3 +343,18 @@
   color: var(--yellow);
   font-weight: 600;
 }
+
+
+/* ── Desktop launch buttons ──────────────────────────────────────── */
+
+.svc-detail-launch-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.svc-detail-launch-btn {
+  font-size: 0.85rem;
+  padding: 8px 18px;
+  cursor: pointer;
+}
