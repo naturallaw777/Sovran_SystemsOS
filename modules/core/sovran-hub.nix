@@ -220,7 +220,7 @@ let
 
     # Wait for Hub server to become ready (max ~15 seconds)
     for i in $(seq 1 15); do
-      curl -s -o /dev/null -w "" http://localhost:8937 && break
+      curl -s -o /dev/null http://localhost:8937 && break
       sleep 1
     done
 
