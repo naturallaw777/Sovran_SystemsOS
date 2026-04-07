@@ -2949,6 +2949,16 @@ async def api_security_status():
                 "The default system password may be known to the factory. "
                 "Please change your system and application passwords immediately."
             )
+    elif status == "unsealed":
+        try:
+            with open(SECURITY_WARNING_FILE, "r") as f:
+                warning = f.read().strip()
+        except FileNotFoundError:
+            warning = (
+                "This machine was set up without the factory seal process. "
+                "Factory test data — including SSH keys, database contents, and wallet information — "
+                "may still be present on this system."
+            )
 
     return {"status": status, "warning": warning}
 
@@ -3027,14 +3037,21 @@ async def api_change_password(req: ChangePasswordRequest):
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Failed to write secrets file: {exc}")
 
-    # Clear legacy security status so the warning banner is removed
-    for path in (SECURITY_STATUS_FILE, SECURITY_WARNING_FILE):
-        try:
-            os.remove(path)
-        except FileNotFoundError:
-            pass
-        except Exception:
-            pass  # Non-fatal; don't block a successful password change
+    # Clear legacy security status so the warning banner is removed — but only
+    # for "legacy" machines (pre-seal era). For "unsealed" machines, changing
+    # passwords is not enough; the factory residue (SSH keys, wallet data,
+    # databases) remains until a proper re-seal or re-install is performed.
+    try:
+        with open(SECURITY_STATUS_FILE, "r") as f:
+            current_status = f.read().strip()
+        if current_status == "legacy":
+            os.remove(SECURITY_STATUS_FILE)
+            try:
+                os.remove(SECURITY_WARNING_FILE)
+            except FileNotFoundError:
+                pass
+    except (FileNotFoundError, OSError):
+        pass
 
     return {"ok": True}
 
