@@ -80,4 +80,45 @@ EOF
     '';
   };
 
+  # ── Zeus Connect (lndconnect URL for mobile wallet) ──────────
+  systemd.services.zeus-connect-setup = {
+    description = "Save Zeus lndconnect URL";
+    wantedBy = [ "multi-user.target" ];
+    after = [ "lnd.service" ];
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+    };
+    path = [ pkgs.coreutils "/run/current-system/sw" ];
+    script = ''
+      SECRET_FILE="/var/lib/secrets/zeus-connect-url"
+      mkdir -p /var/lib/secrets
+
+      URL=""
+      if command -v lndconnect >/dev/null 2>&1; then
+        URL=$(lndconnect --url 2>/dev/null || true)
+      elif command -v lnconnect-clnrest >/dev/null 2>&1; then
+        URL=$(lnconnect-clnrest --url 2>/dev/null || true)
+      fi
+
+      if [ -n "$URL" ]; then
+        echo "$URL" > "$SECRET_FILE"
+        chmod 600 "$SECRET_FILE"
+        echo "Zeus connect URL saved."
+      else
+        echo "No lndconnect URL available yet."
+      fi
+    '';
+  };
+
+  # ── Refresh Zeus URL periodically (certs/macaroons may rotate)
+  systemd.timers.zeus-connect-setup = {
+    wantedBy = [ "timers.target" ];
+    timerConfig = {
+      OnBootSec = "2min";
+      OnUnitActiveSec = "30min";
+      Unit = "zeus-connect-setup.service";
+    };
+  };
+
 }
