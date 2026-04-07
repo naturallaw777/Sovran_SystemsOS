@@ -109,7 +109,7 @@ lib.mkIf config.sovran_systemsOS.services.nextcloud {
 
       echo "Waiting for PostgreSQL..."
       for i in $(seq 1 30); do
-          if su -s /bin/sh caddy -c "php -r \"new PDO('pgsql:host=$DB_HOST;dbname=$DB_NAME', '$DB_USER', '$DB_PASS');\"" 2>/dev/null; then
+          if /run/wrappers/bin/su -s /bin/sh caddy -c "php -r \"new PDO('pgsql:host=$DB_HOST;dbname=$DB_NAME', '$DB_USER', '$DB_PASS');\"" 2>/dev/null; then
               echo "Database ready."
               break
           fi
@@ -117,7 +117,7 @@ lib.mkIf config.sovran_systemsOS.services.nextcloud {
       done
 
       echo "Running Nextcloud installation..."
-      su -s /bin/sh caddy -c "
+      /run/wrappers/bin/su -s /bin/sh caddy -c "
         php $INSTALL_DIR/occ maintenance:install \
           --database 'pgsql' \
           --database-name '$DB_NAME' \
@@ -129,19 +129,19 @@ lib.mkIf config.sovran_systemsOS.services.nextcloud {
           --data-dir '$DATA_DIR'
       "
 
-      su -s /bin/sh caddy -c "
+      /run/wrappers/bin/su -s /bin/sh caddy -c "
         php $INSTALL_DIR/occ config:system:set trusted_domains 0 --value='$DOMAIN'
         php $INSTALL_DIR/occ config:system:set overwrite.cli.url --value='https://$DOMAIN'
         php $INSTALL_DIR/occ config:system:set overwriteprotocol --value='https'
       "
 
-      su -s /bin/sh caddy -c "
+      /run/wrappers/bin/su -s /bin/sh caddy -c "
         php $INSTALL_DIR/occ config:system:set default_phone_region --value='US'
         php $INSTALL_DIR/occ config:system:set memcache.local --value='\OC\Memcache\APCu'
         php $INSTALL_DIR/occ background:cron
       "
 
-      su -s /bin/sh caddy -c "
+      /run/wrappers/bin/su -s /bin/sh caddy -c "
         php $INSTALL_DIR/occ app:install calendar || true
         php $INSTALL_DIR/occ app:install contacts || true
         php $INSTALL_DIR/occ app:install tasks || true
