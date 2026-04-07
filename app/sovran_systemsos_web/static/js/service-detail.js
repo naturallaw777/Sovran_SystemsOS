@@ -280,6 +280,10 @@ async function openServiceDetailModal(unit, name, icon) {
             '<button class="matrix-action-btn" id="matrix-add-user-btn">➕ Add New User</button>' +
             '<button class="matrix-action-btn" id="matrix-change-pw-btn">🔑 Change Password</button>' +
           '</div>' : "") +
+        (unit === "root-password-setup.service" ?
+          '<hr class="matrix-actions-divider"><div class="matrix-actions-row">' +
+            '<button class="matrix-action-btn" id="sys-change-pw-btn">🔑 Change Password</button>' +
+          '</div>' : "") +
         '</div>';
     } else if (!data.enabled && !data.feature) {
       html += '<div class="svc-detail-section">' +
@@ -364,6 +368,11 @@ async function openServiceDetailModal(unit, name, icon) {
       var changePwBtn = document.getElementById("matrix-change-pw-btn");
       if (addBtn) addBtn.addEventListener("click", function() { openMatrixCreateUserModal(unit, name, icon); });
       if (changePwBtn) changePwBtn.addEventListener("click", function() { openMatrixChangePasswordModal(unit, name, icon); });
+    }
+
+    if (unit === "root-password-setup.service") {
+      var sysPwBtn = document.getElementById("sys-change-pw-btn");
+      if (sysPwBtn) sysPwBtn.addEventListener("click", function() { openSystemChangePasswordModal(unit, name, icon); });
     }
 
     if (data.feature) {
@@ -526,6 +535,65 @@ function openMatrixChangePasswordModal(unit, name, icon) {
       resultEl.textContent = "✅ Password for @" + escHtml(resp.username) + " changed successfully.";
       submitBtn.textContent = "Change Password";
       submitBtn.disabled = false;
+    } catch (err) {
+      resultEl.className = "matrix-form-result error";
+      resultEl.textContent = "❌ " + (err.message || "Failed to change password.");
+      submitBtn.textContent = "Change Password";
+      submitBtn.disabled = false;
+    }
+  });
+}
+
+function openSystemChangePasswordModal(unit, name, icon) {
+  if (!$credsBody) return;
+  $credsBody.innerHTML =
+    '<div class="matrix-form-group"><label class="matrix-form-label" for="sys-chpw-new">New Password</label>' +
+    '<input class="matrix-form-input" type="password" id="sys-chpw-new" placeholder="New strong password" autocomplete="new-password"></div>' +
+    '<div class="matrix-form-group"><label class="matrix-form-label" for="sys-chpw-confirm">Confirm Password</label>' +
+    '<input class="matrix-form-input" type="password" id="sys-chpw-confirm" placeholder="Confirm new password" autocomplete="new-password"></div>' +
+    '<div class="matrix-form-actions">' +
+    '<button class="matrix-form-back" id="sys-chpw-back-btn">← Back</button>' +
+    '<button class="matrix-form-submit" id="sys-chpw-submit-btn">Change Password</button>' +
+    '</div>' +
+    '<div class="matrix-form-result" id="sys-chpw-result"></div>';
+
+  document.getElementById("sys-chpw-back-btn").addEventListener("click", function() {
+    openServiceDetailModal(unit, name, icon);
+  });
+
+  document.getElementById("sys-chpw-submit-btn").addEventListener("click", async function() {
+    var submitBtn = document.getElementById("sys-chpw-submit-btn");
+    var resultEl = document.getElementById("sys-chpw-result");
+    var newPassword = document.getElementById("sys-chpw-new").value || "";
+    var confirmPassword = document.getElementById("sys-chpw-confirm").value || "";
+
+    if (!newPassword || !confirmPassword) {
+      resultEl.className = "matrix-form-result error";
+      resultEl.textContent = "Both password fields are required.";
+      return;
+    }
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Changing…";
+    resultEl.className = "matrix-form-result";
+    resultEl.textContent = "";
+
+    try {
+      await apiFetch("/api/change-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ new_password: newPassword, confirm_password: confirmPassword })
+      });
+      resultEl.className = "matrix-form-result success";
+      resultEl.textContent = "✅ System password changed successfully.";
+      submitBtn.textContent = "Change Password";
+      submitBtn.disabled = false;
+      // Hide the legacy security banner if it's visible
+      if (typeof _securityIsLegacy !== "undefined" && _securityIsLegacy) {
+        _securityIsLegacy = false;
+        var banner = document.querySelector(".security-inline-banner");
+        if (banner) banner.remove();
+      }
     } catch (err) {
       resultEl.className = "matrix-form-result error";
       resultEl.textContent = "❌ " + (err.message || "Failed to change password.");
