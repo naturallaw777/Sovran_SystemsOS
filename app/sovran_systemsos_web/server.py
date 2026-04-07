@@ -1503,6 +1503,80 @@ _btc_version_cache: tuple[float, dict | None] = (0.0, None)
 _BTC_VERSION_CACHE_TTL = 60  # seconds — version doesn't change at runtime
 
 
+# ── Generic service version detection ────────────────────────────
+
+# Map service unit names to CLI commands that print a version string.
+# Only include services where a reliable --version flag exists.
+_SERVICE_VERSION_COMMANDS: dict[str, list[str]] = {
+    "electrs.service":              ["electrs", "--version"],
+    "lnd.service":                  ["lnd", "--version"],
+    "caddy.service":                ["caddy", "version"],
+    "tor.service":                  ["tor", "--version"],
+    "livekit.service":              ["livekit-server", "--version"],
+    "vaultwarden.service":          ["vaultwarden", "--version"],
+    "btcpayserver.service":         ["btcpay-server", "--version"],
+    "matrix-synapse.service":       ["python3", "-c", "import synapse; print(synapse.__version__)"],
+    "gnome-remote-desktop.service": ["grdctl", "--version"],
+}
+
+# Cache: unit → (monotonic_timestamp, version_str | None)
+_svc_version_cache: dict[str, tuple[float, str | None]] = {}
+_SVC_VERSION_CACHE_TTL = 300  # 5 minutes — versions only change on system update
+
+
+def _parse_version_from_output(output: str) -> str | None:
+    """Extract the first semver-like version number from command output.
+
+    Handles patterns such as:
+      'electrs 0.10.5'
+      'lnd version 0.18.4-beta commit=v0.18.4-beta'
+      'Tor version 0.4.8.12.'
+      'v2.7.6 h1:...'
+    Returns a string starting with 'v', e.g. 'v0.10.5', or None.
+    """
+    m = re.search(r"v?(\d+\.\d+(?:\.\d+(?:\.\d+)?)?(?:[+-][a-zA-Z0-9]+(?:\.[a-zA-Z0-9]+)*)?)", output)
+    if m:
+        ver = m.group(0)
+        if not ver.startswith("v"):
+            ver = "v" + ver
+        return ver
+    return None
+
+
+def _get_service_version(unit: str) -> str | None:
+    """Return a version string for *unit*, using a CLI command when available.
+
+    Results are cached for _SVC_VERSION_CACHE_TTL seconds so that repeated
+    /api/services polls don't re-exec binaries on every request.  Returns
+    None if no version command is configured or if the command fails.
+    """
+    now = time.monotonic()
+    cached = _svc_version_cache.get(unit)
+    if cached is not None:
+        cached_at, cached_val = cached
+        if now - cached_at < _SVC_VERSION_CACHE_TTL:
+            return cached_val
+
+    version: str | None = None
+    cmd = _SERVICE_VERSION_COMMANDS.get(unit)
+    if cmd:
+        try:
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            output_raw = result.stdout.strip() or result.stderr.strip()
+            output = output_raw.splitlines()[0] if output_raw else ""
+            version = _parse_version_from_output(output)
+        except Exception:
+            pass
+
+    _svc_version_cache[unit] = (now, version)
+    return version
+
+
 def _parse_bitcoin_subversion(subversion: str) -> str:
     """Parse a subversion string like '/Bitcoin Knots:27.1.0/' into 'v27.1.0'.
 
@@ -1737,7 +1811,13 @@ async def api_services():
             ver_info = await loop.run_in_executor(None, _get_bitcoin_version_info)
             if ver_info is not None:
                 subversion = ver_info.get("subversion", "")
-                service_data["bitcoin_version"] = _parse_bitcoin_subversion(subversion)
+                btc_ver = _parse_bitcoin_subversion(subversion)
+                service_data["bitcoin_version"] = btc_ver  # backwards compat
+                service_data["version"] = btc_ver
+        else:
+            svc_ver = await loop.run_in_executor(None, _get_service_version, unit)
+            if svc_ver is not None:
+                service_data["version"] = svc_ver
         return service_data
 
     results = await asyncio.gather(*[get_status(s) for s in services])
@@ -2015,7 +2095,14 @@ async def api_service_detail(unit: str, icon: str | None = None):
         ver_info = await loop.run_in_executor(None, _get_bitcoin_version_info)
         if ver_info is not None:
             subversion = ver_info.get("subversion", "")
-            service_detail["bitcoin_version"] = _parse_bitcoin_subversion(subversion)
+            btc_ver = _parse_bitcoin_subversion(subversion)
+            service_detail["bitcoin_version"] = btc_ver  # backwards compat
+            service_detail["version"] = btc_ver
+    else:
+        loop = asyncio.get_event_loop()
+        svc_ver = await loop.run_in_executor(None, _get_service_version, unit)
+        if svc_ver is not None:
+            service_detail["version"] = svc_ver
     return service_detail
 
 
