@@ -22,4 +22,20 @@
 
   # ─── Add your custom NixOS configuration below ───────────
 
+  # ─── Custom Caddy virtual hosts ──────────────────────────
+  # Uncomment and edit below to add your own Caddy sites:
+  #
+  # sovran_systemsOS.caddy.extraVirtualHosts = ''
+  #   mysite.example.com {
+  #     encode gzip zstd
+  #     root * /var/lib/www/mysite
+  #     php_fastcgi unix//run/phpfpm/mypool.sock
+  #     file_server browse
+  #   }
+  #
+  #   anotherdomain.com {
+  #     reverse_proxy localhost:9090
+  #   }
+  # '';
+
 }

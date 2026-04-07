@@ -60,6 +60,15 @@
       };
     };
 
+    # ── Caddy customisation ───────────────────────────────────
+    caddy = {
+      extraVirtualHosts = lib.mkOption {
+        type = lib.types.lines;
+        default = "";
+        description = "Additional raw Caddyfile blocks appended to the generated Caddy config. Use this in custom.nix to add custom domains and reverse proxies.";
+      };
+    };
+
     # ── Domain setup registry ─────────────────────────────────
     domainRequirements = lib.mkOption {
       type = lib.types.listOf (lib.types.submodule {
