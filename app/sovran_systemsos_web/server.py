@@ -1572,14 +1572,17 @@ def _parse_bitcoin_subversion(subversion: str) -> str:
     """Parse a subversion string like '/Bitcoin Knots:27.1.0/' into 'v27.1.0'.
 
     Examples:
-      '/Bitcoin Knots:27.1.0/'        → 'v27.1.0'
-      '/Satoshi:27.0.0/'              → 'v27.0.0'
-      '/Bitcoin Knots:27.1.0(bip110)/' → 'v27.1.0'
+      '/Bitcoin Knots:27.1.0/'          → 'v27.1.0'
+      '/Satoshi:27.0.0/'                → 'v27.0.0'
+      '/Bitcoin Knots:27.1.0(bip110)/'  → 'v27.1.0 (bip110)'
     Falls back to the raw subversion string if parsing fails.
     """
     m = re.search(r":(\d+\.\d+(?:\.\d+)*)", subversion)
     if m:
-        return "v" + m.group(1)
+        ver = "v" + m.group(1)
+        if "(bip110)" in subversion.lower():
+            ver += " (bip110)"
+        return ver
     return subversion
 
 
@@ -1798,14 +1801,14 @@ async def api_services():
             service_data["sync_progress"] = sync_progress
             service_data["sync_blocks"] = sync_blocks
             service_data["sync_headers"] = sync_headers
-        if unit == "bitcoind.service":
+        if unit == "bitcoind.service" and enabled:
             ver_info = await loop.run_in_executor(None, _get_bitcoin_version_info)
             if ver_info is not None:
                 subversion = ver_info.get("subversion", "")
                 btc_ver = _parse_bitcoin_subversion(subversion)
                 service_data["bitcoin_version"] = btc_ver  # backwards compat
                 service_data["version"] = btc_ver
-        else:
+        elif unit != "bitcoind.service":
             svc_ver = await loop.run_in_executor(None, _get_service_version, unit)
             if svc_ver is not None:
                 service_data["version"] = svc_ver
@@ -2081,7 +2084,7 @@ async def api_service_detail(unit: str, icon: str | None = None):
         service_detail["sync_progress"] = sync_progress
         service_detail["sync_blocks"] = sync_blocks
         service_detail["sync_headers"] = sync_headers
-    if unit == "bitcoind.service":
+    if unit == "bitcoind.service" and enabled:
         loop = asyncio.get_event_loop()
         ver_info = await loop.run_in_executor(None, _get_bitcoin_version_info)
         if ver_info is not None:
@@ -2089,7 +2092,7 @@ async def api_service_detail(unit: str, icon: str | None = None):
             btc_ver = _parse_bitcoin_subversion(subversion)
             service_detail["bitcoin_version"] = btc_ver  # backwards compat
             service_detail["version"] = btc_ver
-    else:
+    elif unit != "bitcoind.service":
         loop = asyncio.get_event_loop()
         svc_ver = await loop.run_in_executor(None, _get_service_version, unit)
         if svc_ver is not None:
