@@ -131,10 +131,12 @@ function buildTile(svc) {
     var pct = Math.round((svc.sync_progress || 0) * 100);
     var id = tileId(svc);
     var eta = _calcBtcEta(id, svc.sync_progress || 0);
+    var versionLabel = svc.bitcoin_version ? '<div class="tile-version">' + escHtml(svc.bitcoin_version) + '</div>' : '';
     tile.innerHTML =
       '<img class="tile-icon" src="/static/icons/' + escHtml(svc.icon) + '.svg" alt="' + escHtml(svc.name) + '" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'">' +
       '<div class="tile-icon-fallback" style="display:none">?</div>' +
       '<div class="tile-name">' + escHtml(svc.name) + '</div>' +
+      versionLabel +
       '<div class="tile-sync-container">' +
         '<div class="tile-sync-label">\u23F3 Syncing Timechain</div>' +
         '<div class="tile-sync-bar-row">' +
@@ -150,7 +152,8 @@ function buildTile(svc) {
     return tile;
   }
 
-  tile.innerHTML = '<img class="tile-icon" src="/static/icons/' + escHtml(svc.icon) + '.svg" alt="' + escHtml(svc.name) + '" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'"><div class="tile-icon-fallback" style="display:none">?</div><div class="tile-name">' + escHtml(svc.name) + '</div><div class="tile-status"><span class="status-dot ' + sc + '"></span><span class="status-text">' + st + '</span></div>';
+  var versionLabel = svc.bitcoin_version ? '<div class="tile-version">' + escHtml(svc.bitcoin_version) + '</div>' : '';
+  tile.innerHTML = '<img class="tile-icon" src="/static/icons/' + escHtml(svc.icon) + '.svg" alt="' + escHtml(svc.name) + '" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'"><div class="tile-icon-fallback" style="display:none">?</div><div class="tile-name">' + escHtml(svc.name) + '</div>' + versionLabel + '<div class="tile-status"><span class="status-dot ' + sc + '"></span><span class="status-text">' + st + '</span></div>';
 
   tile.style.cursor = "pointer";
   tile.addEventListener("click", function() {
@@ -204,6 +207,21 @@ function updateTiles(services) {
       if (fill) fill.style.width = pct + "%";
       if (pctEl) pctEl.textContent = pct + "%";
       if (etaEl) etaEl.textContent = etaText;
+      // Update or insert version label
+      if (svc.bitcoin_version) {
+        var syncVerEl = tile.querySelector(".tile-version");
+        if (syncVerEl) {
+          syncVerEl.textContent = svc.bitcoin_version;
+        } else {
+          var syncNameEl = tile.querySelector(".tile-name");
+          if (syncNameEl) {
+            var newSyncVerEl = document.createElement("div");
+            newSyncVerEl.className = "tile-version";
+            newSyncVerEl.textContent = svc.bitcoin_version;
+            syncNameEl.insertAdjacentElement("afterend", newSyncVerEl);
+          }
+        }
+      }
     } else {
       // IBD finished or not syncing — if tile had sync layout rebuild it normally
       if (tile.querySelector(".tile-sync-container")) {
@@ -218,6 +236,21 @@ function updateTiles(services) {
       var text = tile.querySelector(".status-text");
       if (dot) dot.className = "status-dot " + sc;
       if (text) text.textContent = st;
+      // Update or insert version label for bitcoind tiles
+      if (svc.bitcoin_version) {
+        var verEl = tile.querySelector(".tile-version");
+        if (verEl) {
+          verEl.textContent = svc.bitcoin_version;
+        } else {
+          var nameEl = tile.querySelector(".tile-name");
+          if (nameEl) {
+            var newVerEl = document.createElement("div");
+            newVerEl.className = "tile-version";
+            newVerEl.textContent = svc.bitcoin_version;
+            nameEl.insertAdjacentElement("afterend", newVerEl);
+          }
+        }
+      }
     }
   }
 }
