@@ -69,7 +69,12 @@ lib.mkIf config.sovran_systemsOS.services.bitcoin {
   };
 
   nix-bitcoin.useVersionLockedPkgs = false;
-  
+
+  systemd.tmpfiles.rules = [
+    "d /run/media/Second_Drive/BTCEcoandBackup/Bitcoin_Node 0770 bitcoin bitcoin -"
+    "d /run/media/Second_Drive/BTCEcoandBackup/Electrs_Data 0770 electrs electrs -"
+  ];
+
    sovran_systemsOS.domainRequirements = [
     { name = "btcpayserver"; label = "BTCPay Server"; example = "pay.yourdomain.com"; }
   ];
