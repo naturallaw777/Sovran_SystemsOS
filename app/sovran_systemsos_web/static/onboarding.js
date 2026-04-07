@@ -84,6 +84,11 @@ function updateProgress(step) {
 }
 
 function showStep(step) {
+  // Clear any active tunnel polling timer when navigating away from step 3
+  if (_tunnelPollTimer !== null) {
+    clearInterval(_tunnelPollTimer);
+    _tunnelPollTimer = null;
+  }
   for (var i = 1; i <= TOTAL_STEPS; i++) {
     var panel = document.getElementById("step-" + i);
     if (panel) panel.style.display = (i === step) ? "" : "none";
