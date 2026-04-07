@@ -14,6 +14,28 @@ LOGO = "/etc/sovran/logo.png"
 LOG = "/tmp/sovran-install.log"
 FLAKE = "/etc/sovran/flake"
 
+DEPLOYED_FLAKE = """\
+{
+  description = "Sovran_SystemsOS for the Sovran Pro from Sovran Systems";
+
+  inputs = {
+    Sovran_Systems.url = "git+https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS";
+  };
+
+  outputs = { self, Sovran_Systems, ... }@inputs: {
+    nixosConfigurations."nixos" = Sovran_Systems.inputs.nixpkgs.lib.nixosSystem {
+      modules = [
+        { nixpkgs.hostPlatform = "x86_64-linux"; }
+        ./hardware-configuration.nix
+        ./role-state.nix
+        ./custom.nix
+        Sovran_Systems.nixosModules.Sovran_SystemsOS
+      ];
+    };
+  };
+}
+"""
+
 try:
     logfile = open(LOG, "a")
     atexit.register(logfile.close)
@@ -932,6 +954,19 @@ class InstallerWindow(Adw.ApplicationWindow):
             if entry not in keep:
                 path = os.path.join(nixos_dir, entry)
                 run(["sudo", "rm", "-rf", path])
+
+        GLib.idle_add(append_text, buf, "Writing deployed flake.nix...\n")
+        proc = subprocess.run(
+            ["sudo", "tee", "/mnt/etc/nixos/flake.nix"],
+            input=DEPLOYED_FLAKE,
+            capture_output=True,
+            text=True,
+        )
+        log(proc.stdout)
+        if proc.returncode != 0:
+            log(proc.stderr)
+            raise RuntimeError(proc.stderr.strip() or "Failed to write deployed flake.nix")
+        run(["sudo", "rm", "-f", "/mnt/etc/nixos/flake.lock"])
 
         GLib.idle_add(self.push_create_password)
 
