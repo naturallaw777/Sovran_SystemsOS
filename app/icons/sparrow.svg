@@ -1,8 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
 <!-- Created with Vectornator (http://vectornator.io/) -->
-<svg height="50.0pt" stroke-miterlimit="10" style="fill-rule:nonzero;clip-rule:evenodd;stroke-linecap:round;stroke-linejoin:round;" version="1.1" viewBox="0 0 50 50" width="50.0pt" xml:space="preserve" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
-<defs/>
+<svg stroke-miterlimit="10" style="fill-rule:nonzero;clip-rule:evenodd;stroke-linecap:round;stroke-linejoin:round;" version="1.1" viewBox="8.789 8.791 32.422 32.418" xml:space="preserve" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
 <g id="Untitled">
 <path d="M38.8519 23.6353L38.3818 24.2217L41.2105 25.0446L41.2105 24.8132L39.3844 23.4968L38.8519 23.6353Z" fill="#d3d3d3" fill-rule="evenodd" opacity="1" stroke="none"/>
 <path d="M37.9843 25.2648L38.7188 25.2376L40.119 25.1551L41.2106 25.0446L38.3819 24.2217L37.5381 23.9764L37.9843 25.2648Z" fill="#8c8c8c" fill-rule="evenodd" opacity="1" stroke="none"/>
@@ -33,10 +32,6 @@
 <path d="M33.3183 23.734L33.4046 23.7318L33.3156 23.712L33.3183 23.734Z" fill="#3a3a3a" fill-rule="evenodd" opacity="1" stroke="none"/>
 <path d="M35.6779 22.9627L36.1535 23.0497L35.9139 23.2419L35.9653 23.6626L33.4046 23.7318L33.3156 23.7119L33.2366 23.6942L33.3202 23.7046L35.6779 22.9627Z" fill="#484848" fill-rule="evenodd" opacity="1" stroke="none"/>
 <g opacity="1">
-<clipPath clip-rule="evenodd" id="ClipPath">
-<path d="M8.78942 8.79142L41.2106 8.79142L41.2106 41.2086L8.78942 41.2086L8.78942 8.79142Z"/>
-</clipPath>
-<g clip-path="url(#ClipPath)">
 <path d="M34.0372 36.0387C34.0712 36.1212 34.0023 36.4077 34.0023 36.4077L33.5773 36.8313L33.6938 36.4622L33.8655 36.1594L33.6598 35.7359L32.671 35.3941L32.9253 35.7904L33.1998 36.4077L32.8904 36.6L32.4305 37.0795L32.5682 36.628L32.8904 36.2972C32.8904 36.2972 32.705 35.9834 32.671 35.8729C32.6361 35.7631 32.0394 35.3661 32.0394 35.3661L31.8677 35.1186L32.8106 35.0124L32.8115 35.0124L34.14 35.3116L34.14 35.8729L33.9683 35.5038L33.3706 35.3388L33.8655 35.6526C33.8655 35.6526 34.0023 35.9554 34.0372 36.0387" fill="#484848" fill-rule="evenodd" opacity="1" stroke="none"/>
 <path d="M32.8106 35.0124L31.8677 35.1186L30.2958 34.3251L32.4994 34.9425L32.8106 35.0124Z" fill="#7f7f7f" fill-rule="evenodd" opacity="1" stroke="none"/>
 <path d="M31.9016 15.918L32.4305 17.3559L30.3894 21.9646L29.6981 23.5248L29.9561 20.9605L30.0994 19.5358L30.2352 18.1869L30.2958 18.2348L30.2728 18.1354L31.9016 15.918Z" fill="#585858" fill-rule="evenodd" opacity="1" stroke="none"/>
@@ -111,7 +106,6 @@
 <path d="M19.0735 19.0024L11.2675 17.3287L9.45504 15.5216L9.38617 15.0538L9.62673 14.8226L12.4959 16.5625C12.4959 16.5625 16.2373 18.0278 16.443 18.1383C16.6487 18.248 18.1664 18.7549 18.1664 18.7549L19.0735 19.0024Z" fill="#9a9a9a" fill-rule="evenodd" opacity="1" stroke="none"/>
 <path d="M19.2993 22.4353L11.463 20.7601L11.542 20.7704L9.59278 19.9608L8.99511 19.2617L8.78939 18.6724L9.06398 18.4411L11.3354 19.1792L11.24 19.1166L19.5114 22.4802L19.2993 22.4353Z" fill="#9a9a9a" fill-rule="evenodd" opacity="1" stroke="none"/>
 <path d="M11.4621 20.7601L11.4631 20.7601L19.2993 22.4353L10.8552 22.2357L10.073 21.5918L9.79847 20.8367L9.90129 20.5502L11.4621 20.7601Z" fill="#484848" fill-rule="evenodd" opacity="1" stroke="none"/>
-</g>
 </g>
 </g>
 </svg>
