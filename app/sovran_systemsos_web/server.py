@@ -2955,7 +2955,197 @@ async def api_security_status():
 
 # ── System password change ────────────────────────────────────────
 
-FREE_PASSWORD_FILE = "/var/lib/secrets/free-password"
+FREE_PASSWORD_FILE      = "/var/lib/secrets/free-password"
+ROOT_PASSWORD_FILE      = "/var/lib/secrets/root-password"
+SSH_PASSPHRASE_FILE     = "/var/lib/secrets/ssh-passphrase"
+SSH_KEY_PATH            = "/home/free/.ssh/factory_login"
+SSH_AUTHORIZED_KEYS_ROOT = "/root/.ssh/authorized_keys"
+
+
+def _find_nix_binary(name: str) -> str | None:
+    """Locate a binary that may live in the Nix store rather than /usr/bin.
+
+    Search order:
+    1. PATH via shutil.which()
+    2. /run/current-system/sw/bin/<name>   (NixOS system profile)
+    3. nix store scan via `find` (last resort, slow)
+    """
+    path = shutil.which(name)
+    if path:
+        return path
+    system_bin = f"/run/current-system/sw/bin/{name}"
+    if os.path.isfile(system_bin):
+        return system_bin
+    try:
+        result = subprocess.run(
+            ["find", "/nix/store", "-name", name, "-type", "f", "-path", f"*/bin/{name}"],
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+        candidates = [line.strip() for line in result.stdout.splitlines() if line.strip()]
+        if candidates:
+            return candidates[0]
+    except Exception:
+        pass
+    return None
+
+
+def _regenerate_root_password() -> tuple[bool, str]:
+    """Generate a new random root password, update /etc/shadow, and persist it.
+
+    Returns (success, error_message).
+    """
+    pwgen_bin = _find_nix_binary("pwgen")
+    if not pwgen_bin:
+        return False, "pwgen binary not found"
+    chpasswd_bin = _find_nix_binary("chpasswd")
+    if not chpasswd_bin:
+        return False, "chpasswd binary not found"
+
+    try:
+        result = subprocess.run(
+            [pwgen_bin, "-s", "20", "1"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        if result.returncode != 0:
+            return False, f"pwgen failed: {(result.stderr or result.stdout).strip()}"
+        new_root_pass = result.stdout.strip()
+        if not new_root_pass:
+            return False, "pwgen returned empty password"
+    except Exception as exc:
+        return False, f"pwgen error: {exc}"
+
+    try:
+        result = subprocess.run(
+            [chpasswd_bin],
+            input=f"root:{new_root_pass}",
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        if result.returncode != 0:
+            return False, f"chpasswd failed: {(result.stderr or result.stdout).strip()}"
+    except Exception as exc:
+        return False, f"chpasswd error: {exc}"
+
+    try:
+        os.makedirs(os.path.dirname(ROOT_PASSWORD_FILE), exist_ok=True)
+        with open(ROOT_PASSWORD_FILE, "w") as f:
+            f.write(new_root_pass)
+        os.chmod(ROOT_PASSWORD_FILE, 0o600)
+    except Exception as exc:
+        return False, f"Failed to write root password file: {exc}"
+
+    return True, ""
+
+
+def _regenerate_ssh_key() -> tuple[bool, str]:
+    """Generate a new SSH passphrase and key pair for the free user.
+
+    Returns (success, error_message).
+    """
+    pwgen_bin = _find_nix_binary("pwgen")
+    if not pwgen_bin:
+        return False, "pwgen binary not found"
+    ssh_keygen_bin = _find_nix_binary("ssh-keygen")
+    if not ssh_keygen_bin:
+        return False, "ssh-keygen binary not found"
+    chown_bin = _find_nix_binary("chown")
+    if not chown_bin:
+        return False, "chown binary not found"
+
+    # Generate new passphrase
+    try:
+        result = subprocess.run(
+            [pwgen_bin, "-s", "20", "1"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        if result.returncode != 0:
+            return False, f"pwgen failed: {(result.stderr or result.stdout).strip()}"
+        new_passphrase = result.stdout.strip()
+        if not new_passphrase:
+            return False, "pwgen returned empty passphrase"
+    except Exception as exc:
+        return False, f"pwgen error: {exc}"
+
+    # Persist passphrase
+    try:
+        os.makedirs(os.path.dirname(SSH_PASSPHRASE_FILE), exist_ok=True)
+        with open(SSH_PASSPHRASE_FILE, "w") as f:
+            f.write(new_passphrase)
+        os.chmod(SSH_PASSPHRASE_FILE, 0o600)
+    except Exception as exc:
+        return False, f"Failed to write SSH passphrase file: {exc}"
+
+    # Remove old key pair
+    for key_file in (SSH_KEY_PATH, f"{SSH_KEY_PATH}.pub"):
+        try:
+            os.remove(key_file)
+        except FileNotFoundError:
+            pass
+        except Exception as exc:
+            return False, f"Failed to remove old SSH key {key_file}: {exc}"
+
+    # Remove old public key from root's authorized_keys (lines containing factory_login)
+    try:
+        if os.path.isfile(SSH_AUTHORIZED_KEYS_ROOT):
+            with open(SSH_AUTHORIZED_KEYS_ROOT, "r") as f:
+                lines = f.readlines()
+            filtered = [ln for ln in lines if "factory_login" not in ln]
+            with open(SSH_AUTHORIZED_KEYS_ROOT, "w") as f:
+                f.writelines(filtered)
+    except Exception as exc:
+        return False, f"Failed to update authorized_keys: {exc}"
+
+    # Regenerate key pair
+    try:
+        os.makedirs(os.path.dirname(SSH_KEY_PATH), exist_ok=True)
+        result = subprocess.run(
+            [ssh_keygen_bin, "-q", "-N", new_passphrase, "-t", "ed25519", "-f", SSH_KEY_PATH],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        if result.returncode != 0:
+            return False, f"ssh-keygen failed: {(result.stderr or result.stdout).strip()}"
+    except Exception as exc:
+        return False, f"ssh-keygen error: {exc}"
+
+    # Fix ownership and permissions
+    try:
+        for key_file in (SSH_KEY_PATH, f"{SSH_KEY_PATH}.pub"):
+            subprocess.run(
+                [chown_bin, "free:users", key_file],
+                capture_output=True,
+                timeout=10,
+            )
+        os.chmod(SSH_KEY_PATH, 0o600)
+        os.chmod(f"{SSH_KEY_PATH}.pub", 0o644)
+    except Exception as exc:
+        return False, f"Failed to fix SSH key permissions: {exc}"
+
+    # Add new public key to root's authorized_keys
+    try:
+        with open(f"{SSH_KEY_PATH}.pub", "r") as f:
+            pub_key = f.read().strip()
+        os.makedirs(os.path.dirname(SSH_AUTHORIZED_KEYS_ROOT), exist_ok=True)
+        if not os.path.isfile(SSH_AUTHORIZED_KEYS_ROOT):
+            open(SSH_AUTHORIZED_KEYS_ROOT, "w").close()
+        with open(SSH_AUTHORIZED_KEYS_ROOT, "r") as f:
+            existing = f.read()
+        if pub_key not in existing:
+            with open(SSH_AUTHORIZED_KEYS_ROOT, "a") as f:
+                f.write(pub_key + "\n")
+        os.chmod(SSH_AUTHORIZED_KEYS_ROOT, 0o600)
+    except Exception as exc:
+        return False, f"Failed to authorize new SSH key: {exc}"
+
+    return True, ""
 
 
 class ChangePasswordRequest(BaseModel):
@@ -2965,12 +3155,13 @@ class ChangePasswordRequest(BaseModel):
 
 @app.post("/api/change-password")
 async def api_change_password(req: ChangePasswordRequest):
-    """Change the system 'free' user password.
+    """Change the system 'free' user password and, on legacy machines, also
+    regenerate the root password and SSH key pair.
 
     Updates /etc/shadow via chpasswd and writes the new password to
     /var/lib/secrets/free-password so the Hub credentials view stays in sync.
-    Also clears the legacy security-status and security-warning files so the
-    security banner disappears after a successful change.
+    On legacy machines (security-status == "legacy"), additionally regenerates
+    the root password and SSH passphrase/key before clearing the security warning.
     """
     if not req.new_password:
         raise HTTPException(status_code=400, detail="New password must not be empty.")
@@ -2980,11 +3171,7 @@ async def api_change_password(req: ChangePasswordRequest):
         raise HTTPException(status_code=400, detail="Password must be at least 8 characters long.")
 
     # Locate chpasswd binary (NixOS puts it in the Nix store, not /usr/bin)
-    chpasswd_bin = (
-        shutil.which("chpasswd")
-        or ("/run/current-system/sw/bin/chpasswd"
-            if os.path.isfile("/run/current-system/sw/bin/chpasswd") else None)
-    )
+    chpasswd_bin = _find_nix_binary("chpasswd")
     if chpasswd_bin is None:
         raise HTTPException(
             status_code=500,
@@ -3016,16 +3203,61 @@ async def api_change_password(req: ChangePasswordRequest):
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Failed to write secrets file: {exc}")
 
-    # Clear legacy security status so the warning banner is removed
-    for path in (SECURITY_STATUS_FILE, SECURITY_WARNING_FILE):
-        try:
-            os.remove(path)
-        except FileNotFoundError:
-            pass
-        except Exception:
-            pass  # Non-fatal; don't block a successful password change
+    # Check if this is a legacy machine — if so, regenerate root and SSH credentials
+    is_legacy = False
+    try:
+        with open(SECURITY_STATUS_FILE, "r") as f:
+            is_legacy = f.read().strip() == "legacy"
+    except FileNotFoundError:
+        pass
+    except Exception:
+        pass
 
-    return {"ok": True}
+    root_regenerated = False
+    ssh_regenerated = False
+    root_error = ""
+    ssh_error = ""
+
+    if is_legacy:
+        root_regenerated, root_error = _regenerate_root_password()
+        ssh_regenerated, ssh_error = _regenerate_ssh_key()
+
+    # Clear legacy security status only after all credential changes have been attempted.
+    # On legacy machines, only mark as cleared if all three credentials were updated.
+    security_cleared = False
+    if is_legacy:
+        all_regenerated = root_regenerated and ssh_regenerated
+        removed_count = 0
+        for path in (SECURITY_STATUS_FILE, SECURITY_WARNING_FILE):
+            try:
+                os.remove(path)
+                removed_count += 1
+            except FileNotFoundError:
+                removed_count += 1  # Already gone counts as cleared
+            except Exception:
+                pass
+        security_cleared = all_regenerated and (removed_count == 2)
+    else:
+        # Non-legacy: clear whatever security files might exist
+        for path in (SECURITY_STATUS_FILE, SECURITY_WARNING_FILE):
+            try:
+                os.remove(path)
+            except FileNotFoundError:
+                pass
+            except Exception:
+                pass
+
+    response: dict = {"ok": True}
+    if is_legacy:
+        response["root_regenerated"] = root_regenerated
+        response["ssh_regenerated"] = ssh_regenerated
+        response["security_cleared"] = security_cleared
+        if root_error:
+            response["root_error"] = root_error
+        if ssh_error:
+            response["ssh_error"] = ssh_error
+
+    return response
 
 
 # ── Matrix user management ────────────────────────────────────────
