@@ -38,9 +38,6 @@ if ($upgradeCloseBtn) $upgradeCloseBtn.addEventListener("click", closeUpgradeMod
 if ($upgradeCancelBtn) $upgradeCancelBtn.addEventListener("click", closeUpgradeModal);
 if ($upgradeModal) $upgradeModal.addEventListener("click", function(e) { if (e.target === $upgradeModal) closeUpgradeModal(); });
 
-// Legacy security warning modal — dismiss closes the modal only
-if ($securityWarningDismiss) $securityWarningDismiss.addEventListener("click", closeSecurityWarningModal);
-
 // ── Upgrade modal functions ───────────────────────────────────────
 
 function openUpgradeModal() {
