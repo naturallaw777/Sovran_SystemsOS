@@ -60,7 +60,7 @@ lib.mkIf config.sovran_systemsOS.services.wordpress {
       RemainAfterExit = true;
     };
 
-    path = with pkgs; [ curl unzip wp-cli pwgen php coreutils ];
+    path = with pkgs; [ curl unzip wp-cli pwgen php coreutils shadow util-linux ];
 
     script = ''
       set -euo pipefail
@@ -97,7 +97,7 @@ lib.mkIf config.sovran_systemsOS.services.wordpress {
 
       echo "Generating wp-config.php..."
       cd "$INSTALL_DIR"
-      su -s /bin/sh caddy -c "
+      /run/wrappers/bin/su -s /bin/sh caddy -c "
         wp config create \
           --dbname='$DB_NAME' \
           --dbuser='$DB_USER' \
@@ -108,14 +108,14 @@ lib.mkIf config.sovran_systemsOS.services.wordpress {
 
       echo "Waiting for database..."
       for i in $(seq 1 30); do
-          if su -s /bin/sh caddy -c "wp db check" 2>/dev/null; then
+          if /run/wrappers/bin/su -s /bin/sh caddy -c "wp db check" 2>/dev/null; then
               break
           fi
           sleep 2
       done
 
       echo "Running WordPress core install..."
-      su -s /bin/sh caddy -c "
+      /run/wrappers/bin/su -s /bin/sh caddy -c "
         wp core install \
           --url='https://$DOMAIN' \
           --title='Sovran_SystemsOS' \
@@ -125,7 +125,7 @@ lib.mkIf config.sovran_systemsOS.services.wordpress {
           --skip-email
       "
 
-      su -s /bin/sh caddy -c "
+      /run/wrappers/bin/su -s /bin/sh caddy -c "
         wp option update blogdescription 'Powered by Sovran_SystemsOS'
         wp option update permalink_structure '/%postname%/'
         wp option update default_ping_status 'closed'
@@ -133,7 +133,7 @@ lib.mkIf config.sovran_systemsOS.services.wordpress {
         wp rewrite flush
       "
 
-      su -s /bin/sh caddy -c "
+      /run/wrappers/bin/su -s /bin/sh caddy -c "
         wp config set DISALLOW_FILE_EDIT true --raw
         wp config set WP_AUTO_UPDATE_CORE true --raw
         wp config set FORCE_SSL_ADMIN true --raw
