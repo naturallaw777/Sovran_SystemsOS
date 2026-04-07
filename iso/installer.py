@@ -1000,24 +1000,27 @@ class InstallerWindow(Adw.ApplicationWindow):
                     raise RuntimeError(proc.stderr.strip() or "Failed to write password file")
                 run(["sudo", "chmod", "600", "/mnt/var/lib/secrets/free-password"])
 
-                # Locate chpasswd in the installed system's Nix store
+                # Find chpasswd in the installed system's Nix store
+                # We run it directly from the host with --root /mnt so it
+                # modifies /mnt/etc/shadow — no chroot needed.
                 chpasswd_find = subprocess.run(
-                    ["sudo", "find", "/mnt/nix/store", "-name", "chpasswd", "-type", "f", "-path", "*/bin/chpasswd"],
+                    ["sudo", "find", "/mnt/nix/store", "-maxdepth", "3",
+                     "-name", "chpasswd", "-type", "f", "-path", "*/bin/chpasswd"],
                     capture_output=True, text=True
                 )
                 chpasswd_paths = chpasswd_find.stdout.strip().splitlines()
                 if not chpasswd_paths:
                     raise RuntimeError("chpasswd binary not found in /mnt/nix/store")
-                # Use the first match; strip the /mnt prefix for chroot-relative path
-                chpasswd_bin = chpasswd_paths[0][len("/mnt"):]
+                # Use the full host path (e.g. /mnt/nix/store/...-shadow-xxx/bin/chpasswd)
+                chpasswd_bin = chpasswd_paths[0]
 
                 proc = subprocess.run(
-                    ["sudo", "chroot", "/mnt", "sh", "-c",
-                     f"echo 'free:{password}' | {chpasswd_bin}"],
+                    ["sudo", chpasswd_bin, "--root", "/mnt"],
+                    input=f"free:{password}",
                     capture_output=True, text=True
                 )
                 if proc.returncode != 0:
-                    raise RuntimeError(proc.stderr.strip() or "Failed to set password in chroot")
+                    raise RuntimeError(proc.stderr.strip() or "Failed to set password")
 
                 run(["sudo", "touch", "/mnt/var/lib/sovran-customer-onboarded"])
             except Exception as e:
