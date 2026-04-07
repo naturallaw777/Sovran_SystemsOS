@@ -101,6 +101,7 @@ const $upgradeCloseBtn    = document.getElementById("upgrade-close-btn");
 
 // Legacy security warning state (populated by checkLegacySecurity in security.js)
 var _securityIsLegacy       = false;
+var _securityStatus         = "ok";  // "ok", "legacy", or "unsealed"
 var _securityWarningMessage = "";
 
 // System status banner
