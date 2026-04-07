@@ -685,7 +685,10 @@ def _check_port_status(
         for pt in ports_set
     )
 
-    if is_listening and is_allowed:
+    # A process bound to the port is the authoritative signal; firewall
+    # detection (nft/iptables) is only used as a secondary hint when nothing
+    # is listening yet.
+    if is_listening:
         return "listening"
     if is_allowed:
         return "firewall_open"

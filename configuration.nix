@@ -97,6 +97,7 @@
   nixpkgs.config.permittedInsecurePackages = [ "jitsi-meet-1.0.8043" ];
 
   environment.systemPackages = with pkgs; [
+    nftables
     git wget fish htop btop
     gnomeExtensions.transparent-top-bar-adjustable-transparency
     gnomeExtensions.dash-to-dock
