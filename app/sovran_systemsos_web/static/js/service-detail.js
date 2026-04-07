@@ -55,7 +55,20 @@ function _attachCopyHandlers(container) {
 
 async function openServiceDetailModal(unit, name, icon) {
   if (!$credsModal) return;
-  if ($credsTitle) $credsTitle.textContent = name;
+  if ($credsTitle) {
+    $credsTitle.innerHTML = '';
+    if (icon) {
+      var iconImg = document.createElement("img");
+      iconImg.className = "creds-title-icon";
+      iconImg.src = "/static/icons/" + escHtml(icon) + ".svg";
+      iconImg.alt = name;
+      iconImg.onerror = function() { this.style.display = "none"; };
+      $credsTitle.appendChild(iconImg);
+    }
+    var nameSpan = document.createElement("span");
+    nameSpan.textContent = name;
+    $credsTitle.appendChild(nameSpan);
+  }
   if ($credsBody) $credsBody.innerHTML = '<p class="creds-loading">Loading…</p>';
   $credsModal.classList.add("open");
 
@@ -370,9 +383,22 @@ async function openServiceDetailModal(unit, name, icon) {
 
 // ── Credentials info modal ────────────────────────────────────────
 
-async function openCredsModal(unit, name) {
+async function openCredsModal(unit, name, icon) {
   if (!$credsModal) return;
-  if ($credsTitle) $credsTitle.textContent = name + " — Connection Info";
+  if ($credsTitle) {
+    $credsTitle.innerHTML = '';
+    if (icon) {
+      var iconImg = document.createElement("img");
+      iconImg.className = "creds-title-icon";
+      iconImg.src = "/static/icons/" + escHtml(icon) + ".svg";
+      iconImg.alt = name;
+      iconImg.onerror = function() { this.style.display = "none"; };
+      $credsTitle.appendChild(iconImg);
+    }
+    var nameSpan = document.createElement("span");
+    nameSpan.textContent = name + " — Connection Info";
+    $credsTitle.appendChild(nameSpan);
+  }
   if ($credsBody) $credsBody.innerHTML = '<p class="creds-loading">Loading…</p>';
   $credsModal.classList.add("open");
   try {
