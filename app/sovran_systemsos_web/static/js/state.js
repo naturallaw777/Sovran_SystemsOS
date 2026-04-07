@@ -99,5 +99,10 @@ const $upgradeConfirmBtn  = document.getElementById("upgrade-confirm-btn");
 const $upgradeCancelBtn   = document.getElementById("upgrade-cancel-btn");
 const $upgradeCloseBtn    = document.getElementById("upgrade-close-btn");
 
+// Legacy security warning modal
+const $securityWarningModal   = document.getElementById("security-warning-modal");
+const $securityWarningMessage = document.getElementById("security-warning-message");
+const $securityWarningDismiss = document.getElementById("security-warning-dismiss-btn");
+
 // System status banner
 // (removed — health is now shown per-tile via the composite health field)

@@ -59,6 +59,11 @@ REBOOT_COMMAND = ["reboot"]
 ONBOARDING_FLAG = "/var/lib/sovran/onboarding-complete"
 AUTOLAUNCH_DISABLE_FLAG = "/var/lib/sovran/hub-autolaunch-disabled"
 
+# ── Legacy security check constants ──────────────────────────────
+
+SECURITY_STATUS_FILE  = "/var/lib/sovran/security-status"
+SECURITY_WARNING_FILE = "/var/lib/sovran/security-warning"
+
 # ── Tech Support constants ────────────────────────────────────────
 
 SUPPORT_KEY_FILE = "/root/.ssh/sovran_support_authorized"
@@ -2914,6 +2919,37 @@ async def api_domains_check(req: DomainCheckRequest):
         loop.run_in_executor(None, check_domain, d) for d in req.domains
     ])
     return {"domains": list(check_results)}
+
+
+# ── Legacy security check ─────────────────────────────────────────
+
+@app.get("/api/security/status")
+async def api_security_status():
+    """Return the legacy security status and warning message, if present.
+
+    Reads /var/lib/sovran/security-status and /var/lib/sovran/security-warning.
+    Returns {"status": "legacy", "warning": "<message>"} for legacy machines,
+    or {"status": "ok", "warning": ""} when the files are absent.
+    """
+    try:
+        with open(SECURITY_STATUS_FILE, "r") as f:
+            status = f.read().strip()
+    except FileNotFoundError:
+        status = "ok"
+
+    warning = ""
+    if status == "legacy":
+        try:
+            with open(SECURITY_WARNING_FILE, "r") as f:
+                warning = f.read().strip()
+        except FileNotFoundError:
+            warning = (
+                "This machine was manufactured before the factory-seal process. "
+                "The default system password may be known to the factory. "
+                "Please change your system and application passwords immediately."
+            )
+
+    return {"status": status, "warning": warning}
 
 
 # ── Matrix user management ────────────────────────────────────────
