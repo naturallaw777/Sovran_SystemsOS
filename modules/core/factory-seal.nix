@@ -100,11 +100,23 @@ in
     };
     path = [ pkgs.coreutils ];
     script = ''
-      # If already onboarded or sealed, nothing to do
-      [ -f /var/lib/sovran-customer-onboarded ] && exit 0
+      # If sealed AND onboarded — fully clean, nothing to do
+      [ -f /var/lib/sovran-factory-sealed ] && [ -f /var/lib/sovran-customer-onboarded ] && exit 0
+
+      # If sealed but not yet onboarded — seal was run, customer hasn't finished setup yet, that's fine
       [ -f /var/lib/sovran-factory-sealed ] && exit 0
 
-      # If secrets exist but no sealed/onboarded flag, this is a legacy machine
+      # If onboarded but NOT sealed — installer ran without factory seal!
+      if [ -f /var/lib/sovran-customer-onboarded ] && [ ! -f /var/lib/sovran-factory-sealed ]; then
+        mkdir -p /var/lib/sovran
+        echo "unsealed" > /var/lib/sovran/security-status
+        cat > /var/lib/sovran/security-warning << 'EOF'
+This machine was set up without the factory seal process. Factory test data — including SSH keys, database contents, and wallet information — may still be present on this system. It is strongly recommended to back up any important data and re-install using a fresh ISO, or contact Sovran Systems support for assistance.
+EOF
+        exit 0
+      fi
+
+      # No flags at all + secrets exist = legacy (pre-seal era) machine
       if [ -f /var/lib/secrets/root-password ]; then
         mkdir -p /var/lib/sovran
         echo "legacy" > /var/lib/sovran/security-status
