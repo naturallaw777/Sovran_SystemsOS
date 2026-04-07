@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Left spine -->
+  <rect fill="#25B135" x="8" y="8" width="12" height="48" rx="3"/>
+  <!-- Upper bump -->
+  <path fill="#25B135" d="M18,8 L30,8 Q48,8 48,22 Q48,36 30,36 L18,36 Z"/>
+  <!-- Lower bump (larger) -->
+  <path fill="#25B135" d="M18,34 L32,34 Q56,34 56,47 Q56,58 36,58 L18,58 Z"/>
+</svg>
