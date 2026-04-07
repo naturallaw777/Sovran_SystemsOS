@@ -329,7 +329,7 @@ main() {
     echo "MGMT_USER=${MGMT_USER}"
     if [[ -n "${HUB_MGMT_PRIVKEY:-}" ]]; then
         # Base64-encode the private key to avoid newline issues in captured output
-        echo "HUB_MGMT_PRIVKEY_B64=$(echo "${HUB_MGMT_PRIVKEY}" | base64 -w 0)"
+        echo "HUB_MGMT_PRIVKEY_B64=$(echo "${HUB_MGMT_PRIVKEY}" | base64 | tr -d '\n')"
         echo "HUB_MGMT_PUBKEY=${HUB_MGMT_PUBKEY}"
     fi
     echo "---SOVRAN-TUNNEL-OUTPUT-END---"

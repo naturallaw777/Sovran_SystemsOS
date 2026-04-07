@@ -2087,13 +2087,13 @@ def _run_tunnel_setup(vps_ip: str, vps_password: str) -> None:
                 ["wg", "genkey"], capture_output=True, text=True, timeout=10
             )
             if priv_result.returncode != 0:
-                raise RuntimeError("wg genkey failed: " + priv_result.stderr)
+                raise RuntimeError("wg genkey failed: " + (priv_result.stderr or ""))
             home_privkey = priv_result.stdout.strip()
             pub_result = subprocess.run(
                 ["wg", "pubkey"], input=home_privkey, capture_output=True, text=True, timeout=10
             )
             if pub_result.returncode != 0:
-                raise RuntimeError("wg pubkey failed: " + pub_result.stderr)
+                raise RuntimeError("wg pubkey failed: " + (pub_result.stderr or ""))
             home_pubkey = pub_result.stdout.strip()
             with open(TUNNEL_WG_PRIVKEY_FILE, "w") as f:
                 f.write(home_privkey + "\n")
@@ -2110,30 +2110,44 @@ def _run_tunnel_setup(vps_ip: str, vps_password: str) -> None:
 
         log(f"── Connecting to VPS at {vps_ip}…")
 
-        # Use sshpass + ssh to run the bootstrap script on the VPS
-        # sshpass is used only for the initial setup; afterwards Hub uses SSH key
+        # Use sshpass + ssh to run the bootstrap script on the VPS.
+        # The password is written to a temp file and deleted immediately after
+        # the SSH call to avoid exposing it in process listings.
         home_wg_ip = "10.99.0.2"
         remote_cmd = (
             f"bash -s -- {shlex.quote(home_pubkey)} {shlex.quote(home_wg_ip)}"
         )
 
-        ssh_cmd = [
-            "sshpass", "-p", vps_password,
-            "ssh",
-            "-o", "StrictHostKeyChecking=no",
-            "-o", "ConnectTimeout=15",
-            f"root@{vps_ip}",
-            remote_cmd,
-        ]
+        import tempfile
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".pw", delete=False) as pwf:
+            pwf.write(vps_password)
+            pw_file = pwf.name
+        os.chmod(pw_file, 0o600)
 
-        log("── Running VPS bootstrap script…")
-        proc = subprocess.Popen(
-            ssh_cmd,
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-        )
+        try:
+            ssh_cmd = [
+                "sshpass", "-f", pw_file,
+                "ssh",
+                "-o", "StrictHostKeyChecking=no",
+                "-o", "ConnectTimeout=15",
+                f"root@{vps_ip}",
+                remote_cmd,
+            ]
+
+            log("── Running VPS bootstrap script…")
+            proc = subprocess.Popen(
+                ssh_cmd,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+            )
+        finally:
+            # Delete the password file immediately regardless of outcome
+            try:
+                os.unlink(pw_file)
+            except OSError:
+                pass
 
         assert proc.stdout is not None
         raw_output_lines: list[str] = []
