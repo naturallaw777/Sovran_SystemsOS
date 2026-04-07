@@ -322,7 +322,7 @@ in
         StandardError  = "journal";
       };
 
-      path = [ pkgs.qrencode ];
+      path = [ pkgs.qrencode ] ++ lib.optional cfg.services.bitcoin config.services.bitcoind.package;
     };
 
     systemd.services.sovran-hub-update = {
