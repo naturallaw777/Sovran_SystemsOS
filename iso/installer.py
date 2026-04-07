@@ -956,12 +956,16 @@ class InstallerWindow(Adw.ApplicationWindow):
                 run(["sudo", "rm", "-rf", path])
 
         GLib.idle_add(append_text, buf, "Writing deployed flake.nix...\n")
-        subprocess.run(
+        proc = subprocess.run(
             ["sudo", "tee", "/mnt/etc/nixos/flake.nix"],
             input=DEPLOYED_FLAKE,
+            capture_output=True,
             text=True,
-            check=True,
         )
+        log(proc.stdout)
+        if proc.returncode != 0:
+            log(proc.stderr)
+            raise RuntimeError(proc.stderr.strip() or "Failed to write deployed flake.nix")
         run(["sudo", "rm", "-f", "/mnt/etc/nixos/flake.lock"])
 
         GLib.idle_add(self.push_create_password)
