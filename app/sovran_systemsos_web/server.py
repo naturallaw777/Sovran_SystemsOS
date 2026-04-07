@@ -2952,6 +2952,69 @@ async def api_security_status():
     return {"status": status, "warning": warning}
 
 
+# ── System password change ────────────────────────────────────────
+
+FREE_PASSWORD_FILE = "/var/lib/secrets/free-password"
+
+
+class ChangePasswordRequest(BaseModel):
+    new_password: str
+    confirm_password: str
+
+
+@app.post("/api/change-password")
+async def api_change_password(req: ChangePasswordRequest):
+    """Change the system 'free' user password.
+
+    Updates /etc/shadow via chpasswd and writes the new password to
+    /var/lib/secrets/free-password so the Hub credentials view stays in sync.
+    Also clears the legacy security-status and security-warning files so the
+    security banner disappears after a successful change.
+    """
+    if not req.new_password:
+        raise HTTPException(status_code=400, detail="New password must not be empty.")
+    if req.new_password != req.confirm_password:
+        raise HTTPException(status_code=400, detail="Passwords do not match.")
+    if len(req.new_password) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters long.")
+
+    # Update /etc/shadow via chpasswd
+    try:
+        result = subprocess.run(
+            ["chpasswd"],
+            input=f"free:{req.new_password}",
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            detail = (result.stderr or result.stdout).strip() or "chpasswd failed."
+            raise HTTPException(status_code=500, detail=detail)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to update system password: {exc}")
+
+    # Write new password to secrets file so Hub credentials stay in sync
+    try:
+        os.makedirs(os.path.dirname(FREE_PASSWORD_FILE), exist_ok=True)
+        with open(FREE_PASSWORD_FILE, "w") as f:
+            f.write(req.new_password)
+        os.chmod(FREE_PASSWORD_FILE, 0o600)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to write secrets file: {exc}")
+
+    # Clear legacy security status so the warning banner is removed
+    for path in (SECURITY_STATUS_FILE, SECURITY_WARNING_FILE):
+        try:
+            os.remove(path)
+        except FileNotFoundError:
+            pass
+        except Exception:
+            pass  # Non-fatal; don't block a successful password change
+
+    return {"ok": True}
+
+
 # ── Matrix user management ────────────────────────────────────────
 
 MATRIX_USERS_FILE = "/var/lib/secrets/matrix-users"

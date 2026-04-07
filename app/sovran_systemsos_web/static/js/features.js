@@ -606,7 +606,7 @@ function renderAutolaunchToggle(enabled) {
       '<div class="security-inline-banner">' +
         '<span class="security-inline-icon">⚠</span>' +
         '<span class="security-inline-text">' + msg + '</span>' +
-        '<a class="security-inline-link" href="/onboarding?step=passwords">Change Passwords</a>' +
+        '<a class="security-inline-link" href="#" onclick="openServiceDetailModal(\'root-password-setup.service\', \'System Passwords\', \'passwords\'); return false;">Change Passwords</a>' +
       '</div>';
   }
 
