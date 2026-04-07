@@ -121,8 +121,7 @@ EOF
 
       # If the free password has been changed from the factory default, no warning needed
       if [ -f /var/lib/secrets/free-password ]; then
-        CURRENT=$(cat /var/lib/secrets/free-password)
-        [ "$CURRENT" != "free" ] && exit 0
+        [ "$(cat /var/lib/secrets/free-password)" != "free" ] && exit 0
       fi
 
       # No flags at all + secrets exist = legacy (pre-seal era) machine
