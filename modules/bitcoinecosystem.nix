@@ -70,10 +70,24 @@ lib.mkIf config.sovran_systemsOS.services.bitcoin {
 
   nix-bitcoin.useVersionLockedPkgs = false;
 
-  systemd.tmpfiles.rules = [
-    "d /run/media/Second_Drive/BTCEcoandBackup/Bitcoin_Node 0770 bitcoin bitcoin -"
-    "d /run/media/Second_Drive/BTCEcoandBackup/Electrs_Data 0770 electrs electrs -"
-  ];
+  systemd.services.sovran-btc-permissions = {
+    description = "Fix Bitcoin/Electrs data directory ownership on second drive";
+    wantedBy = [ "multi-user.target" ];
+    after = [ "run-media-Second_Drive.mount" ];
+    before = [ "bitcoind.service" "electrs.service" ];
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+    };
+    script = ''
+      if [ -d /run/media/Second_Drive/BTCEcoandBackup/Bitcoin_Node ]; then
+        chown -R bitcoin:bitcoin /run/media/Second_Drive/BTCEcoandBackup/Bitcoin_Node
+      fi
+      if [ -d /run/media/Second_Drive/BTCEcoandBackup/Electrs_Data ]; then
+        chown -R electrs:electrs /run/media/Second_Drive/BTCEcoandBackup/Electrs_Data
+      fi
+    '';
+  };
 
    sovran_systemsOS.domainRequirements = [
     { name = "btcpayserver"; label = "BTCPay Server"; example = "pay.yourdomain.com"; }
