@@ -147,6 +147,17 @@ button.btn-reboot:hover:not(:disabled) {
   font-size: 1.15rem;
   font-weight: 700;
   flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.creds-title-icon {
+  width: 28px;
+  height: 28px;
+  vertical-align: middle;
+  border-radius: 6px;
+  flex-shrink: 0;
 }
 
 .creds-close-btn {
