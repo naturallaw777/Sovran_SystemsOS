@@ -2953,6 +2953,17 @@ async def api_security_status():
     return {"status": status, "warning": warning}
 
 
+@app.get("/api/security/password-is-default")
+async def api_password_is_default():
+    """Check if the free account password is still the factory default."""
+    try:
+        with open("/var/lib/secrets/free-password", "r") as f:
+            current = f.read().strip()
+        return {"is_default": current == "free"}
+    except FileNotFoundError:
+        return {"is_default": True}
+
+
 # ── System password change ────────────────────────────────────────
 
 FREE_PASSWORD_FILE = "/var/lib/secrets/free-password"
