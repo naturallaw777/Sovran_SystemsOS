@@ -930,7 +930,107 @@ class InstallerWindow(Adw.ApplicationWindow):
                 path = os.path.join(nixos_dir, entry)
                 run(["sudo", "rm", "-rf", path])
 
-        GLib.idle_add(self.push_complete)
+        GLib.idle_add(self.push_create_password)
+
+    # ── Step 5b: Create Password ──────────────────────────────────────────
+
+    def push_create_password(self):
+        outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+
+        status = Adw.StatusPage()
+        status.set_title("Create Your Password")
+        status.set_description(
+            "Choose a password for your 'free' user account. "
+            "This will be your login password."
+        )
+        status.set_vexpand(True)
+
+        form_group = Adw.PreferencesGroup()
+        form_group.set_margin_start(40)
+        form_group.set_margin_end(40)
+
+        pw_row = Adw.PasswordEntryRow()
+        pw_row.set_title("Password")
+        form_group.add(pw_row)
+
+        confirm_row = Adw.PasswordEntryRow()
+        confirm_row.set_title("Confirm Password")
+        form_group.add(confirm_row)
+
+        error_lbl = Gtk.Label()
+        error_lbl.set_margin_start(40)
+        error_lbl.set_margin_end(40)
+        error_lbl.set_margin_top(8)
+        error_lbl.set_visible(False)
+        error_lbl.add_css_class("error")
+
+        content_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
+        content_box.append(status)
+        content_box.append(form_group)
+        content_box.append(error_lbl)
+        outer.append(content_box)
+
+        def on_submit(btn):
+            password = pw_row.get_text()
+            confirm = confirm_row.get_text()
+
+            if not password:
+                error_lbl.set_text("Password cannot be empty.")
+                error_lbl.set_visible(True)
+                return
+            if len(password) < 8:
+                error_lbl.set_text("Password must be at least 8 characters.")
+                error_lbl.set_visible(True)
+                return
+            if password != confirm:
+                error_lbl.set_text("Passwords do not match.")
+                error_lbl.set_visible(True)
+                return
+
+            btn.set_sensitive(False)
+            error_lbl.set_visible(False)
+
+            try:
+                run(["sudo", "mkdir", "-p", "/mnt/var/lib/secrets"])
+                proc = subprocess.run(
+                    ["sudo", "tee", "/mnt/var/lib/secrets/free-password"],
+                    input=password, text=True, capture_output=True
+                )
+                if proc.returncode != 0:
+                    raise RuntimeError(proc.stderr.strip() or "Failed to write password file")
+                run(["sudo", "chmod", "600", "/mnt/var/lib/secrets/free-password"])
+
+                proc = subprocess.run(
+                    ["sudo", "chroot", "/mnt", "chpasswd"],
+                    input=f"free:{password}",
+                    capture_output=True, text=True
+                )
+                if proc.returncode != 0:
+                    raise RuntimeError(proc.stderr.strip() or "Failed to set password in chroot")
+
+                run(["sudo", "touch", "/mnt/var/lib/sovran-customer-onboarded"])
+            except Exception as e:
+                error_lbl.set_text(str(e))
+                error_lbl.set_visible(True)
+                btn.set_sensitive(True)
+                return
+
+            GLib.idle_add(self.push_complete)
+
+        submit_btn = Gtk.Button(label="Set Password & Continue")
+        submit_btn.add_css_class("suggested-action")
+        submit_btn.add_css_class("pill")
+        submit_btn.connect("clicked", on_submit)
+
+        nav = Gtk.Box()
+        nav.set_margin_bottom(24)
+        nav.set_margin_end(40)
+        nav.set_halign(Gtk.Align.END)
+        nav.append(submit_btn)
+        outer.append(nav)
+
+        self.push_page("Create Password", outer)
+        return False
 
     # ── Step 6: Complete ───────────────────────────────────────────────────
 
@@ -954,7 +1054,7 @@ class InstallerWindow(Adw.ApplicationWindow):
 
         pass_row = Adw.ActionRow()
         pass_row.set_title("Password")
-        pass_row.set_subtitle("free")
+        pass_row.set_subtitle("The password you just created")
         creds_group.add(pass_row)
 
         note_row = Adw.ActionRow()
