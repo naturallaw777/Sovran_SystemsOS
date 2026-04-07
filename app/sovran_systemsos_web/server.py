@@ -1499,6 +1499,54 @@ BITCOIN_DATADIR = "/run/media/Second_Drive/BTCEcoandBackup/Bitcoin_Node"
 _btc_sync_cache: tuple[float, dict | None] = (0.0, None)
 _BTC_SYNC_CACHE_TTL = 5  # seconds
 
+_btc_version_cache: tuple[float, dict | None] = (0.0, None)
+_BTC_VERSION_CACHE_TTL = 60  # seconds — version doesn't change at runtime
+
+
+def _parse_bitcoin_subversion(subversion: str) -> str:
+    """Parse a subversion string like '/Bitcoin Knots:27.1.0/' into 'v27.1.0'.
+
+    Examples:
+      '/Bitcoin Knots:27.1.0/'        → 'v27.1.0'
+      '/Satoshi:27.0.0/'              → 'v27.0.0'
+      '/Bitcoin Knots:27.1.0(bip110)/' → 'v27.1.0'
+    Falls back to the raw subversion string if parsing fails.
+    """
+    m = re.search(r":(\d+\.\d+(?:\.\d+)*)", subversion)
+    if m:
+        return "v" + m.group(1)
+    return subversion
+
+
+def _get_bitcoin_version_info() -> dict | None:
+    """Call bitcoin-cli getnetworkinfo and return parsed JSON, or None on error.
+
+    Results are cached for _BTC_VERSION_CACHE_TTL seconds since the version
+    does not change while the service is running.
+    """
+    global _btc_version_cache
+    now = time.monotonic()
+    cached_at, cached_val = _btc_version_cache
+    if now - cached_at < _BTC_VERSION_CACHE_TTL:
+        return cached_val
+
+    try:
+        result = subprocess.run(
+            ["bitcoin-cli", f"-datadir={BITCOIN_DATADIR}", "getnetworkinfo"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        if result.returncode != 0:
+            _btc_version_cache = (now, None)
+            return None
+        info = json.loads(result.stdout)
+        _btc_version_cache = (now, info)
+        return info
+    except Exception:
+        _btc_version_cache = (now, None)
+        return None
+
 
 def _get_bitcoin_sync_info() -> dict | None:
     """Call bitcoin-cli getblockchaininfo and return parsed JSON, or None on error.
@@ -1545,6 +1593,23 @@ async def api_bitcoin_sync():
         "headers": info.get("headers", 0),
         "verificationprogress": info.get("verificationprogress", 0),
         "initialblockdownload": info.get("initialblockdownload", False),
+    }
+
+
+@app.get("/api/bitcoin/version")
+async def api_bitcoin_version():
+    """Return the version string of the active bitcoind implementation."""
+    loop = asyncio.get_event_loop()
+    info = await loop.run_in_executor(None, _get_bitcoin_version_info)
+    if info is None:
+        return JSONResponse(
+            status_code=503,
+            content={"error": "bitcoin-cli unavailable or bitcoind not running"},
+        )
+    subversion = info.get("subversion", "")
+    return {
+        "version": _parse_bitcoin_subversion(subversion),
+        "subversion": subversion,
     }
 
 
@@ -1668,6 +1733,11 @@ async def api_services():
             service_data["sync_progress"] = sync_progress
             service_data["sync_blocks"] = sync_blocks
             service_data["sync_headers"] = sync_headers
+        if unit == "bitcoind.service":
+            ver_info = await loop.run_in_executor(None, _get_bitcoin_version_info)
+            if ver_info is not None:
+                subversion = ver_info.get("subversion", "")
+                service_data["bitcoin_version"] = _parse_bitcoin_subversion(subversion)
         return service_data
 
     results = await asyncio.gather(*[get_status(s) for s in services])
@@ -1940,6 +2010,12 @@ async def api_service_detail(unit: str, icon: str | None = None):
         service_detail["sync_progress"] = sync_progress
         service_detail["sync_blocks"] = sync_blocks
         service_detail["sync_headers"] = sync_headers
+    if unit == "bitcoind.service":
+        loop = asyncio.get_event_loop()
+        ver_info = await loop.run_in_executor(None, _get_bitcoin_version_info)
+        if ver_info is not None:
+            subversion = ver_info.get("subversion", "")
+            service_detail["bitcoin_version"] = _parse_bitcoin_subversion(subversion)
     return service_detail
 
 
