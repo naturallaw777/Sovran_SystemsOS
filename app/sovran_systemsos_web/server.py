@@ -1502,6 +1502,9 @@ _BTC_SYNC_CACHE_TTL = 5  # seconds
 _btc_version_cache: tuple[float, dict | None] = (0.0, None)
 _BTC_VERSION_CACHE_TTL = 60  # seconds — version doesn't change at runtime
 
+# Cache for ``bitcoind --version`` output (available even before RPC is ready)
+_btcd_version_cache: tuple[float, str | None] = (0.0, None)
+
 
 # ── Generic service version detection (NixOS store path) ─────────
 
@@ -1616,6 +1619,57 @@ def _get_bitcoin_version_info() -> dict | None:
         return None
 
 
+def _get_bitcoind_version() -> str | None:
+    """Run ``bitcoind --version`` and return the raw version string, or None on error.
+
+    Parses the first output line to extract the token after "version ".
+    For example: "Bitcoin Knots daemon version v29.3.knots20260210+bip110-v0.4.1"
+    returns "v29.3.knots20260210+bip110-v0.4.1".
+
+    Works regardless of whether the RPC server is ready (IBD, warmup, etc.).
+    Results are cached for 60 seconds (_BTC_VERSION_CACHE_TTL).
+    """
+    global _btcd_version_cache
+    now = time.monotonic()
+    cached_at, cached_val = _btcd_version_cache
+    if now - cached_at < _BTC_VERSION_CACHE_TTL:
+        return cached_val
+
+    try:
+        result = subprocess.run(
+            ["bitcoind", "--version"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            first_line = result.stdout.splitlines()[0]
+            m = re.search(r"version\s+(v?\S+)", first_line, re.IGNORECASE)
+            if m:
+                ver = m.group(1)
+                _btcd_version_cache = (now, ver)
+                return ver
+    except Exception:
+        pass
+
+    _btcd_version_cache = (now, None)
+    return None
+
+
+def _format_bitcoin_version(raw_version: str, icon: str = "") -> str:
+    """Format a raw version string from ``bitcoind --version`` for tile display.
+
+    Strips the ``+bip110-vX.Y.Z`` patch suffix so the base version is shown
+    cleanly (e.g. "v29.3.knots20260210+bip110-v0.4.1" → "v29.3.knots20260210").
+    For the BIP110 tile (icon == "bip110") a " (bip110)" tag is appended.
+    """
+    # Remove the +bip110... patch suffix that appears in BIP-110 builds
+    display = re.sub(r"\+bip110\S*", "", raw_version)
+    if icon == "bip110" and "(bip110)" not in display.lower():
+        display += " (bip110)"
+    return display
+
+
 def _get_bitcoin_sync_info() -> dict | None:
     """Call bitcoin-cli getblockchaininfo and return parsed JSON, or None on error.
 
@@ -1668,16 +1722,15 @@ async def api_bitcoin_sync():
 async def api_bitcoin_version():
     """Return the version string of the active bitcoind implementation."""
     loop = asyncio.get_event_loop()
-    info = await loop.run_in_executor(None, _get_bitcoin_version_info)
-    if info is None:
+    raw_ver = await loop.run_in_executor(None, _get_bitcoind_version)
+    if raw_ver is None:
         return JSONResponse(
             status_code=503,
-            content={"error": "bitcoin-cli unavailable or bitcoind not running"},
+            content={"error": "bitcoind --version failed or bitcoind not on PATH"},
         )
-    subversion = info.get("subversion", "")
     return {
-        "version": _parse_bitcoin_subversion(subversion),
-        "subversion": subversion,
+        "version": _format_bitcoin_version(raw_ver),
+        "raw_version": raw_ver,
     }
 
 
@@ -1802,12 +1855,9 @@ async def api_services():
             service_data["sync_blocks"] = sync_blocks
             service_data["sync_headers"] = sync_headers
         if unit == "bitcoind.service" and enabled:
-            ver_info = await loop.run_in_executor(None, _get_bitcoin_version_info)
-            if ver_info is not None:
-                subversion = ver_info.get("subversion", "")
-                btc_ver = _parse_bitcoin_subversion(subversion)
-                if icon == "bip110" and "(bip110)" not in btc_ver.lower():
-                    btc_ver += " (bip110)"
+            raw_ver = await loop.run_in_executor(None, _get_bitcoind_version)
+            if raw_ver is not None:
+                btc_ver = _format_bitcoin_version(raw_ver, icon=icon)
                 service_data["bitcoin_version"] = btc_ver  # backwards compat
                 service_data["version"] = btc_ver
         elif unit != "bitcoind.service":
@@ -2088,12 +2138,9 @@ async def api_service_detail(unit: str, icon: str | None = None):
         service_detail["sync_headers"] = sync_headers
     if unit == "bitcoind.service" and enabled:
         loop = asyncio.get_event_loop()
-        ver_info = await loop.run_in_executor(None, _get_bitcoin_version_info)
-        if ver_info is not None:
-            subversion = ver_info.get("subversion", "")
-            btc_ver = _parse_bitcoin_subversion(subversion)
-            if icon == "bip110" and "(bip110)" not in btc_ver.lower():
-                btc_ver += " (bip110)"
+        raw_ver = await loop.run_in_executor(None, _get_bitcoind_version)
+        if raw_ver is not None:
+            btc_ver = _format_bitcoin_version(raw_ver, icon=icon)
             service_detail["bitcoin_version"] = btc_ver  # backwards compat
             service_detail["version"] = btc_ver
     elif unit != "bitcoind.service":
