@@ -3,20 +3,22 @@
 .header-bar {
   background-color: var(--surface-color);
   border-bottom: 1px solid var(--border-color);
-  padding: 16px 24px;
+  padding: 8px 24px;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  gap: 8px;
+  justify-content: space-between;
+  gap: 16px;
   position: sticky;
   top: 0;
   z-index: 100;
 }
 
 .header-logo {
-  height: 140px;
+  height: 80px;
   width: auto;
   display: block;
+  flex-shrink: 0;
 }
 
 .header-bar .title {
