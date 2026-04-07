@@ -2970,9 +2970,13 @@ def _is_free_password_default() -> bool:
     password changes made via GNOME, passwd, or any method other than the Hub
     are detected correctly.
     """
-    import crypt  # available in Python stdlib (deprecated in 3.13 but present on NixOS)
+    import subprocess
+    import re as _re
 
     FACTORY_DEFAULTS = ["free", "gosovransystems"]
+    # Map shadow algorithm IDs to openssl passwd flags (SHA-512 and SHA-256 only,
+    # matching the shell-script counterpart in factory-seal.nix)
+    ALGO_FLAGS = {"6": "-6", "5": "-5"}
     try:
         with open("/etc/shadow", "r") as f:
             for line in f:
@@ -2981,9 +2985,34 @@ def _is_free_password_default() -> bool:
                     current_hash = parts[1]
                     if not current_hash or current_hash in ("!", "*", "!!"):
                         return True  # locked/no password — treat as default
+                    # Parse hash: $id$[rounds=N$]salt$hash
+                    hash_fields = current_hash.split("$")
+                    # hash_fields: ["", id, salt_or_rounds, ...]
+                    if len(hash_fields) < 4:
+                        return True  # unrecognized format — assume default for safety
+                    algo_id = hash_fields[1]
+                    salt_field = hash_fields[2]
+                    if algo_id not in ALGO_FLAGS:
+                        return True  # unrecognized algorithm — assume default for safety
+                    if salt_field.startswith("rounds="):
+                        return True  # can't extract real salt simply — assume default for safety
+                    # Validate salt contains only safe characters (alphanumeric, '.', '/', '-', '_')
+                    # to guard against unexpected shadow file content before passing to subprocess
+                    if not _re.fullmatch(r"[A-Za-z0-9./\-_]+", salt_field):
+                        return True  # unexpected salt format — assume default for safety
+                    openssl_flag = ALGO_FLAGS[algo_id]
                     for default_pw in FACTORY_DEFAULTS:
-                        if crypt.crypt(default_pw, current_hash) == current_hash:
-                            return True
+                        try:
+                            result = subprocess.run(
+                                ["openssl", "passwd", openssl_flag, "-salt", salt_field, default_pw],
+                                capture_output=True,
+                                text=True,
+                                timeout=5,
+                            )
+                            if result.returncode == 0 and result.stdout.strip() == current_hash:
+                                return True
+                        except Exception:
+                            return True  # if openssl fails, assume default for safety
                     return False
     except (FileNotFoundError, PermissionError):
         pass
