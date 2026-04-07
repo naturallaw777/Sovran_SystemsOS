@@ -105,12 +105,14 @@ async function init() {
     if (cfg.feature_manager) {
       loadFeatureManager();
     }
+    loadAutolaunchToggle();
   } catch (_) {
     await refreshServices();
     loadNetwork();
     checkUpdates();
     setInterval(refreshServices, POLL_INTERVAL_SERVICES);
     setInterval(checkUpdates, POLL_INTERVAL_UPDATES);
+    loadAutolaunchToggle();
   }
 }
 

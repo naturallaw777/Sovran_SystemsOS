@@ -203,6 +203,30 @@ let
     fi
   '';
 
+  # ── Hub auto-launch wrapper script ────────────────────────────────
+  hub-autolaunch-script = pkgs.writeShellScript "sovran-hub-autolaunch.sh" ''
+    export PATH="${lib.makeBinPath [ pkgs.curl pkgs.xdg-utils ]}:$PATH"
+
+    DISABLE_FLAG="/var/lib/sovran/hub-autolaunch-disabled"
+    BOOT_FLAG="/run/sovran-hub-autolaunch-done"
+
+    # User disabled auto-launch via Hub toggle
+    [ -f "$DISABLE_FLAG" ] && exit 0
+
+    # Already launched this boot
+    [ -f "$BOOT_FLAG" ] && exit 0
+
+    touch "$BOOT_FLAG"
+
+    # Wait for Hub server to become ready (max ~15 seconds)
+    for i in $(seq 1 15); do
+      curl -s -o /dev/null -w "" http://localhost:8937 && break
+      sleep 1
+    done
+
+    xdg-open http://localhost:8937
+  '';
+
   sovran-hub-web = pkgs.python3Packages.buildPythonApplication {
     pname   = "sovran-systemsos-hub-web";
     version = "1.0.0";
@@ -312,6 +336,17 @@ in
     environment.systemPackages = [ sovran-hub-web ];
 
     networking.firewall.allowedTCPPorts = [ 3051 8937 60847 ];
+
+    # ── Auto-launch Hub in browser on login ───────────────────────
+    environment.etc."xdg/autostart/sovran-hub-autolaunch.desktop".text = ''
+[Desktop Entry]
+Type=Application
+Name=Sovran Hub Auto-Launch
+Exec=${hub-autolaunch-script}
+Terminal=false
+X-GNOME-Autostart-enabled=true
+NoDisplay=true
+'';
 
   };
 }
