@@ -1806,6 +1806,8 @@ async def api_services():
             if ver_info is not None:
                 subversion = ver_info.get("subversion", "")
                 btc_ver = _parse_bitcoin_subversion(subversion)
+                if icon == "bip110" and "(bip110)" not in btc_ver.lower():
+                    btc_ver += " (bip110)"
                 service_data["bitcoin_version"] = btc_ver  # backwards compat
                 service_data["version"] = btc_ver
         elif unit != "bitcoind.service":
@@ -2090,6 +2092,8 @@ async def api_service_detail(unit: str, icon: str | None = None):
         if ver_info is not None:
             subversion = ver_info.get("subversion", "")
             btc_ver = _parse_bitcoin_subversion(subversion)
+            if icon == "bip110" and "(bip110)" not in btc_ver.lower():
+                btc_ver += " (bip110)"
             service_detail["bitcoin_version"] = btc_ver  # backwards compat
             service_detail["version"] = btc_ver
     elif unit != "bitcoind.service":
