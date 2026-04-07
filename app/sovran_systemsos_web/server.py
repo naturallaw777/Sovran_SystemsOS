@@ -2963,15 +2963,42 @@ async def api_security_status():
     return {"status": status, "warning": warning}
 
 
+def _is_free_password_default() -> bool:
+    """Check /etc/shadow directly to see if 'free' still has a factory default password.
+
+    Hashes each known factory default against the current shadow hash so that
+    password changes made via GNOME, passwd, or any method other than the Hub
+    are detected correctly.
+    """
+    import crypt  # available in Python stdlib (deprecated in 3.13 but present on NixOS)
+
+    FACTORY_DEFAULTS = ["free", "gosovransystems"]
+    try:
+        with open("/etc/shadow", "r") as f:
+            for line in f:
+                parts = line.strip().split(":")
+                if parts[0] == "free" and len(parts) > 1:
+                    current_hash = parts[1]
+                    if not current_hash or current_hash in ("!", "*", "!!"):
+                        return True  # locked/no password — treat as default
+                    for default_pw in FACTORY_DEFAULTS:
+                        if crypt.crypt(default_pw, current_hash) == current_hash:
+                            return True
+                    return False
+    except (FileNotFoundError, PermissionError):
+        pass
+    return True  # if /etc/shadow is unreadable, assume default for safety
+
+
 @app.get("/api/security/password-is-default")
 async def api_password_is_default():
-    """Check if the free account password is still the factory default."""
-    try:
-        with open("/var/lib/secrets/free-password", "r") as f:
-            current = f.read().strip()
-        return {"is_default": current == "free"}
-    except FileNotFoundError:
-        return {"is_default": True}
+    """Check if the free account password is still the factory default.
+
+    Uses /etc/shadow as the authoritative source so that password changes made
+    via GNOME Settings, the passwd command, or any other method are detected
+    correctly — not just changes made through the Hub or change-free-password.
+    """
+    return {"is_default": _is_free_password_default()}
 
 
 # ── System password change ────────────────────────────────────────
