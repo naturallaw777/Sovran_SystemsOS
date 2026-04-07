@@ -92,7 +92,7 @@ EOF
     path = [ pkgs.coreutils "/run/current-system/sw" ];
     script = ''
       SECRET_FILE="/var/lib/secrets/zeus-connect-url"
-      mkdir -p /var/lib/secrets
+      mkdir -p -m 700 /var/lib/secrets
 
       URL=""
       if command -v lndconnect >/dev/null 2>&1; then
