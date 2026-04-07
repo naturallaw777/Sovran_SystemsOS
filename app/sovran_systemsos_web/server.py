@@ -1661,12 +1661,24 @@ def _format_bitcoin_version(raw_version: str, icon: str = "") -> str:
 
     Strips the ``+bip110-vX.Y.Z`` patch suffix so the base version is shown
     cleanly (e.g. "v29.3.knots20260210+bip110-v0.4.1" → "v29.3.knots20260210").
-    For the BIP110 tile (icon == "bip110") a " (bip110)" tag is appended.
+    For the BIP110 tile (icon == "bip110") a " (bip110 vX.Y.Z)" tag is appended
+    including the patch version.
     """
-    # Remove the +bip110... patch suffix that appears in BIP-110 builds
+    # Extract the BIP110 patch version before stripping the suffix
+    bip110_ver = ""
+    bip_match = re.search(r"\+bip110-v(\S+)", raw_version)
+    if bip_match:
+        bip110_ver = bip_match.group(1)
+
+    # Strip the +bip110... suffix for the base Knots version
     display = re.sub(r"\+bip110\S*", "", raw_version)
-    if icon == "bip110" and "(bip110)" not in display.lower():
-        display += " (bip110)"
+
+    # For BIP110 tile, append both the tag and the patch version
+    if icon == "bip110":
+        if bip110_ver:
+            display += f" (bip110 v{bip110_ver})"
+        elif "(bip110)" not in display.lower():
+            display += " (bip110)"
     return display
 
 
