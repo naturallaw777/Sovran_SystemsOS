@@ -1001,7 +1001,7 @@ class InstallerWindow(Adw.ApplicationWindow):
                 run(["sudo", "chmod", "600", "/mnt/var/lib/secrets/free-password"])
 
                 proc = subprocess.run(
-                    ["sudo", "chroot", "/mnt", "chpasswd"],
+                    ["sudo", "nixos-enter", "--root", "/mnt", "--", "sh", "-c", "chpasswd"],
                     input=f"free:{password}",
                     capture_output=True, text=True
                 )
