@@ -1507,12 +1507,18 @@ _BTC_VERSION_CACHE_TTL = 60  # seconds — version doesn't change at runtime
 
 # Regex to extract the version from a Nix store ExecStart path.
 # Pattern:  /nix/store/<32-char-hash>-<name-segments>-<version>/...
-# The name segments consist of alphabetic-starting words separated by hyphens.
-# The version is the first hyphen-delimited token that starts with a digit.
+# Name segments may begin with a letter or digit (e.g. 'python3', 'gtk3',
+# 'lib32-foo') so each segment allows [a-zA-Z0-9] as the leading character.
+# The version is identified as the first token starting with digit.digit.
 _NIX_STORE_VERSION_RE = re.compile(
-    r"/nix/store/[a-z0-9]{32}-"          # hash prefix
-    r"(?:[a-zA-Z][a-zA-Z0-9_]*(?:-[a-zA-Z][a-zA-Z0-9_]*)*)+"  # package name
-    r"-(\d+\.\d+[a-zA-Z0-9._+-]*)/"      # version (group 1)
+    r"/nix/store/[a-z0-9]{32}-"                               # hash prefix
+    r"(?:[a-zA-Z0-9][a-zA-Z0-9_]*(?:-[a-zA-Z0-9][a-zA-Z0-9_]*)*)+"  # package name
+    r"-(\d+\.\d+[a-zA-Z0-9._+-]*)/"                           # version (group 1)
+)
+
+# Nix path suffixes that indicate a wrapper environment, not a real package version.
+_NIX_WRAPPER_SUFFIX_RE = re.compile(
+    r"-(?:env|wrapper|wrapped|script|hook|setup|compat)$"
 )
 
 # Cache: unit → (monotonic_timestamp, version_str | None)
@@ -1550,7 +1556,7 @@ def _get_service_version(unit: str) -> str | None:
             if m:
                 ver = m.group(1).rstrip(".")
                 # Skip Nix environment/wrapper suffixes that are not real versions
-                if not re.search(r"-(?:env|wrapper|wrapped|script|hook|setup|compat)$", ver):
+                if not _NIX_WRAPPER_SUFFIX_RE.search(ver):
                     version = ver if ver.startswith("v") else f"v{ver}"
     except Exception:
         pass
