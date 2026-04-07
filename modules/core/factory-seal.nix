@@ -98,7 +98,7 @@ in
       Type = "oneshot";
       RemainAfterExit = true;
     };
-    path = [ pkgs.coreutils ];
+    path = [ pkgs.coreutils pkgs.python3 ];
     script = ''
       # If sealed AND onboarded — fully clean, nothing to do
       [ -f /var/lib/sovran-factory-sealed ] && [ -f /var/lib/sovran-customer-onboarded ] && exit 0
@@ -119,9 +119,25 @@ EOF
       # If the user completed Hub onboarding, they've addressed security
       [ -f /var/lib/sovran/onboarding-complete ] && exit 0
 
-      # If the free password has been changed from the factory default, no warning needed
-      if [ -f /var/lib/secrets/free-password ]; then
-        [ "$(cat /var/lib/secrets/free-password)" != "free" ] && exit 0
+      # If the free password has been changed from ALL known factory defaults, no warning needed
+      if [ -f /etc/shadow ]; then
+        FREE_HASH=$(grep '^free:' /etc/shadow | cut -d: -f2)
+        if [ -n "$FREE_HASH" ] && [ "$FREE_HASH" != "!" ] && [ "$FREE_HASH" != "*" ]; then
+          STILL_DEFAULT=false
+          for DEFAULT_PW in "free" "gosovransystems"; do
+            EXPECTED=$(DEFAULT_PW="$DEFAULT_PW" FREE_HASH="$FREE_HASH" python3 -c \
+              "import crypt, os; print(crypt.crypt(os.environ['DEFAULT_PW'], os.environ['FREE_HASH']))")
+            if [ "$EXPECTED" = "$FREE_HASH" ]; then
+              STILL_DEFAULT=true
+              break
+            fi
+          done
+          if [ "$STILL_DEFAULT" = "false" ]; then
+            # Password was changed — clear any legacy warning and exit
+            rm -f /var/lib/sovran/security-status /var/lib/sovran/security-warning
+            exit 0
+          fi
+        fi
       fi
 
       # No flags at all + secrets exist = legacy (pre-seal era) machine
