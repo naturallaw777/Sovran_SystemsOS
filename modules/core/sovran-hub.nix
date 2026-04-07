@@ -263,7 +263,7 @@ let
       cp icons/* $out/share/sovran-hub/icons/ 2>/dev/null || true
 
       install -d $out/share/icons/hicolor/scalable/apps
-      cp sovran_systemsos_web/static/logo-light.svg $out/share/icons/hicolor/scalable/apps/sovran-hub.svg
+      cp sovran_systemsos_web/static/sovran-hub-icon.svg $out/share/icons/hicolor/scalable/apps/sovran-hub.svg
 
       install -d $out/share/applications
       cat > $out/share/applications/sovran-hub.desktop <<DESKTOP

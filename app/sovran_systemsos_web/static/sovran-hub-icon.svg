@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <title>Sovran Hub Application Icon</title>
+  <!-- Rounded rectangle background using Sovran brand dark green -->
+  <rect width="256" height="256" rx="48" ry="48" fill="#0d3320"/>
+
+  <!-- Outer arc ring (brand green #1C9954) -->
+  <path d="M 128,40 A 88,88 0 1 1 56.8,183.2" fill="none" stroke="#1C9954" stroke-width="14" stroke-linecap="round"/>
+
+  <!-- Middle arc ring (darker brand green #077233) -->
+  <path d="M 128,60 A 68,68 0 1 1 74.8,176.4" fill="none" stroke="#077233" stroke-width="10" stroke-linecap="round"/>
+
+  <!-- Inner arc ring (lighter green for depth) -->
+  <path d="M 128,80 A 48,48 0 1 1 93.1,169.8" fill="none" stroke="#1C9954" stroke-width="8" stroke-linecap="round"/>
+
+  <!-- White "S" letterform centered -->
+  <text x="128" y="152" font-family="sans-serif" font-weight="bold" font-size="88" text-anchor="middle" fill="#ffffff" opacity="0.95">S</text>
+</svg>
