@@ -12,9 +12,29 @@ lib.mkIf userExists {
     "d /home/${userName}/.ssh 0700 ${userName} users -"
   ];
 
+  systemd.services.ssh-passphrase-setup = {
+    description = "Generate per-device SSH key passphrase";
+    wantedBy = [ "multi-user.target" ];
+    before = [ "factory-ssh-keygen.service" ];
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+    };
+    path = [ pkgs.pwgen pkgs.coreutils ];
+    script = ''
+      if [ ! -f "/var/lib/secrets/ssh-passphrase" ]; then
+        mkdir -p /var/lib/secrets
+        pwgen -s 20 1 > /var/lib/secrets/ssh-passphrase
+        chmod 600 /var/lib/secrets/ssh-passphrase
+      fi
+    '';
+  };
+
   systemd.services.factory-ssh-keygen = {
     description = "Generate factory SSH key for ${userName} if missing";
     wantedBy = [ "multi-user.target" ];
+    after = [ "ssh-passphrase-setup.service" ];
+    requires = [ "ssh-passphrase-setup.service" ];
     serviceConfig = {
       Type = "oneshot";
       RemainAfterExit = true;
@@ -22,7 +42,8 @@ lib.mkIf userExists {
     path = [ pkgs.openssh pkgs.coreutils ];
     script = ''
       if [ ! -f "${keyPath}" ]; then
-        ssh-keygen -q -N "gosovransystems" -t ed25519 -f "${keyPath}"
+        PASSPHRASE=$(cat /var/lib/secrets/ssh-passphrase)
+        ssh-keygen -q -N "$PASSPHRASE" -t ed25519 -f "${keyPath}"
         chown ${userName}:users "${keyPath}" "${keyPath}.pub"
         chmod 600 "${keyPath}"
         chmod 644 "${keyPath}.pub"
