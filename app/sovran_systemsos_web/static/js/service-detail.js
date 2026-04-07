@@ -617,13 +617,22 @@ function openSystemChangePasswordModal(unit, name, icon) {
     resultEl.textContent = "";
 
     try {
-      await apiFetch("/api/change-password", {
+      var resp = await apiFetch("/api/change-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ new_password: newPassword, confirm_password: confirmPassword })
       });
       resultEl.className = "matrix-form-result success";
-      resultEl.textContent = "✅ System password changed successfully.";
+      // Show a detailed message when root/SSH were also regenerated (legacy machine)
+      if (resp && (resp.root_regenerated !== undefined || resp.ssh_regenerated !== undefined)) {
+        if (resp.root_regenerated && resp.ssh_regenerated) {
+          resultEl.textContent = "✅ All system passwords have been regenerated. Your new root password and SSH passphrase are shown in the System Passwords tile.";
+        } else {
+          resultEl.textContent = "✅ Free account password changed. ⚠ Some credentials could not be regenerated automatically. Please check the System Passwords tile.";
+        }
+      } else {
+        resultEl.textContent = "✅ System password changed successfully.";
+      }
       submitBtn.textContent = "Change Password";
       submitBtn.disabled = false;
       // Hide the legacy security banner if it's visible
