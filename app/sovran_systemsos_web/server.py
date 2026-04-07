@@ -699,7 +699,7 @@ def _check_port_status(
 
 def _generate_qr_base64(data: str) -> str | None:
     """Generate a QR code PNG and return it as a base64-encoded data URI.
-    Uses qrencode CLI (available on the system via credentials-pdf.nix)."""
+    Uses qrencode CLI (available on the system via credentials.nix)."""
     try:
         result = subprocess.run(
             ["qrencode", "-o", "-", "-t", "PNG", "-s", "6", "-m", "2", "-l", "H", data],
