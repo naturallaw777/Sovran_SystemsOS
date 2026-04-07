@@ -240,8 +240,9 @@ async function loadNetwork() {
   try {
     var data = await apiFetch("/api/network");
     if ($internalIp) $internalIp.textContent = data.internal_ip || "—";
-    if ($externalIp) $externalIp.textContent = data.external_ip || "—";
+    if ($externalIp) $externalIp.textContent = data.vps_ip || data.external_ip || "—";
     _cachedExternalIp = data.external_ip || "unavailable";
+    _cachedVpsIp = data.vps_ip || null;
   } catch (_) {
     if ($internalIp) $internalIp.textContent = "—";
     if ($externalIp) $externalIp.textContent = "—";

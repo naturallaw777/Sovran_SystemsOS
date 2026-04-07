@@ -14,6 +14,7 @@ let _supportEnabledAt     = null;
 let _supportStatus        = null;   // last fetched /api/support/status payload
 let _walletUnlockTimerInt = null;
 let _cachedExternalIp = null;
+let _cachedVpsIp      = null;
 
 // Current role (set during init from /api/config)
 let _currentRole = "server_plus_desktop";
@@ -87,11 +88,6 @@ const $featureConfirmMsg     = document.getElementById("feature-confirm-message"
 const $featureConfirmOk      = document.getElementById("feature-confirm-ok-btn");
 const $featureConfirmCancel  = document.getElementById("feature-confirm-cancel-btn");
 const $featureConfirmClose   = document.getElementById("feature-confirm-close-btn");
-
-// Port Requirements modal
-const $portReqModal  = document.getElementById("port-requirements-modal");
-const $portReqBody   = document.getElementById("port-req-body");
-const $portReqClose  = document.getElementById("port-req-close-btn");
 
 // Upgrade modal (Node → Server+Desktop)
 const $upgradeModal       = document.getElementById("upgrade-modal");

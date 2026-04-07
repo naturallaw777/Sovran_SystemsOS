@@ -140,16 +140,7 @@
     </div>
   </div>
 
-  <!-- Port Requirements Modal -->
-  <div class="modal-overlay" id="port-requirements-modal" role="dialog" aria-modal="true" aria-labelledby="port-req-title">
-    <div class="creds-dialog">
-      <div class="creds-header">
-        <span class="creds-title" id="port-req-title">🔌 Router / Firewall Port Requirements</span>
-        <button class="creds-close-btn" id="port-req-close-btn" title="Close">✕</button>
-      </div>
-      <div class="creds-body" id="port-req-body"></div>
-    </div>
-  </div>
+  <!-- Port requirements modal removed — public ports now route through VPS tunnel -->
 
   <!-- Rebuild Modal -->
   <div class="modal-overlay" id="rebuild-modal" role="dialog" aria-modal="true" aria-labelledby="rebuild-modal-title">
@@ -177,19 +168,19 @@
       </div>
       <div class="creds-body">
         <p class="support-desc">
-          Upgrading to the full <strong>Server + Desktop</strong> experience will unlock all services —
-          encrypted messaging, password management, cloud storage, website hosting, and more.
+          Upgrading will unlock encrypted messaging, password management, cloud storage,
+          website hosting, and more.
         </p>
         <div class="upgrade-info-box">
-          <p class="upgrade-info-title">⚠ What you should know:</p>
+          <p class="upgrade-info-title">📦 What you'll need from Njal.la:</p>
           <ul class="upgrade-info-list">
-            <li>You will need to purchase domains for your services (we recommend <a href="https://njal.la" target="_blank" rel="noopener noreferrer">njal.la</a>)</li>
-            <li>Some services require ports to be opened on your router</li>
+            <li>A domain (~$15/year)</li>
+            <li>The cheapest VPS server (~$5/month)</li>
           </ul>
         </div>
         <p class="support-desc">
-          <strong>Don't worry</strong> — the Hub will walk you through every step after the upgrade.
-          Domain setup, port forwarding, and configuration are all guided.
+          Your home IP stays completely private — all services are accessed through a
+          secure encrypted tunnel to the VPS. No router port forwarding required.
         </p>
         <p class="support-desc upgrade-rebuild-note">
           The system will rebuild after upgrading. This may take several minutes.
