@@ -793,6 +793,9 @@ class InstallerWindow(Adw.ApplicationWindow):
             data_p1 = f"{data_path}p1" if "nvme" in data_path else f"{data_path}1"
             run_stream(["sudo", "mkdir", "-p", "/mnt/run/media/Second_Drive"], buf)
             run_stream(["sudo", "mount", data_p1, "/mnt/run/media/Second_Drive"], buf)
+            run_stream(["sudo", "mkdir", "-p", "/mnt/run/media/Second_Drive/BTCEcoandBackup/Bitcoin_Node"], buf)
+            run_stream(["sudo", "mkdir", "-p", "/mnt/run/media/Second_Drive/BTCEcoandBackup/Electrs_Data"], buf)
+            run_stream(["sudo", "mkdir", "-p", "/mnt/run/media/Second_Drive/BTCEcoandBackup/NixOS_Snapshot_Backup"], buf)
 
         GLib.idle_add(append_text, buf, "\n=== Generating hardware config ===\n")
         run_stream(["sudo", "nixos-generate-config", "--root", "/mnt"], buf)

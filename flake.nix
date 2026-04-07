@@ -25,9 +25,9 @@
 			modules = [
 				{ nixpkgs.hostPlatform = "x86_64-linux"; }
 				self.nixosModules.Sovran_SystemsOS
-				/etc/nixos/hardware-configuration.nix
-				/etc/nixos/role-state.nix
-				/etc/nixos/custom.nix
+				./hardware-configuration.nix
+				./role-state.nix
+				./custom.nix
 			];
 		};
 
