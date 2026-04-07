@@ -1000,9 +1000,20 @@ class InstallerWindow(Adw.ApplicationWindow):
                     raise RuntimeError(proc.stderr.strip() or "Failed to write password file")
                 run(["sudo", "chmod", "600", "/mnt/var/lib/secrets/free-password"])
 
+                # Locate chpasswd in the installed system's Nix store
+                chpasswd_find = subprocess.run(
+                    ["sudo", "find", "/mnt/nix/store", "-name", "chpasswd", "-type", "f", "-path", "*/bin/chpasswd"],
+                    capture_output=True, text=True
+                )
+                chpasswd_paths = chpasswd_find.stdout.strip().splitlines()
+                if not chpasswd_paths:
+                    raise RuntimeError("chpasswd binary not found in /mnt/nix/store")
+                # Use the first match; strip the /mnt prefix for chroot-relative path
+                chpasswd_bin = chpasswd_paths[0][len("/mnt"):]
+
                 proc = subprocess.run(
-                    ["sudo", "nixos-enter", "--root", "/mnt", "--", "sh", "-c", "chpasswd"],
-                    input=f"free:{password}",
+                    ["sudo", "chroot", "/mnt", "sh", "-c",
+                     f"echo 'free:{password}' | {chpasswd_bin}"],
                     capture_output=True, text=True
                 )
                 if proc.returncode != 0:
