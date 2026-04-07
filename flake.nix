@@ -31,21 +31,11 @@
 			];
 		};
 
-		nixosConfigurations.sovran-iso-desktop = nixpkgs.lib.nixosSystem {
+		nixosConfigurations.sovran-iso = nixpkgs.lib.nixosSystem {
 			modules = [
 				{ nixpkgs.hostPlatform = "x86_64-linux"; }
 				({ config, pkgs, ... }: { nixpkgs.overlays = [ overlay-stable ]; })
-				./iso/desktop.nix
-				nix-bitcoin.nixosModules.default
-				nixvim.nixosModules.nixvim
-			];
-		};
-
-		nixosConfigurations.sovran-iso-server = nixpkgs.lib.nixosSystem {
-			modules = [
-				{ nixpkgs.hostPlatform = "x86_64-linux"; }
-				({ config, pkgs, ... }: { nixpkgs.overlays = [ overlay-stable ]; })
-				./iso/server.nix
+				./iso/common.nix
 				nix-bitcoin.nixosModules.default
 				nixvim.nixosModules.nixvim
 			];
