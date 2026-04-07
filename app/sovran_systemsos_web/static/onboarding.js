@@ -1,20 +1,24 @@
 /* Sovran_SystemsOS Hub — First-Boot Onboarding Wizard
-   Drives the 4-step post-install setup flow. */
+   Drives the 5-step post-install setup flow. */
 "use strict";
 
 // ── Constants ─────────────────────────────────────────────────────
 
-const TOTAL_STEPS = 4;
+const TOTAL_STEPS = 5;
 
-// Steps to skip per role (steps 2 and 3 involve domain/port setup)
+// Steps to skip per role (steps 3 and 4 involve domain/port setup)
+// Step 2 (password) is NEVER skipped — all roles need it.
 const ROLE_SKIP_STEPS = {
-  "desktop": [2, 3],
-  "node":    [2, 3],
+  "desktop": [3, 4],
+  "node":    [3, 4],
 };
 
 // ── Role state (loaded at init) ───────────────────────────────────
 
 var _onboardingRole = "server_plus_desktop";
+
+// Password default state (loaded at step 2)
+var _passwordIsDefault = true;
 
 // Domains that may need configuration, with service unit mapping for enabled check
 const DOMAIN_DEFS = [
@@ -91,6 +95,8 @@ function showStep(step) {
   // Lazy-load step content
   if (step === 2) loadStep2();
   if (step === 3) loadStep3();
+  if (step === 4) loadStep4();
+  // Step 5 (Complete) is static — no lazy-load needed
 }
 
 // Return the next step number, skipping over role-excluded steps
@@ -119,10 +125,133 @@ async function loadStep1() {
   } catch (_) {}
 }
 
-// ── Step 2: Domain Configuration ─────────────────────────────────
+// ── Step 2: Create Your Password ─────────────────────────────────
 
 async function loadStep2() {
   var body = document.getElementById("step-2-body");
+  if (!body) return;
+
+  var nextBtn = document.getElementById("step-2-next");
+
+  try {
+    var result = await apiFetch("/api/security/password-is-default");
+    _passwordIsDefault = result.is_default !== false;
+  } catch (_) {
+    _passwordIsDefault = true;
+  }
+
+  if (_passwordIsDefault) {
+    // Factory-sealed scenario: password must be set before continuing
+    if (nextBtn) nextBtn.textContent = "Set Password & Continue \u2192";
+
+    body.innerHTML =
+      '<div class="onboarding-password-group">' +
+        '<label class="onboarding-domain-label" for="pw-new">New Password</label>' +
+        '<div class="onboarding-password-input-wrap">' +
+          '<input class="onboarding-password-input" type="password" id="pw-new" autocomplete="new-password" placeholder="At least 8 characters" />' +
+          '<button type="button" class="onboarding-password-toggle" data-target="pw-new" aria-label="Show password">👁</button>' +
+        '</div>' +
+        '<p class="onboarding-password-hint">Minimum 8 characters</p>' +
+      '</div>' +
+      '<div class="onboarding-password-group">' +
+        '<label class="onboarding-domain-label" for="pw-confirm">Confirm Password</label>' +
+        '<div class="onboarding-password-input-wrap">' +
+          '<input class="onboarding-password-input" type="password" id="pw-confirm" autocomplete="new-password" placeholder="Re-enter your password" />' +
+          '<button type="button" class="onboarding-password-toggle" data-target="pw-confirm" aria-label="Show password">👁</button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="onboarding-password-warning">⚠️ Write this password down — it cannot be recovered.</div>';
+
+    // Wire show/hide toggles
+    body.querySelectorAll(".onboarding-password-toggle").forEach(function(btn) {
+      btn.addEventListener("click", function() {
+        var inp = document.getElementById(btn.dataset.target);
+        if (inp) inp.type = (inp.type === "password") ? "text" : "password";
+      });
+    });
+
+  } else {
+    // DIY install scenario: password already set by installer
+    if (nextBtn) nextBtn.textContent = "Continue \u2192";
+
+    body.innerHTML =
+      '<div class="onboarding-password-success">✅ Your password was already set during installation.</div>' +
+      '<details class="onboarding-password-optional">' +
+        '<summary>Change it anyway</summary>' +
+        '<div style="margin-top:14px;">' +
+          '<div class="onboarding-password-group">' +
+            '<label class="onboarding-domain-label" for="pw-new">New Password</label>' +
+            '<div class="onboarding-password-input-wrap">' +
+              '<input class="onboarding-password-input" type="password" id="pw-new" autocomplete="new-password" placeholder="At least 8 characters" />' +
+              '<button type="button" class="onboarding-password-toggle" data-target="pw-new" aria-label="Show password">👁</button>' +
+            '</div>' +
+            '<p class="onboarding-password-hint">Minimum 8 characters</p>' +
+          '</div>' +
+          '<div class="onboarding-password-group">' +
+            '<label class="onboarding-domain-label" for="pw-confirm">Confirm Password</label>' +
+            '<div class="onboarding-password-input-wrap">' +
+              '<input class="onboarding-password-input" type="password" id="pw-confirm" autocomplete="new-password" placeholder="Re-enter your password" />' +
+              '<button type="button" class="onboarding-password-toggle" data-target="pw-confirm" aria-label="Show password">👁</button>' +
+            '</div>' +
+          '</div>' +
+          '<div class="onboarding-password-warning">⚠️ Write this password down — it cannot be recovered.</div>' +
+        '</div>' +
+      '</details>';
+
+    // Wire show/hide toggles
+    body.querySelectorAll(".onboarding-password-toggle").forEach(function(btn) {
+      btn.addEventListener("click", function() {
+        var inp = document.getElementById(btn.dataset.target);
+        if (inp) inp.type = (inp.type === "password") ? "text" : "password";
+      });
+    });
+  }
+}
+
+async function saveStep2() {
+  var newPw = document.getElementById("pw-new");
+  var confirmPw = document.getElementById("pw-confirm");
+
+  // If no fields visible or both empty and password already set → skip
+  if (!newPw || !newPw.value.trim()) {
+    if (!_passwordIsDefault) return true; // already set, no change requested
+    setStatus("step-2-status", "⚠ Please enter a password.", "error");
+    return false;
+  }
+
+  var pw = newPw.value;
+  var cpw = confirmPw ? confirmPw.value : "";
+
+  if (pw.length < 8) {
+    setStatus("step-2-status", "⚠ Password must be at least 8 characters.", "error");
+    return false;
+  }
+  if (pw !== cpw) {
+    setStatus("step-2-status", "⚠ Passwords do not match.", "error");
+    return false;
+  }
+
+  setStatus("step-2-status", "Saving password…", "info");
+  try {
+    await apiFetch("/api/change-password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ new_password: pw, confirm_password: cpw }),
+    });
+  } catch (err) {
+    setStatus("step-2-status", "⚠ " + err.message, "error");
+    return false;
+  }
+
+  setStatus("step-2-status", "✓ Password saved", "ok");
+  _passwordIsDefault = false;
+  return true;
+}
+
+// ── Step 3: Domain Configuration ─────────────────────────────────
+
+async function loadStep3() {
+  var body = document.getElementById("step-3-body");
   if (!body) return;
 
   try {
@@ -194,8 +323,8 @@ async function loadStep2() {
   body.innerHTML = html;
 }
 
-async function saveStep2() {
-  setStatus("step-2-status", "Saving domains…", "info");
+async function saveStep3() {
+  setStatus("step-3-status", "Saving domains…", "info");
   var errors = [];
 
   // Save each domain input
@@ -235,18 +364,18 @@ async function saveStep2() {
   }
 
   if (errors.length > 0) {
-    setStatus("step-2-status", "⚠ Some errors: " + errors.join("; "), "error");
+    setStatus("step-3-status", "⚠ Some errors: " + errors.join("; "), "error");
     return false;
   }
 
-  setStatus("step-2-status", "✓ Saved", "ok");
+  setStatus("step-3-status", "✓ Saved", "ok");
   return true;
 }
 
-// ── Step 3: Port Forwarding ───────────────────────────────────────
+// ── Step 4: Port Forwarding ───────────────────────────────────────
 
-async function loadStep3() {
-  var body = document.getElementById("step-3-body");
+async function loadStep4() {
+  var body = document.getElementById("step-4-body");
   if (!body) return;
   body.innerHTML = '<p class="onboarding-loading">Checking ports…</p>';
 
@@ -327,10 +456,10 @@ async function loadStep3() {
   body.innerHTML = html;
 }
 
-// ── Step 4: Complete ──────────────────────────────────────────────
+// ── Step 5: Complete ──────────────────────────────────────────────
 
 async function completeOnboarding() {
-  var btn = document.getElementById("step-4-finish");
+  var btn = document.getElementById("step-5-finish");
   if (btn) { btn.disabled = true; btn.textContent = "Finishing…"; }
 
   try {
@@ -345,28 +474,40 @@ async function completeOnboarding() {
 // ── Event wiring ──────────────────────────────────────────────────
 
 function wireNavButtons() {
-  // Step 1 → next (may skip 2+3 for desktop/node)
+  // Step 1 → next
   var s1next = document.getElementById("step-1-next");
   if (s1next) s1next.addEventListener("click", function() { showStep(nextStep(1)); });
 
-  // Step 2 → 3 (save first)
+  // Step 2 → 3 (save password first)
   var s2next = document.getElementById("step-2-next");
   if (s2next) s2next.addEventListener("click", async function() {
     s2next.disabled = true;
+    var origText = s2next.textContent;
     s2next.textContent = "Saving…";
-    await saveStep2();
+    var ok = await saveStep2();
     s2next.disabled = false;
-    s2next.textContent = "Save & Continue →";
-    showStep(nextStep(2));
+    s2next.textContent = origText;
+    if (ok) showStep(nextStep(2));
   });
 
-  // Step 3 → 4 (Complete)
+  // Step 3 → 4 (save domains first)
   var s3next = document.getElementById("step-3-next");
-  if (s3next) s3next.addEventListener("click", function() { showStep(nextStep(3)); });
+  if (s3next) s3next.addEventListener("click", async function() {
+    s3next.disabled = true;
+    s3next.textContent = "Saving…";
+    await saveStep3();
+    s3next.disabled = false;
+    s3next.textContent = "Save & Continue →";
+    showStep(nextStep(3));
+  });
 
-  // Step 4: finish
-  var s4finish = document.getElementById("step-4-finish");
-  if (s4finish) s4finish.addEventListener("click", completeOnboarding);
+  // Step 4 → 5 (Complete)
+  var s4next = document.getElementById("step-4-next");
+  if (s4next) s4next.addEventListener("click", function() { showStep(nextStep(4)); });
+
+  // Step 5: finish
+  var s5finish = document.getElementById("step-5-finish");
+  if (s5finish) s5finish.addEventListener("click", completeOnboarding);
 
   // Back buttons
   document.querySelectorAll(".onboarding-btn-back").forEach(function(btn) {
