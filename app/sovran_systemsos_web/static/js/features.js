@@ -579,3 +579,66 @@ function buildFeatureCard(feat) {
 
   return card;
 }
+
+// ── Auto-launch toggle ────────────────────────────────────────────
+
+async function loadAutolaunchToggle() {
+  try {
+    var data = await apiFetch("/api/autolaunch/status");
+    renderAutolaunchToggle(data.enabled);
+  } catch (err) {
+    console.warn("Failed to load autolaunch status:", err);
+  }
+}
+
+function renderAutolaunchToggle(enabled) {
+  // Remove existing section if any
+  var old = $sidebarFeatures.querySelector(".autolaunch-section");
+  if (old) old.parentNode.removeChild(old);
+
+  var section = document.createElement("div");
+  section.className = "category-section autolaunch-section";
+
+  section.innerHTML =
+    '<div class="section-header">Preferences</div>' +
+    '<hr class="section-divider" />' +
+    '<div class="feature-card">' +
+      '<div class="feature-card-top">' +
+        '<div class="feature-card-info">' +
+          '<div class="feature-card-name">Auto-launch Hub on Login</div>' +
+          '<div class="feature-card-desc">Automatically open the Sovran Hub dashboard in your browser when you log in to the desktop.</div>' +
+        '</div>' +
+        '<label class="feature-toggle' + (enabled ? " active" : "") + '" id="autolaunch-toggle-label" title="Toggle auto-launch">' +
+          '<input type="checkbox" class="feature-toggle-input" id="autolaunch-toggle-input"' + (enabled ? " checked" : "") + ' />' +
+          '<span class="feature-toggle-slider"></span>' +
+        '</label>' +
+      '</div>' +
+    '</div>';
+
+  $sidebarFeatures.appendChild(section);
+
+  var input = document.getElementById("autolaunch-toggle-input");
+  var label = document.getElementById("autolaunch-toggle-label");
+  if (!input || !label) return;
+
+  input.addEventListener("change", async function() {
+    var newEnabled = input.checked;
+    // Revert visually until confirmed
+    input.checked = !newEnabled;
+    if (newEnabled) { label.classList.remove("active"); } else { label.classList.add("active"); }
+    input.disabled = true;
+    try {
+      await apiFetch("/api/autolaunch/toggle", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled: newEnabled }),
+      });
+      input.checked = newEnabled;
+      if (newEnabled) { label.classList.add("active"); } else { label.classList.remove("active"); }
+    } catch (err) {
+      alert("Failed to update auto-launch setting. Please try again.");
+    } finally {
+      input.disabled = false;
+    }
+  });
+}
