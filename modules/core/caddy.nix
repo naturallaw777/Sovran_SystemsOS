@@ -9,7 +9,18 @@ in
     enable = true;
     user = "caddy";
     group = "root";
-    configFile = "/run/caddy/Caddyfile";
+  };
+
+  # Override ExecStart + ExecReload to point at the runtime-generated Caddyfile
+  systemd.services.caddy.serviceConfig = {
+    ExecStart = lib.mkForce [
+      ""
+      "${pkgs.caddy}/bin/caddy run --config /run/caddy/Caddyfile --adapter caddyfile"
+    ];
+    ExecReload = lib.mkForce [
+      ""
+      "${pkgs.caddy}/bin/caddy reload --config /run/caddy/Caddyfile --adapter caddyfile --force"
+    ];
   };
 
   systemd.services.caddy-generate-config = {
