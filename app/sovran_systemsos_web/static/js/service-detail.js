@@ -547,10 +547,22 @@ function openMatrixChangePasswordModal(unit, name, icon) {
 function openSystemChangePasswordModal(unit, name, icon) {
   if (!$credsBody) return;
   $credsBody.innerHTML =
+    '<div class="sys-chpw-header">' +
+      '<div class="sys-chpw-title">🔑 Change \'free\' Account Password</div>' +
+      '<div class="sys-chpw-desc">This updates the system login password for the <strong>free</strong> user account on this device.</div>' +
+    '</div>' +
     '<div class="matrix-form-group"><label class="matrix-form-label" for="sys-chpw-new">New Password</label>' +
-    '<input class="matrix-form-input" type="password" id="sys-chpw-new" placeholder="New strong password" autocomplete="new-password"></div>' +
+    '<div class="pw-input-wrap">' +
+    '<input class="matrix-form-input" type="password" id="sys-chpw-new" placeholder="New strong password" autocomplete="new-password">' +
+    '<button type="button" class="pw-toggle-btn" id="sys-chpw-new-toggle" aria-label="Toggle password visibility">👁</button>' +
+    '</div>' +
+    '<div class="pw-hint">Password must be at least 8 characters.</div></div>' +
     '<div class="matrix-form-group"><label class="matrix-form-label" for="sys-chpw-confirm">Confirm Password</label>' +
-    '<input class="matrix-form-input" type="password" id="sys-chpw-confirm" placeholder="Confirm new password" autocomplete="new-password"></div>' +
+    '<div class="pw-input-wrap">' +
+    '<input class="matrix-form-input" type="password" id="sys-chpw-confirm" placeholder="Confirm new password" autocomplete="new-password">' +
+    '<button type="button" class="pw-toggle-btn" id="sys-chpw-confirm-toggle" aria-label="Toggle password visibility">👁</button>' +
+    '</div></div>' +
+    '<div class="pw-credentials-note">⚠ After changing, your updated password will appear in the System Passwords credentials tile. Make sure to remember it.</div>' +
     '<div class="matrix-form-actions">' +
     '<button class="matrix-form-back" id="sys-chpw-back-btn">← Back</button>' +
     '<button class="matrix-form-submit" id="sys-chpw-submit-btn">Change Password</button>' +
@@ -559,6 +571,20 @@ function openSystemChangePasswordModal(unit, name, icon) {
 
   document.getElementById("sys-chpw-back-btn").addEventListener("click", function() {
     openServiceDetailModal(unit, name, icon);
+  });
+
+  document.getElementById("sys-chpw-new-toggle").addEventListener("click", function() {
+    var inp = document.getElementById("sys-chpw-new");
+    var isHidden = inp.type === "password";
+    inp.type = isHidden ? "text" : "password";
+    this.textContent = isHidden ? "👁‍🗨" : "👁";
+  });
+
+  document.getElementById("sys-chpw-confirm-toggle").addEventListener("click", function() {
+    var inp = document.getElementById("sys-chpw-confirm");
+    var isHidden = inp.type === "password";
+    inp.type = isHidden ? "text" : "password";
+    this.textContent = isHidden ? "👁‍🗨" : "👁";
   });
 
   document.getElementById("sys-chpw-submit-btn").addEventListener("click", async function() {
@@ -570,6 +596,18 @@ function openSystemChangePasswordModal(unit, name, icon) {
     if (!newPassword || !confirmPassword) {
       resultEl.className = "matrix-form-result error";
       resultEl.textContent = "Both password fields are required.";
+      return;
+    }
+
+    if (newPassword.length < 8) {
+      resultEl.className = "matrix-form-result error";
+      resultEl.textContent = "Password must be at least 8 characters.";
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      resultEl.className = "matrix-form-result error";
+      resultEl.textContent = "Passwords do not match.";
       return;
     }
 

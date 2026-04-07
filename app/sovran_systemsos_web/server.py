@@ -9,6 +9,7 @@ import json
 import os
 import pwd
 import re
+import shutil
 import socket
 import subprocess
 import time
@@ -2978,10 +2979,22 @@ async def api_change_password(req: ChangePasswordRequest):
     if len(req.new_password) < 8:
         raise HTTPException(status_code=400, detail="Password must be at least 8 characters long.")
 
+    # Locate chpasswd binary (NixOS puts it in the Nix store, not /usr/bin)
+    chpasswd_bin = (
+        shutil.which("chpasswd")
+        or ("/run/current-system/sw/bin/chpasswd"
+            if os.path.isfile("/run/current-system/sw/bin/chpasswd") else None)
+    )
+    if chpasswd_bin is None:
+        raise HTTPException(
+            status_code=500,
+            detail="chpasswd binary not found. Cannot update system password.",
+        )
+
     # Update /etc/shadow via chpasswd
     try:
         result = subprocess.run(
-            ["chpasswd"],
+            [chpasswd_bin],
             input=f"free:{req.new_password}",
             capture_output=True,
             text=True,
