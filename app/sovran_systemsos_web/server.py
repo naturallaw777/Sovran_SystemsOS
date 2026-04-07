@@ -398,6 +398,27 @@ SERVICE_DESCRIPTIONS: dict[str, str] = {
         "Your system account credentials. These are the keys to your Sovran_SystemsOS machine — "
         "root access, user accounts, and SSH passphrases. Keep them safe."
     ),
+    "sparrow-autoconnect.service": (
+        "Sparrow Wallet is a privacy-focused Bitcoin desktop wallet for sending, receiving, "
+        "and managing your Bitcoin. Sovran_SystemsOS automatically connects it to your local "
+        "Electrs server on first boot — your address lookups, balances, and transactions "
+        "never touch a third-party server. Full privacy, zero configuration."
+    ),
+    "bisq-autoconnect.service": (
+        "Bisq is a decentralized, peer-to-peer Bitcoin exchange — buy and sell Bitcoin "
+        "with no KYC and no middleman. Sovran_SystemsOS automatically connects it to your "
+        "local Bitcoin node on first boot, routing all traffic through Tor. Your trades are "
+        "verified by your own node, keeping you fully sovereign."
+    ),
+}
+
+SERVICE_DESKTOP_LINKS: dict[str, list[dict[str, str]]] = {
+    "sparrow-autoconnect.service": [
+        {"label": "Open Sparrow Wallet", "desktop_file": "sparrow-desktop.desktop"},
+    ],
+    "bisq-autoconnect.service": [
+        {"label": "Open Bisq", "desktop_file": "Bisq.desktop"},
+    ],
 }
 
 # ── App setup ────────────────────────────────────────────────────
@@ -2151,7 +2172,34 @@ async def api_service_detail(unit: str, icon: str | None = None):
             btc_ver = _format_bitcoin_version(raw_ver, icon=icon)
             service_detail["bitcoin_version"] = btc_ver  # backwards compat
             service_detail["version"] = btc_ver
+    desktop_links = SERVICE_DESKTOP_LINKS.get(unit, [])
+    if desktop_links:
+        service_detail["desktop_links"] = desktop_links
     return service_detail
+
+
+@app.post("/api/desktop/launch/{desktop_file}")
+async def api_desktop_launch(desktop_file: str):
+    """Launch a desktop application via gtk-launch on the local GNOME session."""
+    import re as _re
+    if not _re.match(r'^[a-zA-Z0-9_.-]+\.desktop$', desktop_file):
+        raise HTTPException(status_code=400, detail="Invalid desktop file name")
+
+    try:
+        env = dict(os.environ)
+        env["DISPLAY"] = ":0"
+        result = subprocess.run(
+            ["gtk-launch", desktop_file],
+            capture_output=True, text=True, timeout=10, env=env,
+        )
+        if result.returncode != 0:
+            raise HTTPException(status_code=500, detail=f"Failed to launch: {result.stderr.strip()}")
+    except FileNotFoundError:
+        raise HTTPException(status_code=500, detail="gtk-launch not found on this system")
+    except subprocess.TimeoutExpired:
+        raise HTTPException(status_code=500, detail="Launch command timed out")
+
+    return {"ok": True, "launched": desktop_file}
 
 
 @app.get("/api/network")
