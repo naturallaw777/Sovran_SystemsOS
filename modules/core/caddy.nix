@@ -2,6 +2,7 @@
 
 let
   exposeBtcpay = config.sovran_systemsOS.web.btcpayserver;
+  extraVhosts = config.sovran_systemsOS.caddy.extraVirtualHosts;
 in
 {
   services.caddy = {
@@ -170,6 +171,11 @@ EOF
   encode gzip zstd
 }
 EOF
+
+      # ── Custom vhosts from custom.nix ──────────────
+      cat >> /run/caddy/Caddyfile <<'CUSTOM_VHOSTS_EOF'
+${extraVhosts}
+CUSTOM_VHOSTS_EOF
     '';
   };
 }
