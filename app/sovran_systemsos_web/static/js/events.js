@@ -38,6 +38,9 @@ if ($upgradeCloseBtn) $upgradeCloseBtn.addEventListener("click", closeUpgradeMod
 if ($upgradeCancelBtn) $upgradeCancelBtn.addEventListener("click", closeUpgradeModal);
 if ($upgradeModal) $upgradeModal.addEventListener("click", function(e) { if (e.target === $upgradeModal) closeUpgradeModal(); });
 
+// Legacy security warning modal — dismiss closes the modal only
+if ($securityWarningDismiss) $securityWarningDismiss.addEventListener("click", closeSecurityWarningModal);
+
 // ── Upgrade modal functions ───────────────────────────────────────
 
 function openUpgradeModal() {
@@ -83,6 +86,9 @@ async function init() {
   } catch (_) {
     // If we can't reach the endpoint, continue to normal dashboard
   }
+
+  // Check for legacy machine security warning
+  await checkLegacySecurity();
 
   try {
     var cfg = await apiFetch("/api/config");
