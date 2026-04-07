@@ -24,6 +24,7 @@
     ./nextcloud.nix
     ./vaultwarden.nix
     ./bitcoinecosystem.nix
+    ./wallet-autoconnect.nix
 
     # ── Features (default OFF — enable in custom.nix) ─────────
     ./haven.nix
