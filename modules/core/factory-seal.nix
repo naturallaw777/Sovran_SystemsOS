@@ -89,6 +89,117 @@ in
 {
   environment.systemPackages = [ sovran-factory-seal ];
 
+  # ── Auto-seal on first customer boot ───────────────────────────────
+  systemd.services.sovran-auto-seal = {
+    description = "Auto-seal Sovran system on first customer boot";
+    wantedBy = [ "multi-user.target" ];
+    before = [ "sovran-hub.service" "sovran-legacy-security-check.service" ];
+    after = [ "local-fs.target" ];
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+    };
+    path = [ pkgs.coreutils pkgs.e2fsprogs pkgs.python3 pkgs.postgresql pkgs.mariadb pkgs.shadow ];
+    script = ''
+      # ── Idempotency check ─────────────────────────────────────────
+      if [ -f /var/lib/sovran-factory-sealed ]; then
+        echo "sovran-auto-seal: already sealed, nothing to do."
+        exit 0
+      fi
+
+      echo "sovran-auto-seal: seal flag missing — checking system state..."
+
+      # ── Safety guard 1: customer has already onboarded ────────────
+      if [ -f /var/lib/sovran-customer-onboarded ]; then
+        echo "sovran-auto-seal: /var/lib/sovran-customer-onboarded exists — live system detected. Restoring flag and exiting."
+        touch /var/lib/sovran-factory-sealed
+        chattr +i /var/lib/sovran-factory-sealed 2>/dev/null || true
+        exit 0
+      fi
+
+      # ── Safety guard 2: onboarding was completed ──────────────────
+      if [ -f /var/lib/sovran/onboarding-complete ]; then
+        echo "sovran-auto-seal: /var/lib/sovran/onboarding-complete exists — live system detected. Restoring flag and exiting."
+        touch /var/lib/sovran-factory-sealed
+        chattr +i /var/lib/sovran-factory-sealed 2>/dev/null || true
+        exit 0
+      fi
+
+      # ── Safety guard 3: password has been changed from factory defaults ──
+      if [ -f /etc/shadow ]; then
+        FREE_HASH=$(grep '^free:' /etc/shadow | cut -d: -f2)
+        if [ -n "$FREE_HASH" ] && [ "$FREE_HASH" != "!" ] && [ "$FREE_HASH" != "*" ]; then
+          STILL_DEFAULT=false
+          for DEFAULT_PW in "free" "gosovransystems"; do
+            EXPECTED=$(DEFAULT_PW="$DEFAULT_PW" FREE_HASH="$FREE_HASH" python3 -c \
+              "import crypt, os; print(crypt.crypt(os.environ['DEFAULT_PW'], os.environ['FREE_HASH']))")
+            if [ "$EXPECTED" = "$FREE_HASH" ]; then
+              STILL_DEFAULT=true
+              break
+            fi
+          done
+          if [ "$STILL_DEFAULT" = "false" ]; then
+            echo "sovran-auto-seal: password has been changed from factory defaults — live system detected. Restoring flag and exiting."
+            touch /var/lib/sovran-factory-sealed
+            chattr +i /var/lib/sovran-factory-sealed 2>/dev/null || true
+            exit 0
+          fi
+        fi
+      fi
+
+      # ── All safety guards passed: this is a fresh/unsealed system ─
+      echo "sovran-auto-seal: fresh system confirmed — performing auto-seal..."
+
+      # ── 1. Wipe generated secrets ─────────────────────────────────
+      echo "sovran-auto-seal: wiping secrets..."
+      [ -d /var/lib/secrets ] && find /var/lib/secrets -mindepth 1 -delete || true
+      rm -rf /var/lib/matrix-synapse/registration-secret
+      rm -rf /var/lib/matrix-synapse/db-password
+      rm -rf /var/lib/gnome-remote-desktop/rdp-password
+      rm -rf /var/lib/gnome-remote-desktop/rdp-username
+      rm -rf /var/lib/gnome-remote-desktop/rdp-credentials
+      rm -rf /var/lib/livekit/livekit_keyFile
+      rm -rf /etc/nix-bitcoin-secrets/*
+
+      # ── 2. Wipe LND wallet data ───────────────────────────────────
+      echo "sovran-auto-seal: wiping LND wallet data..."
+      rm -rf /var/lib/lnd/*
+
+      # ── 3. Remove SSH factory key ─────────────────────────────────
+      echo "sovran-auto-seal: removing SSH factory key..."
+      rm -f /home/free/.ssh/factory_login /home/free/.ssh/factory_login.pub
+      if [ -f /root/.ssh/authorized_keys ]; then
+        sed -i '/factory_login/d' /root/.ssh/authorized_keys
+      fi
+
+      # ── 4. Drop application databases ────────────────────────────
+      echo "sovran-auto-seal: dropping application databases..."
+      sudo -u postgres psql -c "DROP DATABASE IF EXISTS \"matrix-synapse\";" 2>/dev/null || true
+      sudo -u postgres psql -c "DROP DATABASE IF EXISTS nextclouddb;" 2>/dev/null || true
+      mysql -u root -e "DROP DATABASE IF EXISTS wordpressdb;" 2>/dev/null || true
+
+      # ── 5. Remove application config files ───────────────────────
+      echo "sovran-auto-seal: removing application config files..."
+      rm -rf /var/lib/www/wordpress/wp-config.php
+      rm -rf /var/lib/www/nextcloud/config/config.php
+
+      # ── 6. Wipe Vaultwarden data ──────────────────────────────────
+      echo "sovran-auto-seal: wiping Vaultwarden data..."
+      rm -rf /var/lib/bitwarden_rs/*
+      rm -rf /var/lib/vaultwarden/*
+
+      # ── 7. Set sealed flag and make it immutable ──────────────────
+      echo "sovran-auto-seal: setting sealed flag..."
+      touch /var/lib/sovran-factory-sealed
+      chattr +i /var/lib/sovran-factory-sealed 2>/dev/null || true
+
+      # ── 8. Remove onboarded flag so onboarding runs fresh ─────────
+      rm -f /var/lib/sovran-customer-onboarded
+
+      echo "sovran-auto-seal: auto-seal complete. Continuing boot into onboarding."
+    '';
+  };
+
   # ── Legacy security check: warn existing (pre-seal) machines ───────
   systemd.services.sovran-legacy-security-check = {
     description = "Check for legacy (pre-factory-seal) security status";
