@@ -99,7 +99,7 @@ in
       Type = "oneshot";
       RemainAfterExit = true;
     };
-    path = [ pkgs.coreutils pkgs.e2fsprogs pkgs.python3 pkgs.postgresql pkgs.mariadb pkgs.shadow ];
+    path = [ pkgs.coreutils pkgs.e2fsprogs pkgs.openssl pkgs.postgresql pkgs.mariadb pkgs.shadow ];
     script = ''
       # ── Idempotency check ─────────────────────────────────────────
       if [ -f /var/lib/sovran-factory-sealed ]; then
@@ -129,15 +129,30 @@ in
       if [ -f /etc/shadow ]; then
         FREE_HASH=$(grep '^free:' /etc/shadow | cut -d: -f2)
         if [ -n "$FREE_HASH" ] && [ "$FREE_HASH" != "!" ] && [ "$FREE_HASH" != "*" ]; then
+          ALGO_ID=$(printf '%s' "$FREE_HASH" | cut -d'$' -f2)
+          SALT=$(printf '%s' "$FREE_HASH" | cut -d'$' -f3)
           STILL_DEFAULT=false
-          for DEFAULT_PW in "free" "gosovransystems"; do
-            EXPECTED=$(DEFAULT_PW="$DEFAULT_PW" FREE_HASH="$FREE_HASH" python3 -c \
-              "import crypt, os; print(crypt.crypt(os.environ['DEFAULT_PW'], os.environ['FREE_HASH']))")
-            if [ "$EXPECTED" = "$FREE_HASH" ]; then
-              STILL_DEFAULT=true
-              break
-            fi
-          done
+          # If the salt field starts with "rounds=", we cannot extract the real salt
+          # with a simple cut — treat as still-default for safety
+          if printf '%s' "$SALT" | grep -q '^rounds='; then
+            STILL_DEFAULT=true
+          else
+            for DEFAULT_PW in "free" "gosovransystems"; do
+              case "$ALGO_ID" in
+                6) EXPECTED=$(openssl passwd -6 -salt "$SALT" "$DEFAULT_PW" 2>/dev/null) ;;
+                5) EXPECTED=$(openssl passwd -5 -salt "$SALT" "$DEFAULT_PW" 2>/dev/null) ;;
+                *)
+                  # Unknown hash algorithm — treat as still-default for safety
+                  STILL_DEFAULT=true
+                  break
+                  ;;
+              esac
+              if [ -n "$EXPECTED" ] && [ "$EXPECTED" = "$FREE_HASH" ]; then
+                STILL_DEFAULT=true
+                break
+              fi
+            done
+          fi
           if [ "$STILL_DEFAULT" = "false" ]; then
             echo "sovran-auto-seal: password has been changed from factory defaults — live system detected. Restoring flag and exiting."
             touch /var/lib/sovran-factory-sealed
@@ -209,7 +224,7 @@ in
       Type = "oneshot";
       RemainAfterExit = true;
     };
-    path = [ pkgs.coreutils pkgs.python3 ];
+    path = [ pkgs.coreutils pkgs.openssl ];
     script = ''
       # If sealed AND onboarded — fully clean, nothing to do
       [ -f /var/lib/sovran-factory-sealed ] && [ -f /var/lib/sovran-customer-onboarded ] && exit 0
@@ -234,15 +249,30 @@ EOF
       if [ -f /etc/shadow ]; then
         FREE_HASH=$(grep '^free:' /etc/shadow | cut -d: -f2)
         if [ -n "$FREE_HASH" ] && [ "$FREE_HASH" != "!" ] && [ "$FREE_HASH" != "*" ]; then
+          ALGO_ID=$(printf '%s' "$FREE_HASH" | cut -d'$' -f2)
+          SALT=$(printf '%s' "$FREE_HASH" | cut -d'$' -f3)
           STILL_DEFAULT=false
-          for DEFAULT_PW in "free" "gosovransystems"; do
-            EXPECTED=$(DEFAULT_PW="$DEFAULT_PW" FREE_HASH="$FREE_HASH" python3 -c \
-              "import crypt, os; print(crypt.crypt(os.environ['DEFAULT_PW'], os.environ['FREE_HASH']))")
-            if [ "$EXPECTED" = "$FREE_HASH" ]; then
-              STILL_DEFAULT=true
-              break
-            fi
-          done
+          # If the salt field starts with "rounds=", we cannot extract the real salt
+          # with a simple cut — treat as still-default for safety
+          if printf '%s' "$SALT" | grep -q '^rounds='; then
+            STILL_DEFAULT=true
+          else
+            for DEFAULT_PW in "free" "gosovransystems"; do
+              case "$ALGO_ID" in
+                6) EXPECTED=$(openssl passwd -6 -salt "$SALT" "$DEFAULT_PW" 2>/dev/null) ;;
+                5) EXPECTED=$(openssl passwd -5 -salt "$SALT" "$DEFAULT_PW" 2>/dev/null) ;;
+                *)
+                  # Unknown hash algorithm — treat as still-default for safety
+                  STILL_DEFAULT=true
+                  break
+                  ;;
+              esac
+              if [ -n "$EXPECTED" ] && [ "$EXPECTED" = "$FREE_HASH" ]; then
+                STILL_DEFAULT=true
+                break
+              fi
+            done
+          fi
           if [ "$STILL_DEFAULT" = "false" ]; then
             # Password was changed — clear any legacy warning and exit
             rm -f /var/lib/sovran/security-status /var/lib/sovran/security-warning
