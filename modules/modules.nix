@@ -12,6 +12,7 @@
     ./core/sovran_systemsos-desktop.nix
     ./core/sshd-localhost.nix
     ./core/sovran-hub.nix
+    ./core/factory-seal.nix
 
     # ── Always on (no flag) ───────────────────────────────────
     ./php.nix

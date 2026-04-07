@@ -10,7 +10,7 @@ let
         { label = "Free Account — Username"; value = "free"; }
         { label = "Free Account — Password"; file = "/var/lib/secrets/free-password"; }
         { label = "Root Password"; file = "/var/lib/secrets/root-password"; }
-        { label = "SSH Local Access"; value = "ssh root@localhost  /  Passphrase: gosovransystems"; }
+        { label = "SSH Passphrase"; file = "/var/lib/secrets/ssh-passphrase"; }
       ]; }
     ]
     # ── Infrastructure — Caddy + Tor (NOT desktop-only) ────────
