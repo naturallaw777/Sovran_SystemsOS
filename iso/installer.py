@@ -109,7 +109,7 @@ def symbolic_icon(name):
     return icon
 
 
-# ── Application ────────────────────────────────────────────────────────────────
+# ── Application ──────────────────────────────────────────────────────────
 
 class InstallerApp(Adw.Application):
     def __init__(self):
@@ -121,7 +121,7 @@ class InstallerApp(Adw.Application):
         self.win.present()
 
 
-# ── Main Window ────────────────────────────────────────────────────────────────
+# ── Main Window ──────────────────────────────────────────────────────────
 
 class InstallerWindow(Adw.ApplicationWindow):
     def __init__(self, **kwargs):
@@ -168,7 +168,7 @@ class InstallerWindow(Adw.ApplicationWindow):
                 break
         self.push_page(title, child)
 
-    # ── Shared widgets ───────────────��─────────────────────────────────────
+    # ── Shared widgets ────────────────────────────────────────────────────
 
     def make_scrolled_log(self):
         sw = Gtk.ScrolledWindow()
@@ -856,7 +856,7 @@ class InstallerWindow(Adw.ApplicationWindow):
             raise RuntimeError(f"Failed to write role-state.nix: {proc.stderr}")
         run(["sudo", "cp", "/mnt/etc/nixos/custom.template.nix", "/mnt/etc/nixos/custom.nix"])
 
-    # ── Step 4: Ready to install ────────���──────────────────────────────────
+    # ── Step 4: Ready to install ──────────────────────────────────────────
 
     def push_ready(self):
         outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
@@ -968,123 +968,9 @@ class InstallerWindow(Adw.ApplicationWindow):
             raise RuntimeError(proc.stderr.strip() or "Failed to write deployed flake.nix")
         run(["sudo", "rm", "-f", "/mnt/etc/nixos/flake.lock"])
 
-        GLib.idle_add(self.push_create_password)
+        GLib.idle_add(self.push_complete)
 
-    # ── Step 5b: Create Password ──────────────────────────────────────────
-
-    def push_create_password(self):
-        outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
-
-        status = Adw.StatusPage()
-        status.set_title("Create Your Password")
-        status.set_description(
-            "Choose a password for your 'free' user account. "
-            "This will be your login password."
-        )
-        status.set_vexpand(True)
-
-        form_group = Adw.PreferencesGroup()
-        form_group.set_margin_start(40)
-        form_group.set_margin_end(40)
-
-        pw_row = Adw.PasswordEntryRow()
-        pw_row.set_title("Password")
-        form_group.add(pw_row)
-
-        confirm_row = Adw.PasswordEntryRow()
-        confirm_row.set_title("Confirm Password")
-        form_group.add(confirm_row)
-
-        error_lbl = Gtk.Label()
-        error_lbl.set_margin_start(40)
-        error_lbl.set_margin_end(40)
-        error_lbl.set_margin_top(8)
-        error_lbl.set_visible(False)
-        error_lbl.add_css_class("error")
-
-        content_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
-        content_box.append(status)
-        content_box.append(form_group)
-        content_box.append(error_lbl)
-        outer.append(content_box)
-
-        def on_submit(btn):
-            password = pw_row.get_text()
-            confirm = confirm_row.get_text()
-
-            if not password:
-                error_lbl.set_text("Password cannot be empty.")
-                error_lbl.set_visible(True)
-                return
-            if len(password) < 8:
-                error_lbl.set_text("Password must be at least 8 characters.")
-                error_lbl.set_visible(True)
-                return
-            if password != confirm:
-                error_lbl.set_text("Passwords do not match.")
-                error_lbl.set_visible(True)
-                return
-
-            btn.set_sensitive(False)
-            error_lbl.set_visible(False)
-
-            try:
-                run(["sudo", "mkdir", "-p", "/mnt/var/lib/secrets"])
-                proc = subprocess.run(
-                    ["sudo", "tee", "/mnt/var/lib/secrets/free-password"],
-                    input=password, text=True, capture_output=True
-                )
-                if proc.returncode != 0:
-                    raise RuntimeError(proc.stderr.strip() or "Failed to write password file")
-                run(["sudo", "chmod", "600", "/mnt/var/lib/secrets/free-password"])
-
-                # Find chpasswd in the installed system's Nix store
-                # We run it directly from the host with --root /mnt so it
-                # modifies /mnt/etc/shadow — no chroot needed.
-                chpasswd_find = subprocess.run(
-                    ["sudo", "find", "/mnt/nix/store", "-maxdepth", "3",
-                     "-name", "chpasswd", "-type", "f", "-path", "*/bin/chpasswd"],
-                    capture_output=True, text=True
-                )
-                chpasswd_paths = chpasswd_find.stdout.strip().splitlines()
-                if not chpasswd_paths:
-                    raise RuntimeError("chpasswd binary not found in /mnt/nix/store")
-                # Use the full host path (e.g. /mnt/nix/store/...-shadow-xxx/bin/chpasswd)
-                chpasswd_bin = chpasswd_paths[0]
-
-                proc = subprocess.run(
-                    ["sudo", chpasswd_bin, "--root", "/mnt"],
-                    input=f"free:{password}",
-                    capture_output=True, text=True
-                )
-                if proc.returncode != 0:
-                    raise RuntimeError(proc.stderr.strip() or "Failed to set password")
-
-                run(["sudo", "touch", "/mnt/var/lib/sovran-customer-onboarded"])
-            except Exception as e:
-                error_lbl.set_text(str(e))
-                error_lbl.set_visible(True)
-                btn.set_sensitive(True)
-                return
-
-            GLib.idle_add(self.push_complete)
-
-        submit_btn = Gtk.Button(label="Set Password & Continue")
-        submit_btn.add_css_class("suggested-action")
-        submit_btn.add_css_class("pill")
-        submit_btn.connect("clicked", on_submit)
-
-        nav = Gtk.Box()
-        nav.set_margin_bottom(24)
-        nav.set_margin_end(40)
-        nav.set_halign(Gtk.Align.END)
-        nav.append(submit_btn)
-        outer.append(nav)
-
-        self.push_page("Create Password", outer)
-        return False
-
-    # ── Step 6: Complete ───────────────────────────────────────────────────
+    # ── Complete ───────────────────────────────────────────────────────────
 
     def push_complete(self):
         outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
@@ -1095,7 +981,7 @@ class InstallerWindow(Adw.ApplicationWindow):
         status.set_vexpand(True)
 
         creds_group = Adw.PreferencesGroup()
-        creds_group.set_title("⚠  Write down your login details before rebooting")
+        creds_group.set_title("⚠  Important — read before rebooting")
         creds_group.set_margin_start(40)
         creds_group.set_margin_end(40)
 
@@ -1105,15 +991,15 @@ class InstallerWindow(Adw.ApplicationWindow):
         creds_group.add(user_row)
 
         pass_row = Adw.ActionRow()
-        pass_row.set_title("Password")
-        pass_row.set_subtitle("The password you just created")
+        pass_row.set_title("Default Password")
+        pass_row.set_subtitle("free  —  you will be prompted to change it on first boot")
         creds_group.add(pass_row)
 
         note_row = Adw.ActionRow()
-        note_row.set_title("App Passwords")
+        note_row.set_title("First Boot Setup")
         note_row.set_subtitle(
-            "After rebooting, all app passwords (Nextcloud, Bitcoin, Matrix, etc.) "
-            "will be available in the Sovran Hub on your dashboard."
+            "After rebooting, the Sovran Hub will guide you through setting "
+            "your password, domains, and all app credentials."
         )
         creds_group.add(note_row)
 
