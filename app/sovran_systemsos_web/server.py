@@ -1503,52 +1503,39 @@ _btc_version_cache: tuple[float, dict | None] = (0.0, None)
 _BTC_VERSION_CACHE_TTL = 60  # seconds — version doesn't change at runtime
 
 
-# ── Generic service version detection ────────────────────────────
+# ── Generic service version detection (NixOS store path) ─────────
 
-# Map service unit names to CLI commands that print a version string.
-# Only include services where a reliable --version flag exists.
-_SERVICE_VERSION_COMMANDS: dict[str, list[str]] = {
-    "electrs.service":              ["electrs", "--version"],
-    "lnd.service":                  ["lnd", "--version"],
-    "caddy.service":                ["caddy", "version"],
-    "tor.service":                  ["tor", "--version"],
-    "livekit.service":              ["livekit-server", "--version"],
-    "vaultwarden.service":          ["vaultwarden", "--version"],
-    "btcpayserver.service":         ["btcpay-server", "--version"],
-    "matrix-synapse.service":       ["python3", "-c", "import synapse; print(synapse.__version__)"],
-    "gnome-remote-desktop.service": ["grdctl", "--version"],
-}
+# Regex to extract the version from a Nix store ExecStart path.
+# Pattern:  /nix/store/<32-char-hash>-<name-segments>-<version>/...
+# Name segments may begin with a letter or digit (e.g. 'python3', 'gtk3',
+# 'lib32-foo') and consist of alphanumeric characters only (no underscores,
+# since Nix store paths use hyphens as separators).
+# The version is identified as the first token starting with digit.digit.
+_NIX_STORE_VERSION_RE = re.compile(
+    r"/nix/store/[a-z0-9]{32}-"                                         # hash prefix
+    r"(?:[a-zA-Z0-9][a-zA-Z0-9]*(?:-[a-zA-Z0-9][a-zA-Z0-9]*)*)+"      # package name
+    r"-(\d+\.\d+(?:\.\d+)*(?:[+-][a-zA-Z0-9]+(?:\.[a-zA-Z0-9]+)*)?)/"  # version (group 1)
+)
+
+# Nix path suffixes that indicate a wrapper environment, not a real package version.
+_NIX_WRAPPER_SUFFIX_RE = re.compile(
+    r"-(?:env|wrapper|wrapped|script|hook|setup|compat)$"
+)
 
 # Cache: unit → (monotonic_timestamp, version_str | None)
 _svc_version_cache: dict[str, tuple[float, str | None]] = {}
 _SVC_VERSION_CACHE_TTL = 300  # 5 minutes — versions only change on system update
 
 
-def _parse_version_from_output(output: str) -> str | None:
-    """Extract the first semver-like version number from command output.
-
-    Handles patterns such as:
-      'electrs 0.10.5'
-      'lnd version 0.18.4-beta commit=v0.18.4-beta'
-      'Tor version 0.4.8.12.'
-      'v2.7.6 h1:...'
-    Returns a string starting with 'v', e.g. 'v0.10.5', or None.
-    """
-    m = re.search(r"v?(\d+\.\d+(?:\.\d+(?:\.\d+)?)?(?:[+-][a-zA-Z0-9]+(?:\.[a-zA-Z0-9]+)*)?)", output)
-    if m:
-        ver = m.group(0)
-        if not ver.startswith("v"):
-            ver = "v" + ver
-        return ver
-    return None
-
-
 def _get_service_version(unit: str) -> str | None:
-    """Return a version string for *unit*, using a CLI command when available.
+    """Extract the version of a service from its Nix store ExecStart path.
+
+    Runs ``systemctl show <unit> --property=ExecStart --value`` and parses
+    the Nix store path embedded in the output to obtain the package version.
 
     Results are cached for _SVC_VERSION_CACHE_TTL seconds so that repeated
-    /api/services polls don't re-exec binaries on every request.  Returns
-    None if no version command is configured or if the command fails.
+    /api/services polls don't spawn extra processes on every request.
+    Returns None if the version cannot be determined.
     """
     now = time.monotonic()
     cached = _svc_version_cache.get(unit)
@@ -1558,20 +1545,24 @@ def _get_service_version(unit: str) -> str | None:
             return cached_val
 
     version: str | None = None
-    cmd = _SERVICE_VERSION_COMMANDS.get(unit)
-    if cmd:
-        try:
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                timeout=5,
-            )
-            output_raw = result.stdout.strip() or result.stderr.strip()
-            output = output_raw.splitlines()[0] if output_raw else ""
-            version = _parse_version_from_output(output)
-        except Exception:
-            pass
+    try:
+        result = subprocess.run(
+            ["systemctl", "show", unit, "--property=ExecStart", "--value"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            m = _NIX_STORE_VERSION_RE.search(result.stdout)
+            if m:
+                ver = m.group(1)
+                # Strip a single trailing period (defensive; shouldn't appear in store paths)
+                ver = ver[:-1] if ver.endswith(".") else ver
+                # Skip Nix environment/wrapper suffixes that are not real versions
+                if not _NIX_WRAPPER_SUFFIX_RE.search(ver):
+                    version = ver if ver.startswith("v") else f"v{ver}"
+    except Exception:
+        pass
 
     _svc_version_cache[unit] = (now, version)
     return version
