@@ -13,11 +13,6 @@ lib.mkIf config.sovran_systemsOS.features.rdp {
   # Enable the GNOME Remote Desktop service at the system level
   services.gnome.gnome-remote-desktop.enable = true;
 
-  # Prevent the system-level service from auto-starting via GDM's target ordering.
-  # This avoids the "Session Already Running" GDM dialog when free is auto-logged-in.
-  # We start the service explicitly from the setup script after configuration is complete.
-  systemd.services."gnome-remote-desktop".wantedBy = lib.mkForce [];
-
   # Open RDP port in the firewall
   networking.firewall.allowedTCPPorts = [ 3389 ];
 
@@ -44,7 +39,6 @@ lib.mkIf config.sovran_systemsOS.features.rdp {
       pkgs.openssl
       pkgs.hostname
       pkgs.gawk
-      pkgs.systemd
     ];
     script = ''
       # Ensure directory structure exists
@@ -117,14 +111,9 @@ lib.mkIf config.sovran_systemsOS.features.rdp {
 
       chmod 600 "$CRED_FILE"
 
-      grdctl --system rdp enable
+      # Enable RDP backend and set credentials
+      grdctl --system rdp enable || true
       grdctl --system rdp set-credentials sovran "$PASSWORD"
-      grdctl --system rdp disable-view-only || true
-
-      # Start the service now that everything is configured.
-      # The service won't auto-start (wantedBy is empty), so we start it explicitly
-      # after TLS certs and credentials are fully configured.
-      systemctl start gnome-remote-desktop.service || true
 
       echo "GNOME Remote Desktop RDP configured successfully"
     '';
