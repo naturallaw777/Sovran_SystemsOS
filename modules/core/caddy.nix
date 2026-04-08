@@ -162,6 +162,12 @@ EOF
 
 http://sovransystemsos.local {
   reverse_proxy localhost:8937
+  header {
+    Clear-Site-Data "\"cache\", \"cookies\", \"storage\""
+    Cache-Control "no-store, no-cache, must-revalidate, max-age=0"
+    Pragma "no-cache"
+    Expires "0"
+  }
 }
 EOF
 
