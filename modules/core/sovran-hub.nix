@@ -211,9 +211,22 @@ let
     fi
   '';
 
+  # ── Brave launcher wrapper: isolated temp profile, cleaned up on exit ─
+  hub-brave-wrapper = pkgs.writeShellScript "sovran-hub-brave.sh" ''
+    export PATH="${lib.makeBinPath [ pkgs.brave pkgs.coreutils ]}:$PATH"
+    HUB_DATA="$(mktemp -d -t sovran-hub-brave.XXXXXXXXXX)"
+    trap '[ -n "$HUB_DATA" ] && rm -rf "$HUB_DATA"' EXIT INT TERM
+    brave --app=http://localhost:8937 \
+          --class=sovran-hub \
+          --user-data-dir="$HUB_DATA" \
+          --disable-gpu \
+          --disable-features=WebRtcPipeWireCapturer \
+          --ozone-platform=wayland
+  '';
+
   # ── Hub auto-launch wrapper script ────────────────────────────────
   hub-autolaunch-script = pkgs.writeShellScript "sovran-hub-autolaunch.sh" ''
-    export PATH="${lib.makeBinPath [ pkgs.curl pkgs.brave ]}:$PATH"
+    export PATH="${lib.makeBinPath [ pkgs.curl ]}:$PATH"
 
     DISABLE_FLAG="/var/lib/sovran/hub-autolaunch-disabled"
     BOOT_FLAG="/run/sovran-hub-autolaunch-done"
@@ -232,7 +245,7 @@ let
       sleep 1
     done
 
-    brave --app=http://localhost:8937 --class=sovran-hub --disable-gpu --disable-features=WebRtcPipeWireCapturer --ozone-platform=wayland
+    ${hub-brave-wrapper}
   '';
 
   sovran-hub-web = pkgs.python3Packages.buildPythonApplication {
@@ -278,7 +291,7 @@ let
 Type=Application
 Name=Sovran Hub
 Comment=Open Sovran_SystemsOS Hub dashboard
-Exec=brave --app=http://localhost:8937 --class=sovran-hub --disable-gpu --disable-features=WebRtcPipeWireCapturer --ozone-platform=wayland
+Exec=${hub-brave-wrapper}
 Icon=sovran-hub
 Terminal=false
 Categories=System;
