@@ -16,7 +16,6 @@
 
     # ── Always on (no flag) ───────────────────────────────────
     ./php.nix
-    ./Sovran_SystemsOS_File_Fixes_And_New_Services.nix
     ./credentials.nix
 
     # ── Services (default ON — disable in custom.nix) ─────────
