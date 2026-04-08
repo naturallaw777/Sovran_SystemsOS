@@ -113,9 +113,6 @@ lib.mkIf config.sovran_systemsOS.features.rdp {
 
       chmod 600 "$CRED_FILE"
 
-      # Disable the system-level RDP endpoint so connections go through the user session
-      grdctl --system rdp disable || true
-
       echo "GNOME Remote Desktop RDP configured successfully"
     '';
   };
@@ -163,4 +160,9 @@ lib.mkIf config.sovran_systemsOS.features.rdp {
 
   # Add free user to gnome-remote-desktop group so the user-level service can read credential files
   users.users.free.extraGroups = [ "gnome-remote-desktop" ];
+
+  # Prevent the system-level RDP service from starting — we use user-session sharing instead.
+  # We keep services.gnome.gnome-remote-desktop.enable = true for the grdctl binary,
+  # but prevent the system service from auto-starting (which causes the GDM "Session Already Running" conflict).
+  systemd.services."gnome-remote-desktop".wantedBy = lib.mkForce [];
 }
