@@ -153,10 +153,6 @@
   scrollbar-color: var(--border-color) transparent;
 }
 
-.onboarding-card--ports {
-  overflow: visible;
-}
-
 /* Body text */
 
 .onboarding-body-text {
@@ -228,7 +224,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding-top: 4px;
+  padding-top: 16px;
 }
 
 .onboarding-btn-next {
