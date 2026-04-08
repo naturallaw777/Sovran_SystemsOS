@@ -57,7 +57,7 @@
     "ko_KR.UTF-8/UTF-8"
     "ru_RU.UTF-8/UTF-8"
     "ar_SA.UTF-8/UTF-8"
-    "hi_IN.UTF-8/UTF-8"
+    "hi_IN/UTF-8"
   ];
 
   # ── Desktop ────────────────────────────────────────────────
