@@ -242,6 +242,8 @@ let
 
     src = ../../app;
 
+    nativeBuildInputs = [ pkgs.librsvg ];
+
     propagatedBuildInputs = with pkgs.python3Packages; [
       fastapi
       uvicorn
@@ -264,6 +266,11 @@ let
 
       install -d $out/share/icons/hicolor/scalable/apps
       cp sovran_systemsos_web/static/sovran-hub-icon.svg $out/share/icons/hicolor/scalable/apps/sovran-hub.svg
+
+      for size in 48 128 256 512; do
+        install -d $out/share/icons/hicolor/''${size}x''${size}/apps
+        rsvg-convert -w ''${size} -h ''${size} sovran_systemsos_web/static/sovran-hub-icon.svg -o $out/share/icons/hicolor/''${size}x''${size}/apps/sovran-hub.png
+      done
 
       install -d $out/share/applications
       cat > $out/share/applications/sovran-hub.desktop <<DESKTOP
