@@ -118,8 +118,6 @@ function buildTile(svc) {
   tile.className = "service-tile" + (dis ? " disabled" : "") + (isSupport ? " support-tile" : "");
   tile.dataset.unit = svc.unit;
   tile.dataset.tileId = tileId(svc);
-  if (dis) tile.title = svc.name + " is not enabled in custom.nix";
-
   if (isSupport) {
     tile.innerHTML = '<img class="tile-icon" src="/static/icons/' + escHtml(svc.icon) + '.svg" alt="' + escHtml(svc.name) + '" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'"><div class="tile-icon-fallback" style="display:none">?</div><div class="tile-name">' + escHtml(svc.name) + '</div><div class="tile-status"><span class="support-status-label">Click for help</span></div>';
     tile.style.cursor = "pointer";
