@@ -23,6 +23,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.requests import Request
 from pydantic import BaseModel
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from .config import load_config
 from . import systemctl as sysctl
@@ -427,6 +428,19 @@ SERVICE_DESCRIPTIONS: dict[str, str] = {
 _BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 app = FastAPI(title="Sovran_SystemsOS Hub")
+
+
+class NoCacheMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        response = await call_next(request)
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+        response.headers["Clear-Site-Data"] = '"cache", "cookies", "storage"'
+        return response
+
+
+app.add_middleware(NoCacheMiddleware)
 
 _ICONS_DIR = os.environ.get(
     "SOVRAN_HUB_ICONS",
