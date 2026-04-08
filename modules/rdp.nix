@@ -16,6 +16,13 @@ lib.mkIf config.sovran_systemsOS.features.rdp {
   # Open RDP port in the firewall
   networking.firewall.allowedTCPPorts = [ 3389 ];
 
+  # Ensure the service actually starts and waits for setup to complete
+  systemd.services.gnome-remote-desktop = {
+    wantedBy = [ "graphical.target" ];
+    after = [ "gnome-remote-desktop-setup.service" ];
+    wants = [ "gnome-remote-desktop-setup.service" ];
+  };
+
   systemd.tmpfiles.rules = [
     "d /var/lib/gnome-remote-desktop 0750 gnome-remote-desktop gnome-remote-desktop -"
     "d /var/lib/gnome-remote-desktop/.local 0750 gnome-remote-desktop gnome-remote-desktop -"
@@ -112,7 +119,7 @@ lib.mkIf config.sovran_systemsOS.features.rdp {
       chmod 600 "$CRED_FILE"
 
       # Enable RDP backend and set credentials
-      grdctl --system rdp enable || true
+      grdctl --system rdp enable
       grdctl --system rdp set-credentials sovran "$PASSWORD"
 
       echo "GNOME Remote Desktop RDP configured successfully"
