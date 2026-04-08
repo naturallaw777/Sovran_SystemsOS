@@ -310,6 +310,12 @@
   text-decoration: underline;
 }
 
+/* ── Service detail: Domain configure button ─────────────────────── */
+
+.svc-detail-domain-btn {
+  margin-top: 12px;
+}
+
 /* ── Service detail: Addon feature toggle ────────────────────────── */
 
 .svc-detail-addon-row {
