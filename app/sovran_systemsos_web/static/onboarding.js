@@ -308,6 +308,8 @@ async function loadStep3() {
       html += '<label class="onboarding-domain-label onboarding-domain-label--sub">Njal.la DDNS Curl Command</label>';
       html += '<input class="onboarding-domain-input domain-field-input" type="text" id="ddns-input-' + escHtml(d.name) + '" data-ddns="' + escHtml(d.name) + '" placeholder="curl &quot;https://njal.la/update/?h=' + escHtml(d.name) + '.yourdomain.com&amp;k=abc123&amp;auto&quot;" />';
       html += '<p class="onboarding-hint" style="margin-top:4px;">ℹ Paste the curl URL from your Njal.la dashboard\'s Dynamic record</p>';
+      html += '<button type="button" class="btn btn-primary onboarding-domain-save-btn" data-save-domain="' + escHtml(d.name) + '" style="align-self:flex-start;margin-top:8px;font-size:0.82rem;padding:6px 16px;">Save</button>';
+      html += '<span class="onboarding-domain-save-status" id="domain-save-status-' + escHtml(d.name) + '" style="font-size:0.82rem;min-height:1.2em;"></span>';
       html += '</div>';
     });
   }
@@ -318,9 +320,78 @@ async function loadStep3() {
   html += '<label class="onboarding-domain-label">📧 SSL Certificate Email</label>';
   html += '<p class="onboarding-hint onboarding-hint--inline">Let\'s Encrypt uses this for certificate expiry notifications.</p>';
   html += '<input class="onboarding-domain-input domain-field-input" type="email" id="ssl-email-input" placeholder="you@example.com" value="' + escHtml(emailVal) + '" />';
+  html += '<button type="button" class="btn btn-primary onboarding-domain-save-btn" data-save-email="true" style="align-self:flex-start;margin-top:8px;font-size:0.82rem;padding:6px 16px;">Save</button>';
+  html += '<span class="onboarding-domain-save-status" id="domain-save-status-email" style="font-size:0.82rem;min-height:1.2em;"></span>';
   html += '</div>';
 
   body.innerHTML = html;
+
+  // Wire per-field save buttons for domains
+  body.querySelectorAll('[data-save-domain]').forEach(function(btn) {
+    btn.addEventListener('click', async function() {
+      var domainName = btn.dataset.saveDomain;
+      var domainInput = document.getElementById('domain-input-' + domainName);
+      var ddnsInput = document.getElementById('ddns-input-' + domainName);
+      var statusEl = document.getElementById('domain-save-status-' + domainName);
+      var domainVal = domainInput ? domainInput.value.trim() : '';
+      var ddnsVal = ddnsInput ? ddnsInput.value.trim() : '';
+
+      if (!domainVal) {
+        if (statusEl) { statusEl.textContent = '⚠ Enter a domain first'; statusEl.style.color = 'var(--red)'; }
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = 'Saving…';
+      if (statusEl) { statusEl.textContent = ''; }
+
+      try {
+        await apiFetch('/api/domains/set', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ domain_name: domainName, domain: domainVal, ddns_url: ddnsVal }),
+        });
+        if (statusEl) { statusEl.textContent = '✓ Saved'; statusEl.style.color = 'var(--green)'; }
+      } catch (err) {
+        if (statusEl) { statusEl.textContent = '⚠ ' + err.message; statusEl.style.color = 'var(--red)'; }
+      }
+
+      btn.disabled = false;
+      btn.textContent = 'Save';
+    });
+  });
+
+  // Wire save button for SSL email
+  body.querySelectorAll('[data-save-email]').forEach(function(btn) {
+    btn.addEventListener('click', async function() {
+      var emailInput = document.getElementById('ssl-email-input');
+      var statusEl = document.getElementById('domain-save-status-email');
+      var emailVal = emailInput ? emailInput.value.trim() : '';
+
+      if (!emailVal) {
+        if (statusEl) { statusEl.textContent = '⚠ Enter an email first'; statusEl.style.color = 'var(--red)'; }
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = 'Saving…';
+      if (statusEl) { statusEl.textContent = ''; }
+
+      try {
+        await apiFetch('/api/domains/set-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: emailVal }),
+        });
+        if (statusEl) { statusEl.textContent = '✓ Saved'; statusEl.style.color = 'var(--green)'; }
+      } catch (err) {
+        if (statusEl) { statusEl.textContent = '⚠ ' + err.message; statusEl.style.color = 'var(--red)'; }
+      }
+
+      btn.disabled = false;
+      btn.textContent = 'Save';
+    });
+  });
 }
 
 async function saveStep3() {
