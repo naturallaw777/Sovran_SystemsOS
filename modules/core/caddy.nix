@@ -11,6 +11,10 @@ in
     group = "root";
   };
 
+  systemd.tmpfiles.rules = [
+    "d /var/lib/domains 0755 caddy root -"
+  ];
+
   # Override ExecStart + ExecReload to point at the runtime-generated Caddyfile
   systemd.services.caddy.serviceConfig = {
     ExecStart = lib.mkForce [

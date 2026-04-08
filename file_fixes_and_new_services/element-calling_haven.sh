@@ -34,8 +34,10 @@ FILE=/var/lib/beacons/file_fixes_and_new_services/element-calling_haven/complete
 
 #### MAIN SCRIPT ####
 
+  mkdir -p /var/lib/domains
   touch /var/lib/domains/haven
   touch /var/lib/domains/element-calling
+  chown -R caddy:root /var/lib/domains
 
    if [[ $? != 0 ]]; then
 
