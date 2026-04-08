@@ -2779,6 +2779,25 @@ class DomainSetRequest(BaseModel):
 _SAFE_NAME_RE = re.compile(r'^[a-zA-Z0-9_-]+$')
 
 
+def _ensure_domains_dir() -> None:
+    """Create DOMAINS_DIR if needed and ensure it is owned by caddy:root."""
+    os.makedirs(DOMAINS_DIR, exist_ok=True)
+    try:
+        pw = pwd.getpwnam("caddy")
+        os.chown(DOMAINS_DIR, pw.pw_uid, 0)
+    except KeyError:
+        pass
+
+
+def _chown_to_caddy(path: str) -> None:
+    """Set the owner of a file to caddy:root (best-effort)."""
+    try:
+        pw = pwd.getpwnam("caddy")
+        os.chown(path, pw.pw_uid, 0)
+    except KeyError:
+        pass
+
+
 def _validate_safe_name(name: str) -> bool:
     """Return True if name contains only safe path characters (no separators)."""
     return bool(name) and _SAFE_NAME_RE.match(name) is not None
@@ -2789,10 +2808,11 @@ async def api_domains_set(req: DomainSetRequest):
     """Save a domain and optionally register a DDNS URL."""
     if not _validate_safe_name(req.domain_name):
         raise HTTPException(status_code=400, detail="Invalid domain_name")
-    os.makedirs(DOMAINS_DIR, exist_ok=True)
+    _ensure_domains_dir()
     domain_path = os.path.join(DOMAINS_DIR, req.domain_name)
     with open(domain_path, "w") as f:
         f.write(req.domain.strip())
+    _chown_to_caddy(domain_path)
 
     if req.ddns_url:
         ddns_url = req.ddns_url.strip()
@@ -2831,9 +2851,11 @@ class DomainSetEmailRequest(BaseModel):
 @app.post("/api/domains/set-email")
 async def api_domains_set_email(req: DomainSetEmailRequest):
     """Save the SSL certificate email address."""
-    os.makedirs(DOMAINS_DIR, exist_ok=True)
-    with open(os.path.join(DOMAINS_DIR, "sslemail"), "w") as f:
+    _ensure_domains_dir()
+    email_path = os.path.join(DOMAINS_DIR, "sslemail")
+    with open(email_path, "w") as f:
         f.write(req.email.strip())
+    _chown_to_caddy(email_path)
     return {"ok": True}
 
 
