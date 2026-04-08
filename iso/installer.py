@@ -238,7 +238,7 @@ class InstallerWindow(Adw.ApplicationWindow):
                 pass
 
         title = Gtk.Label()
-        title.set_markup("<span size='xx-large' weight='heavy'>Welcome to Sovran SystemsOS</span>")
+        title.set_markup("<span size='xx-large' weight='heavy'>Welcome to Sovran_SystemsOS</span>")
         title.set_margin_top(8)
         hero.append(title)
 
@@ -259,7 +259,7 @@ class InstallerWindow(Adw.ApplicationWindow):
         notice.set_markup(
             "<span size='medium'>"
             "Before installation begins, please ensure you have an <b>active internet connection</b>.\n"
-            "Sovran SystemsOS downloads packages during installation and requires internet access\n"
+            "Sovran_SystemsOS downloads packages during installation and requires internet access\n"
             "to complete the process.  Connect via <b>Ethernet cable</b> or configure <b>Wi-Fi</b> now."
             "</span>"
         )
@@ -325,7 +325,7 @@ class InstallerWindow(Adw.ApplicationWindow):
                 pass
 
         title = Gtk.Label()
-        title.set_markup("<span size='xx-large' weight='heavy'>Sovran Systems</span>")
+        title.set_markup("<span size='xx-large' weight='heavy'>Sovran_SystemsOS</span>")
         hero.append(title)
 
         sub = Gtk.Label()
@@ -907,7 +907,7 @@ class InstallerWindow(Adw.ApplicationWindow):
         outer.append(self.nav_row(
             next_label="Install Now",
             next_cb=lambda b: self.push_progress(
-                "Installing Sovran SystemsOS",
+                "Installing Sovran_SystemsOS",
                 "Building and installing your system. Please wait...",
                 self.do_install
             )
@@ -979,50 +979,14 @@ class InstallerWindow(Adw.ApplicationWindow):
 
         status = Adw.StatusPage()
         status.set_title("Installation Complete!")
-        status.set_description("Welcome to Sovran SystemsOS.")
+        status.set_description("Rebooting…")
         status.set_vexpand(True)
 
-        creds_group = Adw.PreferencesGroup()
-        creds_group.set_title("⚠  Important — read before rebooting")
-        creds_group.set_margin_start(40)
-        creds_group.set_margin_end(40)
-
-        user_row = Adw.ActionRow()
-        user_row.set_title("Username")
-        user_row.set_subtitle("free")
-        creds_group.add(user_row)
-
-        pass_row = Adw.ActionRow()
-        pass_row.set_title("Default Password")
-        pass_row.set_subtitle("free  —  you will be prompted to change it on first boot")
-        creds_group.add(pass_row)
-
-        note_row = Adw.ActionRow()
-        note_row.set_title("First Boot Setup")
-        note_row.set_subtitle(
-            "After rebooting, the Sovran Hub will guide you through setting "
-            "your password, domains, and all app credentials."
-        )
-        creds_group.add(note_row)
-
-        content_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
-        content_box.append(status)
-        content_box.append(creds_group)
-        outer.append(content_box)
-
-        reboot_btn = Gtk.Button(label="Reboot Now")
-        reboot_btn.add_css_class("success")
-        reboot_btn.add_css_class("pill")
-        reboot_btn.connect("clicked", lambda b: subprocess.run(["sudo", "reboot"]))
-
-        nav = Gtk.Box()
-        nav.set_margin_bottom(24)
-        nav.set_margin_end(40)
-        nav.set_halign(Gtk.Align.END)
-        nav.append(reboot_btn)
-        outer.append(nav)
+        outer.append(status)
 
         self.push_page("Complete", outer)
+
+        GLib.timeout_add_seconds(3, lambda: subprocess.run(["sudo", "reboot"]))
         return False
 
     # ── Error screen ───────────────────────────────────────────────────────
