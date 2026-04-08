@@ -146,7 +146,7 @@ lib.mkIf config.sovran_systemsOS.features.rdp {
       # Enable RDP backend and set credentials
       grdctl --system rdp enable
       grdctl --system rdp set-credentials sovran "$PASSWORD"
-      grdctl --system rdp disable-view-only || true
+      grdctl --system rdp disable-view-only || echo "WARNING: grdctl --system rdp disable-view-only not supported on this version" >&2
 
       echo "GNOME Remote Desktop RDP configured successfully"
     '';
