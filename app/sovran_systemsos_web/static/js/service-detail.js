@@ -85,21 +85,6 @@ async function openServiceDetailModal(unit, name, icon) {
         '</div>';
     }
 
-    // Section: Desktop Launch (only for services with desktop apps)
-    if (data.desktop_links && data.desktop_links.length > 0) {
-      var launchBtns = '';
-      data.desktop_links.forEach(function(link) {
-        launchBtns += '<button class="btn btn-primary svc-detail-launch-btn" data-desktop="' + escHtml(link.desktop_file) + '">' +
-          '🖥️ ' + escHtml(link.label) +
-          '</button>';
-      });
-      html += '<div class="svc-detail-section">' +
-        '<div class="svc-detail-section-title">Open on Desktop</div>' +
-        '<p class="svc-detail-desc" style="margin-bottom:12px">If you are accessing this machine locally on the GNOME desktop, click below to launch the app directly.</p>' +
-        '<div class="svc-detail-launch-row">' + launchBtns + '</div>' +
-        '</div>';
-    }
-
     // Section B: Status
     // When a feature override is present, use the feature's enabled state so the
     // modal matches what the dashboard tile shows (feature toggle is authoritative).
@@ -343,25 +328,6 @@ async function openServiceDetailModal(unit, name, icon) {
 
     $credsBody.innerHTML = html;
     _attachCopyHandlers($credsBody);
-
-    // Desktop launch button handlers
-    $credsBody.querySelectorAll(".svc-detail-launch-btn").forEach(function(btn) {
-      btn.addEventListener("click", async function() {
-        var desktopFile = btn.dataset.desktop;
-        btn.disabled = true;
-        btn.textContent = "Launching…";
-        try {
-          await apiFetch("/api/desktop/launch/" + encodeURIComponent(desktopFile), {
-            method: "POST"
-          });
-          btn.textContent = "✓ Launched!";
-          setTimeout(function() { btn.textContent = "🖥️ " + btn.textContent; btn.disabled = false; }, 2000);
-        } catch (err) {
-          btn.textContent = "❌ Failed";
-          btn.disabled = false;
-        }
-      });
-    });
 
     if (unit === "matrix-synapse.service") {
       var addBtn = document.getElementById("matrix-add-user-btn");
