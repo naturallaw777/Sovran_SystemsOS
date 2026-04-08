@@ -408,23 +408,18 @@ SERVICE_DESCRIPTIONS: dict[str, str] = {
         "Sparrow Wallet is a privacy-focused Bitcoin desktop wallet for sending, receiving, "
         "and managing your Bitcoin. Sovran_SystemsOS automatically connects it to your local "
         "Electrs server on first boot — your address lookups, balances, and transactions "
-        "never touch a third-party server. Full privacy, zero configuration."
+        "never touch a third-party server. Full privacy, zero configuration.\n\n"
+        "To use Sparrow Wallet, open it directly from your desktop — it's already installed and "
+        "auto-configured to connect to your local Electrs server."
     ),
     "bisq-autoconnect.service": (
         "Bisq is a decentralized, peer-to-peer Bitcoin exchange — buy and sell Bitcoin "
         "with no KYC and no middleman. Sovran_SystemsOS automatically connects it to your "
         "local Bitcoin node on first boot, routing all traffic through Tor. Your trades are "
-        "verified by your own node, keeping you fully sovereign."
+        "verified by your own node, keeping you fully sovereign.\n\n"
+        "To use Bisq, open it directly from your desktop — it's already installed and "
+        "auto-configured to connect to your local Bitcoin node."
     ),
-}
-
-SERVICE_DESKTOP_LINKS: dict[str, list[dict[str, str]]] = {
-    "sparrow-autoconnect.service": [
-        {"label": "Open Sparrow Wallet", "desktop_file": "sparrow-desktop.desktop"},
-    ],
-    "bisq-autoconnect.service": [
-        {"label": "Open Bisq", "desktop_file": "Bisq.desktop"},
-    ],
 }
 
 # ── App setup ────────────────────────────────────────────────────
@@ -2182,69 +2177,7 @@ async def api_service_detail(unit: str, icon: str | None = None):
             btc_ver = _format_bitcoin_version(raw_ver, icon=icon)
             service_detail["bitcoin_version"] = btc_ver  # backwards compat
             service_detail["version"] = btc_ver
-    desktop_links = SERVICE_DESKTOP_LINKS.get(unit, [])
-    if desktop_links:
-        service_detail["desktop_links"] = desktop_links
     return service_detail
-
-
-@app.post("/api/desktop/launch/{desktop_file}")
-async def api_desktop_launch(desktop_file: str):
-    """Launch a desktop application via gtk-launch on the local GNOME session."""
-    import re as _re
-    if not _re.match(r'^[a-zA-Z0-9_.-]+\.desktop$', desktop_file):
-        raise HTTPException(status_code=400, detail="Invalid desktop file name")
-
-    target_user = "free"
-    try:
-        pw = pwd.getpwnam(target_user)
-        uid = pw.pw_uid
-    except KeyError:
-        raise HTTPException(status_code=500, detail=f"User '{target_user}' not found")
-
-    runtime_dir = f"/run/user/{uid}"
-
-    try:
-        # Preferred: machinectl shell enters the user's actual login session scope,
-        # inheriting the full graphical environment automatically.
-        result = subprocess.run(
-            [
-                "machinectl", "shell", f"--uid={uid}",
-                ".host", "/usr/bin/env",
-                f"XDG_RUNTIME_DIR={runtime_dir}",
-                "WAYLAND_DISPLAY=wayland-0",
-                f"DBUS_SESSION_BUS_ADDRESS=unix:path={runtime_dir}/bus",
-                "DISPLAY=:0",
-                "gtk-launch", desktop_file,
-            ],
-            capture_output=True, text=True, timeout=10,
-        )
-        if result.returncode != 0:
-            # Fallback: su -l with explicit Wayland env vars
-            env_prefix = (
-                f"XDG_RUNTIME_DIR={runtime_dir} "
-                f"WAYLAND_DISPLAY=wayland-0 "
-                f"DBUS_SESSION_BUS_ADDRESS=unix:path={runtime_dir}/bus "
-                f"DISPLAY=:0 "
-            )
-            result = subprocess.run(
-                [
-                    "su", "-l", target_user, "-c",
-                    f"{env_prefix}gtk-launch {desktop_file}",
-                ],
-                capture_output=True, text=True, timeout=10,
-            )
-            if result.returncode != 0:
-                raise HTTPException(
-                    status_code=500,
-                    detail=f"Failed to launch: {result.stderr.strip()}",
-                )
-    except FileNotFoundError:
-        raise HTTPException(status_code=500, detail="Required launcher (machinectl or gtk-launch) not found on this system")
-    except subprocess.TimeoutExpired:
-        raise HTTPException(status_code=500, detail="Launch command timed out")
-
-    return {"ok": True, "launched": desktop_file}
 
 
 @app.get("/api/network")
