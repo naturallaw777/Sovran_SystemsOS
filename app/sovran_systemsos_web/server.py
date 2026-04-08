@@ -2195,17 +2195,52 @@ async def api_desktop_launch(desktop_file: str):
     if not _re.match(r'^[a-zA-Z0-9_.-]+\.desktop$', desktop_file):
         raise HTTPException(status_code=400, detail="Invalid desktop file name")
 
+    target_user = "free"
     try:
-        env = dict(os.environ)
-        env["DISPLAY"] = ":0"
+        pw = pwd.getpwnam(target_user)
+        uid = pw.pw_uid
+    except KeyError:
+        raise HTTPException(status_code=500, detail=f"User '{target_user}' not found")
+
+    runtime_dir = f"/run/user/{uid}"
+
+    try:
+        # Preferred: machinectl shell enters the user's actual login session scope,
+        # inheriting the full graphical environment automatically.
         result = subprocess.run(
-            ["gtk-launch", desktop_file],
-            capture_output=True, text=True, timeout=10, env=env,
+            [
+                "machinectl", "shell", f"--uid={uid}",
+                ".host", "/usr/bin/env",
+                f"XDG_RUNTIME_DIR={runtime_dir}",
+                "WAYLAND_DISPLAY=wayland-0",
+                f"DBUS_SESSION_BUS_ADDRESS=unix:path={runtime_dir}/bus",
+                "DISPLAY=:0",
+                "gtk-launch", desktop_file,
+            ],
+            capture_output=True, text=True, timeout=10,
         )
         if result.returncode != 0:
-            raise HTTPException(status_code=500, detail=f"Failed to launch: {result.stderr.strip()}")
+            # Fallback: su -l with explicit Wayland env vars
+            env_prefix = (
+                f"XDG_RUNTIME_DIR={runtime_dir} "
+                f"WAYLAND_DISPLAY=wayland-0 "
+                f"DBUS_SESSION_BUS_ADDRESS=unix:path={runtime_dir}/bus "
+                f"DISPLAY=:0 "
+            )
+            result = subprocess.run(
+                [
+                    "su", "-l", target_user, "-c",
+                    f"{env_prefix}gtk-launch {desktop_file}",
+                ],
+                capture_output=True, text=True, timeout=10,
+            )
+            if result.returncode != 0:
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Failed to launch: {result.stderr.strip()}",
+                )
     except FileNotFoundError:
-        raise HTTPException(status_code=500, detail="gtk-launch not found on this system")
+        raise HTTPException(status_code=500, detail="Required launcher (machinectl or gtk-launch) not found on this system")
     except subprocess.TimeoutExpired:
         raise HTTPException(status_code=500, detail="Launch command timed out")
 
