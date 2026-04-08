@@ -73,7 +73,11 @@ lib.mkIf config.sovran_systemsOS.services.wordpress {
       DB_HOST="localhost"
       ADMIN_USER=$(pwgen -s 16 1)
       ADMIN_PASS=$(pwgen -s 24 1)
-      ADMIN_EMAIL="$ADMIN_USER@''${DOMAIN#*.}"
+      EMAIL_DOMAIN="''${DOMAIN#*.}"
+      if ! echo "$EMAIL_DOMAIN" | grep -q '\.'; then
+        EMAIL_DOMAIN="$DOMAIN"
+      fi
+      ADMIN_EMAIL="$ADMIN_USER@$EMAIL_DOMAIN"
 
       echo "══════════════════════════════════════════════"
       echo "  WordPress Automated Installation"
