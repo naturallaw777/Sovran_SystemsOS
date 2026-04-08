@@ -24,6 +24,7 @@ let
     grdctl rdp set-tls-key "$TLS_DIR/rdp-tls.key" || { echo "ERROR: grdctl rdp set-tls-key failed" >&2; exit 1; }
     grdctl rdp set-credentials sovran "$PASSWORD" || { echo "ERROR: grdctl rdp set-credentials failed" >&2; exit 1; }
     grdctl rdp enable || { echo "ERROR: grdctl rdp enable failed" >&2; exit 1; }
+    grdctl rdp disable-view-only || echo "WARNING: grdctl rdp disable-view-only not supported on this version" >&2
     echo "Session-level RDP configured successfully"
   '';
 in
@@ -145,6 +146,7 @@ lib.mkIf config.sovran_systemsOS.features.rdp {
       # Enable RDP backend and set credentials
       grdctl --system rdp enable
       grdctl --system rdp set-credentials sovran "$PASSWORD"
+      grdctl --system rdp disable-view-only || echo "WARNING: grdctl --system rdp disable-view-only not supported on this version" >&2
 
       echo "GNOME Remote Desktop RDP configured successfully"
     '';
@@ -152,12 +154,12 @@ lib.mkIf config.sovran_systemsOS.features.rdp {
 
   # Autostart session-level RDP configuration when the 'free' user's GNOME session starts
   environment.etc."xdg/autostart/sovran-rdp-session-setup.desktop".text = ''
-    [Desktop Entry]
-    Type=Application
-    Name=Sovran RDP Session Setup
-    Exec=${rdp-session-setup-script}
-    Terminal=false
-    X-GNOME-Autostart-enabled=true
-    NoDisplay=true
-  '';
+[Desktop Entry]
+Type=Application
+Name=Sovran RDP Session Setup
+Exec=${rdp-session-setup-script}
+Terminal=false
+X-GNOME-Autostart-enabled=true
+NoDisplay=true
+'';
 }
