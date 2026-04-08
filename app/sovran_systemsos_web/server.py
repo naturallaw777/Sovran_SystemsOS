@@ -2162,6 +2162,7 @@ async def api_service_detail(unit: str, icon: str | None = None):
         "credentials": resolved_creds,
         "needs_domain": needs_domain,
         "domain": domain,
+        "domain_name": domain_key,
         "domain_status": domain_status,
         "port_requirements": port_requirements,
         "port_statuses": port_statuses,
