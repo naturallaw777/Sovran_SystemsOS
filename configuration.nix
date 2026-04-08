@@ -28,9 +28,6 @@
   };
 
   # ── Networking ──────────────────────────────────────────────
-  # NOTE: hostName must remain "nixos" to match the nixosConfigurations key in
-  # flake.nix. Changing it breaks flake-based remote upgrades with:
-  #   error: does not provide attribute 'nixosConfigurations."<hostname>"'
   networking.hostName = "nixos";
   networking.networkmanager.enable = true;
   networking.firewall.enable = true;
@@ -38,8 +35,6 @@
   networking.firewall.allowedUDPPorts = [ 80 443 8448 3051 5353 ];
 
   # ── Avahi (mDNS) ───────────────────────────────────────────
-  # Advertise as sovransystemsos.local on the LAN without changing the system
-  # hostname (which must remain "nixos" for flake compatibility — see above).
   services.avahi = {
     enable = true;
     hostName = "sovransystemsos";
@@ -48,8 +43,22 @@
   };
 
   # ── Locale / Time ──────────────────────────────────────────
-  time.timeZone = "America/Los_Angeles";
-  i18n.defaultLocale = "en_US.UTF-8";
+  time.timeZone = null;
+  i18n.defaultLocale = lib.mkDefault "en_US.UTF-8";
+  i18n.supportedLocales = [
+    "en_US.UTF-8/UTF-8"
+    "en_GB.UTF-8/UTF-8"
+    "es_ES.UTF-8/UTF-8"
+    "fr_FR.UTF-8/UTF-8"
+    "de_DE.UTF-8/UTF-8"
+    "pt_BR.UTF-8/UTF-8"
+    "ja_JP.UTF-8/UTF-8"
+    "zh_CN.UTF-8/UTF-8"
+    "ko_KR.UTF-8/UTF-8"
+    "ru_RU.UTF-8/UTF-8"
+    "ar_SA.UTF-8/UTF-8"
+    "hi_IN.UTF-8/UTF-8"
+  ];
 
   # ── Desktop ────────────────────────────────────────────────
   services.displayManager.gdm.enable = true;
@@ -94,7 +103,6 @@
 
   # ── Packages ───────────────────────────────────────────────
   nixpkgs.config.allowUnfree = true;
-  nixpkgs.config.permittedInsecurePackages = [ "jitsi-meet-1.0.8043" ];
 
   environment.systemPackages = with pkgs; [
     nftables
@@ -161,7 +169,6 @@ backup	/etc/nix-bitcoin-secrets/	localhost/
     enable = true;
     systemCronJobs = [
       "*/15 * * * * root /run/current-system/sw/bin/bash /var/lib/njalla/njalla.sh"
-      "*/15 * * * * root /run/current-system/sw/bin/bash /var/lib/external_ip/external_ip.sh"
     ];
   };
 
