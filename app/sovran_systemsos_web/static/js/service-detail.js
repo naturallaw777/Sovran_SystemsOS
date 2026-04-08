@@ -244,8 +244,8 @@ async function openServiceDetailModal(unit, name, icon) {
               '<li>Find the domain you purchased for this service</li>' +
               '<li>Create a Dynamic DNS record pointing to your external IP: <code>' + escHtml(ds.expected_ip || "—") + '</code></li>' +
               '<li>Copy the DDNS curl command from Njal.la\'s dashboard</li>' +
-              '<li>You can re-enter it in the Feature Manager to update your configuration</li>' +
             '</ol>' +
+            '<button class="btn btn-primary svc-detail-domain-btn" id="svc-detail-reconfig-domain-btn">🔄 Reconfigure Domain</button>' +
             '</div>';
         } else {
           domainBadge = '<span class="svc-detail-domain-value">' + escHtml(data.domain) + '</span>';
@@ -257,9 +257,9 @@ async function openServiceDetailModal(unit, name, icon) {
           '<p style="margin-top:8px">To get this service working:</p>' +
           '<ol>' +
             '<li>Purchase a subdomain at <a href="https://njal.la" target="_blank">njal.la</a> (if you haven\'t already)</li>' +
-            '<li>Go to the <strong>Feature Manager</strong> in the sidebar</li>' +
-            '<li>Find this service and configure your domain through the setup wizard</li>' +
+            '<li>Use the button below to configure your domain through the setup wizard</li>' +
           '</ol>' +
+          '<button class="btn btn-primary svc-detail-domain-btn" id="svc-detail-config-domain-btn">🌐 Configure Domain</button>' +
           '</div>';
       }
 
@@ -384,6 +384,26 @@ async function openServiceDetailModal(unit, name, icon) {
           handleFeatureToggle(addonFeat, !addonFeat.enabled);
         });
       }
+    }
+
+    // Configure Domain button (for non-feature services that need a domain)
+    var configDomainBtn = document.getElementById("svc-detail-config-domain-btn");
+    var reconfigDomainBtn = document.getElementById("svc-detail-reconfig-domain-btn");
+    var domainBtn = configDomainBtn || reconfigDomainBtn;
+    if (domainBtn && data.needs_domain && data.domain_name) {
+      var pseudoFeat = {
+        id: data.domain_name,
+        name: name,
+        domain_name: data.domain_name,
+        needs_ddns: true,
+        extra_fields: []
+      };
+      domainBtn.addEventListener("click", function() {
+        closeCredsModal();
+        openDomainSetupModal(pseudoFeat, function() {
+          openServiceDetailModal(unit, name, icon);
+        });
+      });
     }
   } catch (err) {
     if ($credsBody) $credsBody.innerHTML = '<p class="creds-empty">Could not load service details.</p>';
