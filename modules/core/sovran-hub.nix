@@ -213,7 +213,7 @@ let
 
   # ── Hub auto-launch wrapper script ────────────────────────────────
   hub-autolaunch-script = pkgs.writeShellScript "sovran-hub-autolaunch.sh" ''
-    export PATH="${lib.makeBinPath [ pkgs.curl pkgs.xdg-utils ]}:$PATH"
+    export PATH="${lib.makeBinPath [ pkgs.curl pkgs.brave ]}:$PATH"
 
     DISABLE_FLAG="/var/lib/sovran/hub-autolaunch-disabled"
     BOOT_FLAG="/run/sovran-hub-autolaunch-done"
@@ -232,7 +232,7 @@ let
       sleep 1
     done
 
-    xdg-open http://localhost:8937
+    brave --app=http://localhost:8937 --class=sovran-hub
   '';
 
   sovran-hub-web = pkgs.python3Packages.buildPythonApplication {
@@ -278,11 +278,13 @@ let
 Type=Application
 Name=Sovran Hub
 Comment=Open Sovran_SystemsOS Hub dashboard
-Exec=xdg-open http://localhost:8937
+Exec=brave --app=http://localhost:8937 --class=sovran-hub
 Icon=sovran-hub
 Terminal=false
 Categories=System;
-StartupNotify=false
+StartupNotify=true
+StartupWMClass=sovran-hub
+X-GNOME-SingleWindow=true
 DESKTOP
 
       install -d $out/bin
