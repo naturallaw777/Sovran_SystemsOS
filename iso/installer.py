@@ -966,7 +966,9 @@ class InstallerWindow(Adw.ApplicationWindow):
         if proc.returncode != 0:
             log(proc.stderr)
             raise RuntimeError(proc.stderr.strip() or "Failed to write deployed flake.nix")
-        run(["sudo", "rm", "-f", "/mnt/etc/nixos/flake.lock"])
+        GLib.idle_add(append_text, buf, "Locking flake to staging-dev...\n")
+        run_stream(["sudo", "nix", "--extra-experimental-features", "nix-command flakes",
+                    "flake", "lock", "/mnt/etc/nixos"], buf)
 
         GLib.idle_add(self.push_complete)
 
