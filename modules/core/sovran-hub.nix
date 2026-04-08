@@ -232,7 +232,7 @@ let
       sleep 1
     done
 
-    brave --app=http://localhost:8937 --class=sovran-hub
+    brave --app=http://localhost:8937 --class=sovran-hub --disable-gpu --disable-features=WebRtcPipeWireCapturer --ozone-platform=wayland
   '';
 
   sovran-hub-web = pkgs.python3Packages.buildPythonApplication {
@@ -278,7 +278,7 @@ let
 Type=Application
 Name=Sovran Hub
 Comment=Open Sovran_SystemsOS Hub dashboard
-Exec=brave --app=http://localhost:8937 --class=sovran-hub
+Exec=brave --app=http://localhost:8937 --class=sovran-hub --disable-gpu --disable-features=WebRtcPipeWireCapturer --ozone-platform=wayland
 Icon=sovran-hub
 Terminal=false
 Categories=System;
