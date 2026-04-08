@@ -70,6 +70,16 @@ lib.mkIf config.sovran_systemsOS.services.bitcoin {
 
   nix-bitcoin.useVersionLockedPkgs = false;
 
+  systemd.services.bitcoind = {
+    requires = [ "run-media-Second_Drive.mount" ];
+    after    = [ "run-media-Second_Drive.mount" ];
+  };
+
+  systemd.services.electrs = {
+    requires = [ "run-media-Second_Drive.mount" ];
+    after    = [ "run-media-Second_Drive.mount" ];
+  };
+
   systemd.services.sovran-btc-permissions = {
     description = "Fix Bitcoin/Electrs data directory ownership on second drive";
     wantedBy = [ "multi-user.target" ];
