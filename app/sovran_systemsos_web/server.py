@@ -3091,14 +3091,14 @@ async def api_security_verify_integrity():
         # Use a temp directory so the ./result symlink doesn't pollute anything
         tmpdir = tempfile.mkdtemp(prefix="sovran-verify-")
         try:
+            result_link = os.path.join(tmpdir, "result")
             result = subprocess.run(
                 ["/run/current-system/sw/bin/nixos-rebuild", "build", "--flake", "/etc/nixos",
-                 "--no-build-output"],
+                 "--no-build-output", "-o", result_link],
                 capture_output=True, text=True, timeout=600,
                 cwd=tmpdir,
             )
             if result.returncode == 0:
-                result_link = os.path.join(tmpdir, "result")
                 if os.path.islink(result_link):
                     expected_system_path = os.path.realpath(result_link)
                     system_matches = (current_system_path == expected_system_path)
