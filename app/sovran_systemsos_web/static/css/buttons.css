@@ -22,17 +22,17 @@ button:disabled {
 
 .btn-primary {
   background-color: var(--accent-color);
-  color: #1e1e2e;
+  color: #0A1A10;
 }
 
 .btn-primary:hover:not(:disabled) {
   opacity: 0.88;
 }
 
-/* Update System button: BLUE by default */
+/* Update System button: uses accent green by default */
 .btn-update {
-  background-color: #89b4fa;
-  color: #1e1e2e;
+  background-color: #1AA45D;
+  color: #E8FFF4;
   position: relative;
   display: flex;
   align-items: center;
@@ -43,14 +43,14 @@ button:disabled {
   opacity: 0.88;
 }
 
-/* Update System button: GREEN when updates are available */
+/* Update System button: brighter green when updates are available */
 .btn-update.has-updates {
-  background-color: #2ec27e;
-  color: #fff;
+  background-color: #28D978;
+  color: #0A1A10;
 }
 
 .btn-update.has-updates:hover:not(:disabled) {
-  background-color: #27ae6e;
+  background-color: #42F39A;
 }
 
 .update-badge {
