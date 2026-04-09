@@ -599,29 +599,9 @@ function renderAutolaunchToggle(enabled) {
   var section = document.createElement("div");
   section.className = "category-section autolaunch-section";
 
-  var securityBanner = "";
-  if (_securityIsLegacy) {
-    var msg = _securityWarningMessage || "Your system may have factory default passwords. Please change your passwords to secure your system.";
-    var linkText, linkAction;
-    if (_securityStatus === "unsealed") {
-      linkText   = "Contact Support";
-      linkAction = "openSupportModal(); return false;";
-    } else {
-      linkText   = "Change Passwords";
-      linkAction = "openServiceDetailModal('root-password-setup.service', 'System Passwords', 'passwords'); return false;";
-    }
-    securityBanner =
-      '<div class="security-inline-banner">' +
-        '<span class="security-inline-icon">⚠</span>' +
-        '<span class="security-inline-text">' + msg + '</span>' +
-        '<a class="security-inline-link" href="#" onclick="' + linkAction + '">' + linkText + '</a>' +
-      '</div>';
-  }
-
   section.innerHTML =
     '<div class="section-header">Preferences</div>' +
     '<hr class="section-divider" />' +
-    securityBanner +
     '<div class="feature-card">' +
       '<div class="feature-card-top">' +
         '<div class="feature-card-info">' +
