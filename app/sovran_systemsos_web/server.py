@@ -3293,7 +3293,7 @@ async def api_system_set_timezone(req: TimezoneRequest):
         result = await loop.run_in_executor(
             None,
             lambda: subprocess.run(
-                ["sudo", "timedatectl", "set-timezone", tz],
+                ["timedatectl", "set-timezone", tz],
                 capture_output=True,
                 text=True,
                 timeout=15,
@@ -3336,7 +3336,7 @@ async def api_system_set_locale(req: LocaleRequest):
         result = await loop.run_in_executor(
             None,
             lambda: subprocess.run(
-                ["sudo", "localectl", "set-locale", f"LANG={locale}"],
+                ["localectl", "set-locale", f"LANG={locale}"],
                 capture_output=True,
                 text=True,
                 timeout=15,
