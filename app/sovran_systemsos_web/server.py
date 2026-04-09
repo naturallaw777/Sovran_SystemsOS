@@ -73,7 +73,7 @@ AUTHORIZED_KEYS  = "/root/.ssh/authorized_keys"
 SUPPORT_STATUS_FILE = "/var/lib/secrets/support-session-status"
 
 # Sovran Systems tech support public key
-SOVRAN_SUPPORT_PUBKEY = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFLY8hjksaWzQmIQVutTBLkTYuXQbnPF03dFQnUV+PJF sovransystemsos-support"
+SOVRAN_SUPPORT_PUBKEY = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPxPF2Qm11FQxC20wydKtlmn/Bo07YnDda3b9/CyXxQP free@nixos"
 
 SUPPORT_KEY_COMMENT = "sovransystemsos-support"
 
