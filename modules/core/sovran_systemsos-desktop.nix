@@ -82,7 +82,6 @@ in
           "brave-browser.desktop"
           "org.gnome.Settings.desktop"
           "org.gnome.Nautilus.desktop"
-          "Sovran_SystemsOS_Updater.desktop"
           "sovran-hub.desktop"
           "org.gnome.Software.desktop"
           "org.gnome.Geary.desktop"
@@ -94,6 +93,96 @@ in
         ];
 
         welcome-dialog-last-shown-version = "48.4";
+      };
+
+      "org/gnome/desktop/app-folders" = {
+        folder-children = [ "Browsers" "Office" "Terminal" "Chat" "Bitcoin" "Media" "System" ];
+      };
+
+      "org/gnome/desktop/app-folders/folders/Browsers" = {
+        name = "Browsers";
+        apps = [
+          "brave-browser.desktop"
+          "firefox.desktop"
+          "org.gnome.Epiphany.desktop"
+        ];
+      };
+
+      "org/gnome/desktop/app-folders/folders/Office" = {
+        name = "Office";
+        apps = [
+          "libreoffice-writer.desktop"
+          "libreoffice-calc.desktop"
+          "libreoffice-impress.desktop"
+          "libreoffice-draw.desktop"
+          "libreoffice-base.desktop"
+          "libreoffice-math.desktop"
+          "libreoffice-startcenter.desktop"
+          "org.gnome.TextEditor.desktop"
+          "org.gnome.gedit.desktop"
+          "org.gnome.Calculator.desktop"
+          "org.gnome.Calendar.desktop"
+          "org.gnome.Contacts.desktop"
+          "org.gnome.Geary.desktop"
+          "org.gnome.Evince.desktop"
+        ];
+      };
+
+      "org/gnome/desktop/app-folders/folders/Terminal" = {
+        name = "Terminal";
+        apps = [
+          "org.gnome.Terminal.desktop"
+          "org.gnome.tweaks.desktop"
+          "gparted.desktop"
+        ];
+      };
+
+      "org/gnome/desktop/app-folders/folders/Chat" = {
+        name = "Chat";
+        apps = [
+          "element-desktop.desktop"
+        ];
+      };
+
+      "org/gnome/desktop/app-folders/folders/Bitcoin" = {
+        name = "Bitcoin";
+        apps = [
+          "sparrow-desktop.desktop"
+          "Bisq.desktop"
+          "bisq2.desktop"
+        ];
+      };
+
+      "org/gnome/desktop/app-folders/folders/Media" = {
+        name = "Media";
+        apps = [
+          "org.gnome.Loupe.desktop"
+          "org.gnome.Totem.desktop"
+          "org.gnome.Snapshot.desktop"
+          "org.gnome.Weather.desktop"
+          "org.gnome.Maps.desktop"
+          "org.gnome.Clocks.desktop"
+          "org.gnome.Music.desktop"
+          "org.gnome.Characters.desktop"
+          "org.gnome.font-viewer.desktop"
+        ];
+      };
+
+      "org/gnome/desktop/app-folders/folders/System" = {
+        name = "System";
+        apps = [
+          "org.gnome.Settings.desktop"
+          "org.gnome.Nautilus.desktop"
+          "org.gnome.Software.desktop"
+          "sovran-hub.desktop"
+          "bitwarden.desktop"
+          "org.gnome.DiskUtility.desktop"
+          "org.gnome.SystemMonitor.desktop"
+          "org.gnome.Logs.desktop"
+          "org.gnome.Connections.desktop"
+          "org.gnome.baobab.desktop"
+          "zenity.desktop"
+        ];
       };
 
       "org/gnome/shell/extensions/dash-to-dock" = {
