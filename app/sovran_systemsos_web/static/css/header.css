@@ -1,8 +1,10 @@
 /* ── Header bar ─────────────────────────────────────────────────── */
 
 .header-bar {
-  background-color: var(--surface-color);
-  border-bottom: 1px solid var(--border-color);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  background-color: rgba(10, 12, 11, 0.82);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   padding: 8px 24px;
   display: flex;
   flex-direction: row;
@@ -46,8 +48,10 @@
 /* ── IP bar ─────────────────────────────────────────────────────── */
 
 .ip-bar {
-  background-color: var(--surface-color);
-  border-bottom: 1px solid var(--border-color);
+  background-color: rgba(10, 12, 11, 0.7);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
   padding: 8px 24px;
   display: flex;
   align-items: center;

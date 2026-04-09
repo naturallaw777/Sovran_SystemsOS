@@ -4,7 +4,9 @@
   display: none;
   position: fixed;
   inset: 0;
-  background-color: rgba(0,0,0,0.75);
+  background-color: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   z-index: 200;
   align-items: center;
   justify-content: center;
@@ -15,15 +17,17 @@
 }
 
 .modal-dialog {
-  background-color: var(--surface-color);
-  border: 1px solid var(--border-color);
+  background-color: rgba(14, 16, 15, 0.8);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 16px;
   width: 90vw;
   max-width: 900px;
   max-height: 80vh;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 16px 48px rgba(0,0,0,0.7);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6);
 }
 
 .modal-header {
@@ -119,15 +123,17 @@ button.btn-reboot:hover:not(:disabled) {
 /* ── Credentials info modal ──────────────────────────────────────── */
 
 .creds-dialog {
-  background-color: var(--surface-color);
-  border: 1px solid var(--border-color);
+  background-color: rgba(14, 16, 15, 0.8);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 16px;
   width: 90vw;
   max-width: 700px;
   max-height: 85vh;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 16px 48px rgba(0,0,0,0.7);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6);
   animation: creds-fade-in 0.2s ease-out;
 }
 
