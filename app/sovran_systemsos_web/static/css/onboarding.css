@@ -6,7 +6,9 @@
   align-items: center;
   justify-content: flex-start;
   min-height: 100vh;
-  background-color: var(--bg-color);
+  background:
+    radial-gradient(ellipse at top, rgba(40, 217, 120, 0.04) 0%, transparent 50%),
+    var(--bg-color);
   padding: 24px 16px 48px;
   overflow-y: auto;
 }
@@ -347,7 +349,7 @@
 
 .onboarding-port-table td {
   padding: 8px 8px;
-  border-bottom: 1px solid rgba(36, 70, 53, 0.5);
+  border-bottom: 1px solid rgba(30, 45, 39, 0.5);
   color: var(--text-secondary);
   vertical-align: middle;
 }
@@ -731,7 +733,7 @@
   display: none;
   position: fixed;
   inset: 0;
-  background-color: rgba(4, 10, 6, 0.92);
+  background-color: rgba(6, 8, 7, 0.92);
   z-index: 999;
   align-items: center;
   justify-content: center;

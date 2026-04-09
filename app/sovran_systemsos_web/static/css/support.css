@@ -168,7 +168,7 @@
 }
 
 .support-btn-auditlog:hover:not(:disabled) {
-  background-color: #2A4538;
+  background-color: #1c2a24;
 }
 
 .support-fine-print {
@@ -324,7 +324,7 @@
 .support-audit-log {
   max-height: 200px;
   overflow-y: auto;
-  background-color: #060F09;
+  background-color: #0c0f0e;
   border-radius: 8px;
   padding: 10px 14px;
 }
@@ -334,7 +334,7 @@
   font-size: 0.72rem;
   color: var(--text-secondary);
   padding: 3px 0;
-  border-bottom: 1px solid rgba(36, 70, 53, 0.4);
+  border-bottom: 1px solid rgba(30, 45, 39, 0.4);
 }
 
 .support-audit-entry:last-child {

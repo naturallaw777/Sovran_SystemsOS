@@ -46,7 +46,7 @@
 .sidebar-support-btn:hover {
   border-color: var(--accent-color);
   border-style: solid;
-  background-color: #1A3828;
+  background-color: #162320;
 }
 
 .sidebar-support-btn + .sidebar-support-btn {
