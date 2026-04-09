@@ -1,6 +1,24 @@
 { config, pkgs, lib, ... }:
 
 let
+  sovran-whitegloves-start = pkgs.writeShellScriptBin "sovran-whitegloves-start" ''
+    set -euo pipefail
+
+    if [ "$(id -u)" -ne 0 ]; then
+      echo "Error: must be run as root." >&2
+      exit 1
+    fi
+
+    touch /var/lib/sovran-whitegloves
+    echo ""
+    echo "White-gloves marker set: /var/lib/sovran-whitegloves"
+    echo "The auto-seal service will force a full wipe on the customer's first boot"
+    echo "regardless of password state."
+    echo ""
+    echo "REMINDER: Run 'sudo sovran-factory-seal' before shipping the device."
+    echo ""
+  '';
+
   sovran-factory-seal = pkgs.writeShellScriptBin "sovran-factory-seal" ''
     set -euo pipefail
 
@@ -78,6 +96,7 @@ let
     echo "  Setting sealed flag..."
     touch /var/lib/sovran-factory-sealed
     rm -f /var/lib/sovran-customer-onboarded
+    rm -f /var/lib/sovran-whitegloves
 
     echo ""
     echo "System sealed. Power off now or the system will shut down in 10 seconds."
@@ -87,7 +106,7 @@ let
 
 in
 {
-  environment.systemPackages = [ sovran-factory-seal ];
+  environment.systemPackages = [ sovran-factory-seal sovran-whitegloves-start ];
 
   # ── Auto-seal on first customer boot ───────────────────────────────
   systemd.services.sovran-auto-seal = {
@@ -125,7 +144,16 @@ in
         exit 0
       fi
 
+      # ── White-gloves override: force seal if installer marker exists ──
+      WHITEGLOVES_ACTIVE=false
+      if [ -f /var/lib/sovran-whitegloves ]; then
+        echo "sovran-auto-seal: white-gloves marker found — forcing seal regardless of password state."
+        rm -f /var/lib/sovran-whitegloves
+        WHITEGLOVES_ACTIVE=true
+      fi
+
       # ── Safety guard 3: password has been changed from factory defaults ──
+      if [ "$WHITEGLOVES_ACTIVE" = "false" ]; then
       if [ -f /etc/shadow ]; then
         FREE_HASH=$(grep '^free:' /etc/shadow | cut -d: -f2)
         if [ -n "$FREE_HASH" ] && [ "$FREE_HASH" != "!" ] && [ "$FREE_HASH" != "*" ]; then
@@ -160,6 +188,7 @@ in
             exit 0
           fi
         fi
+      fi
       fi
 
       # ── All safety guards passed: this is a fresh/unsealed system ─
