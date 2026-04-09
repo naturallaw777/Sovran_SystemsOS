@@ -16,8 +16,8 @@
   --text-primary:    #ecf3ef;
   --text-secondary:  #8aaa9a;
   --text-dim:        #4a6658;
-  --accent-color:    #28D978;
-  --green:           #2ec27e;
+  --accent-color:    #5EAD8A;
+  --green:           #6DBF8B;
   --yellow:          #e5a50a;
   --red:             #e01b24;
   --grey:            #5E7A6A;
@@ -34,7 +34,7 @@ html, body {
 body {
   font-family: 'Cantarell', 'Inter', 'Segoe UI', sans-serif;
   background:
-    radial-gradient(ellipse at top, rgba(40, 217, 120, 0.04) 0%, transparent 50%),
+    radial-gradient(ellipse at top, rgba(94, 173, 138, 0.04) 0%, transparent 50%),
     var(--bg-color);
   color: var(--text-primary);
   line-height: 1.5;
