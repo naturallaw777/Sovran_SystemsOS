@@ -89,13 +89,13 @@
 /* Reboot = GREEN */
 .modal-footer .btn-reboot,
 button.btn-reboot {
-  background-color: #2ec27e;
+  background-color: #6DBF8B;
   color: #fff;
 }
 
 .modal-footer .btn-reboot:hover:not(:disabled),
 button.btn-reboot:hover:not(:disabled) {
-  background-color: #27ae6e;
+  background-color: #529E7E;
 }
 
 .btn-save {
@@ -295,7 +295,7 @@ button.btn-reboot:hover:not(:disabled) {
 }
 
 .matrix-action-btn:hover {
-  background-color: #6EE4A8;
+  background-color: #7CC4A0;
 }
 
 .matrix-form-group {
@@ -358,7 +358,7 @@ button.btn-reboot:hover:not(:disabled) {
 }
 
 .matrix-form-submit:hover:not(:disabled) {
-  background-color: #6EE4A8;
+  background-color: #7CC4A0;
 }
 
 .matrix-form-submit:disabled {
@@ -391,7 +391,7 @@ button.btn-reboot:hover:not(:disabled) {
 }
 
 .matrix-form-result.success {
-  background-color: rgba(74, 222, 128, 0.12);
+  background-color: rgba(109, 191, 139, 0.12);
   border: 1px solid var(--green);
   color: var(--green);
   display: block;
