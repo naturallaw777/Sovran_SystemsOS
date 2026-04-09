@@ -12,6 +12,7 @@ import re
 import shutil
 import socket
 import subprocess
+import tempfile
 import time
 import urllib.error
 import urllib.parse
@@ -3087,14 +3088,27 @@ async def api_security_verify_integrity():
     expected_system_path = ""
     try:
         current_system_path = os.path.realpath("/run/current-system")
-        result = subprocess.run(
-            ["/run/current-system/sw/bin/nixos-rebuild", "build", "--flake", "/etc/nixos",
-             "--no-build-output", "--print-out-paths"],
-            capture_output=True, text=True, timeout=600,
-        )
-        if result.returncode == 0:
-            expected_system_path = result.stdout.strip()
-            system_matches = (current_system_path == expected_system_path)
+        # Use a temp directory so the ./result symlink doesn't pollute anything
+        tmpdir = tempfile.mkdtemp(prefix="sovran-verify-")
+        try:
+            result = subprocess.run(
+                ["/run/current-system/sw/bin/nixos-rebuild", "build", "--flake", "/etc/nixos",
+                 "--no-build-output"],
+                capture_output=True, text=True, timeout=600,
+                cwd=tmpdir,
+            )
+            if result.returncode == 0:
+                result_link = os.path.join(tmpdir, "result")
+                if os.path.islink(result_link):
+                    expected_system_path = os.path.realpath(result_link)
+                    system_matches = (current_system_path == expected_system_path)
+                else:
+                    expected_system_path = "Build succeeded but no result symlink found"
+            else:
+                # Surface the error so the UI can show what went wrong
+                expected_system_path = f"Build failed: {(result.stderr or result.stdout).strip()[:500]}"
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
     except subprocess.TimeoutExpired:
         expected_system_path = "Build timed out"
     except Exception as exc:
