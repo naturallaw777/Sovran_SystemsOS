@@ -11,6 +11,8 @@
 #     (u:sovran-support:---) by the Hub API as soon as a session is started.
 #   • The Hub web UI lets the user grant time-limited access to wallet files
 #     and view a full audit log of every session event.
+#   • Scoped sudo rules allow editing config, triggering rebuilds, restarting services, and reading
+#     logs — but not full root access.
 #
 # The `acl` package provides the `setfacl` / `getfacl` utilities required by
 # the Hub's _apply_wallet_acls() and _revoke_wallet_acls() helpers.
@@ -38,5 +40,35 @@
   systemd.tmpfiles.rules = [
     "d /var/lib/sovran-support      0700 sovran-support sovran-support -"
     "d /var/lib/sovran-support/.ssh 0700 sovran-support sovran-support -"
+  ];
+
+  # ── Scoped sudo rules for support staff ───────────────────────────────────
+  # Grants sovran-support the minimum privileges needed to diagnose and fix
+  # issues: edit config, rebuild, restart services, and read logs.
+  # No full root — wallet ACLs and session gating remain in effect.
+  #
+  # Intentionally excluded:
+  #   • systemctl stop / disable / mask  — could disrupt services permanently
+  #   • Full shell or unrestricted sudo  — would bypass wallet ACL protections
+  security.sudo.extraRules = [
+    {
+      users = [ "sovran-support" ];
+      commands = [
+        # Edit NixOS config files
+        { command = "/run/current-system/sw/bin/nano /etc/nixos/custom.nix";        options = [ "NOPASSWD" ]; }
+        { command = "/run/current-system/sw/bin/nano /etc/nixos/configuration.nix"; options = [ "NOPASSWD" ]; }
+
+        # Trigger a NixOS rebuild
+        { command = "/run/current-system/sw/bin/nixos-rebuild switch --flake /etc/nixos"; options = [ "NOPASSWD" ]; }
+
+        # Restart any systemd service (restart only — cannot stop, disable, or mask).
+        # The glob covers all units; risk-accepted: repeated restarts of any service (including sshd)
+        # are detectable in the session audit log at /var/log/sovran-support-audit.log.
+        { command = "/run/current-system/sw/bin/systemctl restart *"; options = [ "NOPASSWD" ]; }
+
+        # Read system logs (read-only)
+        { command = "/run/current-system/sw/bin/journalctl *"; options = [ "NOPASSWD" ]; }
+      ];
+    }
   ];
 }
