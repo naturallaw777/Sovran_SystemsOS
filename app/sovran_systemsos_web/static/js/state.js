@@ -99,10 +99,5 @@ const $upgradeConfirmBtn  = document.getElementById("upgrade-confirm-btn");
 const $upgradeCancelBtn   = document.getElementById("upgrade-cancel-btn");
 const $upgradeCloseBtn    = document.getElementById("upgrade-close-btn");
 
-// Legacy security warning state (populated by checkLegacySecurity in security.js)
-var _securityIsLegacy       = false;
-var _securityStatus         = "ok";  // "ok", "legacy", or "unsealed"
-var _securityWarningMessage = "";
-
 // System status banner
 // (removed — health is now shown per-tile via the composite health field)
