@@ -95,20 +95,22 @@ in
     '';
   };
 
-  # ── 1b. Save 'free' password on first boot ─────────────────
+  # ── 1b. Generate random 'free' password on first boot ──────
   systemd.services.free-password-setup = {
-    description = "Save the initial 'free' user password";
+    description = "Generate and set a random 'free' user password";
     wantedBy = [ "multi-user.target" ];
     serviceConfig = {
       Type = "oneshot";
       RemainAfterExit = true;
     };
-    path = [ pkgs.coreutils ];
+    path = [ pkgs.pwgen pkgs.shadow pkgs.coreutils ];
     script = ''
       SECRET_FILE="/var/lib/secrets/free-password"
       if [ ! -f "$SECRET_FILE" ]; then
         mkdir -p /var/lib/secrets
-        echo "free" > "$SECRET_FILE"
+        FREE_PASS=$(pwgen -s 20 1)
+        echo "free:$FREE_PASS" | chpasswd
+        echo "$FREE_PASS" > "$SECRET_FILE"
         chmod 600 "$SECRET_FILE"
       fi
     '';

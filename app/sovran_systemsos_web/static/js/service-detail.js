@@ -612,15 +612,6 @@ function openSystemChangePasswordModal(unit, name, icon) {
       resultEl.textContent = "✅ System password changed successfully.";
       submitBtn.textContent = "Change Password";
       submitBtn.disabled = false;
-      // Hide the legacy security banner if it's visible — but only for
-      // "legacy" status machines. For "unsealed" machines, changing passwords
-      // is not enough; the factory residue remains until a proper re-seal or re-install.
-      if (typeof _securityIsLegacy !== "undefined" && _securityIsLegacy &&
-          (typeof _securityStatus === "undefined" || _securityStatus !== "unsealed")) {
-        _securityIsLegacy = false;
-        var banner = document.querySelector(".security-inline-banner");
-        if (banner) banner.remove();
-      }
     } catch (err) {
       resultEl.className = "matrix-form-result error";
       resultEl.textContent = "❌ " + (err.message || "Failed to change password.");

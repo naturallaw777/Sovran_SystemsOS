@@ -70,6 +70,47 @@ async function doUpgradeToServer() {
 
 if ($upgradeConfirmBtn) $upgradeConfirmBtn.addEventListener("click", doUpgradeToServer);
 
+// ── First-login security banner ───────────────────────────────────
+
+function showSecurityBanner() {
+  var existing = document.getElementById("security-first-login-banner");
+  if (existing) return;
+
+  var banner = document.createElement("div");
+  banner.id = "security-first-login-banner";
+  banner.className = "security-first-login-banner";
+  banner.innerHTML =
+    '<div class="security-banner-content">' +
+      '<span class="security-banner-icon">\uD83D\uDEE1</span>' +
+      '<span class="security-banner-text">' +
+        '<strong>Did someone else set up this machine?</strong> ' +
+        'If this computer was pre-configured by another person, go to ' +
+        '<strong>Menu \u2192 Security</strong> to reset all passwords and keys. ' +
+        'This ensures only you have access.' +
+      '</span>' +
+    '</div>' +
+    '<button class="security-banner-dismiss" id="security-banner-dismiss-btn" title="Dismiss">\u2715</button>';
+
+  var mainContent = document.querySelector(".main-content");
+  if (mainContent) {
+    mainContent.insertAdjacentElement("beforebegin", banner);
+  } else {
+    document.body.insertAdjacentElement("afterbegin", banner);
+  }
+
+  var dismissBtn = document.getElementById("security-banner-dismiss-btn");
+  if (dismissBtn) {
+    dismissBtn.addEventListener("click", async function() {
+      banner.remove();
+      try {
+        await apiFetch("/api/security/banner-dismiss", { method: "POST" });
+      } catch (_) {
+        // Non-fatal
+      }
+    });
+  }
+}
+
 // ── Init ──────────────────────────────────────────────────────────
 
 async function init() {
@@ -84,8 +125,16 @@ async function init() {
     // If we can't reach the endpoint, continue to normal dashboard
   }
 
-  // Check for legacy machine security warning
-  await checkLegacySecurity();
+  // Show first-login security banner only for machines that went through onboarding
+  // (legacy machines without the onboarding flag will never see this)
+  try {
+    var bannerData = await apiFetch("/api/security/banner-status");
+    if (bannerData && bannerData.show) {
+      showSecurityBanner();
+    }
+  } catch (_) {
+    // Non-fatal — silently ignore
+  }
 
   try {
     var cfg = await apiFetch("/api/config");
