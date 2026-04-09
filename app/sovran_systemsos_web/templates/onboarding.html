@@ -36,6 +36,8 @@
       <span class="onboarding-step-dot" data-step="4">4</span>
       <span class="onboarding-step-connector"></span>
       <span class="onboarding-step-dot" data-step="5">5</span>
+      <span class="onboarding-step-connector"></span>
+      <span class="onboarding-step-dot" data-step="6">6</span>
     </div>
 
     <!-- Step panels -->
@@ -72,8 +74,30 @@
         </div>
       </div>
 
-      <!-- ── Step 2: Create Your Password ── -->
+      <!-- ── Step 2: Timezone &amp; Locale ── -->
       <div class="onboarding-panel" id="step-2" style="display:none">
+        <div class="onboarding-step-header">
+          <span class="onboarding-step-icon">🌍</span>
+          <h2 class="onboarding-step-title">Timezone &amp; Locale</h2>
+          <p class="onboarding-step-desc">
+            Select your timezone and preferred language so your system clock, logs,
+            and services display the correct time and format.
+          </p>
+        </div>
+        <div class="onboarding-card" id="step-2-body">
+          <p class="onboarding-loading">Loading timezone data…</p>
+        </div>
+        <div id="step-2-status" class="onboarding-save-status"></div>
+        <div class="onboarding-footer">
+          <button class="btn btn-close-modal onboarding-btn-back" data-prev="1">← Back</button>
+          <button class="btn btn-primary onboarding-btn-next" id="step-2-next">
+            Save &amp; Continue →
+          </button>
+        </div>
+      </div>
+
+      <!-- ── Step 3: Create Your Password ── -->
+      <div class="onboarding-panel" id="step-3" style="display:none">
         <div class="onboarding-step-header">
           <span class="onboarding-step-icon">🔒</span>
           <h2 class="onboarding-step-title">Create Your Password</h2>
@@ -81,20 +105,20 @@
             Choose a strong password for your <strong>'free'</strong> user account.
           </p>
         </div>
-        <div class="onboarding-card" id="step-2-body">
+        <div class="onboarding-card" id="step-3-body">
           <p class="onboarding-loading">Checking password status…</p>
         </div>
-        <div id="step-2-status" class="onboarding-save-status"></div>
+        <div id="step-3-status" class="onboarding-save-status"></div>
         <div class="onboarding-footer">
-          <button class="btn btn-close-modal onboarding-btn-back" data-prev="1">← Back</button>
-          <button class="btn btn-primary onboarding-btn-next" id="step-2-next">
+          <button class="btn btn-close-modal onboarding-btn-back" data-prev="2">← Back</button>
+          <button class="btn btn-primary onboarding-btn-next" id="step-3-next">
             Set Password &amp; Continue →
           </button>
         </div>
       </div>
 
-      <!-- ── Step 3: Domain Configuration ── -->
-      <div class="onboarding-panel" id="step-3" style="display:none">
+      <!-- ── Step 4: Domain Configuration ── -->
+      <div class="onboarding-panel" id="step-4" style="display:none">
         <div class="onboarding-step-header">
           <span class="onboarding-step-icon">🌐</span>
           <h2 class="onboarding-step-title">Domain Configuration</h2>
@@ -105,20 +129,20 @@
             Finally, paste the DDNS curl command from your Njal.la dashboard for each service below.
           </p>
         </div>
-        <div class="onboarding-card" id="step-3-body">
+        <div class="onboarding-card" id="step-4-body">
           <p class="onboarding-loading">Loading service information…</p>
         </div>
-        <div id="step-3-status" class="onboarding-save-status"></div>
+        <div id="step-4-status" class="onboarding-save-status"></div>
         <div class="onboarding-footer">
-          <button class="btn btn-close-modal onboarding-btn-back" data-prev="2">← Back</button>
-          <button class="btn btn-primary onboarding-btn-next" id="step-3-next">
+          <button class="btn btn-close-modal onboarding-btn-back" data-prev="3">← Back</button>
+          <button class="btn btn-primary onboarding-btn-next" id="step-4-next">
             Save &amp; Continue →
           </button>
         </div>
       </div>
 
-      <!-- ── Step 4: Port Forwarding ── -->
-      <div class="onboarding-panel" id="step-4" style="display:none">
+      <!-- ── Step 5: Port Forwarding ── -->
+      <div class="onboarding-panel" id="step-5" style="display:none">
         <div class="onboarding-step-header">
           <span class="onboarding-step-icon">🔌</span>
           <h2 class="onboarding-step-title">Port Forwarding Check</h2>
@@ -127,19 +151,19 @@
             <strong>Ports 80 and 443 must be open for SSL certificates to work.</strong>
           </p>
         </div>
-        <div class="onboarding-card" id="step-4-body">
+        <div class="onboarding-card" id="step-5-body">
           <p class="onboarding-loading">Checking ports…</p>
         </div>
         <div class="onboarding-footer">
-          <button class="btn btn-close-modal onboarding-btn-back" data-prev="3">← Back</button>
-          <button class="btn btn-primary onboarding-btn-next" id="step-4-next">
+          <button class="btn btn-close-modal onboarding-btn-back" data-prev="4">← Back</button>
+          <button class="btn btn-primary onboarding-btn-next" id="step-5-next">
             Continue →
           </button>
         </div>
       </div>
 
-      <!-- ── Step 5: Complete ── -->
-      <div class="onboarding-panel" id="step-5" style="display:none">
+      <!-- ── Step 6: Complete ── -->
+      <div class="onboarding-panel" id="step-6" style="display:none">
         <div class="onboarding-hero">
           <div class="onboarding-logo">✅</div>
           <h1 class="onboarding-title">Your Sovran_SystemsOS is Ready!</h1>
@@ -151,14 +175,15 @@
             monitor your services, manage credentials, and make changes at any time.
           </p>
           <ul class="onboarding-checklist" id="onboarding-checklist">
+            <li>✅ Timezone &amp; locale configured</li>
             <li>✅ Password configured</li>
             <li>✅ Domain configuration saved</li>
             <li>✅ Port forwarding reviewed</li>
           </ul>
         </div>
         <div class="onboarding-footer">
-          <button class="btn btn-close-modal onboarding-btn-back" data-prev="4">← Back</button>
-          <button class="btn btn-primary" id="step-5-finish">
+          <button class="btn btn-close-modal onboarding-btn-back" data-prev="5">← Back</button>
+          <button class="btn btn-primary" id="step-6-finish">
             Go to Dashboard →
           </button>
         </div>

@@ -3117,6 +3117,169 @@ async def api_change_password(req: ChangePasswordRequest):
     return {"ok": True}
 
 
+# ── Timezone / Locale endpoints ───────────────────────────────────
+
+SUPPORTED_LOCALES = [
+    "en_US.UTF-8",
+    "en_GB.UTF-8",
+    "es_ES.UTF-8",
+    "fr_FR.UTF-8",
+    "de_DE.UTF-8",
+    "pt_BR.UTF-8",
+    "ja_JP.UTF-8",
+    "zh_CN.UTF-8",
+    "ko_KR.UTF-8",
+    "ru_RU.UTF-8",
+    "ar_SA.UTF-8",
+    "hi_IN.UTF-8",
+]
+
+
+def _get_current_timezone() -> str | None:
+    """Return the currently configured timezone string, or None if unset."""
+    try:
+        result = subprocess.run(
+            ["timedatectl", "show", "--property=Timezone", "--value"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        tz = result.stdout.strip()
+        return tz if tz and tz != "n/a" else None
+    except Exception:
+        return None
+
+
+def _get_current_locale() -> str | None:
+    """Return the currently configured LANG locale, or None if unset."""
+    try:
+        result = subprocess.run(
+            ["localectl", "status"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        for line in result.stdout.splitlines():
+            if "LANG=" in line:
+                return line.split("LANG=", 1)[1].strip()
+        return None
+    except Exception:
+        return None
+
+
+@app.get("/api/system/timezones")
+async def api_system_timezones():
+    """Return list of available timezones and the currently configured one."""
+    loop = asyncio.get_event_loop()
+    try:
+        result = await loop.run_in_executor(
+            None,
+            lambda: subprocess.run(
+                ["timedatectl", "list-timezones"],
+                capture_output=True,
+                text=True,
+                timeout=15,
+            ),
+        )
+        timezones = [tz for tz in result.stdout.splitlines() if tz.strip()]
+    except Exception:
+        # Fallback: read from /usr/share/zoneinfo
+        timezones = []
+        zoneinfo_dir = "/usr/share/zoneinfo"
+        if os.path.isdir(zoneinfo_dir):
+            for root, dirs, files in os.walk(zoneinfo_dir):
+                # Skip posix/right sub-directories and non-timezone files
+                dirs[:] = [d for d in dirs if d not in ("posix", "right")]
+                for fname in files:
+                    full = os.path.join(root, fname)
+                    rel = os.path.relpath(full, zoneinfo_dir)
+                    if "/" in rel:
+                        timezones.append(rel)
+            timezones.sort()
+
+    current_tz = await loop.run_in_executor(None, _get_current_timezone)
+    return {"timezones": timezones, "current": current_tz}
+
+
+class TimezoneRequest(BaseModel):
+    timezone: str
+
+
+@app.post("/api/system/timezone")
+async def api_system_set_timezone(req: TimezoneRequest):
+    """Set the system timezone using timedatectl."""
+    tz = req.timezone.strip()
+    if not tz:
+        raise HTTPException(status_code=400, detail="Timezone must not be empty.")
+    # Basic validation: only allow characters valid in timezone names
+    if not re.match(r'^[A-Za-z0-9/_\-+]+$', tz):
+        raise HTTPException(status_code=400, detail="Invalid timezone format.")
+
+    loop = asyncio.get_event_loop()
+    try:
+        result = await loop.run_in_executor(
+            None,
+            lambda: subprocess.run(
+                ["sudo", "timedatectl", "set-timezone", tz],
+                capture_output=True,
+                text=True,
+                timeout=15,
+            ),
+        )
+        if result.returncode != 0:
+            detail = (result.stderr or result.stdout).strip() or "timedatectl failed."
+            raise HTTPException(status_code=500, detail=detail)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to set timezone: {exc}")
+
+    return {"ok": True, "timezone": tz}
+
+
+@app.get("/api/system/locales")
+async def api_system_locales():
+    """Return the list of supported locales and the currently configured one."""
+    loop = asyncio.get_event_loop()
+    current_locale = await loop.run_in_executor(None, _get_current_locale)
+    return {"locales": SUPPORTED_LOCALES, "current": current_locale}
+
+
+class LocaleRequest(BaseModel):
+    locale: str
+
+
+@app.post("/api/system/locale")
+async def api_system_set_locale(req: LocaleRequest):
+    """Set the system locale using localectl."""
+    locale = req.locale.strip()
+    if not locale:
+        raise HTTPException(status_code=400, detail="Locale must not be empty.")
+    if locale not in SUPPORTED_LOCALES:
+        raise HTTPException(status_code=400, detail=f"Unsupported locale: {locale}")
+
+    loop = asyncio.get_event_loop()
+    try:
+        result = await loop.run_in_executor(
+            None,
+            lambda: subprocess.run(
+                ["sudo", "localectl", "set-locale", f"LANG={locale}"],
+                capture_output=True,
+                text=True,
+                timeout=15,
+            ),
+        )
+        if result.returncode != 0:
+            detail = (result.stderr or result.stdout).strip() or "localectl failed."
+            raise HTTPException(status_code=500, detail=detail)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to set locale: {exc}")
+
+    return {"ok": True, "locale": locale}
+
+
 # ── Matrix user management ────────────────────────────────────────
 
 MATRIX_USERS_FILE = "/var/lib/secrets/matrix-users"
