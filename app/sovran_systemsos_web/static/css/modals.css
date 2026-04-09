@@ -4,7 +4,7 @@
   display: none;
   position: fixed;
   inset: 0;
-  background-color: rgba(0,0,0,0.65);
+  background-color: rgba(0,0,0,0.75);
   z-index: 200;
   align-items: center;
   justify-content: center;
@@ -71,7 +71,7 @@
   font-size: 0.78rem;
   line-height: 1.6;
   color: var(--text-primary);
-  background-color: #12121c;
+  background-color: #060F09;
   white-space: pre-wrap;
   word-break: break-all;
   min-height: 200px;
@@ -100,7 +100,7 @@ button.btn-reboot:hover:not(:disabled) {
 
 .btn-save {
   background-color: var(--yellow);
-  color: #1e1e2e;
+  color: #0A1A10;
 }
 
 .btn-save:hover:not(:disabled) {
@@ -113,7 +113,7 @@ button.btn-reboot:hover:not(:disabled) {
 }
 
 .btn-close-modal:hover:not(:disabled) {
-  background-color: #5a5c72;
+  background-color: #2A4538;
 }
 
 /* ── Credentials info modal ──────────────────────────────────────── */
@@ -214,7 +214,7 @@ button.btn-reboot:hover:not(:disabled) {
   font-family: 'JetBrains Mono', 'Fira Code', 'Source Code Pro', monospace;
   font-size: 0.92rem;
   color: var(--text-primary);
-  background-color: #12121c;
+  background-color: #060F09;
   padding: 12px 16px;
   border-radius: 8px;
   word-break: break-all;
@@ -239,7 +239,7 @@ button.btn-reboot:hover:not(:disabled) {
 }
 
 .creds-copy-btn:hover {
-  background-color: #5a5c72;
+  background-color: #2A4538;
 }
 
 .creds-copy-btn.copied {
@@ -283,7 +283,7 @@ button.btn-reboot:hover:not(:disabled) {
 
 .matrix-action-btn {
   background-color: var(--accent-color);
-  color: #0f0f19;
+  color: #0A1A10;
   font-size: 0.88rem;
   font-weight: 700;
   padding: 10px 18px;
@@ -295,7 +295,7 @@ button.btn-reboot:hover:not(:disabled) {
 }
 
 .matrix-action-btn:hover {
-  background-color: #a8c8ff;
+  background-color: #6EE4A8;
 }
 
 .matrix-form-group {
@@ -312,7 +312,7 @@ button.btn-reboot:hover:not(:disabled) {
 
 .matrix-form-input {
   width: 100%;
-  background-color: #12121c;
+  background-color: #060F09;
   color: var(--text-primary);
   border: 1px solid var(--border-color);
   border-radius: 8px;
@@ -347,7 +347,7 @@ button.btn-reboot:hover:not(:disabled) {
 
 .matrix-form-submit {
   background-color: var(--accent-color);
-  color: #0f0f19;
+  color: #0A1A10;
   font-size: 0.88rem;
   font-weight: 700;
   padding: 10px 20px;
@@ -358,7 +358,7 @@ button.btn-reboot:hover:not(:disabled) {
 }
 
 .matrix-form-submit:hover:not(:disabled) {
-  background-color: #a8c8ff;
+  background-color: #6EE4A8;
 }
 
 .matrix-form-submit:disabled {
@@ -378,7 +378,7 @@ button.btn-reboot:hover:not(:disabled) {
 }
 
 .matrix-form-back:hover {
-  background-color: #5a5c72;
+  background-color: #2A4538;
 }
 
 .matrix-form-result {

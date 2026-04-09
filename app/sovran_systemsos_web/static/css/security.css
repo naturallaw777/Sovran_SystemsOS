@@ -221,7 +221,7 @@
   display: none;
   position: fixed;
   inset: 0;
-  background-color: rgba(15, 15, 25, 0.94);
+  background-color: rgba(4, 10, 6, 0.94);
   z-index: 1000;
   align-items: center;
   justify-content: center;
@@ -250,8 +250,8 @@
   justify-content: space-between;
   gap: 12px;
   padding: 12px 18px;
-  background-color: rgba(46, 100, 194, 0.12);
-  border-bottom: 2px solid rgba(46, 100, 194, 0.35);
+  background-color: rgba(40, 217, 120, 0.08);
+  border-bottom: 2px solid rgba(40, 217, 120, 0.25);
   color: var(--text-primary);
 }
 

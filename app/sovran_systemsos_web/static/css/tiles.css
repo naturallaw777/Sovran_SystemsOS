@@ -20,7 +20,7 @@
 
 .service-tile:hover {
   box-shadow: var(--shadow-hover);
-  border-color: #6c7086;
+  border-color: var(--accent-color);
 }
 
 .service-tile.disabled {
@@ -235,7 +235,7 @@
 
 .svc-detail-port-table td {
   padding: 8px 10px;
-  border-bottom: 1px solid rgba(69, 71, 90, 0.4);
+  border-bottom: 1px solid rgba(36, 70, 53, 0.6);
   color: var(--text-primary);
 }
 
@@ -294,7 +294,7 @@
 }
 
 .svc-detail-troubleshoot code {
-  background-color: rgba(137, 180, 250, 0.12);
+  background-color: rgba(40, 217, 120, 0.10);
   padding: 2px 6px;
   border-radius: 4px;
   font-size: 0.82rem;
