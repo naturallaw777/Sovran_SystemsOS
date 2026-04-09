@@ -1,6 +1,6 @@
 /* Sovran_SystemsOS Hub — Web UI Stylesheet
-   Dark theme matching the Adwaita dark aesthetic
-   v6 — Status-only tiles (no controls) */
+   Dark theme — deep green palette matching the Sovran Hub icon
+   v7 — Green atmosphere, status-only tiles */
 
 *, *::before, *::after {
   box-sizing: border-box;
@@ -9,22 +9,22 @@
 }
 
 :root {
-  --bg-color:        #1e1e2e;
-  --surface-color:   #2a2a3c;
-  --card-color:      #313244;
-  --border-color:    #45475a;
-  --text-primary:    #cdd6f4;
-  --text-secondary:  #a6adc8;
-  --text-dim:        #6c7086;
-  --accent-color:    #89b4fa;
+  --bg-color:        #091C14;
+  --surface-color:   #0F2419;
+  --card-color:      #163023;
+  --border-color:    #244635;
+  --text-primary:    #E8FFF4;
+  --text-secondary:  #8CC4A8;
+  --text-dim:        #4E7A65;
+  --accent-color:    #28D978;
   --green:           #2ec27e;
   --yellow:          #e5a50a;
   --red:             #e01b24;
-  --grey:            #888888;
+  --grey:            #5E7A6A;
   --radius-card:     18px;
   --radius-btn:      8px;
-  --shadow-card:     0 2px 8px rgba(0,0,0,0.4);
-  --shadow-hover:    0 6px 20px rgba(0,0,0,0.6);
+  --shadow-card:     0 2px 8px rgba(0,0,0,0.5);
+  --shadow-hover:    0 6px 20px rgba(0,0,0,0.7);
 }
 
 html, body {
@@ -112,7 +112,7 @@ body {
   padding: 12px;
   border-radius: var(--radius-btn);
   background-color: var(--accent-color);
-  color: #1e1e2e;
+  color: #0A1A10;
   font-size: 0.95rem;
   font-weight: 700;
   margin-top: 8px;
