@@ -3095,8 +3095,7 @@ async def api_security_verify_integrity():
             result = subprocess.run(
                 ["/run/current-system/sw/bin/nix", "build",
                  "/etc/nixos#nixosConfigurations.nixos.config.system.build.toplevel",
-                 "--out-link", result_link,
-                 "--no-build-output"],
+                 "--out-link", result_link],
                 capture_output=True, text=True, timeout=600,
                 cwd=tmpdir,
             )
