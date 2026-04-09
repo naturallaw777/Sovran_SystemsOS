@@ -3088,13 +3088,12 @@ async def api_security_verify_integrity():
     try:
         current_system_path = os.path.realpath("/run/current-system")
         result = subprocess.run(
-            ["/run/current-system/sw/bin/nixos-rebuild", "build", "--flake", "/etc/nixos", "--no-build-output"],
+            ["/run/current-system/sw/bin/nixos-rebuild", "build", "--flake", "/etc/nixos",
+             "--no-build-output", "--print-out-paths"],
             capture_output=True, text=True, timeout=600,
         )
         if result.returncode == 0:
-            # nixos-rebuild build creates ./result symlink in cwd
-            result_path = os.path.realpath("result")
-            expected_system_path = result_path
+            expected_system_path = result.stdout.strip()
             system_matches = (current_system_path == expected_system_path)
     except subprocess.TimeoutExpired:
         expected_system_path = "Build timed out"
