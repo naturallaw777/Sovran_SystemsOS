@@ -1,16 +1,16 @@
 /* Sovran_SystemsOS Hub — First-Boot Onboarding Wizard
-   Drives the 5-step post-install setup flow. */
+   Drives the 6-step post-install setup flow. */
 "use strict";
 
 // ── Constants ─────────────────────────────────────────────────────
 
-const TOTAL_STEPS = 5;
+const TOTAL_STEPS = 6;
 
-// Steps to skip per role (steps 3 and 4 involve domain/port setup)
-// Step 2 (password) is NEVER skipped — all roles need it.
+// Steps to skip per role (steps 4 and 5 involve domain/port setup)
+// Steps 2 (timezone/locale) and 3 (password) are NEVER skipped — all roles need them.
 const ROLE_SKIP_STEPS = {
-  "desktop": [3, 4],
-  "node":    [3, 4],
+  "desktop": [4, 5],
+  "node":    [4, 5],
 };
 
 // ── Role state (loaded at init) ───────────────────────────────────
@@ -96,7 +96,8 @@ function showStep(step) {
   if (step === 2) loadStep2();
   if (step === 3) loadStep3();
   if (step === 4) loadStep4();
-  // Step 5 (Complete) is static — no lazy-load needed
+  if (step === 5) loadStep5();
+  // Step 6 (Complete) is static — no lazy-load needed
 }
 
 // Return the next step number, skipping over role-excluded steps
@@ -125,13 +126,160 @@ async function loadStep1() {
   } catch (_) {}
 }
 
-// ── Step 2: Create Your Password ─────────────────────────────────
+// ── Step 2: Timezone & Locale ─────────────────────────────────────
 
 async function loadStep2() {
   var body = document.getElementById("step-2-body");
+  if (!body || body._tzLoaded) return;
+  body._tzLoaded = true;
+
+  body.innerHTML = '<p class="onboarding-loading">Loading timezone data…</p>';
+
+  var timezones = [];
+  var currentTz = null;
+  var locales = [];
+  var currentLocale = null;
+
+  try {
+    var results = await Promise.all([
+      apiFetch("/api/system/timezones"),
+      apiFetch("/api/system/locales"),
+    ]);
+    timezones = results[0].timezones || [];
+    currentTz = results[0].current || null;
+    locales = results[1].locales || [];
+    currentLocale = results[1].current || null;
+  } catch (err) {
+    body.innerHTML = '<p class="onboarding-error">⚠ Could not load timezone data: ' + escHtml(err.message) + '</p>';
+    return;
+  }
+
+  // Try to auto-detect timezone from browser
+  var browserTz = null;
+  try { browserTz = Intl.DateTimeFormat().resolvedOptions().timeZone; } catch (_) {}
+  var selectedTz = currentTz || browserTz || "";
+
+  var html = '';
+
+  // Timezone section
+  html += '<div class="onboarding-tz-group">';
+  html += '<label class="onboarding-domain-label" for="tz-search">🕐 Timezone</label>';
+  html += '<input class="onboarding-tz-search" type="text" id="tz-search" placeholder="Search timezones…" autocomplete="off" value="' + escHtml(selectedTz) + '" />';
+  html += '<select class="onboarding-tz-select" id="tz-select" size="5">';
+  timezones.forEach(function(tz) {
+    var sel = tz === selectedTz ? ' selected' : '';
+    html += '<option value="' + escHtml(tz) + '"' + sel + '>' + escHtml(tz) + '</option>';
+  });
+  html += '</select>';
+  html += '<p class="onboarding-hint">Current: <span id="tz-current-display">' + escHtml(selectedTz || 'Not set') + '</span></p>';
+  html += '</div>';
+
+  // Locale section
+  html += '<div class="onboarding-tz-group">';
+  html += '<label class="onboarding-domain-label" for="locale-select">🌐 Language / Locale</label>';
+  html += '<select class="onboarding-tz-select onboarding-locale-select" id="locale-select">';
+  locales.forEach(function(loc) {
+    var sel = loc === (currentLocale || 'en_US.UTF-8') ? ' selected' : '';
+    html += '<option value="' + escHtml(loc) + '"' + sel + '>' + escHtml(loc) + '</option>';
+  });
+  html += '</select>';
+  html += '</div>';
+
+  body.innerHTML = html;
+
+  // Wire timezone search filter
+  var tzSearch = document.getElementById('tz-search');
+  var tzSelect = document.getElementById('tz-select');
+  var tzCurrentDisplay = document.getElementById('tz-current-display');
+
+  if (tzSearch && tzSelect) {
+    // When typing in search box, filter the dropdown options
+    tzSearch.addEventListener('input', function() {
+      var q = tzSearch.value.toLowerCase();
+      var opts = tzSelect.options;
+      var firstVisible = null;
+      for (var i = 0; i < opts.length; i++) {
+        var match = opts[i].value.toLowerCase().indexOf(q) !== -1;
+        opts[i].style.display = match ? '' : 'none';
+        if (match && firstVisible === null) firstVisible = i;
+      }
+      if (firstVisible !== null) {
+        tzSelect.selectedIndex = firstVisible;
+        if (tzCurrentDisplay) tzCurrentDisplay.textContent = tzSelect.options[firstVisible].value;
+      }
+    });
+
+    // When selecting from dropdown, update search box
+    tzSelect.addEventListener('change', function() {
+      if (tzSelect.value) {
+        tzSearch.value = tzSelect.value;
+        if (tzCurrentDisplay) tzCurrentDisplay.textContent = tzSelect.value;
+      }
+    });
+
+    // Scroll selected option into view
+    if (tzSelect.selectedIndex >= 0) {
+      tzSelect.options[tzSelect.selectedIndex].scrollIntoView({ block: 'nearest' });
+    }
+  }
+}
+
+async function saveStep2() {
+  var tzSelect = document.getElementById('tz-select');
+  var tzSearch = document.getElementById('tz-search');
+  var localeSelect = document.getElementById('locale-select');
+
+  // Determine selected timezone: prefer dropdown selection, fall back to search text
+  var tz = (tzSelect && tzSelect.value) ? tzSelect.value : (tzSearch ? tzSearch.value.trim() : '');
+  var locale = localeSelect ? localeSelect.value : '';
+
+  if (!tz) {
+    setStatus('step-2-status', '⚠ Please select a timezone.', 'error');
+    return false;
+  }
+
+  setStatus('step-2-status', 'Saving…', 'info');
+
+  var errors = [];
+
+  try {
+    await apiFetch('/api/system/timezone', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ timezone: tz }),
+    });
+  } catch (err) {
+    errors.push('Timezone: ' + err.message);
+  }
+
+  if (locale) {
+    try {
+      await apiFetch('/api/system/locale', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ locale: locale }),
+      });
+    } catch (err) {
+      errors.push('Locale: ' + err.message);
+    }
+  }
+
+  if (errors.length > 0) {
+    setStatus('step-2-status', '⚠ ' + errors.join('; '), 'error');
+    return false;
+  }
+
+  setStatus('step-2-status', '✓ Timezone & locale saved', 'ok');
+  return true;
+}
+
+// ── Step 3: Create Your Password ─────────────────────────────────
+
+async function loadStep3() {
+  var body = document.getElementById("step-3-body");
   if (!body) return;
 
-  var nextBtn = document.getElementById("step-2-next");
+  var nextBtn = document.getElementById("step-3-next");
 
   try {
     var result = await apiFetch("/api/security/password-is-default");
@@ -208,14 +356,14 @@ async function loadStep2() {
   }
 }
 
-async function saveStep2() {
+async function saveStep3() {
   var newPw = document.getElementById("pw-new");
   var confirmPw = document.getElementById("pw-confirm");
 
   // If no fields visible or both empty and password already set → skip
   if (!newPw || !newPw.value.trim()) {
     if (!_passwordIsDefault) return true; // already set, no change requested
-    setStatus("step-2-status", "⚠ Please enter a password.", "error");
+    setStatus("step-3-status", "⚠ Please enter a password.", "error");
     return false;
   }
 
@@ -223,15 +371,15 @@ async function saveStep2() {
   var cpw = confirmPw ? confirmPw.value : "";
 
   if (pw.length < 8) {
-    setStatus("step-2-status", "⚠ Password must be at least 8 characters.", "error");
+    setStatus("step-3-status", "⚠ Password must be at least 8 characters.", "error");
     return false;
   }
   if (pw !== cpw) {
-    setStatus("step-2-status", "⚠ Passwords do not match.", "error");
+    setStatus("step-3-status", "⚠ Passwords do not match.", "error");
     return false;
   }
 
-  setStatus("step-2-status", "Saving password…", "info");
+  setStatus("step-3-status", "Saving password…", "info");
   try {
     await apiFetch("/api/change-password", {
       method: "POST",
@@ -239,19 +387,19 @@ async function saveStep2() {
       body: JSON.stringify({ new_password: pw, confirm_password: cpw }),
     });
   } catch (err) {
-    setStatus("step-2-status", "⚠ " + err.message, "error");
+    setStatus("step-3-status", "⚠ " + err.message, "error");
     return false;
   }
 
-  setStatus("step-2-status", "✓ Password saved", "ok");
+  setStatus("step-3-status", "✓ Password saved", "ok");
   _passwordIsDefault = false;
   return true;
 }
 
-// ── Step 3: Domain Configuration ─────────────────────────────────
+// ── Step 4: Domain Configuration ─────────────────────────────────
 
-async function loadStep3() {
-  var body = document.getElementById("step-3-body");
+async function loadStep4() {
+  var body = document.getElementById("step-4-body");
   if (!body) return;
 
   try {
@@ -394,8 +542,8 @@ async function loadStep3() {
   });
 }
 
-async function saveStep3() {
-  setStatus("step-3-status", "Saving domains…", "info");
+async function saveStep4() {
+  setStatus("step-4-status", "Saving domains…", "info");
   var errors = [];
 
   // Save each domain input
@@ -435,18 +583,18 @@ async function saveStep3() {
   }
 
   if (errors.length > 0) {
-    setStatus("step-3-status", "⚠ Some errors: " + errors.join("; "), "error");
+    setStatus("step-4-status", "⚠ Some errors: " + errors.join("; "), "error");
     return false;
   }
 
-  setStatus("step-3-status", "✓ Saved", "ok");
+  setStatus("step-4-status", "✓ Saved", "ok");
   return true;
 }
 
-// ── Step 4: Port Forwarding ───────────────────────────────────────
+// ── Step 5: Port Forwarding ───────────────────────────────────────
 
-async function loadStep4() {
-  var body = document.getElementById("step-4-body");
+async function loadStep5() {
+  var body = document.getElementById("step-5-body");
   if (!body) return;
   body.innerHTML = '<p class="onboarding-loading">Checking ports…</p>';
 
@@ -527,10 +675,10 @@ async function loadStep4() {
   body.innerHTML = html;
 }
 
-// ── Step 5: Complete ──────────────────────────────────────────────
+// ── Step 6: Complete ──────────────────────────────────────────────
 
 async function completeOnboarding() {
-  var btn = document.getElementById("step-5-finish");
+  var btn = document.getElementById("step-6-finish");
   if (btn) { btn.disabled = true; btn.textContent = "Finishing…"; }
 
   try {
@@ -549,7 +697,7 @@ function wireNavButtons() {
   var s1next = document.getElementById("step-1-next");
   if (s1next) s1next.addEventListener("click", function() { showStep(nextStep(1)); });
 
-  // Step 2 → 3 (save password first)
+  // Step 2 → 3 (save timezone/locale first)
   var s2next = document.getElementById("step-2-next");
   if (s2next) s2next.addEventListener("click", async function() {
     s2next.disabled = true;
@@ -561,24 +709,36 @@ function wireNavButtons() {
     if (ok) showStep(nextStep(2));
   });
 
-  // Step 3 → 4 (save domains first)
+  // Step 3 → 4 (save password first)
   var s3next = document.getElementById("step-3-next");
   if (s3next) s3next.addEventListener("click", async function() {
     s3next.disabled = true;
+    var origText = s3next.textContent;
     s3next.textContent = "Saving…";
-    await saveStep3();
+    var ok = await saveStep3();
     s3next.disabled = false;
-    s3next.textContent = "Save & Continue →";
-    showStep(nextStep(3));
+    s3next.textContent = origText;
+    if (ok) showStep(nextStep(3));
   });
 
-  // Step 4 → 5 (Complete)
+  // Step 4 → 5 (save domains first)
   var s4next = document.getElementById("step-4-next");
-  if (s4next) s4next.addEventListener("click", function() { showStep(nextStep(4)); });
+  if (s4next) s4next.addEventListener("click", async function() {
+    s4next.disabled = true;
+    s4next.textContent = "Saving…";
+    await saveStep4();
+    s4next.disabled = false;
+    s4next.textContent = "Save & Continue →";
+    showStep(nextStep(4));
+  });
 
-  // Step 5: finish
-  var s5finish = document.getElementById("step-5-finish");
-  if (s5finish) s5finish.addEventListener("click", completeOnboarding);
+  // Step 5 → 6 (port forwarding — no save needed)
+  var s5next = document.getElementById("step-5-next");
+  if (s5next) s5next.addEventListener("click", function() { showStep(nextStep(5)); });
+
+  // Step 6: finish
+  var s6finish = document.getElementById("step-6-finish");
+  if (s6finish) s6finish.addEventListener("click", completeOnboarding);
 
   // Back buttons
   document.querySelectorAll(".onboarding-btn-back").forEach(function(btn) {
