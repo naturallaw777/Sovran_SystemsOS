@@ -3068,7 +3068,7 @@ async def api_security_verify_integrity():
     store_errors: list[str] = []
     try:
         result = subprocess.run(
-            ["nix", "store", "verify", "--all", "--no-trust"],
+            ["/run/current-system/sw/bin/nix", "store", "verify", "--all", "--no-trust"],
             capture_output=True, text=True, timeout=300,
         )
         combined = (result.stdout + result.stderr).strip()
@@ -3088,7 +3088,7 @@ async def api_security_verify_integrity():
     try:
         current_system_path = os.path.realpath("/run/current-system")
         result = subprocess.run(
-            ["nixos-rebuild", "build", "--flake", "/etc/nixos", "--no-build-output"],
+            ["/run/current-system/sw/bin/nixos-rebuild", "build", "--flake", "/etc/nixos", "--no-build-output"],
             capture_output=True, text=True, timeout=600,
         )
         if result.returncode == 0:
