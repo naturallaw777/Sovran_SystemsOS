@@ -5,6 +5,8 @@
   min-height: 130px;
   background-color: var(--card-color);
   border: 1px solid var(--border-color);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   border-radius: var(--radius-card);
   box-shadow: var(--shadow-card);
   display: flex;
