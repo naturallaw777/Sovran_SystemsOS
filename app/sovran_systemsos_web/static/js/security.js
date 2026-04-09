@@ -119,12 +119,22 @@ function openSecurityModal() {
         if (!eraseInput || eraseInput.value.trim() !== "ERASE") return;
         resetConfirmBtn.disabled = true;
         resetConfirmBtn.textContent = "Erasing\u2026";
+
+        // Show the full-screen blocking overlay immediately so the user knows
+        // the wipe is in progress even while the API call runs synchronously.
+        var $secResetOverlay = document.getElementById("security-reset-overlay");
+        var $secResetStep = document.getElementById("security-reset-overlay-step");
+        if ($secResetOverlay) $secResetOverlay.classList.add("visible");
+
         if (resetStatus) { resetStatus.textContent = "Running security reset\u2026"; resetStatus.className = "security-status-msg security-status-info"; }
         try {
           await apiFetch("/api/security/reset", { method: "POST" });
+          if ($secResetStep) $secResetStep.textContent = "Reset complete. Rebooting now\u2026";
           if (resetStatus) { resetStatus.textContent = "\u2713 Reset complete. Rebooting\u2026"; resetStatus.className = "security-status-msg security-status-ok"; }
-          if ($rebootOverlay) $rebootOverlay.classList.add("open");
+          if ($rebootOverlay) $rebootOverlay.classList.add("visible");
+          setTimeout(waitForServerReboot, REBOOT_CHECK_INTERVAL);
         } catch (err) {
+          if ($secResetOverlay) $secResetOverlay.classList.remove("visible");
           if (resetStatus) { resetStatus.textContent = "\u2717 Error: " + (err.message || "Reset failed."); resetStatus.className = "security-status-msg security-status-error"; }
           resetConfirmBtn.disabled = false;
           resetConfirmBtn.textContent = "Erase & Reset";

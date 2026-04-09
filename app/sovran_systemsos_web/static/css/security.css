@@ -215,6 +215,33 @@
   min-width: 70px;
 }
 
+/* ── Security Reset full-screen overlay ──────────────────────────── */
+
+.security-reset-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background-color: rgba(15, 15, 25, 0.94);
+  z-index: 1000;
+  align-items: center;
+  justify-content: center;
+  animation: security-reset-fade-in 0.35s ease-out;
+}
+
+.security-reset-overlay.visible {
+  display: flex;
+}
+
+@keyframes security-reset-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.security-reset-overlay-icon {
+  font-size: 3rem;
+  margin-bottom: 16px;
+}
+
 /* ── First-login security banner ─────────────────────────────────── */
 
 .security-first-login-banner {
