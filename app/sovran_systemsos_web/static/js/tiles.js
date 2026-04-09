@@ -89,6 +89,18 @@ function renderSidebarSupport(supportServices) {
   backupBtn.addEventListener("click", function() { openBackupModal(); });
   $sidebarSupport.appendChild(backupBtn);
 
+  // ── Security button
+  var securityBtn = document.createElement("button");
+  securityBtn.className = "sidebar-support-btn";
+  securityBtn.innerHTML =
+    '<span class="sidebar-support-icon">\uD83D\uDEE1</span>' +
+    '<span class="sidebar-support-text">' +
+      '<span class="sidebar-support-title">Security</span>' +
+      '<span class="sidebar-support-hint">Reset &amp; verify system</span>' +
+    '</span>';
+  securityBtn.addEventListener("click", function() { openSecurityModal(); });
+  $sidebarSupport.appendChild(securityBtn);
+
   // ── Upgrade button (Node role only)
   if (_currentRole === "node") {
     var upgradeBtn = document.createElement("button");
