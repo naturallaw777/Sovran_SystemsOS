@@ -3093,8 +3093,10 @@ async def api_security_verify_integrity():
         try:
             result_link = os.path.join(tmpdir, "result")
             result = subprocess.run(
-                ["/run/current-system/sw/bin/nixos-rebuild", "build", "--flake", "/etc/nixos",
-                 "--no-build-output", "-o", result_link],
+                ["/run/current-system/sw/bin/nix", "build",
+                 "/etc/nixos#nixosConfigurations.nixos.config.system.build.toplevel",
+                 "--out-link", result_link,
+                 "--no-build-output"],
                 capture_output=True, text=True, timeout=600,
                 cwd=tmpdir,
             )
