@@ -219,6 +219,7 @@ let
     brave --app=http://localhost:8937 \
           --class=sovran-hub \
           --user-data-dir="$HUB_DATA" \
+          --password-store=basic \
           --disable-gpu \
           --disable-features=WebRtcPipeWireCapturer \
           --ozone-platform=wayland

@@ -68,6 +68,8 @@
   services.printing.enable = true;
   systemd.enableEmergencyMode = false;
   environment.gnome.excludePackages = [ pkgs.gnome-tour ];
+  security.pam.services.gdm-password.enableGnomeKeyring = true;
+  security.pam.services.gdm-autologin.enableGnomeKeyring = true;
 
   # ── Audio ──────────────────────────────────────────────────
   services.pulseaudio.enable = false;
