@@ -235,7 +235,7 @@
 
 .svc-detail-port-table td {
   padding: 8px 10px;
-  border-bottom: 1px solid rgba(36, 70, 53, 0.6);
+  border-bottom: 1px solid rgba(30, 45, 39, 0.6);
   color: var(--text-primary);
 }
 

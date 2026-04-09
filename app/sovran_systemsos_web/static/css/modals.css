@@ -71,7 +71,7 @@
   font-size: 0.78rem;
   line-height: 1.6;
   color: var(--text-primary);
-  background-color: #060F09;
+  background-color: #0c0f0e;
   white-space: pre-wrap;
   word-break: break-all;
   min-height: 200px;
@@ -113,7 +113,7 @@ button.btn-reboot:hover:not(:disabled) {
 }
 
 .btn-close-modal:hover:not(:disabled) {
-  background-color: #2A4538;
+  background-color: #1c2a24;
 }
 
 /* ── Credentials info modal ──────────────────────────────────────── */
@@ -214,7 +214,7 @@ button.btn-reboot:hover:not(:disabled) {
   font-family: 'JetBrains Mono', 'Fira Code', 'Source Code Pro', monospace;
   font-size: 0.92rem;
   color: var(--text-primary);
-  background-color: #060F09;
+  background-color: #0c0f0e;
   padding: 12px 16px;
   border-radius: 8px;
   word-break: break-all;
@@ -239,7 +239,7 @@ button.btn-reboot:hover:not(:disabled) {
 }
 
 .creds-copy-btn:hover {
-  background-color: #2A4538;
+  background-color: #1c2a24;
 }
 
 .creds-copy-btn.copied {
@@ -312,7 +312,7 @@ button.btn-reboot:hover:not(:disabled) {
 
 .matrix-form-input {
   width: 100%;
-  background-color: #060F09;
+  background-color: #0c0f0e;
   color: var(--text-primary);
   border: 1px solid var(--border-color);
   border-radius: 8px;
@@ -378,7 +378,7 @@ button.btn-reboot:hover:not(:disabled) {
 }
 
 .matrix-form-back:hover {
-  background-color: #2A4538;
+  background-color: #1c2a24;
 }
 
 .matrix-form-result {

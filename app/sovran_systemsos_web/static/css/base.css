@@ -1,6 +1,6 @@
 /* Sovran_SystemsOS Hub — Web UI Stylesheet
-   Dark theme — deep green palette matching the Sovran Hub icon
-   v7 — Green atmosphere, status-only tiles */
+   Dark theme — near-black with green accents matching the Sovran Hub icon
+   v8 — Black-forward, green used for accents/borders/highlights only */
 
 *, *::before, *::after {
   box-sizing: border-box;
@@ -9,13 +9,13 @@
 }
 
 :root {
-  --bg-color:        #091C14;
-  --surface-color:   #0F2419;
-  --card-color:      #163023;
-  --border-color:    #244635;
-  --text-primary:    #E8FFF4;
-  --text-secondary:  #8CC4A8;
-  --text-dim:        #4E7A65;
+  --bg-color:        #0b0f0d;
+  --surface-color:   #111614;
+  --card-color:      #181e1b;
+  --border-color:    #1e2d27;
+  --text-primary:    #ecf3ef;
+  --text-secondary:  #8aaa9a;
+  --text-dim:        #4a6658;
   --accent-color:    #28D978;
   --green:           #2ec27e;
   --yellow:          #e5a50a;
@@ -33,7 +33,9 @@ html, body {
 
 body {
   font-family: 'Cantarell', 'Inter', 'Segoe UI', sans-serif;
-  background-color: var(--bg-color);
+  background:
+    radial-gradient(ellipse at top, rgba(40, 217, 120, 0.04) 0%, transparent 50%),
+    var(--bg-color);
   color: var(--text-primary);
   line-height: 1.5;
   min-height: 100vh;
