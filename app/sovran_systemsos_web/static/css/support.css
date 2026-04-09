@@ -219,8 +219,8 @@
 }
 
 .support-wallet-protected {
-  background-color: rgba(46, 194, 126, 0.06);
-  border-color: rgba(46, 194, 126, 0.3);
+  background-color: rgba(109, 191, 139, 0.06);
+  border-color: rgba(109, 191, 139, 0.3);
 }
 
 .support-wallet-unlocked {
@@ -310,7 +310,7 @@
 }
 
 .support-btn-wallet-lock:hover:not(:disabled) {
-  background-color: #27ae6e;
+  background-color: #529E7E;
 }
 
 /* ── Audit log ───────────────────────────────────────────────────── */
