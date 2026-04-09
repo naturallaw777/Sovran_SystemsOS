@@ -1,6 +1,20 @@
 { config, pkgs, lib, ... }:
 
 let
+  sovran-whitegloves-start = pkgs.writeShellScriptBin "sovran-whitegloves-start" ''
+    set -euo pipefail
+
+    if [ "$(id -u)" -ne 0 ]; then
+      echo "Error: must be run as root." >&2
+      exit 1
+    fi
+
+    mkdir -p /var/lib
+    touch /var/lib/sovran-whitegloves
+    echo "sovran-whitegloves-start: white-gloves marker set at /var/lib/sovran-whitegloves"
+    echo "  Remember to run 'sudo sovran-factory-seal' before shipping the device to the customer."
+  '';
+
   sovran-factory-seal = pkgs.writeShellScriptBin "sovran-factory-seal" ''
     set -euo pipefail
 
@@ -39,6 +53,7 @@ let
     # ── 1. Delete all generated secrets ──────────────────────────────
     echo "  Wiping secrets..."
     [ -d /var/lib/secrets ] && find /var/lib/secrets -mindepth 1 -delete || true
+    rm -f /var/lib/sovran-whitegloves
     rm -rf /var/lib/matrix-synapse/registration-secret
     rm -rf /var/lib/matrix-synapse/db-password
     rm -rf /var/lib/gnome-remote-desktop/rdp-password
@@ -87,7 +102,7 @@ let
 
 in
 {
-  environment.systemPackages = [ sovran-factory-seal ];
+  environment.systemPackages = [ sovran-factory-seal sovran-whitegloves-start ];
 
   # ── Auto-seal on first customer boot ───────────────────────────────
   systemd.services.sovran-auto-seal = {
@@ -125,39 +140,46 @@ in
         exit 0
       fi
 
-      # ── Safety guard 3: password has been changed from factory defaults ──
-      if [ -f /etc/shadow ]; then
-        FREE_HASH=$(grep '^free:' /etc/shadow | cut -d: -f2)
-        if [ -n "$FREE_HASH" ] && [ "$FREE_HASH" != "!" ] && [ "$FREE_HASH" != "*" ]; then
-          ALGO_ID=$(printf '%s' "$FREE_HASH" | cut -d'$' -f2)
-          SALT=$(printf '%s' "$FREE_HASH" | cut -d'$' -f3)
-          STILL_DEFAULT=false
-          # If the salt field starts with "rounds=", we cannot extract the real salt
-          # with a simple cut — treat as still-default for safety
-          if printf '%s' "$SALT" | grep -q '^rounds='; then
-            STILL_DEFAULT=true
-          else
-            for DEFAULT_PW in "free" "gosovransystems"; do
-              case "$ALGO_ID" in
-                6) EXPECTED=$(openssl passwd -6 -salt "$SALT" "$DEFAULT_PW" 2>/dev/null) ;;
-                5) EXPECTED=$(openssl passwd -5 -salt "$SALT" "$DEFAULT_PW" 2>/dev/null) ;;
-                *)
-                  # Unknown hash algorithm — treat as still-default for safety
+      # ── Safety guard: pre-existing secrets or white-gloves marker → installer didn't seal ──
+      if [ -f /var/lib/secrets/root-password ] || [ -f /var/lib/sovran-whitegloves ]; then
+        echo "sovran-auto-seal: pre-existing secrets or white-gloves marker found — forcing seal..."
+        rm -f /var/lib/sovran-whitegloves
+        # Fall through to the wipe steps — skip the password check entirely
+      else
+        # ── Safety guard 3: password has been changed from factory defaults ──
+        if [ -f /etc/shadow ]; then
+          FREE_HASH=$(grep '^free:' /etc/shadow | cut -d: -f2)
+          if [ -n "$FREE_HASH" ] && [ "$FREE_HASH" != "!" ] && [ "$FREE_HASH" != "*" ]; then
+            ALGO_ID=$(printf '%s' "$FREE_HASH" | cut -d'$' -f2)
+            SALT=$(printf '%s' "$FREE_HASH" | cut -d'$' -f3)
+            STILL_DEFAULT=false
+            # If the salt field starts with "rounds=", we cannot extract the real salt
+            # with a simple cut — treat as still-default for safety
+            if printf '%s' "$SALT" | grep -q '^rounds='; then
+              STILL_DEFAULT=true
+            else
+              for DEFAULT_PW in "free" "gosovransystems"; do
+                case "$ALGO_ID" in
+                  6) EXPECTED=$(openssl passwd -6 -salt "$SALT" "$DEFAULT_PW" 2>/dev/null) ;;
+                  5) EXPECTED=$(openssl passwd -5 -salt "$SALT" "$DEFAULT_PW" 2>/dev/null) ;;
+                  *)
+                    # Unknown hash algorithm — treat as still-default for safety
+                    STILL_DEFAULT=true
+                    break
+                    ;;
+                esac
+                if [ -n "$EXPECTED" ] && [ "$EXPECTED" = "$FREE_HASH" ]; then
                   STILL_DEFAULT=true
                   break
-                  ;;
-              esac
-              if [ -n "$EXPECTED" ] && [ "$EXPECTED" = "$FREE_HASH" ]; then
-                STILL_DEFAULT=true
-                break
-              fi
-            done
-          fi
-          if [ "$STILL_DEFAULT" = "false" ]; then
-            echo "sovran-auto-seal: password has been changed from factory defaults — live system detected. Restoring flag and exiting."
-            touch /var/lib/sovran-factory-sealed
-            chattr +i /var/lib/sovran-factory-sealed 2>/dev/null || true
-            exit 0
+                fi
+              done
+            fi
+            if [ "$STILL_DEFAULT" = "false" ]; then
+              echo "sovran-auto-seal: password has been changed from factory defaults — live system detected. Restoring flag and exiting."
+              touch /var/lib/sovran-factory-sealed
+              chattr +i /var/lib/sovran-factory-sealed 2>/dev/null || true
+              exit 0
+            fi
           fi
         fi
       fi
