@@ -86,12 +86,12 @@
 
 .sidebar-upgrade-btn {
   border-color: var(--accent-color);
-  background-color: rgba(40, 217, 120, 0.06);
+  background-color: rgba(94, 173, 138, 0.06);
   margin-top: 8px;
 }
 
 .sidebar-upgrade-btn:hover {
-  background-color: rgba(40, 217, 120, 0.14);
+  background-color: rgba(94, 173, 138, 0.14);
   border-color: var(--accent-color);
 }
 
