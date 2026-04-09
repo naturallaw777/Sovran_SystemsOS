@@ -993,18 +993,20 @@ def _detect_external_drives() -> list[dict]:
 
 # ── custom.nix Hub Managed section helpers ────────────────────────
 
-def _read_hub_overrides() -> tuple[dict, str | None]:
+def _read_hub_overrides() -> tuple[dict, str | None, str | None, str | None]:
     """Parse the Hub Managed section inside custom.nix.
-    Returns (features_dict, nostr_npub_or_none)."""
+    Returns (features_dict, nostr_npub_or_none, timezone_or_none, locale_or_none)."""
     features: dict[str, bool] = {}
     nostr_npub = None
+    timezone = None
+    locale = None
     try:
         with open(CUSTOM_NIX, "r") as f:
             content = f.read()
         begin = content.find(HUB_BEGIN)
         end = content.find(HUB_END)
         if begin == -1 or end == -1:
-            return features, nostr_npub
+            return features, nostr_npub, timezone, locale
         section = content[begin:end]
         for m in re.finditer(
             r'sovran_systemsOS\.features\.([a-zA-Z0-9_-]+)\s*=\s*(?:lib\.mkForce\s+)?(true|false)\s*;',
@@ -1022,12 +1024,24 @@ def _read_hub_overrides() -> tuple[dict, str | None]:
         )
         if m2:
             nostr_npub = m2.group(1)
+        m3 = re.search(
+            r'time\.timeZone\s*=\s*(?:lib\.mkForce\s+)?"([^"]*)"',
+            section,
+        )
+        if m3:
+            timezone = m3.group(1)
+        m4 = re.search(
+            r'i18n\.defaultLocale\s*=\s*(?:lib\.mkForce\s+)?"([^"]*)"',
+            section,
+        )
+        if m4:
+            locale = m4.group(1)
     except FileNotFoundError:
         pass
-    return features, nostr_npub
+    return features, nostr_npub, timezone, locale
 
 
-def _write_hub_overrides(features: dict, nostr_npub: str | None) -> None:
+def _write_hub_overrides(features: dict, nostr_npub: str | None, timezone: str | None = None, locale: str | None = None) -> None:
     """Write the Hub Managed section inside custom.nix."""
     lines = []
     for feat_id, enabled in features.items():
@@ -1038,6 +1052,10 @@ def _write_hub_overrides(features: dict, nostr_npub: str | None) -> None:
             lines.append(f"  sovran_systemsOS.features.{feat_id} = lib.mkForce {val};")
     if nostr_npub:
         lines.append(f'  sovran_systemsOS.nostr_npub = lib.mkForce "{nostr_npub}";')
+    if timezone:
+        lines.append(f'  time.timeZone = lib.mkForce "{timezone}";')
+    if locale:
+        lines.append(f'  i18n.defaultLocale = lib.mkForce "{locale}";')
     hub_block = (
         HUB_BEGIN + "\n"
         + "\n".join(lines) + ("\n" if lines else "")
@@ -1091,7 +1109,7 @@ def _is_feature_enabled_in_config(feature_id: str) -> bool | None:
 
 def _is_sshd_feature_enabled() -> bool:
     """Check if the sshd feature is enabled via hub overrides or config."""
-    overrides, _ = _read_hub_overrides()
+    overrides, *_ = _read_hub_overrides()
     if "sshd" in overrides:
         return bool(overrides["sshd"])
     config_state = _is_feature_enabled_in_config("sshd")
@@ -1800,7 +1818,7 @@ async def api_services():
     loop = asyncio.get_event_loop()
 
     # Read runtime feature overrides from custom.nix Hub Managed section
-    overrides, _ = await loop.run_in_executor(None, _read_hub_overrides)
+    overrides, *_ = await loop.run_in_executor(None, _read_hub_overrides)
 
     # Cache port/firewall data once for the entire /api/services request
     listening_ports, firewall_ports = await asyncio.gather(
@@ -1963,7 +1981,7 @@ async def api_service_detail(unit: str, icon: str | None = None):
     }
 
     loop = asyncio.get_event_loop()
-    overrides, nostr_npub = await loop.run_in_executor(None, _read_hub_overrides)
+    overrides, nostr_npub, *_ = await loop.run_in_executor(None, _read_hub_overrides)
 
     # Find the service config entry, preferring icon match when provided
     entry = None
@@ -2250,7 +2268,7 @@ async def api_ports_health():
     loop = asyncio.get_event_loop()
 
     # Read runtime feature overrides from custom.nix Hub Managed section
-    overrides, _ = await loop.run_in_executor(None, _read_hub_overrides)
+    overrides, *_ = await loop.run_in_executor(None, _read_hub_overrides)
 
     # Collect port requirements for enabled services only
     enabled_port_requirements: list[tuple[str, str, list[dict]]] = []
@@ -2596,7 +2614,7 @@ async def api_backup_run(target: str = ""):
 async def api_features():
     """Return all toggleable features with current state and domain requirements."""
     loop = asyncio.get_event_loop()
-    overrides, nostr_npub = await loop.run_in_executor(None, _read_hub_overrides)
+    overrides, nostr_npub, *_ = await loop.run_in_executor(None, _read_hub_overrides)
 
     ssl_email_path = os.path.join(DOMAINS_DIR, "sslemail")
     ssl_email_configured = os.path.exists(ssl_email_path)
@@ -2675,7 +2693,7 @@ async def api_features_toggle(req: FeatureToggleRequest):
         raise HTTPException(status_code=404, detail="Feature not found")
 
     loop = asyncio.get_event_loop()
-    features, nostr_npub = await loop.run_in_executor(None, _read_hub_overrides)
+    features, nostr_npub, cur_tz, cur_locale = await loop.run_in_executor(None, _read_hub_overrides)
 
     if req.enabled:
         # Element-calling requires matrix domain
@@ -2728,7 +2746,7 @@ async def api_features_toggle(req: FeatureToggleRequest):
         except OSError:
             pass
 
-    await loop.run_in_executor(None, _write_hub_overrides, features, nostr_npub)
+    await loop.run_in_executor(None, _write_hub_overrides, features, nostr_npub, cur_tz, cur_locale)
 
     # Clear the old rebuild log so the frontend doesn't pick up stale results
     try:
@@ -3218,9 +3236,13 @@ def _get_current_timezone() -> str | None:
             timeout=5,
         )
         tz = result.stdout.strip()
-        return tz if tz and tz != "n/a" else None
+        if tz and tz != "n/a":
+            return tz
     except Exception:
-        return None
+        pass
+    # Fallback: check the Hub Managed section of custom.nix for a pending change
+    _, _, timezone, _ = _read_hub_overrides()
+    return timezone
 
 
 def _get_current_locale() -> str | None:
@@ -3235,9 +3257,11 @@ def _get_current_locale() -> str | None:
         for line in result.stdout.splitlines():
             if "LANG=" in line:
                 return line.split("LANG=", 1)[1].strip()
-        return None
     except Exception:
-        return None
+        pass
+    # Fallback: check the Hub Managed section of custom.nix for a pending change
+    _, _, _, locale = _read_hub_overrides()
+    return locale
 
 
 @app.get("/api/system/timezones")
@@ -3280,7 +3304,7 @@ class TimezoneRequest(BaseModel):
 
 @app.post("/api/system/timezone")
 async def api_system_set_timezone(req: TimezoneRequest):
-    """Set the system timezone using timedatectl."""
+    """Set the system timezone declaratively via custom.nix and trigger a rebuild."""
     tz = req.timezone.strip()
     if not tz:
         raise HTTPException(status_code=400, detail="Timezone must not be empty.")
@@ -3289,25 +3313,26 @@ async def api_system_set_timezone(req: TimezoneRequest):
         raise HTTPException(status_code=400, detail="Invalid timezone format.")
 
     loop = asyncio.get_event_loop()
-    try:
-        result = await loop.run_in_executor(
-            None,
-            lambda: subprocess.run(
-                ["timedatectl", "set-timezone", tz],
-                capture_output=True,
-                text=True,
-                timeout=15,
-            ),
-        )
-        if result.returncode != 0:
-            detail = (result.stderr or result.stdout).strip() or "timedatectl failed."
-            raise HTTPException(status_code=500, detail=detail)
-    except HTTPException:
-        raise
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Failed to set timezone: {exc}")
+    features, nostr_npub, _, cur_locale = await loop.run_in_executor(None, _read_hub_overrides)
+    await loop.run_in_executor(None, _write_hub_overrides, features, nostr_npub, tz, cur_locale)
 
-    return {"ok": True, "timezone": tz}
+    try:
+        open(REBUILD_LOG, "w").close()
+    except OSError:
+        pass
+    await asyncio.create_subprocess_exec(
+        "systemctl", "reset-failed", REBUILD_UNIT,
+        stdout=asyncio.subprocess.DEVNULL,
+        stderr=asyncio.subprocess.DEVNULL,
+    )
+    proc = await asyncio.create_subprocess_exec(
+        "systemctl", "start", "--no-block", REBUILD_UNIT,
+        stdout=asyncio.subprocess.DEVNULL,
+        stderr=asyncio.subprocess.DEVNULL,
+    )
+    await proc.wait()
+
+    return {"ok": True, "timezone": tz, "status": "rebuilding"}
 
 
 @app.get("/api/system/locales")
@@ -3324,7 +3349,7 @@ class LocaleRequest(BaseModel):
 
 @app.post("/api/system/locale")
 async def api_system_set_locale(req: LocaleRequest):
-    """Set the system locale using localectl."""
+    """Set the system locale declaratively via custom.nix and trigger a rebuild."""
     locale = req.locale.strip()
     if not locale:
         raise HTTPException(status_code=400, detail="Locale must not be empty.")
@@ -3332,25 +3357,26 @@ async def api_system_set_locale(req: LocaleRequest):
         raise HTTPException(status_code=400, detail=f"Unsupported locale: {locale}")
 
     loop = asyncio.get_event_loop()
-    try:
-        result = await loop.run_in_executor(
-            None,
-            lambda: subprocess.run(
-                ["localectl", "set-locale", f"LANG={locale}"],
-                capture_output=True,
-                text=True,
-                timeout=15,
-            ),
-        )
-        if result.returncode != 0:
-            detail = (result.stderr or result.stdout).strip() or "localectl failed."
-            raise HTTPException(status_code=500, detail=detail)
-    except HTTPException:
-        raise
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Failed to set locale: {exc}")
+    features, nostr_npub, cur_tz, _ = await loop.run_in_executor(None, _read_hub_overrides)
+    await loop.run_in_executor(None, _write_hub_overrides, features, nostr_npub, cur_tz, locale)
 
-    return {"ok": True, "locale": locale}
+    try:
+        open(REBUILD_LOG, "w").close()
+    except OSError:
+        pass
+    await asyncio.create_subprocess_exec(
+        "systemctl", "reset-failed", REBUILD_UNIT,
+        stdout=asyncio.subprocess.DEVNULL,
+        stderr=asyncio.subprocess.DEVNULL,
+    )
+    proc = await asyncio.create_subprocess_exec(
+        "systemctl", "start", "--no-block", REBUILD_UNIT,
+        stdout=asyncio.subprocess.DEVNULL,
+        stderr=asyncio.subprocess.DEVNULL,
+    )
+    await proc.wait()
+
+    return {"ok": True, "locale": locale, "status": "rebuilding"}
 
 
 # ── Matrix user management ────────────────────────────────────────
