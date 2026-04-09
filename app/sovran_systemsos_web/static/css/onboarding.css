@@ -566,7 +566,62 @@
   color: var(--text-secondary);
 }
 
-/* ── Password step (Step 2) ─────────────────────────────────────── */
+/* ── Timezone / Locale step (Step 2) ────────────────────────────── */
+
+.onboarding-tz-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 0;
+}
+
+.onboarding-tz-search {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-btn);
+  background-color: var(--card-color);
+  color: var(--text-primary);
+  font-size: 0.88rem;
+  font-family: 'Cantarell', 'Inter', 'Segoe UI', sans-serif;
+  transition: border-color 0.15s;
+}
+
+.onboarding-tz-search:focus {
+  outline: none;
+  border-color: var(--accent-color);
+}
+
+.onboarding-tz-select {
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-btn);
+  background-color: var(--card-color);
+  color: var(--text-primary);
+  font-size: 0.88rem;
+  font-family: 'Cantarell', 'Inter', 'Segoe UI', sans-serif;
+  transition: border-color 0.15s;
+  overflow-y: auto;
+}
+
+.onboarding-tz-select:focus {
+  outline: none;
+  border-color: var(--accent-color);
+}
+
+.onboarding-tz-select option {
+  padding: 4px 8px;
+  background-color: var(--card-color);
+  color: var(--text-primary);
+}
+
+.onboarding-locale-select {
+  height: auto;
+  size: auto;
+}
+
+/* ── Password step (Step 3) ─────────────────────────────────────── */
 
 .onboarding-password-group {
   display: flex;
