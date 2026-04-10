@@ -1,14 +1,3 @@
-<br />
-<br />
-
-<p align="center">
-  <img width="600" src="sovran_systems_grey.png">
-</p>
-
-<br />
-<br />
-<br />
-
 # Sovran_SystemsOS
 
 ### The Officaly Repository of Sovran_SystemsOS and the Sovran Pro
@@ -147,7 +136,7 @@ Forward each port to the **private IP address** of your Sovran_SystemsOS machine
 
 ## Installation
 
-### Full Guide (A bit outdated as of now... will be working on a smoother DIY soon)
+### Full Guide (Outdated as of now... will be working on a full .iso soon)
 
 👉 [DIY Install Sovran_SystemsOS](https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS/src/branch/main/DIY%20Install%20Sovran_SystemsOS.md)
 
@@ -175,15 +164,13 @@ Forward each port to the **private IP address** of your Sovran_SystemsOS machine
 
 ## License
 
-See [LICENSE](LICENSE) for details.
+[GNU Affero General Public License v3.0](LICENSE)
 
 ---
 
 ## Project Philosophy
 
 Sovran_SystemsOS exists to provide a complete, self-hosted infrastructure stack that eliminates dependency on third-party platforms. It is opinionated by design — services are pre-integrated so you spend time using your system, not assembling it.
-
-This is not a toolkit. It is a working system.
 
 You retain full visibility into every module, every service definition, and every configuration choice. Nothing is hidden. Everything is reproducible.
 
