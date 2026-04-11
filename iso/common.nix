@@ -62,7 +62,27 @@ in
     nixos-install-tools
     git
     curl
+    openssh
   ];
+
+  # Remote install support — SSH on the live ISO
+  services.openssh = {
+    enable = true;
+    listenAddresses = [{ addr = "0.0.0.0"; port = 22; }];
+    settings = {
+      PasswordAuthentication = true;
+      PermitRootLogin = "yes";
+    };
+  };
+  users.users.root.initialPassword = "sovran-remote";
+
+  # mDNS so the machine is discoverable as sovran-installer.local
+  services.avahi = {
+    enable = true;
+    hostName = "sovran-installer";
+    nssmdns4 = true;
+    publish = { enable = true; addresses = true; };
+  };
 
   environment.etc."sovran/logo.png".source = ./assets/splash-logo.png;
   environment.etc."sovran/flake".source = sovranSource;
