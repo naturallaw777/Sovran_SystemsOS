@@ -37,6 +37,18 @@ in
       default = "";
       description = "Deployer's SSH public key for root access";
     };
+
+    headscaleServer = lib.mkOption {
+      type = lib.types.str;
+      default = "";
+      description = "Headscale login server URL (e.g. https://hs.sovransystems.com). If set, Tailscale is used for post-install connectivity.";
+    };
+
+    headscaleAuthKeyFile = lib.mkOption {
+      type = lib.types.str;
+      default = "/var/lib/secrets/headscale-authkey";
+      description = "Path to file containing the Headscale pre-auth key for post-install enrollment";
+    };
   };
 
   config = lib.mkIf cfg.enable {
@@ -67,6 +79,45 @@ in
     services.fail2ban = {
       enable = true;
       ignoreIP = [ "127.0.0.0/8" ];
+    };
+
+    # ── Tailscale / Headscale VPN (only when headscaleServer is configured) ──
+    services.tailscale = lib.mkIf (cfg.headscaleServer != "") {
+      enable = true;
+    };
+
+    environment.systemPackages = lib.mkIf (cfg.headscaleServer != "") [ pkgs.tailscale ];
+
+    systemd.services.deploy-tailscale-connect = lib.mkIf (cfg.headscaleServer != "") {
+      description = "Connect to Headscale Tailnet for post-install remote access";
+      wantedBy = [ "multi-user.target" ];
+      after = [ "network-online.target" "tailscaled.service" ];
+      wants = [ "network-online.target" "tailscaled.service" ];
+      serviceConfig = {
+        Type = "oneshot";
+        RemainAfterExit = true;
+      };
+      script = ''
+        AUTH_KEY_FILE="${cfg.headscaleAuthKeyFile}"
+        if [ ! -f "$AUTH_KEY_FILE" ]; then
+          echo "Headscale auth key file not found: $AUTH_KEY_FILE — skipping Tailscale enrollment"
+          exit 0
+        fi
+        AUTH_KEY=$(cat "$AUTH_KEY_FILE")
+        [ -n "$AUTH_KEY" ] || { echo "Auth key file is empty, skipping"; exit 0; }
+
+        HOSTNAME_SUFFIX=$(hostname | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g; s/-\{2,\}/-/g; s/^-//; s/-$//')
+        HOSTNAME="sovran-$HOSTNAME_SUFFIX"
+
+        echo "Joining Tailnet via ${cfg.headscaleServer} as $HOSTNAME..."
+        ${pkgs.tailscale}/bin/tailscale up \
+          --login-server="${cfg.headscaleServer}" \
+          --authkey="$AUTH_KEY" \
+          --hostname="$HOSTNAME"
+
+        echo "Tailscale IP: $(${pkgs.tailscale}/bin/tailscale ip -4 2>/dev/null || echo 'pending')"
+      '';
+      path = [ pkgs.tailscale pkgs.coreutils ];
     };
 
     # ── Reverse tunnel service (only when relayHost is configured) ───────────
