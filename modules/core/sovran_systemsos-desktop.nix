@@ -2,25 +2,77 @@
 
 let
 
+  wallpaperSrc = ../../assets/wallpapers;
+
   customWallpaper = pkgs.stdenvNoCC.mkDerivation {
     pname = "sovran-systemsos-wallpaper";
-    version = "1.0";
-    src = pkgs.fetchurl {
-      url = "https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS_iso/raw/branch/main/post-install-scripts/Wallpaper_Dark_Wide.png";
-      sha256 = "0609gy0vp92fywl7pcr4y3mg05ca6pwxsnlsax14jd371fj4y7fn";
-    };
-    dontUnpack = true;
+    version = "2.0";
+    src = wallpaperSrc;
+    nativeBuildInputs = [ pkgs.librsvg ];
     installPhase = ''
       mkdir -p $out/share/backgrounds/sovran
-      cp $src $out/share/backgrounds/sovran/Wallpaper_Dark_Wide.png
-      '';
+
+      rsvg-convert -w 1920 -h 1080 \
+        $src/sovran-wallpaper-08-tagline-only.svg \
+        -o $out/share/backgrounds/sovran/sovran-standard.png
+
+      rsvg-convert -w 3440 -h 1440 \
+        $src/sovran-wallpaper-12-ultrawide-3440x1440.svg \
+        -o $out/share/backgrounds/sovran/sovran-ultrawide.png
+    '';
   };
+
+  wallpaperInit = pkgs.writeShellScriptBin "sovran-wallpaper-init" ''
+    STAMP="$HOME/.config/sovran-wallpaper-set"
+    if [ -f "$STAMP" ]; then
+      exit 0
+    fi
+
+    BG_DIR="/run/current-system/sw/share/backgrounds/sovran"
+    STANDARD="$BG_DIR/sovran-standard.png"
+    ULTRAWIDE="$BG_DIR/sovran-ultrawide.png"
+
+    WIDTH=$(${pkgs.dbus}/bin/dbus-send \
+      --session \
+      --print-reply \
+      --dest=org.gnome.Mutter.DisplayConfig \
+      /org/gnome/Mutter/DisplayConfig \
+      org.gnome.Mutter.DisplayConfig.GetCurrentState \
+      2>/dev/null \
+      | grep -oP 'uint32 \K[0-9]+' \
+      | head -1)
+
+    CHOSEN="$STANDARD"
+    if [ -n "$WIDTH" ] && [ "$WIDTH" -ge 2560 ] && [ -f "$ULTRAWIDE" ]; then
+      CHOSEN="$ULTRAWIDE"
+    fi
+
+    ${pkgs.dconf}/bin/dconf write /org/gnome/desktop/background/picture-uri \
+      "'file://$CHOSEN'"
+    ${pkgs.dconf}/bin/dconf write /org/gnome/desktop/background/picture-uri-dark \
+      "'file://$CHOSEN'"
+    ${pkgs.dconf}/bin/dconf write /org/gnome/desktop/background/picture-options \
+      "'zoom'"
+
+    mkdir -p "$HOME/.config"
+    touch "$STAMP"
+  '';
 
 in 
 
 {
 
-  environment.systemPackages = [ customWallpaper ];
+  environment.systemPackages = [ customWallpaper wallpaperInit ];
+
+  environment.etc."xdg/autostart/sovran-wallpaper-init.desktop".text = ''
+    [Desktop Entry]
+    Type=Application
+    Name=Sovran Wallpaper Init
+    Exec=${wallpaperInit}/bin/sovran-wallpaper-init
+    X-GNOME-Autostart-enabled=true
+    X-GNOME-Autostart-Phase=Application
+    NoDisplay=true
+  '';
 
   programs.dconf.enable = true;
 
@@ -29,8 +81,8 @@ in
     settings = {
 
       "org/gnome/desktop/background" = {
-        picture-uri = "file:///run/current-system/sw/share/backgrounds/sovran/Wallpaper_Dark_Wide.png";
-        picture-uri-dark = "file:///run/current-system/sw/share/backgrounds/sovran/Wallpaper_Dark_Wide.png";
+        picture-uri = "file:///run/current-system/sw/share/backgrounds/sovran/sovran-standard.png";
+        picture-uri-dark = "file:///run/current-system/sw/share/backgrounds/sovran/sovran-standard.png";
         picture-options = "zoom";
         primary-color = "#000000";
         secondary-color = "#000000";
