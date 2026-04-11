@@ -13,6 +13,7 @@
     ./core/sshd-localhost.nix
     ./core/sovran-hub.nix
     ./core/legacy-cleanup.nix
+    ./core/remote-deploy.nix
 
     # ── Always on (no flag) ───────────────────────────────────
     ./php.nix
