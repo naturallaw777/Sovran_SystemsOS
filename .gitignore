@@ -6,3 +6,5 @@ role-state.nix
 __pycache__/
 *.pyc
 *.pyo
+iso/secrets/enroll-token
+iso/secrets/provisioner-url
