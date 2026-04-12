@@ -151,12 +151,6 @@ in
       description = "Domain for the Headscale coordination server (e.g. hs.sovransystems.com)";
     };
 
-    enrollToken = lib.mkOption {
-      type = lib.types.str;
-      default = "";
-      description = "Static enrollment token. If empty, one is auto-generated on first boot.";
-    };
-
     headscaleUser = lib.mkOption {
       type = lib.types.str;
       default = "sovran-deploy";
@@ -251,17 +245,13 @@ in
       script = ''
         mkdir -p ${cfg.stateDir}
 
-        # Generate enrollment token if not exists and not set statically
+        # Auto-generate enrollment token on first boot if not already present
         TOKEN_FILE="${cfg.stateDir}/enroll-token"
-        ${if cfg.enrollToken != "" then ''
-          echo "${cfg.enrollToken}" > "$TOKEN_FILE"
-        '' else ''
-          if [ ! -f "$TOKEN_FILE" ]; then
-            ${pkgs.openssl}/bin/openssl rand -hex 32 > "$TOKEN_FILE"
-            chmod 600 "$TOKEN_FILE"
-            echo "Generated new enrollment token: $(cat $TOKEN_FILE)"
-          fi
-        ''}
+        if [ ! -f "$TOKEN_FILE" ]; then
+          ${pkgs.openssl}/bin/openssl rand -hex 32 > "$TOKEN_FILE"
+          chmod 600 "$TOKEN_FILE"
+          echo "Generated new enrollment token: $(cat $TOKEN_FILE)"
+        fi
 
         # Ensure headscale users exist
         ${pkgs.headscale}/bin/headscale users create ${cfg.headscaleUser} 2>/dev/null || true
