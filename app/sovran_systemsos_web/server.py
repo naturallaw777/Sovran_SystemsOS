@@ -499,7 +499,11 @@ class NoCacheMiddleware(BaseHTTPMiddleware):
 # ── Session / authentication helpers ─────────────────────────────
 
 def _get_or_create_session_secret() -> bytes:
-    """Return the Hub session secret, generating it on first boot."""
+    """Return the Hub session secret, generating it on first boot.
+
+    The file is stored in /var/lib/secrets/ (mode 0600) so it is wiped
+    automatically during a security reset, which forces re-login after reset.
+    """
     try:
         with open(HUB_SESSION_SECRET_FILE, "rb") as f:
             data = f.read().strip()
@@ -507,15 +511,17 @@ def _get_or_create_session_secret() -> bytes:
                 return data
     except FileNotFoundError:
         pass
-    secret = secrets.token_hex(32).encode()
+    # Generate 32 random bytes and hex-encode for human readability
+    token_bytes = secrets.token_bytes(32)
+    token_hex = token_bytes.hex().encode()
     try:
         os.makedirs(os.path.dirname(HUB_SESSION_SECRET_FILE), exist_ok=True)
         with open(HUB_SESSION_SECRET_FILE, "wb") as f:
-            f.write(secret)
+            f.write(token_hex)
         os.chmod(HUB_SESSION_SECRET_FILE, 0o600)
     except OSError:
         pass
-    return secret
+    return token_hex
 
 
 def _create_session() -> str:
@@ -571,13 +577,17 @@ def _check_password(submitted: str) -> bool:
 
 
 def _record_failure(client_ip: str) -> None:
-    """Record a failed login attempt and apply a rate-limit delay."""
+    """Record a failed login attempt and apply a rate-limit delay.
+
+    Must always be called via loop.run_in_executor() so that the blocking
+    time.sleep() does not stall the asyncio event loop.
+    """
     now = time.time()
     failures = _login_failures.setdefault(client_ip, [])
     # Prune old entries outside the window
     _login_failures[client_ip] = [t for t in failures if now - t < LOGIN_FAIL_WINDOW]
     _login_failures[client_ip].append(now)
-    # Always sleep a fixed delay to slow brute force
+    # Sleep in the thread-pool thread to slow brute-force without blocking the loop
     time.sleep(LOGIN_FAIL_DELAY)
 
 
