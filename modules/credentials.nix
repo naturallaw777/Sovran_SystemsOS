@@ -33,6 +33,8 @@ let
     echo "$NEW_PASS" > "$SECRET_FILE"
     chmod 600 "$SECRET_FILE"
     echo "Password for 'free' updated and saved."
+    echo "$NEW_PASS" | ${pkgs.gnome-keyring}/bin/gnome-keyring-daemon --unlock || echo "Warning: GNOME Keyring re-key failed." >&2
+    echo "GNOME Keyring re-keyed with new password."
   '';
 in
 {
@@ -112,6 +114,29 @@ in
         echo "free:$FREE_PASS" | chpasswd
         echo "$FREE_PASS" > "$SECRET_FILE"
         chmod 600 "$SECRET_FILE"
+      fi
+    '';
+  };
+
+  # ── 2. Unlock GNOME Keyring on graphical session start ─────
+  systemd.services.gnome-keyring-unlock = {
+    description = "Unlock GNOME Keyring with stored free password";
+    after = [ "free-password-setup.service" "display-manager.service" ];
+    wants = [ "free-password-setup.service" ];
+    wantedBy = [ "graphical-session.target" ];
+    serviceConfig = {
+      Type = "oneshot";
+      User = "free";
+      ExecStartPre = "${pkgs.coreutils}/bin/sleep 3";
+    };
+    path = [ pkgs.gnome-keyring pkgs.coreutils ];
+    script = ''
+      SECRET_FILE="/var/lib/secrets/free-password"
+      if [ -f "$SECRET_FILE" ]; then
+        gnome-keyring-daemon --unlock < "$SECRET_FILE"
+        echo "GNOME Keyring unlocked with stored password."
+      else
+        echo "No password file found, skipping keyring unlock."
       fi
     '';
   };
