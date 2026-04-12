@@ -77,7 +77,8 @@ in
       PermitRootLogin = "yes";
     };
   };
-  users.users.root.initialPassword = "sovran-remote";
+  users.users.root.initialPassword = lib.mkForce "sovran-remote";
+  users.users.root.initialHashedPassword = lib.mkForce null;
 
   # mDNS so the machine is discoverable as sovran-installer.local
   services.avahi = {
