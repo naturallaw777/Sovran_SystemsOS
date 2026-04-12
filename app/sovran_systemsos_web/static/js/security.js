@@ -125,6 +125,8 @@ function openSecurityModal() {
         var $secResetOverlay = document.getElementById("security-reset-overlay");
         var $secResetStep = document.getElementById("security-reset-overlay-step");
         if ($secResetOverlay) $secResetOverlay.classList.add("visible");
+        // Close the support modal so its content doesn't bleed through the overlay
+        if ($supportModal) $supportModal.classList.remove("open");
 
         if (resetStatus) { resetStatus.textContent = "Running security reset\u2026"; resetStatus.className = "security-status-msg security-status-info"; }
         try {
