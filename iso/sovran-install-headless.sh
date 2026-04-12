@@ -10,10 +10,6 @@ Options:
   --data-disk /dev/sdb         Data disk for Bitcoin (optional)
   --role server|desktop|node   Installation role (default: server)
   --deploy-key "ssh-ed25519 AAAA..."  SSH pubkey for remote access after install
-  --relay-host HOST            Reverse tunnel relay hostname
-  --relay-user USER            Relay username (default: deploy)
-  --relay-port PORT            Relay SSH port (default: 22)
-  --tunnel-port PORT           Reverse tunnel port on relay (default: 2222)
   --headscale-server URL       Headscale login server for post-install Tailnet
   --headscale-key KEY          Headscale pre-auth key for the installed OS
 USAGE
@@ -26,10 +22,6 @@ DISK=""
 DATA_DISK=""
 ROLE="server"
 DEPLOY_KEY=""
-RELAY_HOST=""
-RELAY_USER="deploy"
-RELAY_PORT="22"
-TUNNEL_PORT="2222"
 HEADSCALE_SERVER=""
 HEADSCALE_KEY=""
 
@@ -58,10 +50,6 @@ while [[ $# -gt 0 ]]; do
         --data-disk)   DATA_DISK="$2";   shift 2 ;;
         --role)        ROLE="$2";        shift 2 ;;
         --deploy-key)  DEPLOY_KEY="$2";  shift 2 ;;
-        --relay-host)  RELAY_HOST="$2";  shift 2 ;;
-        --relay-user)  RELAY_USER="$2";  shift 2 ;;
-        --relay-port)  RELAY_PORT="$2";  shift 2 ;;
-        --tunnel-port) TUNNEL_PORT="$2"; shift 2 ;;
         --headscale-server) HEADSCALE_SERVER="$2"; shift 2 ;;
         --headscale-key)    HEADSCALE_KEY="$2";    shift 2 ;;
         -h|--help)
@@ -220,21 +208,17 @@ EOF
 # ── Step 10: Write custom.nix with deploy config ──────────────────────────────
 log "=== Writing custom.nix ==="
 
-if [[ -n "$DEPLOY_KEY" ]]; then
-    cat > /mnt/etc/nixos/custom.nix <<EOF
-{ config, lib, ... }:
-{
-  sovran_systemsOS.deploy = {
-    enable = true;
-    authorizedKey = "${DEPLOY_KEY}";
-    relayHost = "${RELAY_HOST}";
-    relayUser = "${RELAY_USER}";
-    relayPort = ${RELAY_PORT};
-    reverseTunnelPort = ${TUNNEL_PORT};
-$([ -n "${HEADSCALE_SERVER}" ] && echo "    headscaleServer = \"${HEADSCALE_SERVER}\";")
-  };
-}
-EOF
+if [[ -n "$DEPLOY_KEY" || -n "$HEADSCALE_SERVER" ]]; then
+    {
+        echo '{ config, lib, ... }:'
+        echo '{'
+        echo '  sovran_systemsOS.deploy = {'
+        echo '    enable = true;'
+        [[ -n "$DEPLOY_KEY" ]]        && echo "    authorizedKey = \"${DEPLOY_KEY}\";"
+        [[ -n "$HEADSCALE_SERVER" ]]  && echo "    headscaleServer = \"${HEADSCALE_SERVER}\";"
+        echo '  };'
+        echo '}'
+    } > /mnt/etc/nixos/custom.nix
 else
     cp /mnt/etc/nixos/custom.template.nix /mnt/etc/nixos/custom.nix
 fi
@@ -265,7 +249,5 @@ nixos-install \
 log "=== Installation complete! ==="
 log "You can now reboot into Sovran_SystemsOS."
 log "After reboot, the machine will be accessible via SSH on port 22 (if --deploy-key was provided)."
-[[ -n "$RELAY_HOST" ]] && \
-    log "Reverse tunnel will connect to ${RELAY_USER}@${RELAY_HOST}:${RELAY_PORT} — forward port ${TUNNEL_PORT} maps to the machine's SSH."
 [[ -n "$HEADSCALE_SERVER" ]] && \
     log "Tailscale will connect to Headscale at ${HEADSCALE_SERVER} on first boot."
