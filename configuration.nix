@@ -88,8 +88,8 @@
     extraGroups = [ "networkmanager" ];
   };
 
-  services.displayManager.autoLogin.enable = true;
-  services.displayManager.autoLogin.user = "free";
+  services.displayManager.autoLogin.enable = false;
+  # services.displayManager.autoLogin.user = "free";  # Disabled — user logs in via GDM
 
   # ── Flatpak ────────────────────────────────────────────────
   services.flatpak.enable = true;

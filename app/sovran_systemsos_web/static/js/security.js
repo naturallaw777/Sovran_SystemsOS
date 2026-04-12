@@ -128,11 +128,43 @@ function openSecurityModal() {
 
         if (resetStatus) { resetStatus.textContent = "Running security reset\u2026"; resetStatus.className = "security-status-msg security-status-info"; }
         try {
-          await apiFetch("/api/security/reset", { method: "POST" });
-          if ($secResetStep) $secResetStep.textContent = "Reset complete. Rebooting now\u2026";
-          if (resetStatus) { resetStatus.textContent = "\u2713 Reset complete. Rebooting\u2026"; resetStatus.className = "security-status-msg security-status-ok"; }
-          if ($rebootOverlay) $rebootOverlay.classList.add("visible");
-          setTimeout(waitForServerReboot, REBOOT_CHECK_INTERVAL);
+          var data = await apiFetch("/api/security/reset", { method: "POST" });
+
+          // Switch to Phase 2: show the new password and wait for user confirmation
+          var phase1 = document.getElementById("security-reset-phase1");
+          var phase2 = document.getElementById("security-reset-phase2");
+          var passwordBox = document.getElementById("security-reset-new-password");
+          var rebootBtn = document.getElementById("security-reset-reboot-btn");
+
+          if (phase1) phase1.style.display = "none";
+          if (phase2) phase2.style.display = "";
+          if (passwordBox && data.new_password) passwordBox.textContent = data.new_password;
+
+          if (rebootBtn) {
+            // Keep button disabled for 5 seconds to prevent accidental clicks
+            var countdown = 5;
+            rebootBtn.textContent = "I have written down my new password \u2014 Reboot now (" + countdown + ")";
+            var timer = setInterval(function() {
+              countdown--;
+              if (countdown <= 0) {
+                clearInterval(timer);
+                rebootBtn.disabled = false;
+                rebootBtn.textContent = "I have written down my new password \u2014 Reboot now";
+              } else {
+                rebootBtn.textContent = "I have written down my new password \u2014 Reboot now (" + countdown + ")";
+              }
+            }, 1000);
+
+            rebootBtn.addEventListener("click", async function() {
+              rebootBtn.disabled = true;
+              rebootBtn.textContent = "Rebooting\u2026";
+              try {
+                await apiFetch("/api/reboot", { method: "POST" });
+              } catch (_) {}
+              if ($rebootOverlay) $rebootOverlay.classList.add("visible");
+              setTimeout(waitForServerReboot, REBOOT_CHECK_INTERVAL);
+            }, { once: true });
+          }
         } catch (err) {
           if ($secResetOverlay) $secResetOverlay.classList.remove("visible");
           if (resetStatus) { resetStatus.textContent = "\u2717 Error: " + (err.message || "Reset failed."); resetStatus.className = "security-status-msg security-status-error"; }

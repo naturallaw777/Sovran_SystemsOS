@@ -33,8 +33,9 @@ let
     echo "$NEW_PASS" > "$SECRET_FILE"
     chmod 600 "$SECRET_FILE"
     echo "Password for 'free' updated and saved."
-    echo "$NEW_PASS" | ${pkgs.gnome-keyring}/bin/gnome-keyring-daemon --unlock || echo "Warning: GNOME Keyring re-key failed." >&2
-    echo "GNOME Keyring re-keyed with new password."
+    # Delete the old GNOME Keyring so it is recreated with the new password on next GDM login.
+    rm -rf /home/free/.local/share/keyrings/*
+    echo "GNOME Keyring files cleared — a fresh keyring will be created on next login."
   '';
 in
 {
@@ -84,12 +85,28 @@ in
       Type = "oneshot";
       RemainAfterExit = true;
     };
-    path = [ pkgs.pwgen pkgs.shadow pkgs.coreutils ];
+    path = [ pkgs.shadow pkgs.coreutils ];
     script = ''
       SECRET_FILE="/var/lib/secrets/root-password"
       if [ ! -f "$SECRET_FILE" ]; then
         mkdir -p /var/lib/secrets
-        ROOT_PASS=$(pwgen -s 20 1)
+        # Generate a diceware-style passphrase: word-word-word-N
+        WORDS="apple barn brook cabin cedar cloud coral crane delta eagle ember \
+               fern field flame flora flint frost grove haven hedge holly heron \
+               jade juniper kelp larch lemon lilac linden loch lotus maple marsh \
+               meadow mist mossy mount oak ocean olive petal pine pixel plum pond \
+               prism quartz raven ridge river robin rocky rose rowan sage sand \
+               sierra silver slate snow solar spark spruce stone storm summit \
+               swift thorn tide timber torch trout vale vault vine walnut wave \
+               willow wren amber aspen birch blaze bloom bluff coast copper crest \
+               dune elder fjord forge glade glen glow gulf"
+        WORD_ARRAY=($WORDS)
+        COUNT=''${#WORD_ARRAY[@]}
+        W1=''${WORD_ARRAY[$((RANDOM % COUNT))]}
+        W2=''${WORD_ARRAY[$((RANDOM % COUNT))]}
+        W3=''${WORD_ARRAY[$((RANDOM % COUNT))]}
+        DIGIT=$((RANDOM % 10))
+        ROOT_PASS="$W1-$W2-$W3-$DIGIT"
         echo "root:$ROOT_PASS" | chpasswd
         echo "$ROOT_PASS" > "$SECRET_FILE"
         chmod 600 "$SECRET_FILE"
@@ -105,38 +122,31 @@ in
       Type = "oneshot";
       RemainAfterExit = true;
     };
-    path = [ pkgs.pwgen pkgs.shadow pkgs.coreutils ];
+    path = [ pkgs.shadow pkgs.coreutils ];
     script = ''
       SECRET_FILE="/var/lib/secrets/free-password"
       if [ ! -f "$SECRET_FILE" ]; then
         mkdir -p /var/lib/secrets
-        FREE_PASS=$(pwgen -s 20 1)
+        # Generate a diceware-style passphrase: word-word-word-N
+        WORDS="apple barn brook cabin cedar cloud coral crane delta eagle ember \
+               fern field flame flora flint frost grove haven hedge holly heron \
+               jade juniper kelp larch lemon lilac linden loch lotus maple marsh \
+               meadow mist mossy mount oak ocean olive petal pine pixel plum pond \
+               prism quartz raven ridge river robin rocky rose rowan sage sand \
+               sierra silver slate snow solar spark spruce stone storm summit \
+               swift thorn tide timber torch trout vale vault vine walnut wave \
+               willow wren amber aspen birch blaze bloom bluff coast copper crest \
+               dune elder fjord forge glade glen glow gulf"
+        WORD_ARRAY=($WORDS)
+        COUNT=''${#WORD_ARRAY[@]}
+        W1=''${WORD_ARRAY[$((RANDOM % COUNT))]}
+        W2=''${WORD_ARRAY[$((RANDOM % COUNT))]}
+        W3=''${WORD_ARRAY[$((RANDOM % COUNT))]}
+        DIGIT=$((RANDOM % 10))
+        FREE_PASS="$W1-$W2-$W3-$DIGIT"
         echo "free:$FREE_PASS" | chpasswd
         echo "$FREE_PASS" > "$SECRET_FILE"
         chmod 600 "$SECRET_FILE"
-      fi
-    '';
-  };
-
-  # ── 2. Unlock GNOME Keyring on graphical session start ─────
-  systemd.services.gnome-keyring-unlock = {
-    description = "Unlock GNOME Keyring with stored free password";
-    after = [ "free-password-setup.service" "display-manager.service" ];
-    wants = [ "free-password-setup.service" ];
-    wantedBy = [ "graphical-session.target" ];
-    serviceConfig = {
-      Type = "oneshot";
-      User = "free";
-      ExecStartPre = "${pkgs.coreutils}/bin/sleep 3";
-    };
-    path = [ pkgs.gnome-keyring pkgs.coreutils ];
-    script = ''
-      SECRET_FILE="/var/lib/secrets/free-password"
-      if [ -f "$SECRET_FILE" ]; then
-        gnome-keyring-daemon --unlock < "$SECRET_FILE"
-        echo "GNOME Keyring unlocked with stored password."
-      else
-        echo "No password file found, skipping keyring unlock."
       fi
     '';
   };
