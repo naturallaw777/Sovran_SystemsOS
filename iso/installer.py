@@ -1017,21 +1017,6 @@ class InstallerWindow(Adw.ApplicationWindow):
             raise RuntimeError(proc.stderr.strip() or "Failed to write root-password")
         run(["sudo", "chmod", "600", "/mnt/var/lib/secrets/root-password"])
 
-        proc = subprocess.run(
-            ["sudo", "chroot", "/mnt", "/run/current-system/sw/bin/chpasswd"],
-            input=f"free:{self.free_password}\nroot:{root_password}",
-            capture_output=True, text=True
-        )
-        if proc.returncode != 0:
-            proc = subprocess.run(
-                ["sudo", "chroot", "/mnt", "chpasswd"],
-                input=f"free:{self.free_password}\nroot:{root_password}",
-                capture_output=True, text=True
-            )
-            if proc.returncode != 0:
-                log(proc.stderr)
-                raise RuntimeError(proc.stderr.strip() or "Failed to set passwords via chpasswd")
-
         GLib.idle_add(self.push_complete)
 
     # ── Complete ───────────────────────────────────────────────────────────
