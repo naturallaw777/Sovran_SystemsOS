@@ -242,6 +242,60 @@
   margin-bottom: 16px;
 }
 
+/* ── Phase 2: password display box ──────────────────────────────── */
+
+.security-reset-password-label {
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+  margin: 16px 0 8px 0;
+}
+
+.security-reset-password-box {
+  font-family: monospace;
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  background: rgba(109, 191, 139, 0.10);
+  border: 1.5px solid rgba(109, 191, 139, 0.35);
+  border-radius: 8px;
+  padding: 14px 24px;
+  letter-spacing: 0.04em;
+  text-align: center;
+  word-break: break-all;
+  margin-bottom: 16px;
+  min-width: 260px;
+}
+
+.security-reset-password-warning {
+  font-size: 0.84rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.security-reset-reboot-btn {
+  background-color: #6DBF8B;
+  color: #0a0c0b;
+  border: none;
+  border-radius: 7px;
+  padding: 11px 22px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color 0.15s, opacity 0.15s;
+  white-space: nowrap;
+}
+
+.security-reset-reboot-btn:hover:not(:disabled) {
+  background-color: #5aab78;
+}
+
+.security-reset-reboot-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* ── First-login security banner ─────────────────────────────────── */
 
 .security-first-login-banner {

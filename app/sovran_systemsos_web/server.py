@@ -429,6 +429,32 @@ SERVICE_DESCRIPTIONS: dict[str, str] = {
     ),
 }
 
+# ── Diceware password generation ─────────────────────────────────
+
+_DICEWARE_WORDS = [
+    "apple", "barn", "brook", "cabin", "cedar", "cloud", "coral", "crane",
+    "delta", "eagle", "ember", "fern", "field", "flame", "flora", "flint",
+    "frost", "grove", "haven", "hedge", "holly", "heron", "jade", "juniper",
+    "kelp", "larch", "lemon", "lilac", "linden", "loch", "lotus", "maple",
+    "marsh", "meadow", "mist", "mossy", "mount", "oak", "ocean", "olive",
+    "petal", "pine", "pixel", "plum", "pond", "prism", "quartz", "raven",
+    "ridge", "river", "robin", "rocky", "rose", "rowan", "sage", "sand",
+    "sierra", "silver", "slate", "snow", "solar", "spark", "spruce", "stone",
+    "storm", "summit", "swift", "thorn", "tide", "timber", "torch", "trout",
+    "vale", "vault", "vine", "walnut", "wave", "willow", "wren", "amber",
+    "aspen", "birch", "blaze", "bloom", "bluff", "coast", "copper", "crest",
+    "dune", "elder", "fjord", "forge", "glade", "glen", "glow", "gulf",
+]
+
+
+def _generate_diceware_password() -> str:
+    """Generate a human-readable diceware-style passphrase: word-word-word-N."""
+    import secrets as _secrets
+    words = [_secrets.choice(_DICEWARE_WORDS) for _ in range(3)]
+    digit = _secrets.randbelow(10)
+    return "-".join(words) + f"-{digit}"
+
+
 # ── App setup ────────────────────────────────────────────────────
 
 _BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -3040,7 +3066,10 @@ async def api_security_reset():
 
     Wipes secrets, LND wallet, SSH keys, drops databases, removes app configs,
     clears Vaultwarden data, removes the onboarding-complete flag so onboarding
-    re-runs, and reboots the system.
+    re-runs.  Generates a new diceware password for the 'free' and 'root' users,
+    deletes the GNOME Keyring so a fresh one is created on next GDM login, and
+    returns the new password to the caller.  Does NOT reboot — the caller must
+    trigger a separate POST /api/reboot after showing the password to the user.
     """
     wipe_paths = [
         "/var/lib/secrets",
@@ -3099,13 +3128,79 @@ async def api_security_reset():
     except Exception as exc:
         errors.append(f"mariadb wipe: {exc}")
 
-    # Reboot
-    try:
-        subprocess.Popen(["systemctl", "reboot"])
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Reboot failed: {exc}")
+    # Generate new diceware passwords
+    new_free_password = _generate_diceware_password()
+    new_root_password = _generate_diceware_password()
 
-    return {"ok": True, "errors": errors}
+    # Locate chpasswd
+    chpasswd_bin = (
+        shutil.which("chpasswd")
+        or ("/run/current-system/sw/bin/chpasswd"
+            if os.path.isfile("/run/current-system/sw/bin/chpasswd") else None)
+    )
+
+    if chpasswd_bin:
+        # Set free user password
+        try:
+            result = subprocess.run(
+                [chpasswd_bin],
+                input=f"free:{new_free_password}",
+                capture_output=True, text=True,
+            )
+            if result.returncode != 0:
+                errors.append(f"chpasswd free: {(result.stderr or result.stdout).strip()}")
+        except Exception as exc:
+            errors.append(f"chpasswd free: {exc}")
+
+        # Set root password
+        try:
+            result = subprocess.run(
+                [chpasswd_bin],
+                input=f"root:{new_root_password}",
+                capture_output=True, text=True,
+            )
+            if result.returncode != 0:
+                errors.append(f"chpasswd root: {(result.stderr or result.stdout).strip()}")
+        except Exception as exc:
+            errors.append(f"chpasswd root: {exc}")
+    else:
+        errors.append("chpasswd not found; passwords not reset")
+
+    # Write new passwords to secrets files
+    try:
+        os.makedirs("/var/lib/secrets", exist_ok=True)
+        with open("/var/lib/secrets/free-password", "w") as f:
+            f.write(new_free_password)
+        os.chmod("/var/lib/secrets/free-password", 0o600)
+    except Exception as exc:
+        errors.append(f"write free-password: {exc}")
+
+    try:
+        os.makedirs("/var/lib/secrets", exist_ok=True)
+        with open("/var/lib/secrets/root-password", "w") as f:
+            f.write(new_root_password)
+        os.chmod("/var/lib/secrets/root-password", 0o600)
+    except Exception as exc:
+        errors.append(f"write root-password: {exc}")
+
+    # Delete GNOME Keyring files so a fresh keyring is created with the new
+    # password on the next GDM login (PAM unlocks it automatically).
+    keyring_dir = "/home/free/.local/share/keyrings"
+    try:
+        if os.path.isdir(keyring_dir):
+            for entry in os.listdir(keyring_dir):
+                entry_path = os.path.join(keyring_dir, entry)
+                try:
+                    if os.path.isfile(entry_path) or os.path.islink(entry_path):
+                        os.unlink(entry_path)
+                    elif os.path.isdir(entry_path):
+                        shutil.rmtree(entry_path, ignore_errors=True)
+                except Exception:
+                    pass
+    except Exception as exc:
+        errors.append(f"keyring wipe: {exc}")
+
+    return {"ok": True, "new_password": new_free_password, "errors": errors}
 
 
 @app.post("/api/security/verify-integrity")
@@ -3264,6 +3359,23 @@ async def api_change_password(req: ChangePasswordRequest):
         os.chmod(FREE_PASSWORD_FILE, 0o600)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Failed to write secrets file: {exc}")
+
+    # Delete GNOME Keyring files so a fresh keyring is created with the new
+    # password on the next GDM login (PAM will unlock it automatically).
+    keyring_dir = "/home/free/.local/share/keyrings"
+    try:
+        if os.path.isdir(keyring_dir):
+            for entry in os.listdir(keyring_dir):
+                entry_path = os.path.join(keyring_dir, entry)
+                try:
+                    if os.path.isfile(entry_path) or os.path.islink(entry_path):
+                        os.unlink(entry_path)
+                    elif os.path.isdir(entry_path):
+                        shutil.rmtree(entry_path, ignore_errors=True)
+                except Exception:
+                    pass
+    except Exception:
+        pass  # Non-fatal: keyring will be re-created on next login regardless
 
     return {"ok": True}
 
