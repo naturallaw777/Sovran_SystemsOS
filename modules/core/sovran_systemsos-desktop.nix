@@ -99,6 +99,25 @@ in
         icon-theme = "Papirus-Dark";
       };
 
+      "org/gnome/settings-daemon/plugins/power" = {
+        sleep-inactive-ac-type = "nothing";
+        sleep-inactive-ac-timeout = lib.gvariant.mkInt32 0;
+        sleep-inactive-battery-type = "nothing";
+        sleep-inactive-battery-timeout = lib.gvariant.mkInt32 0;
+        idle-dim = false;
+        ambient-enabled = false;
+        power-button-action = "nothing";
+      };
+
+      "org/gnome/desktop/session" = {
+        idle-delay = lib.gvariant.mkUint32 0;
+      };
+
+      "org/gnome/desktop/screensaver" = {
+        lock-enabled = false;
+        idle-activation-enabled = false;
+      };
+
       "org/gnome/evolution-data-server" = {
         migrated = true;
       };
