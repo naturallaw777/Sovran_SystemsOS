@@ -107,10 +107,10 @@ in
         W3=''${WORD_ARRAY[$((RANDOM % COUNT))]}
         DIGIT=$((RANDOM % 10))
         ROOT_PASS="$W1-$W2-$W3-$DIGIT"
-        echo "root:$ROOT_PASS" | chpasswd
         echo "$ROOT_PASS" > "$SECRET_FILE"
         chmod 600 "$SECRET_FILE"
       fi
+      echo "root:$(cat "$SECRET_FILE")" | chpasswd
     '';
   };
 
@@ -144,10 +144,10 @@ in
         W3=''${WORD_ARRAY[$((RANDOM % COUNT))]}
         DIGIT=$((RANDOM % 10))
         FREE_PASS="$W1-$W2-$W3-$DIGIT"
-        echo "free:$FREE_PASS" | chpasswd
         echo "$FREE_PASS" > "$SECRET_FILE"
         chmod 600 "$SECRET_FILE"
       fi
+      echo "free:$(cat "$SECRET_FILE")" | chpasswd
     '';
   };
 
