@@ -212,13 +212,14 @@
 
   <!-- Security Reset overlay -->
   <div class="security-reset-overlay" id="security-reset-overlay">
-    <div class="reboot-card">
+    <!-- Phase 1: wiping in progress -->
+    <div class="reboot-card" id="security-reset-phase1">
       <div class="security-reset-overlay-icon">🛡</div>
       <h2 class="reboot-title">Security Reset In Progress</h2>
       <p class="reboot-message">
         ⚠️ Wiping all data and credentials.<br />
         <strong>Do not power off your computer.</strong><br />
-        This may take several minutes. The system will reboot automatically when complete.
+        This may take several minutes.
       </p>
       <div class="reboot-dots">
         <span class="reboot-dot"></span>
@@ -226,6 +227,20 @@
         <span class="reboot-dot"></span>
       </div>
       <p class="reboot-submessage" id="security-reset-overlay-step">Erasing data and resetting credentials…</p>
+    </div>
+    <!-- Phase 2: password display -->
+    <div class="reboot-card" id="security-reset-phase2" style="display:none;">
+      <div class="security-reset-overlay-icon">🔑</div>
+      <h2 class="reboot-title">Security Reset Complete</h2>
+      <p class="security-reset-password-label">Your new login password is:</p>
+      <div class="security-reset-password-box" id="security-reset-new-password">&nbsp;</div>
+      <p class="security-reset-password-warning">
+        ✍️ <strong>Write this down now.</strong><br />
+        You will need it to log in to your computer<br />and the Sovran Hub at <em>sovransystemsos.local</em>.
+      </p>
+      <button class="security-reset-reboot-btn" id="security-reset-reboot-btn" disabled>
+        I have written down my new password — Reboot now
+      </button>
     </div>
   </div>
 
