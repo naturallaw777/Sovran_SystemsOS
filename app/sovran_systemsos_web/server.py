@@ -2402,10 +2402,23 @@ async def api_updates_run():
 
 @app.get("/api/updates/status")
 async def api_updates_status(offset: int = 0):
-    """Poll endpoint: reads status file + log file. No systemctl needed."""
+    """Poll endpoint: reads status file + log file.
+
+    If the status file says RUNNING but the systemd unit is no longer active
+    (e.g. the hub was restarted mid-update), correct the stale state before
+    returning so the frontend is never permanently stuck.
+    """
     loop = asyncio.get_event_loop()
 
     status = await loop.run_in_executor(None, _read_update_status)
+
+    # Detect and correct stale RUNNING state on every poll.
+    if status == "RUNNING":
+        await loop.run_in_executor(
+            None, _recover_stale_status, UPDATE_STATUS, UPDATE_LOG, UPDATE_UNIT
+        )
+        status = await loop.run_in_executor(None, _read_update_status)
+
     new_log, new_offset = await loop.run_in_executor(None, _read_log, offset)
 
     running = (status == "RUNNING")
@@ -3574,7 +3587,11 @@ _SAFE_UNIT_RE = re.compile(r'^[a-zA-Z0-9@._\-]+\.service$')
 
 
 def _recover_stale_status(status_file: str, log_file: str, unit_name: str):
-    """If status_file says RUNNING but the systemd unit is not active, reset to FAILED."""
+    """If status_file says RUNNING but the systemd unit is not active, correct the status.
+
+    Queries the unit's Result property to distinguish SUCCESS from FAILED so that
+    a completed-but-interrupted update is not wrongly marked as failed.
+    """
     if not _SAFE_UNIT_RE.match(unit_name):
         return
 
@@ -3597,16 +3614,30 @@ def _recover_stale_status(status_file: str, log_file: str, unit_name: str):
         active = False
 
     if not active:
+        # Check the unit's Result property to determine actual outcome.
+        unit_result = "failed"
+        try:
+            show = subprocess.run(
+                ["systemctl", "show", unit_name, "--property=Result"],
+                capture_output=True, text=True, timeout=10,
+            )
+            # Output is "Result=success", "Result=failed", etc.
+            if show.returncode == 0 and show.stdout.strip() == "Result=success":
+                unit_result = "success"
+        except Exception:
+            pass
+
+        new_status = "SUCCESS" if unit_result == "success" else "FAILED"
         try:
             with open(status_file, "w") as f:
-                f.write("FAILED")
+                f.write(new_status)
         except OSError:
             pass
         try:
             with open(log_file, "a") as f:
                 f.write(
-                    "\n[Hub] Process was interrupted (stale RUNNING status detected"
-                    " on startup). Marking as failed.\n"
+                    f"\n[Hub] Stale RUNNING status detected; unit is not active."
+                    f" Correcting to {new_status}.\n"
                 )
         except OSError:
             pass
