@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sovran Hub — Login</title>
+  <link rel="stylesheet" href="/static/css/base.css" />
+  <link rel="stylesheet" href="/static/css/buttons.css" />
+</head>
+<body>
+  <div class="login-wrapper">
+    <div class="login-card">
+      <div class="login-header">
+        <img src="/static/sovran-hub-icon.svg" alt="Sovran Hub" class="login-logo" />
+        <div class="login-title">Sovran Hub</div>
+      </div>
+
+      <form class="login-form" id="login-form" onsubmit="return false;">
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input
+            type="password"
+            id="password"
+            name="password"
+            autocomplete="current-password"
+            autofocus
+            placeholder="Enter your Hub password"
+          />
+        </div>
+
+        <div class="login-error" id="login-error">Incorrect password. Please try again.</div>
+
+        <button type="submit" class="btn btn-login" id="btn-login">Sign In</button>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      var form   = document.getElementById('login-form');
+      var input  = document.getElementById('password');
+      var errEl  = document.getElementById('login-error');
+      var btnEl  = document.getElementById('btn-login');
+
+      form.addEventListener('submit', function () {
+        var password = input.value;
+        if (!password) return;
+
+        btnEl.disabled = true;
+        btnEl.textContent = 'Signing in…';
+        errEl.classList.remove('visible');
+
+        fetch('/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password: password }),
+          credentials: 'same-origin',
+        })
+          .then(function (res) {
+            if (res.ok) {
+              window.location.replace('/');
+            } else {
+              return res.json().then(function (data) {
+                errEl.textContent = (data && data.detail) ? data.detail : 'Incorrect password. Please try again.';
+                errEl.classList.add('visible');
+                input.value = '';
+                input.focus();
+                btnEl.disabled = false;
+                btnEl.textContent = 'Sign In';
+              });
+            }
+          })
+          .catch(function () {
+            errEl.textContent = 'Network error. Please try again.';
+            errEl.classList.add('visible');
+            btnEl.disabled = false;
+            btnEl.textContent = 'Sign In';
+          });
+      });
+    })();
+  </script>
+</body>
+</html>
