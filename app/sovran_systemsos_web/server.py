@@ -3636,8 +3636,9 @@ _SAFE_UNIT_RE = re.compile(r'^[a-zA-Z0-9@._\-]+\.service$')
 def _recover_stale_status(status_file: str, log_file: str, unit_name: str) -> bool:
     """If status_file says RUNNING but the systemd unit is not active, correct the status.
 
-    Queries the unit's Result property to distinguish SUCCESS from FAILED so that
-    a completed-but-interrupted update is not wrongly marked as failed.
+    Uses MainPID to confirm the process is truly gone before correcting, and
+    checks ExecMainStatus (actual exit code) instead of Result (which may
+    reflect a prior run) to determine SUCCESS vs FAILED.
 
     Returns True if a correction was made, False otherwise.
     """
@@ -3653,48 +3654,72 @@ def _recover_stale_status(status_file: str, log_file: str, unit_name: str) -> bo
     if status != "RUNNING":
         return False
 
+    # Check if the unit is actively running
     try:
         result = subprocess.run(
             ["systemctl", "is-active", unit_name],
             capture_output=True, text=True, timeout=10,
         )
-        active = result.stdout.strip() == "active"
+        if result.stdout.strip() == "active":
+            return False  # Still genuinely running — nothing to recover
     except Exception:
-        active = False
+        return False  # Can't determine state — don't touch anything
 
-    if not active:
-        # Check the unit's Result property to determine actual outcome.
-        unit_result = "failed"
-        try:
-            show = subprocess.run(
-                ["systemctl", "show", unit_name, "--property=Result"],
-                capture_output=True, text=True, timeout=10,
-            )
-            # Output is "Result=success", "Result=failed", etc.
-            if show.returncode == 0 and show.stdout.strip() == "Result=success":
-                unit_result = "success"
-        except Exception:
-            pass
-
-        new_status = "SUCCESS" if unit_result == "success" else "FAILED"
-        try:
-            with open(status_file, "w") as f:
-                f.write(new_status)
-        except OSError:
-            pass
-        msg = (
-            "\n[Update completed successfully while the server was restarting.]\n"
-            if new_status == "SUCCESS"
-            else "\n[Update encountered an error. See log above for details.]\n"
+    # Double-check: if MainPID is still alive, the unit is still running
+    # (systemctl is-active can transiently lie during daemon-reload)
+    try:
+        show = subprocess.run(
+            ["systemctl", "show", unit_name, "--property=MainPID"],
+            capture_output=True, text=True, timeout=10,
         )
-        try:
-            with open(log_file, "a") as f:
-                f.write(msg)
-        except OSError:
-            pass
-        return True
+        if show.returncode == 0:
+            pid_line = show.stdout.strip()  # "MainPID=12345"
+            pid_str = pid_line.split("=", 1)[-1] if "=" in pid_line else "0"
+            pid = int(pid_str)
+            if pid > 0:
+                try:
+                    os.kill(pid, 0)  # Signal 0 = check if process exists
+                    return False  # PID is still alive — unit is still running
+                except ProcessLookupError:
+                    pass  # PID is gone — unit truly finished
+                except PermissionError:
+                    return False  # Process exists but we can't signal it — assume running
+    except Exception:
+        pass
 
-    return False
+    # Unit is truly not running. Determine outcome from ExecMainStatus
+    # (the actual exit code), NOT Result (which may be stale from a prior run).
+    unit_result = "failed"
+    try:
+        show = subprocess.run(
+            ["systemctl", "show", unit_name, "--property=ExecMainStatus"],
+            capture_output=True, text=True, timeout=10,
+        )
+        if show.returncode == 0:
+            # Output is "ExecMainStatus=0" for success, non-zero for failure
+            val = show.stdout.strip().split("=", 1)[-1] if "=" in show.stdout.strip() else ""
+            if val == "0":
+                unit_result = "success"
+    except Exception:
+        pass
+
+    new_status = "SUCCESS" if unit_result == "success" else "FAILED"
+    try:
+        with open(status_file, "w") as f:
+            f.write(new_status)
+    except OSError:
+        pass
+    msg = (
+        "\n[Update completed successfully while the server was restarting.]\n"
+        if new_status == "SUCCESS"
+        else "\n[Update encountered an error. See log above for details.]\n"
+    )
+    try:
+        with open(log_file, "a") as f:
+            f.write(msg)
+    except OSError:
+        pass
+    return True
 
 
 @app.on_event("startup")
