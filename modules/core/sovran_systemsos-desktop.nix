@@ -139,7 +139,7 @@ in
           "org.gnome.Geary.desktop"
           "org.gnome.Contacts.desktop"
           "org.gnome.Calendar.desktop"
-          "sparrow-desktop.desktop"
+          "sparrow.desktop"
           "Bisq.desktop"
           "bisq2.desktop"
         ];
@@ -199,7 +199,7 @@ in
       "org/gnome/desktop/app-folders/folders/Bitcoin" = {
         name = "Bitcoin";
         apps = [
-          "sparrow-desktop.desktop"
+          "sparrow.desktop"
           "Bisq.desktop"
           "bisq2.desktop"
         ];
