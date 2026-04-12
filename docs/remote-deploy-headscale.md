@@ -44,7 +44,7 @@ This guide covers the Sovran Systems remote deployment system built on [Headscal
 **Components:**
 - **`sovran-provisioner.nix`** — NixOS module deployed on a separate VPS; runs Headscale + provisioning API + Caddy.
 - **Live ISO** (`iso/common.nix`) — Auto-registers with the provisioning server and joins the Tailnet on boot.
-- **`remote-deploy.nix`** — Post-install NixOS module that uses Tailscale/Headscale for ongoing access (plus the existing reverse SSH tunnel as a fallback).
+- **`remote-deploy.nix`** — Post-install NixOS module that uses Tailscale/Headscale for ongoing access.
 
 ---
 
@@ -83,9 +83,6 @@ Add the following to your VPS's `/etc/nixos/configuration.nix`:
     domain        = "prov.yourdomain.com";
     headscaleDomain = "hs.yourdomain.com";
 
-    # Optional: set a static token instead of auto-generating one
-    # enrollToken = "your-secret-token-here";
-
     # Optional: customise defaults
     headscaleUser = "sovran-deploy";   # namespace for deploy machines
     adminUser     = "admin";           # namespace for your workstation
@@ -114,7 +111,7 @@ Caddy will automatically obtain TLS certificates via Let's Encrypt.
 cat /var/lib/sovran-provisioner/enroll-token
 ```
 
-Keep this token secret — it is used to authenticate ISO registrations. If you set `enrollToken` statically in `configuration.nix`, that value is used directly (but avoid committing secrets to version control).
+Keep this token secret — it is used to authenticate ISO registrations. The token is auto-generated on first boot and stored at this path. You never need to set it manually. Just `cat` it from the VPS and copy it to `iso/secrets/enroll-token` before building the ISO.
 
 ---
 
@@ -209,19 +206,18 @@ The resulting ISO is in `./result/iso/`.
    ```
 
 5. **Run the headless installer**:
-   ```bash
-   # Basic install (relay tunnel)
-   sudo sovran-install-headless.sh \
-     --disk /dev/sda \
-     --role server \
-     --deploy-key "ssh-ed25519 AAAA..." \
-     --relay-host relay.yourdomain.com
 
-   # With Tailscale for post-install access
+   The `--deploy-key` is your SSH public key that gets injected into `root`'s `authorized_keys` on the deployed machine. This grants full root access for initial setup. Generate it once on your workstation if you haven't already:
+   ```bash
+   ssh-keygen -t ed25519 -f ~/.ssh/sovran-deploy -C "sovran-deploy"
+   ```
+   After deployment is complete and you disable deploy mode, this key is removed.
+
+   ```bash
    sudo sovran-install-headless.sh \
      --disk /dev/sda \
      --role server \
-     --deploy-key "ssh-ed25519 AAAA..." \
+     --deploy-key "$(cat ~/.ssh/sovran-deploy.pub)" \
      --headscale-server "https://hs.yourdomain.com" \
      --headscale-key "$(headscale preauthkeys create --user sovran-deploy --expiration 2h --output json | jq -r '.key')"
    ```
@@ -229,15 +225,17 @@ The resulting ISO is in `./result/iso/`.
 6. **Machine reboots into Sovran_SystemsOS** — `deploy-tailscale-connect.service` runs:
    - Reads `/var/lib/secrets/headscale-authkey`
    - Joins the Tailnet with a deterministic hostname (`sovran-<hostname>`)
-   - The reverse SSH tunnel also activates if `relayHost` was set
 
 7. **Post-install SSH and RDP**:
    ```bash
    # SSH over Tailnet
    ssh root@<tailscale-ip>
 
-   # RDP over Tailnet (if desktop role)
-   xfreerdp /v:<tailscale-ip> /u:free /p:free
+   # RDP over Tailnet (desktop role) — Sovran_SystemsOS uses GNOME Remote Desktop (native Wayland RDP)
+   # Retrieve the auto-generated RDP password:
+   ssh root@<tailscale-ip> cat /var/lib/gnome-remote-desktop/rdp-password
+   # Then connect with any RDP client (Remmina, GNOME Connections, Microsoft Remote Desktop):
+   #   Host: <tailscale-ip>:3389   User: sovran   Password: <from above>
    ```
 
 8. **Disable deploy mode** — edit `/etc/nixos/custom.nix` on the target, set `enable = false`, then:
@@ -254,17 +252,19 @@ The resulting ISO is in `./result/iso/`.
 ```bash
 # Over Tailnet
 ssh root@100.64.x.x
-
-# Over reverse tunnel (if configured)
-ssh -p 2222 root@relay.yourdomain.com
 ```
 
 ### RDP (desktop/server roles)
 
+Sovran_SystemsOS uses **GNOME Remote Desktop** (native Wayland RDP — not xfreerdp). The RDP service auto-generates credentials on first boot.
+
+**Username:** `sovran`
+**Password:** auto-generated — retrieve it via SSH:
 ```bash
-# Over Tailnet
-xfreerdp /v:100.64.x.x /u:free /p:free /dynamic-resolution
+ssh root@<tailscale-ip> cat /var/lib/gnome-remote-desktop/rdp-password
 ```
+
+Connect using any RDP client (Remmina, GNOME Connections, Microsoft Remote Desktop) to `<tailscale-ip>:3389`.
 
 ---
 
@@ -355,7 +355,7 @@ Then rebuild:
 nixos-rebuild switch
 ```
 
-This stops the reverse tunnel and Tailscale connect services.
+This stops the Tailscale connect service.
 
 ### Revoke All Active Pre-Auth Keys
 
