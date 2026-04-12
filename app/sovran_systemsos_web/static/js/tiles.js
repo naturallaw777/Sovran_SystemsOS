@@ -137,7 +137,7 @@ function buildTile(svc) {
     return tile;
   }
 
-  if (svc.sync_ibd) {
+  if (svc.sync_ibd && svc.enabled) {
     var pct = Math.round((svc.sync_progress || 0) * 100);
     var id = tileId(svc);
     var eta = _calcBtcEta(id, svc.sync_progress || 0);
@@ -203,7 +203,7 @@ function updateTiles(services) {
     var tile = $tilesArea.querySelector('.service-tile[data-tile-id="' + id + '"]');
     if (!tile) continue;
 
-    if (svc.sync_ibd) {
+    if (svc.sync_ibd && svc.enabled) {
       // If tile was previously normal, rebuild it with the sync layout
       if (!tile.querySelector(".tile-sync-container")) {
         var newTile = buildTile(svc);
