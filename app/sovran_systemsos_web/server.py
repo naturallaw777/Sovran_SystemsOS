@@ -3383,6 +3383,14 @@ async def api_security_reset():
     except Exception as exc:
         errors.append(f"keyring wipe: {exc}")
 
+    # The user performed a full security reset — the banner's purpose is served.
+    try:
+        os.makedirs(os.path.dirname(SECURITY_BANNER_DISMISSED_FLAG), exist_ok=True)
+        with open(SECURITY_BANNER_DISMISSED_FLAG, "w"):
+            pass
+    except OSError:
+        pass  # Non-fatal
+
     return {"ok": True, "new_password": new_free_password, "errors": errors}
 
 
