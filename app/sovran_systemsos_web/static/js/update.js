@@ -7,6 +7,7 @@ function openUpdateModal() {
   apiFetch("/api/updates/check")
     .then(function(data) {
       if (!data.available) {
+        stopUpdatePoll();
         _updateLog = "";
         _updateLogOffset = 0;
         _updateFinished = true;

@@ -2371,12 +2371,26 @@ async def api_updates_run():
     """Kick off the detached update systemd unit."""
     loop = asyncio.get_event_loop()
 
+    # Recover any stale RUNNING state before checking, so a leftover status
+    # file from a previous (now-inactive) update unit doesn't cause a false
+    # already_running response that sends the frontend into a stale-log poll.
+    await loop.run_in_executor(
+        None, _recover_stale_status, UPDATE_STATUS, UPDATE_LOG, UPDATE_UNIT
+    )
+
     status = await loop.run_in_executor(None, _read_update_status)
     if status == "RUNNING":
         return {"ok": True, "status": "already_running"}
 
     available = await loop.run_in_executor(None, check_for_updates)
     if not available:
+        # Clear stale status/log so they don't contaminate future modal opens.
+        _write_update_status("IDLE")
+        try:
+            with open(UPDATE_LOG, "w") as f:
+                f.write("")
+        except OSError:
+            pass
         return {"ok": True, "status": "no_updates"}
 
     # Clear stale status and log BEFORE starting the unit
