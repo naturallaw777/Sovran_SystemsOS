@@ -222,6 +222,8 @@
   position: fixed;
   inset: 0;
   background-color: rgba(6, 8, 7, 0.94);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   z-index: 1000;
   align-items: center;
   justify-content: center;
