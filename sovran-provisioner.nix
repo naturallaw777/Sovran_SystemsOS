@@ -197,8 +197,10 @@ in
       port = 8080;
       settings = {
         server_url = "https://${cfg.headscaleDomain}";
-        db_type = "sqlite3";
-        db_path = "/var/lib/headscale/db.sqlite";
+        database = {
+          type = "sqlite3";
+          sqlite.path = "/var/lib/headscale/db.sqlite";
+        };
         prefixes = {
           v4 = "100.64.0.0/10";
           v6 = "fd7a:115c:a1e0::/48";
