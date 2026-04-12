@@ -196,6 +196,9 @@ in
           "org.gnome.Contacts.desktop"
           "org.gnome.Geary.desktop"
           "org.gnome.Evince.desktop"
+          "onlyoffice-desktopeditors.desktop"
+          "simple-scan.desktop"
+          "system-config-printer.desktop"
         ];
       };
 
@@ -205,6 +208,10 @@ in
           "org.gnome.Terminal.desktop"
           "org.gnome.tweaks.desktop"
           "gparted.desktop"
+          "htop.desktop"
+          "btop.desktop"
+          "ranger.desktop"
+          "org.gnome.Console.desktop"
         ];
       };
 
