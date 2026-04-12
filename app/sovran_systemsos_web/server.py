@@ -1889,7 +1889,7 @@ async def api_services():
                     has_domain_issues = True
             health = "needs_attention" if (has_port_issues or has_domain_issues) else "healthy"
             # Check Bitcoin IBD state
-            if unit == "bitcoind.service":
+            if unit == "bitcoind.service" and enabled:
                 sync = await loop.run_in_executor(None, _get_bitcoin_sync_info)
                 if sync and sync.get("initialblockdownload"):
                     health = "syncing"
@@ -2127,7 +2127,7 @@ async def api_service_detail(unit: str, icon: str | None = None):
                 has_domain_issues = True
         health = "needs_attention" if (has_port_issues or has_domain_issues) else "healthy"
         # Check Bitcoin IBD state
-        if unit == "bitcoind.service":
+        if unit == "bitcoind.service" and enabled:
             sync = await loop.run_in_executor(None, _get_bitcoin_sync_info)
             if sync and sync.get("initialblockdownload"):
                 health = "syncing"
