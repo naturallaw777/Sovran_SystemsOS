@@ -94,7 +94,36 @@ async function pollUpdateStatus() {
   if (_updateFinished) return;
   try {
     var data = await apiFetch("/api/updates/status?offset=" + _updateLogOffset);
-    if (_serverWasDown) { _serverWasDown = false; appendLog("[Server reconnected]\n"); if ($modalStatus) $modalStatus.textContent = "Updating…"; }
+    if (_serverWasDown) {
+      _serverWasDown = false;
+      if (!data.running) {
+        // The update finished while the server was restarting.  Reset to
+        // offset 0 and re-fetch so the complete log is shown from the top.
+        _updateLog = "";
+        _updateLogOffset = 0;
+        if ($modalLog) $modalLog.textContent = "";
+        try {
+          var fullData = await apiFetch("/api/updates/status?offset=0");
+          if (fullData.log) appendLog(fullData.log);
+          _updateLogOffset = fullData.offset;
+        } catch (e) {
+          // If the re-fetch fails, fall through with whatever we have.
+          if (data.log) appendLog(data.log);
+          _updateLogOffset = data.offset;
+        }
+        if (data.result === "success") {
+          appendLog("[Server restarted — update completed successfully.]\n");
+        } else {
+          appendLog("[Server restarted — update encountered an error.]\n");
+        }
+        _updateFinished = true;
+        stopUpdatePoll();
+        onUpdateDone(data.result === "success");
+        return;
+      }
+      appendLog("[Server reconnected]\n");
+      if ($modalStatus) $modalStatus.textContent = "Updating…";
+    }
     if (data.log) appendLog(data.log);
     _updateLogOffset = data.offset;
     if (data.running) return;

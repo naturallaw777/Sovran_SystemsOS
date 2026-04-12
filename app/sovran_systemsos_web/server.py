@@ -43,6 +43,12 @@ REBUILD_LOG    = "/var/log/sovran-hub-rebuild.log"
 REBUILD_STATUS = "/var/log/sovran-hub-rebuild.status"
 REBUILD_UNIT   = "sovran-hub-rebuild.service"
 
+# Set to True by _startup_recover_stale_status() when it corrects a stale
+# RUNNING → SUCCESS/FAILED for the update unit.  Consumed by the first call
+# to api_updates_status() so that the full log is returned to the frontend
+# even when the frontend's offset is pointing past the pre-restart content.
+_update_recovery_happened: bool = False
+
 BACKUP_LOG    = "/var/log/sovran-hub-backup.log"
 BACKUP_STATUS = "/var/log/sovran-hub-backup.status"
 BACKUP_SCRIPT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "scripts", "sovran-hub-backup.sh")
@@ -2432,19 +2438,34 @@ async def api_updates_status(offset: int = 0):
     If the status file says RUNNING but the systemd unit is no longer active
     (e.g. the hub was restarted mid-update), correct the stale state before
     returning so the frontend is never permanently stuck.
+
+    When recovery is detected (either during this call or at startup), the log
+    is returned from offset 0 so the frontend receives the complete output.
     """
+    global _update_recovery_happened
     loop = asyncio.get_event_loop()
 
     status = await loop.run_in_executor(None, _read_update_status)
 
+    use_full_log = False
+
     # Detect and correct stale RUNNING state on every poll.
     if status == "RUNNING":
-        await loop.run_in_executor(
+        corrected = await loop.run_in_executor(
             None, _recover_stale_status, UPDATE_STATUS, UPDATE_LOG, UPDATE_UNIT
         )
+        if corrected:
+            use_full_log = True
         status = await loop.run_in_executor(None, _read_update_status)
 
-    new_log, new_offset = await loop.run_in_executor(None, _read_log, offset)
+    # Honour a recovery that happened at server startup (stale RUNNING corrected
+    # before the frontend had a chance to reconnect).
+    if _update_recovery_happened:
+        use_full_log = True
+        _update_recovery_happened = False
+
+    effective_offset = 0 if use_full_log else offset
+    new_log, new_offset = await loop.run_in_executor(None, _read_log, effective_offset)
 
     running = (status == "RUNNING")
     result = "pending" if running else status.lower()
@@ -3611,23 +3632,25 @@ async def _startup_save_ip():
 _SAFE_UNIT_RE = re.compile(r'^[a-zA-Z0-9@._\-]+\.service$')
 
 
-def _recover_stale_status(status_file: str, log_file: str, unit_name: str):
+def _recover_stale_status(status_file: str, log_file: str, unit_name: str) -> bool:
     """If status_file says RUNNING but the systemd unit is not active, correct the status.
 
     Queries the unit's Result property to distinguish SUCCESS from FAILED so that
     a completed-but-interrupted update is not wrongly marked as failed.
+
+    Returns True if a correction was made, False otherwise.
     """
     if not _SAFE_UNIT_RE.match(unit_name):
-        return
+        return False
 
     try:
         with open(status_file, "r") as f:
             status = f.read().strip()
     except FileNotFoundError:
-        return
+        return False
 
     if status != "RUNNING":
-        return
+        return False
 
     try:
         result = subprocess.run(
@@ -3658,19 +3681,27 @@ def _recover_stale_status(status_file: str, log_file: str, unit_name: str):
                 f.write(new_status)
         except OSError:
             pass
+        msg = (
+            "\n[Update completed successfully while the server was restarting.]\n"
+            if new_status == "SUCCESS"
+            else "\n[Update encountered an error. See log above for details.]\n"
+        )
         try:
             with open(log_file, "a") as f:
-                f.write(
-                    f"\n[Hub] Stale RUNNING status detected; unit is not active."
-                    f" Correcting to {new_status}.\n"
-                )
+                f.write(msg)
         except OSError:
             pass
+        return True
+
+    return False
 
 
 @app.on_event("startup")
 async def _startup_recover_stale_status():
     """Reset stale RUNNING status files left by interrupted update/rebuild jobs."""
+    global _update_recovery_happened
     loop = asyncio.get_event_loop()
-    await loop.run_in_executor(None, _recover_stale_status, UPDATE_STATUS, UPDATE_LOG, UPDATE_UNIT)
+    corrected = await loop.run_in_executor(None, _recover_stale_status, UPDATE_STATUS, UPDATE_LOG, UPDATE_UNIT)
+    if corrected:
+        _update_recovery_happened = True
     await loop.run_in_executor(None, _recover_stale_status, REBUILD_STATUS, REBUILD_LOG, REBUILD_UNIT)
