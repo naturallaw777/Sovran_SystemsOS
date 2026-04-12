@@ -5,10 +5,12 @@ from __future__ import annotations
 import asyncio
 import base64
 import hashlib
+import hmac
 import json
 import os
 import pwd
 import re
+import secrets
 import shutil
 import socket
 import subprocess
@@ -19,7 +21,7 @@ import urllib.parse
 import urllib.request
 
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.requests import Request
@@ -67,6 +69,27 @@ REBOOT_COMMAND = ["reboot"]
 
 ONBOARDING_FLAG = "/var/lib/sovran/onboarding-complete"
 AUTOLAUNCH_DISABLE_FLAG = "/var/lib/sovran/hub-autolaunch-disabled"
+
+# ── Hub web authentication ────────────────────────────────────────
+
+FREE_PASSWORD_FILE      = "/var/lib/secrets/free-password"
+HUB_SESSION_SECRET_FILE = "/var/lib/secrets/hub-session-secret"
+SESSION_COOKIE_NAME     = "hub_session"
+SESSION_MAX_AGE         = 86400  # 24 hours
+
+# In-memory session store: token → expiry timestamp (float)
+_sessions: dict[str, float] = {}
+
+# Failed login tracking: ip → list of failure timestamps
+_login_failures: dict[str, list[float]] = {}
+LOGIN_FAIL_DELAY  = 2.0   # seconds to sleep after a failed attempt
+LOGIN_FAIL_WINDOW = 60.0  # rolling window (seconds) for counting failures
+LOGIN_FAIL_MAX    = 10    # max failures in window before extra delay
+
+# Public paths that are accessible without a valid session
+_AUTH_EXEMPT_PATHS = {"/login", "/api/login"}
+# Prefixes for static assets required by the login page
+_AUTH_EXEMPT_PREFIXES = ("/static/css/", "/static/sovran-hub-icon.svg")
 
 # ── Security constants ────────────────────────────────────────────
 
@@ -468,10 +491,118 @@ class NoCacheMiddleware(BaseHTTPMiddleware):
         response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
         response.headers["Pragma"] = "no-cache"
         response.headers["Expires"] = "0"
-        response.headers["Clear-Site-Data"] = '"cache", "cookies", "storage"'
+        # Note: "cookies" is intentionally omitted so session cookies are not cleared
+        response.headers["Clear-Site-Data"] = '"cache", "storage"'
         return response
 
 
+# ── Session / authentication helpers ─────────────────────────────
+
+def _get_or_create_session_secret() -> bytes:
+    """Return the Hub session secret, generating it on first boot."""
+    try:
+        with open(HUB_SESSION_SECRET_FILE, "rb") as f:
+            data = f.read().strip()
+            if len(data) >= 32:
+                return data
+    except FileNotFoundError:
+        pass
+    secret = secrets.token_hex(32).encode()
+    try:
+        os.makedirs(os.path.dirname(HUB_SESSION_SECRET_FILE), exist_ok=True)
+        with open(HUB_SESSION_SECRET_FILE, "wb") as f:
+            f.write(secret)
+        os.chmod(HUB_SESSION_SECRET_FILE, 0o600)
+    except OSError:
+        pass
+    return secret
+
+
+def _create_session() -> str:
+    """Create a new opaque session token and register it in the store."""
+    _purge_expired_sessions()
+    token = secrets.token_hex(32)
+    _sessions[token] = time.time() + SESSION_MAX_AGE
+    return token
+
+
+def _destroy_session(token: str) -> None:
+    """Remove a session token from the store."""
+    _sessions.pop(token, None)
+
+
+def _purge_expired_sessions() -> None:
+    """Remove all expired sessions from the in-memory store."""
+    now = time.time()
+    expired = [tok for tok, exp in _sessions.items() if exp <= now]
+    for tok in expired:
+        del _sessions[tok]
+
+
+def _is_authenticated(request: Request) -> bool:
+    """Return True if the request carries a valid, unexpired session cookie."""
+    token = request.cookies.get(SESSION_COOKIE_NAME)
+    if not token:
+        return False
+    expiry = _sessions.get(token)
+    if expiry is None or time.time() >= expiry:
+        _sessions.pop(token, None)
+        return False
+    # Slide the expiry window on activity
+    _sessions[token] = time.time() + SESSION_MAX_AGE
+    return True
+
+
+def _read_free_password() -> str | None:
+    """Return the contents of the free-password secrets file, or None."""
+    try:
+        with open(FREE_PASSWORD_FILE, "r") as f:
+            return f.read().strip()
+    except Exception:
+        return None
+
+
+def _check_password(submitted: str) -> bool:
+    """Constant-time comparison of submitted password against the stored one."""
+    stored = _read_free_password()
+    if stored is None:
+        return False
+    return hmac.compare_digest(submitted.encode(), stored.encode())
+
+
+def _record_failure(client_ip: str) -> None:
+    """Record a failed login attempt and apply a rate-limit delay."""
+    now = time.time()
+    failures = _login_failures.setdefault(client_ip, [])
+    # Prune old entries outside the window
+    _login_failures[client_ip] = [t for t in failures if now - t < LOGIN_FAIL_WINDOW]
+    _login_failures[client_ip].append(now)
+    # Always sleep a fixed delay to slow brute force
+    time.sleep(LOGIN_FAIL_DELAY)
+
+
+# ── Authentication middleware ─────────────────────────────────────
+
+class AuthMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        path = request.url.path
+
+        # Allow public paths and static assets needed by the login page
+        if path in _AUTH_EXEMPT_PATHS:
+            return await call_next(request)
+        if any(path.startswith(prefix) for prefix in _AUTH_EXEMPT_PREFIXES):
+            return await call_next(request)
+
+        if not _is_authenticated(request):
+            accept = request.headers.get("accept", "")
+            if "text/html" in accept:
+                return RedirectResponse(url="/login", status_code=303)
+            return JSONResponse({"detail": "Unauthenticated"}, status_code=401)
+
+        return await call_next(request)
+
+
+app.add_middleware(AuthMiddleware)
 app.add_middleware(NoCacheMiddleware)
 
 _ICONS_DIR = os.environ.get(
@@ -1447,6 +1578,48 @@ def _verify_support_removed() -> bool:
 
 
 # ── Routes ───────────────────────────────────────────────────────
+
+@app.get("/login", response_class=HTMLResponse)
+async def login_page(request: Request):
+    return templates.TemplateResponse("login.html", {"request": request})
+
+
+class LoginRequest(BaseModel):
+    password: str
+
+
+@app.post("/api/login")
+async def api_login(req: LoginRequest, request: Request):
+    """Validate the Hub password and issue a session cookie."""
+    client_ip = request.client.host if request.client else "unknown"
+    loop = asyncio.get_event_loop()
+    ok = await loop.run_in_executor(None, _check_password, req.password)
+    if not ok:
+        await loop.run_in_executor(None, _record_failure, client_ip)
+        raise HTTPException(status_code=401, detail="Incorrect password")
+    token = _create_session()
+    response = JSONResponse({"ok": True})
+    response.set_cookie(
+        key=SESSION_COOKIE_NAME,
+        value=token,
+        max_age=SESSION_MAX_AGE,
+        httponly=True,
+        samesite="lax",
+        secure=False,  # LAN-only appliance; no TLS on the Hub port
+    )
+    return response
+
+
+@app.post("/api/logout")
+async def api_logout(request: Request):
+    """Clear the session cookie and destroy the server-side session."""
+    token = request.cookies.get(SESSION_COOKIE_NAME)
+    if token:
+        _destroy_session(token)
+    response = JSONResponse({"ok": True})
+    response.delete_cookie(key=SESSION_COOKIE_NAME)
+    return response
+
 
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
@@ -3301,8 +3474,6 @@ async def api_security_verify_integrity():
 
 # ── System password change ────────────────────────────────────────
 
-FREE_PASSWORD_FILE = "/var/lib/secrets/free-password"
-
 
 class ChangePasswordRequest(BaseModel):
     new_password: str
@@ -3738,6 +3909,13 @@ async def _startup_save_ip():
     loop = asyncio.get_event_loop()
     ip = await loop.run_in_executor(None, _get_internal_ip)
     _save_internal_ip(ip)
+
+
+@app.on_event("startup")
+async def _startup_session_secret():
+    """Ensure the session secret exists on disk at startup."""
+    loop = asyncio.get_event_loop()
+    await loop.run_in_executor(None, _get_or_create_session_secret)
 
 
 # ── Startup: recover stale RUNNING status files ──────────────────
