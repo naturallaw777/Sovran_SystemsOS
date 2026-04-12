@@ -350,6 +350,8 @@ in
 
     systemd.services.sovran-hub-update = {
       description = "Sovran_SystemsOS System Update";
+      restartIfChanged = false;   # Don't let nixos-rebuild kill an in-flight update
+      stopIfChanged    = false;   # Don't stop it during activation either
       serviceConfig = {
         Type       = "oneshot";
         ExecStart  = "${update-script}";
@@ -358,6 +360,8 @@ in
 
     systemd.services.sovran-hub-rebuild = {
       description = "Sovran_SystemsOS System Rebuild";
+      restartIfChanged = false;   # Don't let nixos-rebuild kill an in-flight rebuild
+      stopIfChanged    = false;   # Don't stop it during activation either
       serviceConfig = {
         Type      = "oneshot";
         ExecStart = "${rebuild-script}";
