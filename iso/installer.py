@@ -5,6 +5,7 @@ gi.require_version("Adw", "1")
 from gi.repository import Gtk, Adw, GLib
 import atexit
 import os
+import secrets
 import subprocess
 import sys
 import threading
@@ -35,6 +36,26 @@ DEPLOYED_FLAKE = """\
   };
 }
 """
+
+DICEWARE_WORDS = [
+    "apple", "barn", "brook", "cabin", "cedar", "cloud", "coral", "crane",
+    "delta", "eagle", "ember", "fern", "field", "flame", "flora", "flint",
+    "frost", "grove", "haven", "hedge", "holly", "heron", "jade", "juniper",
+    "kelp", "larch", "lemon", "lilac", "linden", "loch", "lotus", "maple",
+    "marsh", "meadow", "mist", "mossy", "mount", "oak", "ocean", "olive",
+    "petal", "pine", "pixel", "plum", "pond", "prism", "quartz", "raven",
+    "ridge", "river", "robin", "rocky", "rose", "rowan", "sage", "sand",
+    "sierra", "silver", "slate", "snow", "solar", "spark", "spruce", "stone",
+    "storm", "summit", "swift", "thorn", "tide", "timber", "torch", "trout",
+    "vale", "vault", "vine", "walnut", "wave", "willow", "wren", "amber",
+    "aspen", "birch", "blaze", "bloom", "bluff", "coast", "copper", "crest",
+    "dune", "elder", "fjord", "forge", "glade", "glen", "glow", "gulf",
+]
+
+def generate_diceware_password():
+    words = [secrets.choice(DICEWARE_WORDS) for _ in range(3)]
+    digit = secrets.randbelow(10)
+    return "-".join(words) + f"-{digit}"
 
 try:
     logfile = open(LOG, "a")
@@ -135,6 +156,7 @@ class InstallerWindow(Adw.ApplicationWindow):
         self.boot_size = None
         self.data_disk = None
         self.data_size = None
+        self.free_password = None
 
         # Root navigation view
         self.nav = Adw.NavigationView()
@@ -970,6 +992,46 @@ class InstallerWindow(Adw.ApplicationWindow):
         run_stream(["sudo", "nix", "--extra-experimental-features", "nix-command flakes",
                     "flake", "lock", "/mnt/etc/nixos"], buf)
 
+        # Generate diceware passwords and write them to the installed system
+        GLib.idle_add(append_text, buf, "Setting up user passwords...\n")
+        self.free_password = generate_diceware_password()
+        root_password = generate_diceware_password()
+
+        run(["sudo", "mkdir", "-p", "/mnt/var/lib/secrets"])
+        run(["sudo", "chmod", "700", "/mnt/var/lib/secrets"])
+        proc = subprocess.run(
+            ["sudo", "tee", "/mnt/var/lib/secrets/free-password"],
+            input=self.free_password, capture_output=True, text=True
+        )
+        if proc.returncode != 0:
+            log(proc.stderr)
+            raise RuntimeError(proc.stderr.strip() or "Failed to write free-password")
+        run(["sudo", "chmod", "600", "/mnt/var/lib/secrets/free-password"])
+
+        proc = subprocess.run(
+            ["sudo", "tee", "/mnt/var/lib/secrets/root-password"],
+            input=root_password, capture_output=True, text=True
+        )
+        if proc.returncode != 0:
+            log(proc.stderr)
+            raise RuntimeError(proc.stderr.strip() or "Failed to write root-password")
+        run(["sudo", "chmod", "600", "/mnt/var/lib/secrets/root-password"])
+
+        proc = subprocess.run(
+            ["sudo", "chroot", "/mnt", "/run/current-system/sw/bin/chpasswd"],
+            input=f"free:{self.free_password}\nroot:{root_password}",
+            capture_output=True, text=True
+        )
+        if proc.returncode != 0:
+            proc = subprocess.run(
+                ["sudo", "chroot", "/mnt", "chpasswd"],
+                input=f"free:{self.free_password}\nroot:{root_password}",
+                capture_output=True, text=True
+            )
+            if proc.returncode != 0:
+                log(proc.stderr)
+                raise RuntimeError(proc.stderr.strip() or "Failed to set passwords via chpasswd")
+
         GLib.idle_add(self.push_complete)
 
     # ── Complete ───────────────────────────────────────────────────────────
@@ -979,14 +1041,51 @@ class InstallerWindow(Adw.ApplicationWindow):
 
         status = Adw.StatusPage()
         status.set_title("Installation Complete!")
-        status.set_description("Rebooting…")
-        status.set_vexpand(True)
-
+        status.set_description("Before rebooting, write down your login password.")
+        status.set_icon_name("dialog-password-symbolic")
         outer.append(status)
 
-        self.push_page("Complete", outer)
+        pw_frame = Gtk.Frame()
+        pw_frame.set_margin_start(60)
+        pw_frame.set_margin_end(60)
+        pw_label = Gtk.Label()
+        pw_label.set_markup(
+            f"<span font_family='monospace' size='xx-large' weight='bold'>"
+            f"{GLib.markup_escape_text(self.free_password)}</span>"
+        )
+        pw_label.set_selectable(True)
+        pw_label.set_margin_top(16)
+        pw_label.set_margin_bottom(16)
+        pw_frame.set_child(pw_label)
+        outer.append(pw_frame)
 
-        GLib.timeout_add_seconds(3, lambda: subprocess.run(["sudo", "reboot"]))
+        warning = Gtk.Label()
+        warning.set_markup(
+            "<span foreground='#e8a838' size='medium' weight='bold'>"
+            "⚠  Write this password down now.\n"
+            "You will need it to log in to your computer and the Sovran Hub.\n"
+            "This password cannot be recovered.</span>"
+        )
+        warning.set_justify(Gtk.Justification.CENTER)
+        warning.set_wrap(True)
+        warning.set_margin_top(20)
+        warning.set_margin_start(48)
+        warning.set_margin_end(48)
+        outer.append(warning)
+
+        outer.append(Gtk.Label(label="", vexpand=True))
+
+        btn_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
+        btn_box.set_halign(Gtk.Align.CENTER)
+        btn_box.set_margin_bottom(32)
+        reboot_btn = Gtk.Button(label="I Have Written Down My Password — Reboot Now")
+        reboot_btn.add_css_class("suggested-action")
+        reboot_btn.add_css_class("pill")
+        reboot_btn.connect("clicked", lambda b: subprocess.run(["sudo", "reboot"]))
+        btn_box.append(reboot_btn)
+        outer.append(btn_box)
+
+        self.push_page("Complete", outer)
         return False
 
     # ── Error screen ───────────────────────────────────────────────────────
