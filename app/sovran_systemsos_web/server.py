@@ -515,12 +515,12 @@ def _get_remote_rev(branch=None):
     return None
 
 
-def check_for_updates() -> bool:
+def check_for_updates() -> bool | None:
     locked_rev, branch = _get_locked_info()
     remote_rev = _get_remote_rev(branch)
     if locked_rev and remote_rev:
         return locked_rev != remote_rev
-    return False
+    return None  # inconclusive — couldn't read lock or reach remote
 
 
 # ── IP helpers ───────────────────────────────────────────────────
@@ -2360,7 +2360,8 @@ async def api_ports_health():
 async def api_updates_check():
     loop = asyncio.get_event_loop()
     available = await loop.run_in_executor(None, check_for_updates)
-    return {"available": available}
+    # None means inconclusive (check failed) — report as available so the UI doesn't block
+    return {"available": available is not False}
 
 
 @app.post("/api/reboot")
@@ -2396,7 +2397,7 @@ async def api_updates_run():
             pass
 
     available = await loop.run_in_executor(None, check_for_updates)
-    if not available:
+    if available is False:  # only block when positively confirmed no updates
         # Clear stale status/log so they don't contaminate future modal opens.
         _write_update_status("IDLE")
         try:
