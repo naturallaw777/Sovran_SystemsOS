@@ -9,6 +9,12 @@ if ($btnSave) $btnSave.addEventListener("click", saveErrorReport);
 if ($credsCloseBtn) $credsCloseBtn.addEventListener("click", closeCredsModal);
 if ($supportCloseBtn) $supportCloseBtn.addEventListener("click", closeSupportModal);
 
+// Logout button
+if ($logoutBtn) $logoutBtn.addEventListener("click", function () {
+  fetch("/api/logout", { method: "POST", credentials: "same-origin" })
+    .finally(function () { window.location.replace("/login"); });
+});
+
 // Rebuild modal
 if ($rebuildClose) $rebuildClose.addEventListener("click", closeRebuildModal);
 if ($rebuildReboot) $rebuildReboot.addEventListener("click", doReboot);

@@ -59,6 +59,8 @@ const $supportModal     = document.getElementById("support-modal");
 const $supportBody      = document.getElementById("support-body");
 const $supportCloseBtn  = document.getElementById("support-close-btn");
 
+const $logoutBtn = document.getElementById("btn-logout");
+
 // Feature Manager — rebuild modal
 const $rebuildModal    = document.getElementById("rebuild-modal");
 const $rebuildSpinner  = document.getElementById("rebuild-spinner");
