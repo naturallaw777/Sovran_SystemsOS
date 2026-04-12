@@ -2375,6 +2375,10 @@ async def api_updates_run():
     if status == "RUNNING":
         return {"ok": True, "status": "already_running"}
 
+    available = await loop.run_in_executor(None, check_for_updates)
+    if not available:
+        return {"ok": True, "status": "no_updates"}
+
     # Clear stale status and log BEFORE starting the unit
     _write_update_status("RUNNING")
     try:
