@@ -4,6 +4,30 @@
 
 function openUpdateModal() {
   if (!$modal) return;
+  apiFetch("/api/updates/check")
+    .then(function(data) {
+      if (!data.available) {
+        _updateLog = "";
+        _updateLogOffset = 0;
+        _updateFinished = true;
+        if ($modalLog) $modalLog.textContent = "";
+        if ($modalStatus) $modalStatus.textContent = "✓ System is already up to date";
+        if ($modalSpinner) $modalSpinner.classList.remove("spinning");
+        if ($btnReboot) $btnReboot.style.display = "none";
+        if ($btnSave) $btnSave.style.display = "none";
+        if ($btnCloseModal) $btnCloseModal.disabled = false;
+        $modal.classList.add("open");
+        return;
+      }
+      _doOpenUpdateModal();
+    })
+    .catch(function() {
+      _doOpenUpdateModal();
+    });
+}
+
+function _doOpenUpdateModal() {
+  if (!$modal) return;
   _updateLog = "";
   _updateLogOffset = 0;
   _serverWasDown = false;
@@ -37,6 +61,15 @@ function startUpdate() {
       return response.json();
     })
     .then(function(data) {
+      if (data.status === "no_updates") {
+        if ($modalStatus) $modalStatus.textContent = "✓ System is already up to date";
+        if ($modalSpinner) $modalSpinner.classList.remove("spinning");
+        if ($btnReboot) $btnReboot.style.display = "none";
+        if ($btnSave) $btnSave.style.display = "none";
+        if ($btnCloseModal) $btnCloseModal.disabled = false;
+        _updateFinished = true;
+        return;
+      }
       if (data.status === "already_running") appendLog("[Update already in progress, attaching…]\n\n");
       if ($modalStatus) $modalStatus.textContent = "Updating…";
       startUpdatePoll();
