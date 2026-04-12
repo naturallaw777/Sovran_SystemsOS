@@ -130,17 +130,23 @@ services.tailscale.enable = true;
 ### Join the Tailnet
 
 ```bash
-sudo tailscale up --login-server https://hs.yourdomain.com
+sudo tailscale up --login-server https://hs.yourdomain.com --accept-dns=false
 ```
+
+> **Note:** The `--accept-dns=false` flag prevents Tailscale from taking over your system DNS resolver. This is important if you are behind a VPN (see [Troubleshooting](#troubleshooting) below).
 
 Tailscale prints a URL. Open it and copy the node key (starts with `mkey:`).
 
 ### Approve the Node in Headscale
 
-On the VPS:
+On the VPS, first find the numeric user ID for the `admin` user, then register the node:
 
 ```bash
-headscale nodes register --user admin --key mkey:xxxxxxxxxxxxxxxx
+# Look up the numeric ID for the admin user (Headscale 0.28.0 requires -u <id>)
+headscale users list -o json
+
+# Register the node using the numeric user ID
+headscale nodes register -u <admin-user-id> --key mkey:xxxxxxxxxxxxxxxx
 ```
 
 Your workstation is now on the Tailnet. You can list nodes:
@@ -219,7 +225,7 @@ The resulting ISO is in `./result/iso/`.
      --role server \
      --deploy-key "$(cat ~/.ssh/sovran-deploy.pub)" \
      --headscale-server "https://hs.yourdomain.com" \
-     --headscale-key "$(headscale preauthkeys create --user sovran-deploy --expiration 2h --output json | jq -r '.key')"
+     --headscale-key "$(headscale preauthkeys create -u $(headscale users list -o json | jq -r '.[] | select(.name=="sovran-deploy") | .id') -e 2h -o json | jq -r '.key')"
    ```
 
 6. **Machine reboots into Sovran_SystemsOS** — `deploy-tailscale-connect.service` runs:
@@ -360,8 +366,96 @@ This stops the Tailscale connect service.
 ### Revoke All Active Pre-Auth Keys
 
 ```bash
-headscale preauthkeys list --user sovran-deploy
-headscale preauthkeys expire --user sovran-deploy --key <key>
+# List pre-auth keys (Headscale 0.28.0: no --user flag on list)
+headscale preauthkeys list
+
+# Expire a specific key — use numeric user ID (-u <id>)
+# First find the user ID:
+headscale users list -o json
+# Then expire the key:
+headscale preauthkeys expire -u <user-id> --key <key>
+```
+
+---
+
+## Troubleshooting
+
+### VPN Conflicts (Mullvad, WireGuard, etc.)
+
+**Symptom:** `tailscale up` hangs or fails with `connection refused` on port 443, even though `curl https://hs.yourdomain.com/health` works fine.
+
+**Cause:** VPNs like Mullvad route all traffic — including Tailscale's control-plane connections — through the VPN tunnel. Additionally, Tailscale's DNS handler (`--accept-dns=true` by default) hijacks DNS resolution and may prevent correct resolution of your Headscale server even when logged out.
+
+**Solution:**
+1. Disconnect your VPN temporarily and retry `tailscale up`.
+2. If you need the VPN active, use split tunneling to exclude `tailscaled`:
+   ```bash
+   # Mullvad CLI
+   mullvad split-tunnel add $(pidof tailscaled)
+   ```
+   Or in the Mullvad GUI: **Settings → Split tunneling → Add tailscaled**.
+3. Always pass `--accept-dns=false` when enrolling to avoid DNS hijacking:
+   ```bash
+   sudo tailscale up --login-server https://hs.yourdomain.com --authkey <key> --accept-dns=false
+   ```
+
+---
+
+### "RATELIMIT" in tailscaled Logs
+
+**Symptom:** `journalctl -u tailscaled` shows lines like:
+```
+[RATELIMIT] format("Received error: %v")
+```
+
+**Cause:** This is **NOT** a server-side rate limit from Headscale. It is tailscaled's internal log suppressor de-duplicating repeated connection-refused error messages. The real underlying error is `connection refused`.
+
+**What to check:**
+1. Is Headscale actually running? `curl https://hs.yourdomain.com/health`
+2. Is your VPN blocking the connection? (see VPN Conflicts above)
+3. Is there a firewall blocking port 443?
+
+---
+
+### "connection refused" on Port 443
+
+If `tailscale up` fails but `curl` works, the issue is usually DNS or VPN:
+
+```bash
+# Does curl reach Headscale successfully?
+curl -v https://hs.yourdomain.com/health
+
+# Force IPv4 vs IPv6 to identify if it's an address-family issue
+curl -4 https://hs.yourdomain.com/health
+curl -6 https://hs.yourdomain.com/health
+
+# Check what IP headscale resolves to
+dig +short hs.yourdomain.com
+
+# What resolver is the system using?
+cat /etc/resolv.conf
+```
+
+If curl works but tailscale doesn't, tailscaled may be using a different DNS resolver (e.g. its own `100.100.100.100` stub resolver). Fix: pass `--accept-dns=false`.
+
+---
+
+### Headscale User ID Lookup (0.28.0)
+
+Headscale 0.28.0 removed `--user <name>` in favour of `-u <numeric-id>`. To find the numeric ID for a user:
+
+```bash
+headscale users list -o json
+# Output: [{"id": "1", "name": "sovran-deploy", ...}, ...]
+
+# One-liner to get the ID for a specific user
+headscale users list -o json | jq -r '.[] | select(.name=="sovran-deploy") | .id'
+```
+
+Then use the numeric ID in subsequent commands:
+```bash
+headscale preauthkeys create -u 1 -e 1h -o json
+headscale nodes register -u 1 --key mkey:xxxx
 ```
 
 ---
