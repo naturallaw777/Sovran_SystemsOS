@@ -12,10 +12,6 @@ let
     installPhase = ''
       mkdir -p $out/share/backgrounds/sovran
 
-      rsvg-convert -w 1920 -h 1080 \
-        $src/sovran-wallpaper-08-tagline-only.svg \
-        -o $out/share/backgrounds/sovran/sovran-standard.png
-
       rsvg-convert -w 3440 -h 1440 \
         $src/sovran-wallpaper-12-ultrawide-3440x1440.svg \
         -o $out/share/backgrounds/sovran/sovran-ultrawide.png
@@ -41,23 +37,9 @@ let
     # Fresh install — no user-db exists yet, apply full Sovran theme below
 
     BG_DIR="/run/current-system/sw/share/backgrounds/sovran"
-    STANDARD="$BG_DIR/sovran-standard.png"
     ULTRAWIDE="$BG_DIR/sovran-ultrawide.png"
 
-    WIDTH=$(${pkgs.dbus}/bin/dbus-send \
-      --session \
-      --print-reply \
-      --dest=org.gnome.Mutter.DisplayConfig \
-      /org/gnome/Mutter/DisplayConfig \
-      org.gnome.Mutter.DisplayConfig.GetCurrentState \
-      2>/dev/null \
-      | grep -oP 'uint32 \K[0-9]+' \
-      | head -1)
-
-    CHOSEN="$STANDARD"
-    if [ -n "$WIDTH" ] && [ "$WIDTH" -ge 2560 ] && [ -f "$ULTRAWIDE" ]; then
-      CHOSEN="$ULTRAWIDE"
-    fi
+    CHOSEN="$ULTRAWIDE"
 
     ${pkgs.dconf}/bin/dconf load / << EOF
 [org/gnome/desktop/background]
@@ -198,8 +180,8 @@ in
     settings = {
 
       "org/gnome/desktop/background" = {
-        picture-uri = "file:///run/current-system/sw/share/backgrounds/sovran/sovran-standard.png";
-        picture-uri-dark = "file:///run/current-system/sw/share/backgrounds/sovran/sovran-standard.png";
+        picture-uri = "file:///run/current-system/sw/share/backgrounds/sovran/sovran-ultrawide.png";
+        picture-uri-dark = "file:///run/current-system/sw/share/backgrounds/sovran/sovran-ultrawide.png";
         picture-options = "zoom";
         primary-color = "#000000";
         secondary-color = "#000000";
