@@ -292,6 +292,10 @@ let
       done
 
       install -d $out/share/applications
+      # StartupWMClass must match the Wayland app_id Brave reports via
+      # xdg_toplevel.set_app_id in --app= mode. Brave derives this from
+      # the URL: http://localhost:8937 -> "brave-localhost__-Default".
+      # Confirmed with: WAYLAND_DEBUG=1 brave --app=http://localhost:8937 ...
       cat > $out/share/applications/sovran-hub.desktop <<DESKTOP
 [Desktop Entry]
 Type=Application
