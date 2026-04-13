@@ -8,9 +8,9 @@ let
     [
       { name = "System Passwords"; unit = "root-password-setup.service"; type = "system"; icon = "passwords"; enabled = true; category = "infrastructure"; credentials = [
         { label = "Free Account — Username"; value = "free"; }
-        { label = "Free Account — Password"; file = "/var/lib/secrets/free-password"; }
-        { label = "Root Password"; file = "/var/lib/secrets/root-password"; }
-        { label = "SSH Passphrase"; file = "/var/lib/secrets/ssh-passphrase"; }
+        { label = "Free Account / Hub Login — Password"; file = "/var/lib/secrets/free-password"; }
+        { label = "Administrator (root) Password"; file = "/var/lib/secrets/root-password"; }
+        { label = "SSH Passphrase — use via: ssh root@localhost"; file = "/var/lib/secrets/ssh-passphrase"; }
       ]; }
     ]
     # ── Infrastructure — Caddy + Tor (NOT desktop-only) ────────
