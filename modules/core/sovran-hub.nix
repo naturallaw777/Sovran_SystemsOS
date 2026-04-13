@@ -223,13 +223,11 @@ let
     export GIO_LAUNCHED_DESKTOP_FILE="/run/current-system/sw/share/applications/sovran-hub.desktop"
     brave --app=http://localhost:8937 \
           --class=sovran-hub \
-          --gtk-application-id=sovran-hub \
           --user-data-dir="$HUB_DATA" \
           --password-store=basic \
           --disable-gpu \
           --disable-features=WebRtcPipeWireCapturer \
-          --ozone-platform=wayland \
-          --wayland-app-id=sovran-hub
+          --ozone-platform=wayland
   '';
 
   # ── Hub auto-launch wrapper script ────────────────────────────────
@@ -304,7 +302,7 @@ Icon=sovran-hub
 Terminal=false
 Categories=System;
 StartupNotify=true
-StartupWMClass=sovran-hub
+StartupWMClass=brave-localhost__-Default
 X-GNOME-SingleWindow=true
 DESKTOP
 
