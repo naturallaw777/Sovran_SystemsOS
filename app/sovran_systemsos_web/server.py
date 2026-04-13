@@ -87,7 +87,7 @@ LOGIN_FAIL_WINDOW = 60.0  # rolling window (seconds) for counting failures
 LOGIN_FAIL_MAX    = 10    # max failures in window before extra delay
 
 # Public paths that are accessible without a valid session
-_AUTH_EXEMPT_PATHS = {"/login", "/api/login", "/api/updates/status", "/api/rebuild/status"}
+_AUTH_EXEMPT_PATHS = {"/login", "/api/login", "/api/updates/status", "/api/rebuild/status", "/auto-login"}
 # Prefixes for static assets required by the login page
 _AUTH_EXEMPT_PREFIXES = ("/static/css/", "/static/sovran-hub-icon.svg")
 
@@ -1592,6 +1592,29 @@ def _verify_support_removed() -> bool:
 @app.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request):
     return templates.TemplateResponse("login.html", {"request": request})
+
+
+@app.get("/auto-login")
+async def auto_login_redirect(request: Request):
+    """Localhost-only auto-login: create a session, set the cookie, and redirect to /.
+
+    Only requests from 127.0.0.1 or ::1 are accepted so that remote clients on
+    the LAN cannot bypass the password prompt by navigating to this URL.
+    """
+    client_ip = request.client.host if request.client else "unknown"
+    if client_ip not in ("127.0.0.1", "::1"):
+        raise HTTPException(status_code=403, detail="Forbidden")
+    token = _create_session()
+    response = RedirectResponse(url="/", status_code=303)
+    response.set_cookie(
+        key=SESSION_COOKIE_NAME,
+        value=token,
+        max_age=SESSION_MAX_AGE,
+        httponly=True,
+        samesite="lax",
+        secure=False,  # LAN-only appliance; no TLS on the Hub port
+    )
+    return response
 
 
 class LoginRequest(BaseModel):
