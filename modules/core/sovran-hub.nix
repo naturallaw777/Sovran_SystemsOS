@@ -232,7 +232,7 @@ let
 
   # ── Hub auto-launch wrapper script ────────────────────────────────
   hub-autolaunch-script = pkgs.writeShellScript "sovran-hub-autolaunch.sh" ''
-    export PATH="${lib.makeBinPath [ pkgs.curl ]}:$PATH"
+    export PATH="${lib.makeBinPath [ pkgs.curl pkgs.coreutils ]}:$PATH"
 
     DISABLE_FLAG="/var/lib/sovran/hub-autolaunch-disabled"
     BOOT_FLAG="/run/sovran-hub-autolaunch-done"
