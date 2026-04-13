@@ -174,7 +174,7 @@ function doReboot() {
   if ($rebootOverlay) $rebootOverlay.classList.add("visible");
   _rebootStartTime = Date.now();
   _serverWentDown = false;
-  fetch("/api/reboot", { method: "POST" }).catch(function() {});
+  apiFetch("/api/reboot", { method: "POST" }).catch(function() {});
   // Wait 15 seconds before the first check — give the system time to actually shut down
   setTimeout(waitForServerReboot, 15000);
 }
