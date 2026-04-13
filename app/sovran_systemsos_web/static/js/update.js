@@ -163,21 +163,46 @@ function saveErrorReport() {
 
 // ── Reboot ────────────────────────────────────────────────────────
 
+var _rebootStartTime = 0;
+var _serverWentDown = false;
+
 function doReboot() {
   if ($modal) $modal.classList.remove("open");
   if ($rebuildModal) $rebuildModal.classList.remove("open");
   stopUpdatePoll();
   stopRebuildPoll();
   if ($rebootOverlay) $rebootOverlay.classList.add("visible");
+  _rebootStartTime = Date.now();
+  _serverWentDown = false;
   fetch("/api/reboot", { method: "POST" }).catch(function() {});
-  setTimeout(waitForServerReboot, REBOOT_CHECK_INTERVAL);
+  // Wait 15 seconds before the first check — give the system time to actually shut down
+  setTimeout(waitForServerReboot, 15000);
 }
 
 function waitForServerReboot() {
-  fetch("/api/config", { cache: "no-store" })
+  var controller = new AbortController();
+  var timeoutId = setTimeout(function() { controller.abort(); }, REBOOT_CHECK_INTERVAL);
+
+  fetch("/api/config", { cache: "no-store", signal: controller.signal })
     .then(function(res) {
-      if (res.ok) window.location.reload();
-      else setTimeout(waitForServerReboot, REBOOT_CHECK_INTERVAL);
+      clearTimeout(timeoutId);
+      if (res.ok && _serverWentDown) {
+        // Server is back after having been down — reboot is complete
+        window.location.reload();
+      } else if (res.ok && !_serverWentDown && (Date.now() - _rebootStartTime) < 30000) {
+        // Server still responding but hasn't gone down yet — keep waiting
+        setTimeout(waitForServerReboot, REBOOT_CHECK_INTERVAL);
+      } else if (res.ok) {
+        // Been over 30 seconds and server is responding — just reload
+        window.location.reload();
+      } else {
+        _serverWentDown = true;
+        setTimeout(waitForServerReboot, REBOOT_CHECK_INTERVAL);
+      }
     })
-    .catch(function() { setTimeout(waitForServerReboot, REBOOT_CHECK_INTERVAL); });
+    .catch(function() {
+      clearTimeout(timeoutId);
+      _serverWentDown = true;
+      setTimeout(waitForServerReboot, REBOOT_CHECK_INTERVAL);
+    });
 }
