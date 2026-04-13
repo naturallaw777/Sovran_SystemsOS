@@ -5,6 +5,7 @@
 
     # ── Server+Desktop Role (default) ─────────────────────────
     (lib.mkIf config.sovran_systemsOS.roles.server_plus_desktop {
+      sovran_systemsOS.web.btcpayserver = lib.mkDefault true;
     })
 
     # ── Desktop Only Role ─────────────────────────────────────

@@ -55,7 +55,7 @@ lib.mkIf config.sovran_systemsOS.services.bitcoin {
   };
 
   services.btcpayserver = {
-    enable = true;
+    enable = config.sovran_systemsOS.web.btcpayserver;
   };
 
   services.btcpayserver.lightningBackend = "lnd";
