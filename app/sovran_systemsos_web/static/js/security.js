@@ -157,14 +157,14 @@ function openSecurityModal() {
               }
             }, 1000);
 
-            rebootBtn.addEventListener("click", async function() {
+            rebootBtn.addEventListener("click", function() {
               rebootBtn.disabled = true;
               rebootBtn.textContent = "Rebooting\u2026";
-              try {
-                await apiFetch("/api/reboot", { method: "POST" });
-              } catch (_) {}
               if ($rebootOverlay) $rebootOverlay.classList.add("visible");
-              setTimeout(waitForServerReboot, REBOOT_CHECK_INTERVAL);
+              setTimeout(waitForServerReboot, REBOOT_INITIAL_DELAY);
+              var rebootCtrl = new AbortController();
+              setTimeout(function() { rebootCtrl.abort(); }, REBOOT_REQUEST_TIMEOUT);
+              fetch("/api/reboot", { method: "POST", signal: rebootCtrl.signal }).catch(function() {});
             }, { once: true });
           }
         } catch (err) {
