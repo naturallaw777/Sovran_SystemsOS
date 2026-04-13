@@ -84,23 +84,6 @@
   margin: 16px 0;
 }
 
-/* ── Sidebar: Upgrade button (Node role) ────────────────────────── */
-
-.sidebar-upgrade-btn {
-  border-color: var(--accent-color);
-  background-color: rgba(94, 173, 138, 0.06);
-  margin-top: 8px;
-}
-
-.sidebar-upgrade-btn:hover {
-  background-color: rgba(94, 173, 138, 0.14);
-  border-color: var(--accent-color);
-}
-
-.sidebar-upgrade-btn .sidebar-support-hint {
-  color: var(--accent-color);
-}
-
 /* ── Upgrade modal ──────────────────────────────────────────────── */
 
 .upgrade-dialog {
