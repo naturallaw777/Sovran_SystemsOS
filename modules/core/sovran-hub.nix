@@ -214,10 +214,13 @@ let
   # ── Brave launcher wrapper: stable profile dir so Wayland app_id is
   #    deterministic and GNOME Shell can match the window to the .desktop
   #    entry (fixes generic gear icon appearing in the dock).
+  #    The profile path is intentionally ephemeral (cleaned up on exit) but
+  #    uses a fixed, user-scoped path so the app_id stays constant during
+  #    the session.
   hub-brave-wrapper = pkgs.writeShellScript "sovran-hub-brave.sh" ''
     export PATH="${lib.makeBinPath [ pkgs.brave pkgs.coreutils ]}:$PATH"
     HUB_DATA="/tmp/sovran-hub-brave-$(id -u)"
-    mkdir -p "$HUB_DATA"
+    mkdir -p -m 700 "$HUB_DATA"
     trap '[ -n "$HUB_DATA" ] && rm -rf "$HUB_DATA"' EXIT INT TERM
     export BAMF_DESKTOP_FILE_HINT="${sovran-hub-web}/share/applications/sovran-hub.desktop"
     export GIO_LAUNCHED_DESKTOP_FILE="${sovran-hub-web}/share/applications/sovran-hub.desktop"
