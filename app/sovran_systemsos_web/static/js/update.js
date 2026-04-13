@@ -174,26 +174,28 @@ function doReboot() {
   if ($rebootOverlay) $rebootOverlay.classList.add("visible");
   _rebootStartTime = Date.now();
   _serverWentDown = false;
-  apiFetch("/api/reboot", { method: "POST" }).catch(function() {});
-  // Wait 15 seconds before the first check — give the system time to actually shut down
-  setTimeout(waitForServerReboot, 15000);
+  var rebootCtrl = new AbortController();
+  setTimeout(function() { rebootCtrl.abort(); }, REBOOT_REQUEST_TIMEOUT);
+  fetch("/api/reboot", { method: "POST", signal: rebootCtrl.signal }).catch(function() {});
+  // Wait before the first check — NixOS shutdown after an update can take 20-40s
+  setTimeout(waitForServerReboot, REBOOT_INITIAL_DELAY);
 }
 
 function waitForServerReboot() {
   var controller = new AbortController();
-  var timeoutId = setTimeout(function() { controller.abort(); }, REBOOT_CHECK_INTERVAL);
+  var timeoutId = setTimeout(function() { controller.abort(); }, REBOOT_FETCH_TIMEOUT);
 
-  fetch("/api/config", { cache: "no-store", signal: controller.signal })
+  fetch("/api/config", { cache: "no-store", signal: controller.signal, headers: { "Connection": "close" } })
     .then(function(res) {
       clearTimeout(timeoutId);
       if (res.ok && _serverWentDown) {
         // Server is back after having been down — reboot is complete
         window.location.reload();
-      } else if (res.ok && !_serverWentDown && (Date.now() - _rebootStartTime) < 30000) {
+      } else if (res.ok && !_serverWentDown && (Date.now() - _rebootStartTime) < 90000) {
         // Server still responding but hasn't gone down yet — keep waiting
         setTimeout(waitForServerReboot, REBOOT_CHECK_INTERVAL);
       } else if (res.ok) {
-        // Been over 30 seconds and server is responding — just reload
+        // Been over 90 seconds and server is responding — just reload
         window.location.reload();
       } else {
         _serverWentDown = true;
