@@ -104,7 +104,7 @@ function renderSidebarSupport(supportServices) {
   // ── Upgrade button (Node role only)
   if (_currentRole === "node") {
     var upgradeBtn = document.createElement("button");
-    upgradeBtn.className = "sidebar-support-btn sidebar-upgrade-btn";
+    upgradeBtn.className = "sidebar-support-btn";
     upgradeBtn.innerHTML =
       '<span class="sidebar-support-icon">🚀</span>' +
       '<span class="sidebar-support-text">' +
