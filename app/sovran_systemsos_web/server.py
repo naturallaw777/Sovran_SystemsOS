@@ -291,7 +291,7 @@ _PORTS_ELEMENT_CALLING = _PORTS_WEB + [
 
 SERVICE_PORT_REQUIREMENTS: dict[str, list[dict]] = {
     # Infrastructure
-    "caddy.service":                    _PORTS_WEB,
+    "caddy.service":                    [],
     # Communication
     "matrix-synapse.service":           _PORTS_MATRIX_FEDERATION,
     "livekit.service":                  _PORTS_ELEMENT_CALLING,

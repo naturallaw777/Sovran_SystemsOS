@@ -3,6 +3,16 @@
 let
   exposeBtcpay = config.sovran_systemsOS.web.btcpayserver;
   extraVhosts = config.sovran_systemsOS.caddy.extraVirtualHosts;
+
+  # True when any service needs HTTPS/ACME (domain-based vhosts)
+  needsHttpsPorts =
+    config.sovran_systemsOS.web.btcpayserver
+    || config.sovran_systemsOS.services.synapse
+    || config.sovran_systemsOS.services.wordpress
+    || config.sovran_systemsOS.services.nextcloud
+    || config.sovran_systemsOS.services.vaultwarden
+    || config.sovran_systemsOS.features.haven
+    || config.sovran_systemsOS.features.element-calling;
 in
 {
   services.caddy = {
@@ -10,6 +20,10 @@ in
     user = "caddy";
     group = "root";
   };
+
+  # Only open ports 80/443 when at least one domain-based service is active
+  networking.firewall.allowedTCPPorts = lib.mkIf needsHttpsPorts [ 80 443 ];
+  networking.firewall.allowedUDPPorts = lib.mkIf needsHttpsPorts [ 80 443 ];
 
   systemd.tmpfiles.rules = [
     "d /var/lib/domains 0755 caddy root -"
@@ -55,12 +69,20 @@ in
       HAVEN=$(read_domain haven)
       ACME_EMAIL=$(read_domain sslemail)
 
-      # Start with global config
+      # Start with global config — use ACME only when domain-based services are active
+      ${if needsHttpsPorts then ''
       cat > /run/caddy/Caddyfile <<EOF
 {
   email $ACME_EMAIL
 }
 EOF
+      '' else ''
+      cat > /run/caddy/Caddyfile <<EOF
+{
+  auto_https off
+}
+EOF
+      ''}
 
       # ── Matrix ──────────────────────────────────────
       if [ -n "$MATRIX" ]; then
