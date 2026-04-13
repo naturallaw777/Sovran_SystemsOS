@@ -219,8 +219,8 @@ let
     HUB_DATA="/tmp/sovran-hub-brave-$(id -u)"
     mkdir -p "$HUB_DATA"
     trap '[ -n "$HUB_DATA" ] && rm -rf "$HUB_DATA"' EXIT INT TERM
-    export BAMF_DESKTOP_FILE_HINT="${sovran-hub-web}/share/applications/sovran-hub.desktop"
-    export GIO_LAUNCHED_DESKTOP_FILE="${sovran-hub-web}/share/applications/sovran-hub.desktop"
+    export BAMF_DESKTOP_FILE_HINT="/run/current-system/sw/share/applications/sovran-hub.desktop"
+    export GIO_LAUNCHED_DESKTOP_FILE="/run/current-system/sw/share/applications/sovran-hub.desktop"
     brave --app=http://localhost:8937 \
           --class=sovran-hub \
           --user-data-dir="$HUB_DATA" \
