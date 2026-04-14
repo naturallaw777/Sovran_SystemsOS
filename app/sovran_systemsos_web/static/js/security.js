@@ -161,6 +161,8 @@ function openSecurityModal() {
               rebootBtn.disabled = true;
               rebootBtn.textContent = "Rebooting\u2026";
               if ($rebootOverlay) $rebootOverlay.classList.add("visible");
+              _rebootStartTime = Date.now();
+              _serverWentDown = false;
               setTimeout(waitForServerReboot, REBOOT_INITIAL_DELAY);
               var rebootCtrl = new AbortController();
               setTimeout(function() { rebootCtrl.abort(); }, REBOOT_REQUEST_TIMEOUT);

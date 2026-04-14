@@ -87,7 +87,7 @@ LOGIN_FAIL_WINDOW = 60.0  # rolling window (seconds) for counting failures
 LOGIN_FAIL_MAX    = 10    # max failures in window before extra delay
 
 # Public paths that are accessible without a valid session
-_AUTH_EXEMPT_PATHS = {"/login", "/api/login", "/api/updates/status", "/api/rebuild/status", "/auto-login"}
+_AUTH_EXEMPT_PATHS = {"/login", "/api/login", "/api/updates/status", "/api/rebuild/status", "/auto-login", "/api/ping"}
 # Prefixes for static assets required by the login page
 _AUTH_EXEMPT_PREFIXES = ("/static/css/", "/static/sovran-hub-icon.svg")
 
@@ -2594,6 +2594,11 @@ async def api_updates_check():
     available = await loop.run_in_executor(None, check_for_updates)
     # None means inconclusive (check failed) — report as available so the UI doesn't block
     return {"available": available is not False}
+
+
+@app.get("/api/ping")
+async def api_ping():
+    return {"ok": True}
 
 
 @app.post("/api/reboot")
