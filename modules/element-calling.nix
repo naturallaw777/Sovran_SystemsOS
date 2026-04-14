@@ -146,7 +146,7 @@ EOF
     { from = 7882; to = 7894; }
     { from = 30000; to = 40000;}
   ];
-  networking.firewall.allowedTCPPortRangers = [
+  networking.firewall.allowedTCPPortRanges = [
     { from = 30000; to = 40000; }
   ];
   
