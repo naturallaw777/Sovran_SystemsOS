@@ -140,7 +140,8 @@ EOF
     };
   };
 
-  networking.firewall.allowedTCPPorts = [ 7881 ];
+  networking.firewall.allowedTCPPorts = [ 5349 7881 ];
+  networking.firewall.allowedUDPPorts = [ 3478 ];
   networking.firewall.allowedUDPPortRanges = [
     { from = 7882; to = 7894; }
   ];
