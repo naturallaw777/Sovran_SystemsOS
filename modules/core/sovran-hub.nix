@@ -350,7 +350,13 @@ in
         StandardError  = "journal";
       };
 
-      path = [ pkgs.qrencode ] ++ lib.optional cfg.services.bitcoin config.services.bitcoind.package;
+      path = [
+        pkgs.qrencode
+        pkgs.iproute2
+        pkgs.nftables
+        pkgs.iptables
+        pkgs.hostname
+      ] ++ lib.optional cfg.services.bitcoin config.services.bitcoind.package;
     };
 
     systemd.services.sovran-hub-update = {
