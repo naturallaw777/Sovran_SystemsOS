@@ -144,8 +144,12 @@ EOF
   networking.firewall.allowedUDPPorts = [ 3478 ];
   networking.firewall.allowedUDPPortRanges = [
     { from = 7882; to = 7894; }
+    { from = 30000; to = 40000;}
   ];
-
+  networking.firewall.allowedTCPPortRangers = [
+    { from = 30000; to = 40000; }
+  ];
+  
   ####### JWT SERVICE RUNTIME CONFIG #######
   systemd.services.lk-jwt-service-runtime-config = {
     description = "Generate lk-jwt-service runtime config from domain files";
