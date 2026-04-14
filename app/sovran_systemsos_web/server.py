@@ -751,6 +751,14 @@ def _get_listening_ports() -> dict[str, set[int]]:
 
     Uses ``ss -tlnp`` for TCP and ``ss -ulnp`` for UDP.  Returns a dict with
     keys ``"tcp"`` and ``"udp"`` whose values are sets of integer port numbers.
+
+    The ``ss`` LISTEN/UNCONN output has a fixed column layout when split on
+    whitespace: ``State Recv-Q Send-Q Local_Address:Port Peer_Address:Port ...``
+    The local address is always at index 3, regardless of address format
+    (``0.0.0.0:PORT``, ``*:PORT``, ``[::]:PORT``, ``127.0.0.1:PORT``).
+
+    Header lines (``State``/``Netid``) and non-LISTEN/UNCONN rows are skipped
+    so only truly active listeners are returned.
     """
     result: dict[str, set[int]] = {"tcp": set(), "udp": set()}
     for proto, flag in (("tcp", "-tlnp"), ("udp", "-ulnp")):
@@ -760,21 +768,27 @@ def _get_listening_ports() -> dict[str, set[int]]:
                 capture_output=True, text=True, timeout=10,
             )
             for line in proc.stdout.splitlines():
-                # The local address:port column varies by ss output format:
-                # - "0.0.0.0:PORT" style lines have extra spacing that puts the
-                #   local address at index 4 (zero-based).
-                # - "*:PORT" style lines (dual-stack/wildcard, used by Caddy)
-                #   have the local address at index 3, with the peer at index 4.
-                # Try both columns so neither format is silently skipped.
                 parts = line.split()
                 if len(parts) < 5:
                     continue
-                for addr in (parts[3], parts[4]):
-                    port_str = addr.rsplit(":", 1)[-1]
-                    try:
-                        result[proto].add(int(port_str))
-                    except ValueError:
-                        pass
+                # Skip header lines
+                if parts[0] in ("State", "Netid"):
+                    continue
+                # Only process LISTEN (TCP) or UNCONN (UDP) state lines
+                if parts[0] not in ("LISTEN", "UNCONN"):
+                    continue
+                # Local address is always at column index 3:
+                # State Recv-Q Send-Q Local_Address:Port Peer_Address:Port ...
+                # Formats: 0.0.0.0:443, *:443, [::]:443, 127.0.0.1:443
+                local_addr = parts[3]
+                port_str = local_addr.rsplit(":", 1)[-1]
+                # Defensively skip wildcard port (e.g. an unbound socket showing *:*)
+                if port_str == "*":
+                    continue
+                try:
+                    result[proto].add(int(port_str))
+                except ValueError:
+                    pass
         except Exception:
             pass
     return result
