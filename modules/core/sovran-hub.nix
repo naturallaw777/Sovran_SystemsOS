@@ -375,7 +375,7 @@ in
 
     environment.systemPackages = [ sovran-hub-web ];
 
-    networking.firewall.allowedTCPPorts = [ 3051 8937 60847 ];
+    networking.firewall.allowedTCPPorts = [ 8937 60847 ];
 
     # ── Auto-launch Hub in browser on login ───────────────────────
     environment.etc."xdg/autostart/sovran-hub-autolaunch.desktop".text = ''

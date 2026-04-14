@@ -31,8 +31,7 @@
   networking.hostName = "nixos";
   networking.networkmanager.enable = true;
   networking.firewall.enable = true;
-  networking.firewall.allowedTCPPorts = [ 8448 3051 ];
-  networking.firewall.allowedUDPPorts = [ 8448 3051 5353 ];
+  networking.firewall.allowedUDPPorts = [ 5353 ];
 
   # ── Avahi (mDNS) ───────────────────────────────────────────
   services.avahi = {
