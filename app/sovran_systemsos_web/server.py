@@ -760,17 +760,21 @@ def _get_listening_ports() -> dict[str, set[int]]:
                 capture_output=True, text=True, timeout=10,
             )
             for line in proc.stdout.splitlines():
-                # Column 4 is the local address:port (e.g. "0.0.0.0:443" or "[::]:443")
+                # The local address:port column varies by ss output format:
+                # - "0.0.0.0:PORT" style lines have extra spacing that puts the
+                #   local address at index 4 (zero-based).
+                # - "*:PORT" style lines (dual-stack/wildcard, used by Caddy)
+                #   have the local address at index 3, with the peer at index 4.
+                # Try both columns so neither format is silently skipped.
                 parts = line.split()
                 if len(parts) < 5:
                     continue
-                addr = parts[4]
-                # strip IPv6 brackets and extract port after last ":"
-                port_str = addr.rsplit(":", 1)[-1]
-                try:
-                    result[proto].add(int(port_str))
-                except ValueError:
-                    pass
+                for addr in (parts[3], parts[4]):
+                    port_str = addr.rsplit(":", 1)[-1]
+                    try:
+                        result[proto].add(int(port_str))
+                    except ValueError:
+                        pass
         except Exception:
             pass
     return result
