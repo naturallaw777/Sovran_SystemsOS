@@ -185,21 +185,19 @@ function waitForServerReboot() {
   var controller = new AbortController();
   var timeoutId = setTimeout(function() { controller.abort(); }, REBOOT_FETCH_TIMEOUT);
 
-  fetch("/api/config", { cache: "no-store", signal: controller.signal, headers: { "Connection": "close" } })
+  fetch("/api/ping", { cache: "no-store", signal: controller.signal, headers: { "Connection": "close" } })
     .then(function(res) {
       clearTimeout(timeoutId);
-      if (res.ok && _serverWentDown) {
-        // Server is back after having been down — reboot is complete
+      if (_serverWentDown) {
+        // Server is responding after having been down — reboot is complete.
+        // Any response (even 401/500) means the server process is back.
         window.location.reload();
-      } else if (res.ok && !_serverWentDown && (Date.now() - _rebootStartTime) < 90000) {
+      } else if ((Date.now() - _rebootStartTime) < 90000) {
         // Server still responding but hasn't gone down yet — keep waiting
         setTimeout(waitForServerReboot, REBOOT_CHECK_INTERVAL);
-      } else if (res.ok) {
+      } else {
         // Been over 90 seconds and server is responding — just reload
         window.location.reload();
-      } else {
-        _serverWentDown = true;
-        setTimeout(waitForServerReboot, REBOOT_CHECK_INTERVAL);
       }
     })
     .catch(function() {
