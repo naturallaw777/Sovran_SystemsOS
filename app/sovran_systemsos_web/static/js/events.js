@@ -59,13 +59,27 @@ async function doUpgradeToServer() {
   if (confirmBtn) { confirmBtn.disabled = true; confirmBtn.textContent = "Upgrading…"; }
   closeUpgradeModal();
 
-  // Reuse the rebuild modal to show progress
+  // Reuse the rebuild modal to show reboot progress
   _rebuildFeatureName = "Server + Desktop";
   _rebuildIsEnabling = true;
   openRebuildModal();
 
   try {
     await apiFetch("/api/role/upgrade-to-server", { method: "POST" });
+    // Server is rebooting — show message and wait for it to come back
+    if ($rebuildStatus) $rebuildStatus.textContent = "Rebooting — the setup wizard will guide you through domain and port configuration…";
+    if ($rebuildSpinner) $rebuildSpinner.classList.add("spinning");
+
+    // Poll until server comes back, then redirect to onboarding
+    var pollInterval = setInterval(async function() {
+      try {
+        await apiFetch("/api/ping");
+        clearInterval(pollInterval);
+        window.location.href = "/onboarding";
+      } catch (_) {
+        // Server still down — keep polling
+      }
+    }, 3000);
   } catch (err) {
     if ($rebuildStatus) $rebuildStatus.textContent = "✗ Upgrade failed: " + err.message;
     if ($rebuildSpinner) $rebuildSpinner.classList.remove("spinning");
