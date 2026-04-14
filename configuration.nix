@@ -88,7 +88,6 @@
   };
 
   services.displayManager.autoLogin.enable = false;
-  # services.displayManager.autoLogin.user = "free";  # Disabled — user logs in via GDM
 
   # ── Flatpak ────────────────────────────────────────────────
   services.flatpak.enable = true;
