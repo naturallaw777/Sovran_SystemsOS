@@ -99,6 +99,9 @@ lib.mkIf config.sovran_systemsOS.services.bitcoin {
     '';
   };
 
+  networking.firewall.allowedTCPPorts = [ 3051 ];
+  networking.firewall.allowedUDPPorts = [ 3051 ];
+
    sovran_systemsOS.domainRequirements = [
     { name = "btcpayserver"; label = "BTCPay Server"; example = "pay.yourdomain.com"; }
   ];
