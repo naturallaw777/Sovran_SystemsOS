@@ -749,8 +749,8 @@ def _get_external_ip() -> str:
 def _get_listening_ports() -> dict[str, set[int]]:
     """Return sets of TCP and UDP ports that have services actively listening.
 
-    Uses ``ss -tlnp`` for TCP and ``ss -ulnp`` for UDP.  Returns a dict with
-    keys ``"tcp"`` and ``"udp"`` whose values are sets of integer port numbers.
+    Uses ``ss -tln`` for TCP and ``ss -uln`` for UDP.  Returns a dict with keys
+    ``"tcp"`` and ``"udp"`` whose values are sets of integer port numbers.
 
     The ``ss`` LISTEN/UNCONN output has a fixed column layout when split on
     whitespace: ``State Recv-Q Send-Q Local_Address:Port Peer_Address:Port ...``
@@ -761,36 +761,42 @@ def _get_listening_ports() -> dict[str, set[int]]:
     so only truly active listeners are returned.
     """
     result: dict[str, set[int]] = {"tcp": set(), "udp": set()}
-    for proto, flag in (("tcp", "-tlnp"), ("udp", "-ulnp")):
-        try:
-            proc = subprocess.run(
-                ["ss", flag],
-                capture_output=True, text=True, timeout=10,
-            )
-            for line in proc.stdout.splitlines():
-                parts = line.split()
-                if len(parts) < 5:
+    for proto, flags in (("tcp", ("-tln", "-tlnp")), ("udp", ("-uln", "-ulnp"))):
+        for flag in flags:
+            try:
+                proc = subprocess.run(
+                    ["ss", flag],
+                    capture_output=True, text=True, timeout=10,
+                )
+                if proc.returncode != 0:
                     continue
-                # Skip header lines
-                if parts[0] in ("State", "Netid"):
-                    continue
-                # Only process LISTEN (TCP) or UNCONN (UDP) state lines
-                if parts[0] not in ("LISTEN", "UNCONN"):
-                    continue
-                # Local address is always at column index 3:
-                # State Recv-Q Send-Q Local_Address:Port Peer_Address:Port ...
-                # Formats: 0.0.0.0:443, *:443, [::]:443, 127.0.0.1:443
-                local_addr = parts[3]
-                port_str = local_addr.rsplit(":", 1)[-1]
-                # Defensively skip wildcard port (e.g. an unbound socket showing *:*)
-                if port_str == "*":
-                    continue
-                try:
-                    result[proto].add(int(port_str))
-                except ValueError:
-                    pass
-        except Exception:
-            pass
+                for line in proc.stdout.splitlines():
+                    parts = line.split()
+                    if len(parts) < 5:
+                        continue
+                    # Skip header lines
+                    if parts[0] in ("State", "Netid"):
+                        continue
+                    # Only process LISTEN (TCP) or UNCONN (UDP) state lines
+                    if parts[0] not in ("LISTEN", "UNCONN"):
+                        continue
+                    # Local address is always at column index 3:
+                    # State Recv-Q Send-Q Local_Address:Port Peer_Address:Port ...
+                    # Formats: 0.0.0.0:443, *:443, [::]:443, 127.0.0.1:443
+                    local_addr = parts[3]
+                    port_str = local_addr.rsplit(":", 1)[-1]
+                    # Defensively skip wildcard port (e.g. an unbound socket showing *:*)
+                    if port_str == "*":
+                        continue
+                    try:
+                        result[proto].add(int(port_str))
+                    except ValueError:
+                        pass
+                # Prefer non-privileged output; only fall back when needed.
+                if result[proto]:
+                    break
+            except Exception:
+                continue
     return result
 
 
@@ -798,52 +804,63 @@ def _get_firewall_allowed_ports() -> dict[str, set[int]]:
     """Return sets of TCP and UDP ports that the firewall allows.
 
     Tries ``nft list ruleset`` first (NixOS default), then falls back to
-    ``iptables -L -n``.  Returns a dict with keys ``"tcp"`` and ``"udp"``.
+    ``iptables -L -n``. If those fail due to permissions, retries with
+    ``sudo``. Returns a dict with keys ``"tcp"`` and ``"udp"``.
     """
     result: dict[str, set[int]] = {"tcp": set(), "udp": set()}
 
+    def _add_port_token(proto_key: str, token: str):
+        if re.match(r'^\d+$', token):
+            result[proto_key].add(int(token))
+            return
+        m_range = re.match(r'^(\d+)-(\d+)$', token)
+        if m_range:
+            lo, hi = int(m_range.group(1)), int(m_range.group(2))
+            result[proto_key].update(range(lo, hi + 1))
+
     # ── nftables ─────────────────────────────────────────────────
-    try:
-        proc = subprocess.run(
-            ["nft", "list", "ruleset"],
-            capture_output=True, text=True, timeout=10,
-        )
-        if proc.returncode == 0:
-            text = proc.stdout
-            # Match patterns like: tcp dport 443 accept  or  tcp dport { 80, 443 }
+    for cmd in (["nft", "list", "ruleset"], ["sudo", "nft", "list", "ruleset"]):
+        try:
+            proc = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+        except Exception:
+            continue
+        if proc.returncode != 0:
+            continue
+
+        for line in proc.stdout.splitlines():
             for proto in ("tcp", "udp"):
-                for m in re.finditer(
-                    rf'{proto}\s+dport\s+\{{?([^}};\n]+)\}}?', text
-                ):
-                    raw = m.group(1)
-                    for token in re.split(r'[\s,]+', raw):
-                        token = token.strip()
-                        if re.match(r'^\d+$', token):
-                            result[proto].add(int(token))
-                        elif re.match(r'^(\d+)-(\d+)$', token):
-                            lo, hi = token.split("-")
-                            result[proto].update(range(int(lo), int(hi) + 1))
-            return result
-    except Exception:
-        pass
+                # Set syntax: tcp dport { 80, 443 } ...
+                m_set = re.search(rf'\b{proto}\b.*?\bdport\s+\{{([^}}]+)\}}', line)
+                if m_set:
+                    for token in re.split(r'[\s,]+', m_set.group(1).strip()):
+                        if token:
+                            _add_port_token(proto, token)
+                    continue
+
+                # Single/range syntax: tcp dport 443 ... or tcp dport 7882-7894 ...
+                m_single = re.search(rf'\b{proto}\b.*?\bdport\s+(\d+(?:-\d+)?)\b', line)
+                if m_single:
+                    _add_port_token(proto, m_single.group(1))
+        return result
 
     # ── iptables fallback ─────────────────────────────────────────
-    try:
-        proc = subprocess.run(
-            ["iptables", "-L", "-n"],
-            capture_output=True, text=True, timeout=10,
-        )
-        if proc.returncode == 0:
-            for line in proc.stdout.splitlines():
-                # e.g. ACCEPT tcp  -- ... dpt:443  or  dpts:7882:7894
-                m = re.search(r'(tcp|udp).*dpts?:(\d+)(?::(\d+))?', line)
-                if m:
-                    proto_match = m.group(1)
-                    lo = int(m.group(2))
-                    hi = int(m.group(3)) if m.group(3) else lo
-                    result[proto_match].update(range(lo, hi + 1))
-    except Exception:
-        pass
+    for cmd in (["iptables", "-L", "-n"], ["sudo", "iptables", "-L", "-n"]):
+        try:
+            proc = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+        except Exception:
+            continue
+        if proc.returncode != 0:
+            continue
+
+        for line in proc.stdout.splitlines():
+            # e.g. ACCEPT tcp  -- ... dpt:443  or  dpts:7882:7894
+            m = re.search(r'(tcp|udp).*dpts?:(\d+)(?::(\d+))?', line)
+            if m:
+                proto_match = m.group(1)
+                lo = int(m.group(2))
+                hi = int(m.group(3)) if m.group(3) else lo
+                result[proto_match].update(range(lo, hi + 1))
+        return result
 
     return result
 
