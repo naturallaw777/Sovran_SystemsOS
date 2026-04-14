@@ -1683,6 +1683,27 @@ async def api_onboarding_complete():
             f.write("")
     except OSError as exc:
         raise HTTPException(status_code=500, detail=f"Could not write flag file: {exc}")
+
+    # Trigger a NixOS rebuild now that domains/ports/SSL are configured.
+    # This is especially important after a role upgrade (Node → Server+Desktop)
+    # where the rebuild was deferred until onboarding collected all required config.
+    try:
+        open(REBUILD_LOG, "w").close()
+    except OSError:
+        pass
+
+    await asyncio.create_subprocess_exec(
+        "systemctl", "reset-failed", REBUILD_UNIT,
+        stdout=asyncio.subprocess.DEVNULL,
+        stderr=asyncio.subprocess.DEVNULL,
+    )
+    proc = await asyncio.create_subprocess_exec(
+        "systemctl", "start", "--no-block", REBUILD_UNIT,
+        stdout=asyncio.subprocess.DEVNULL,
+        stderr=asyncio.subprocess.DEVNULL,
+    )
+    await proc.wait()
+
     return {"ok": True}
 
 
@@ -1748,7 +1769,7 @@ ROLE_STATE_NIX = """\
 
 @app.post("/api/role/upgrade-to-server")
 async def api_upgrade_to_server():
-    """Upgrade from Node role to Server+Desktop role by writing role-state.nix and rebuilding."""
+    """Upgrade from Node role to Server+Desktop role."""
     cfg = load_config()
     if cfg.get("role", "server_plus_desktop") != "node":
         raise HTTPException(status_code=400, detail="Upgrade is only available for the Node role.")
@@ -1765,25 +1786,14 @@ async def api_upgrade_to_server():
     except FileNotFoundError:
         pass
 
-    # Clear stale rebuild log
+    # Don't rebuild yet — the user needs to configure domains, SSL email,
+    # and ports first via the onboarding wizard. Reboot so onboarding runs.
     try:
-        open(REBUILD_LOG, "w").close()
-    except OSError:
-        pass
+        await asyncio.create_subprocess_exec(*REBOOT_COMMAND)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to initiate reboot: {exc}")
 
-    await asyncio.create_subprocess_exec(
-        "systemctl", "reset-failed", REBUILD_UNIT,
-        stdout=asyncio.subprocess.DEVNULL,
-        stderr=asyncio.subprocess.DEVNULL,
-    )
-    proc = await asyncio.create_subprocess_exec(
-        "systemctl", "start", "--no-block", REBUILD_UNIT,
-        stdout=asyncio.subprocess.DEVNULL,
-        stderr=asyncio.subprocess.DEVNULL,
-    )
-    await proc.wait()
-
-    return {"ok": True, "status": "rebuilding"}
+    return {"ok": True, "status": "rebooting_to_onboarding"}
 
 
 # ── Bitcoin IBD sync helper ───────────────────────────────────────
