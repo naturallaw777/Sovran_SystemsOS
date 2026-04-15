@@ -384,7 +384,10 @@ function handleFeatureToggle(feat, newEnabled) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ports: ports }),
     })
-      .then(function(r) { return r.json(); })
+      .then(function(r) {
+        if (!r.ok) throw new Error("Port status request failed: " + r.status);
+        return r.json();
+      })
       .then(function(data) {
         var portStatuses = {};
         (data.ports || []).forEach(function(p) {
