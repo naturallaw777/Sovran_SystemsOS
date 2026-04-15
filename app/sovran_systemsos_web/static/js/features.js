@@ -222,116 +222,59 @@ function openPortRequirementsModal(featureName, ports, onContinue) {
   var continueBtn = onContinue
     ? '<button class="btn btn-primary" id="port-req-continue-btn">I Understand — Continue</button>'
     : '';
+  var rows = ports.map(function(p) {
+    return '<tr><td class="port-req-port">' + escHtml(p.port) + '</td>' +
+      '<td class="port-req-proto">' + escHtml(p.protocol) + '</td>' +
+      '<td class="port-req-desc">' + escHtml(p.description) + '</td></tr>';
+  }).join("");
 
-  // Show loading state while fetching port status
-  $portReqBody.innerHTML =
-    '<p class="port-req-intro">Checking port status for <strong>' + escHtml(featureName) + '</strong>…</p>' +
-    '<p class="port-req-hint">Detecting which ports are open on this machine…</p>';
+  function renderPortRequirements(internalIp) {
+    var ipLine = internalIp
+      ? '<p class="port-req-intro">Forward each port below <strong>to this machine\'s internal IP: <code class="port-req-internal-ip">' + escHtml(internalIp) + '</code></strong></p>'
+      : "<p class=\"port-req-intro\">Forward each port below to this machine's internal LAN IP in your router's port forwarding settings.</p>";
+
+    $portReqBody.innerHTML =
+      '<p class="port-req-intro"><strong>Port Forwarding Required</strong></p>' +
+      '<p class="port-req-intro">For <strong>' + escHtml(featureName) + "</strong> to work with clients outside your local network, " +
+      "you must configure <strong>port forwarding</strong> in your router's admin panel.</p>" +
+      ipLine +
+      '<table class="port-req-table">' +
+      '<thead><tr><th>Port(s)</th><th>Protocol</th><th>Purpose</th></tr></thead>' +
+      '<tbody>' + rows + '</tbody>' +
+      '</table>' +
+      "<p class=\"port-req-hint\"><strong>How to verify:</strong> Router-side forwarding cannot be checked from inside your network. " +
+      "To confirm ports are forwarded correctly, test from a device on a different network (e.g. a phone on mobile data) " +
+      "or check your router's port forwarding page.</p>" +
+      '<p class="port-req-hint">ℹ Search "<em>how to set up port forwarding on [your router model]</em>" for step-by-step instructions.</p>' +
+      '<div class="domain-field-actions">' +
+      '<button class="btn btn-close-modal" id="port-req-dismiss-btn">Dismiss</button>' +
+      continueBtn +
+      '</div>';
+
+    document.getElementById("port-req-dismiss-btn").addEventListener("click", function() {
+      closePortRequirementsModal();
+    });
+
+    if (onContinue) {
+      document.getElementById("port-req-continue-btn").addEventListener("click", function() {
+        closePortRequirementsModal();
+        onContinue();
+      });
+    }
+  }
 
   $portReqModal.classList.add("open");
+  renderPortRequirements(null);
 
-  // Fetch live port status from local system commands (no external calls)
-  fetch("/api/ports/status", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ ports: ports }),
-  })
+  fetch("/api/network")
     .then(function(r) { return r.json(); })
     .then(function(data) {
+      if (!$portReqModal.classList.contains("open")) return;
       var internalIp = (data.internal_ip && data.internal_ip !== "unavailable")
         ? data.internal_ip : null;
-      var portStatuses = {};
-      (data.ports || []).forEach(function(p) {
-        portStatuses[p.port + "/" + p.protocol] = p.status;
-      });
-
-      var rows = ports.map(function(p) {
-        var key = p.port + "/" + p.protocol;
-        var status = portStatuses[key] || "unknown";
-        var statusHtml;
-        if (status === "listening") {
-          statusHtml = '<span class="port-status-listening" title="Service is running and firewall allows this port">🟢 Listening</span>';
-        } else if (status === "firewall_open") {
-          statusHtml = '<span class="port-status-open" title="Firewall allows this port but no service is bound yet">🟡 Open (idle)</span>';
-        } else if (status === "closed") {
-          statusHtml = '<span class="port-status-closed" title="Firewall blocks this port and/or nothing is listening">🔴 Closed</span>';
-        } else {
-          statusHtml = '<span class="port-status-unknown" title="Status could not be determined">⚪ Unknown</span>';
-        }
-        return '<tr>' +
-          '<td class="port-req-port">' + escHtml(p.port) + '</td>' +
-          '<td class="port-req-proto">' + escHtml(p.protocol) + '</td>' +
-          '<td class="port-req-desc">' + escHtml(p.description) + '</td>' +
-          '<td class="port-req-status">' + statusHtml + '</td>' +
-          '</tr>';
-      }).join("");
-
-      var ipLine = internalIp
-        ? '<p class="port-req-intro">Forward each port below <strong>to this machine\'s internal IP: <code class="port-req-internal-ip">' + escHtml(internalIp) + '</code></strong></p>'
-        : "<p class=\"port-req-intro\">Forward each port below to this machine's internal LAN IP in your router's port forwarding settings.</p>";
-
-      $portReqBody.innerHTML =
-        '<p class="port-req-intro"><strong>Port Forwarding Required</strong></p>' +
-        '<p class="port-req-intro">For <strong>' + escHtml(featureName) + "</strong> to work with clients outside your local network, " +
-        "you must configure <strong>port forwarding</strong> in your router's admin panel.</p>" +
-        ipLine +
-        '<table class="port-req-table">' +
-        '<thead><tr><th>Port(s)</th><th>Protocol</th><th>Purpose</th><th>Status</th></tr></thead>' +
-        '<tbody>' + rows + '</tbody>' +
-        '</table>' +
-        "<p class=\"port-req-hint\"><strong>How to verify:</strong> Router-side forwarding cannot be checked from inside your network. " +
-        "To confirm ports are forwarded correctly, test from a device on a different network (e.g. a phone on mobile data) " +
-        "or check your router's port forwarding page.</p>" +
-        '<p class="port-req-hint">ℹ Search "<em>how to set up port forwarding on [your router model]</em>" for step-by-step instructions.</p>' +
-        '<div class="domain-field-actions">' +
-        '<button class="btn btn-close-modal" id="port-req-dismiss-btn">Dismiss</button>' +
-        continueBtn +
-        '</div>';
-
-      document.getElementById("port-req-dismiss-btn").addEventListener("click", function() {
-        closePortRequirementsModal();
-      });
-
-      if (onContinue) {
-        document.getElementById("port-req-continue-btn").addEventListener("click", function() {
-          closePortRequirementsModal();
-          onContinue();
-        });
-      }
+      renderPortRequirements(internalIp);
     })
-    .catch(function() {
-      // Fallback: show static table without status column if fetch fails
-      var rows = ports.map(function(p) {
-        return '<tr><td class="port-req-port">' + escHtml(p.port) + '</td>' +
-          '<td class="port-req-proto">' + escHtml(p.protocol) + '</td>' +
-          '<td class="port-req-desc">' + escHtml(p.description) + '</td></tr>';
-      }).join("");
-
-      $portReqBody.innerHTML =
-        '<p class="port-req-intro"><strong>Port Forwarding Required</strong></p>' +
-        '<p class="port-req-intro">For <strong>' + escHtml(featureName) + '</strong> to work with clients outside your local network, ' +
-        'you must configure <strong>port forwarding</strong> in your router\'s admin panel and forward each port below to this machine\'s internal LAN IP.</p>' +
-        '<table class="port-req-table">' +
-        '<thead><tr><th>Port(s)</th><th>Protocol</th><th>Purpose</th></tr></thead>' +
-        '<tbody>' + rows + '</tbody>' +
-        '</table>' +
-        '<p class="port-req-hint">ℹ Search "<em>how to set up port forwarding on [your router model]</em>" for step-by-step instructions.</p>' +
-        '<div class="domain-field-actions">' +
-        '<button class="btn btn-close-modal" id="port-req-dismiss-btn">Dismiss</button>' +
-        continueBtn +
-        '</div>';
-
-      document.getElementById("port-req-dismiss-btn").addEventListener("click", function() {
-        closePortRequirementsModal();
-      });
-
-      if (onContinue) {
-        document.getElementById("port-req-continue-btn").addEventListener("click", function() {
-          closePortRequirementsModal();
-          onContinue();
-        });
-      }
-    });
+    .catch(function() {});
 }
 
 function closePortRequirementsModal() {
