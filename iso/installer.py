@@ -156,6 +156,7 @@ class InstallerWindow(Adw.ApplicationWindow):
         self.boot_size = None
         self.data_disk = None
         self.data_size = None
+        self.data_drive_has_timechain = False
         self.free_password = None
 
         # Root navigation view
@@ -667,11 +668,19 @@ class InstallerWindow(Adw.ApplicationWindow):
 
     def push_disk_confirm(self):
         """Show the selected drives and ask the user to type ERASE to confirm."""
+        self.data_drive_has_timechain = False
+        if self.data_disk:
+            data_path = f"/dev/{self.data_disk}"
+            self.data_drive_has_timechain = self.detect_existing_timechain_data(data_path)
+
         outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
 
         # Disk info group
         disk_group = Adw.PreferencesGroup()
-        disk_group.set_title("Drives to be erased")
+        if self.data_disk and self.data_drive_has_timechain:
+            disk_group.set_title("OS drive to be erased (data drive preserved)")
+        else:
+            disk_group.set_title("Drives to be erased")
         disk_group.set_margin_top(24)
         disk_group.set_margin_start(40)
         disk_group.set_margin_end(40)
@@ -688,12 +697,21 @@ class InstallerWindow(Adw.ApplicationWindow):
             data_row.set_subtitle(f"/dev/{self.data_disk}  —  {human_size(self.data_size)}")
             data_row.add_prefix(symbolic_icon("drive-harddisk-symbolic"))
             disk_group.add(data_row)
+            if self.data_drive_has_timechain:
+                note_row = Adw.ActionRow()
+                note_row.set_title(f"✓ Existing Bitcoin timechain detected on /dev/{self.data_disk}")
+                note_row.set_subtitle("Data will be preserved and mounted as-is.")
+                note_row.add_prefix(symbolic_icon("emblem-ok-symbolic"))
+                disk_group.add(note_row)
 
         outer.append(disk_group)
 
         # Warning banner
         banner = Adw.Banner()
-        banner.set_title("⚠  All data on the above disk(s) will be permanently destroyed.")
+        if self.data_disk and self.data_drive_has_timechain:
+            banner.set_title("⚠  All data on the OS disk will be permanently destroyed. Existing Bitcoin data disk will be preserved.")
+        else:
+            banner.set_title("⚠  All data on the above disk(s) will be permanently destroyed.")
         banner.set_revealed(True)
         banner.set_margin_top(16)
         banner.set_margin_start(40)
@@ -775,9 +793,60 @@ class InstallerWindow(Adw.ApplicationWindow):
 
     # ── Worker: partition ─────────────────────────────────────────────────
 
+    def partition_path(self, dev_path, num):
+        return f"{dev_path}p{num}" if "nvme" in dev_path else f"{dev_path}{num}"
+
+    def detect_existing_timechain_data(self, data_path, buf=None):
+        data_p1 = self.partition_path(data_path, 1)
+        if not os.path.exists(data_p1):
+            return False
+
+        label = ""
+        for cmd in (
+            ["sudo", "lsblk", "-no", "LABEL", data_p1],
+            ["sudo", "blkid", "-o", "value", "-s", "LABEL", data_p1],
+        ):
+            proc = subprocess.run(cmd, capture_output=True, text=True)
+            if proc.returncode == 0:
+                label = proc.stdout.strip().splitlines()[0] if proc.stdout.strip() else ""
+                if label:
+                    break
+
+        if label != "BTCEcoandBackup":
+            return False
+
+        check_mount = "/tmp/sovran-installer-data-check"
+        mounted = False
+        try:
+            run(["sudo", "mkdir", "-p", check_mount])
+            run(["sudo", "mount", "-o", "ro", data_p1, check_mount])
+            mounted = True
+
+            has_bitcoin = os.path.isdir(f"{check_mount}/BTCEcoandBackup/Bitcoin_Node")
+            has_electrs = os.path.isdir(f"{check_mount}/BTCEcoandBackup/Electrs_Data")
+            if has_bitcoin and has_electrs:
+                if buf is not None:
+                    GLib.idle_add(
+                        append_text,
+                        buf,
+                        "=== Existing Bitcoin timechain detected on data drive — preserving data ===\n",
+                    )
+                return True
+            return False
+        except Exception:
+            return False
+        finally:
+            if mounted:
+                subprocess.run(["sudo", "umount", check_mount], capture_output=True, text=True)
+            subprocess.run(["sudo", "rmdir", check_mount], capture_output=True, text=True)
+
     def do_partition(self, buf):
         boot_path = f"/dev/{self.boot_disk}"
         data_path = f"/dev/{self.data_disk}" if self.data_disk else None
+        self.data_drive_has_timechain = False
+
+        if data_path:
+            self.data_drive_has_timechain = self.detect_existing_timechain_data(data_path, buf)
 
         # ── Wipe disk(s) ──
         GLib.idle_add(append_text, buf, "=== Wiping disk(s) ===\n")
@@ -785,12 +854,12 @@ class InstallerWindow(Adw.ApplicationWindow):
         run_stream(["sudo", "sgdisk", "--zap-all", boot_path], buf)
         run_stream(["sudo", "wipefs", "--all", "--force", boot_path], buf)
 
-        if data_path:
+        if data_path and not self.data_drive_has_timechain:
             run_stream(["sudo", "sgdisk", "--zap-all", data_path], buf)
             run_stream(["sudo", "wipefs", "--all", "--force", data_path], buf)
 
         run_stream(["sudo", "partprobe", boot_path], buf)
-        if data_path:
+        if data_path and not self.data_drive_has_timechain:
             run_stream(["sudo", "partprobe", data_path], buf)
 
         time.sleep(2)
@@ -806,7 +875,7 @@ class InstallerWindow(Adw.ApplicationWindow):
         time.sleep(2)
 
         # ── Partition data disk (if selected) ──
-        if data_path:
+        if data_path and not self.data_drive_has_timechain:
             GLib.idle_add(append_text, buf, "\n=== Partitioning data disk ===\n")
             run_stream(["sudo", "sgdisk",
                         "-n", "1:1M:0", "-t", "1:8300", "-c", "1:primary",
@@ -817,14 +886,14 @@ class InstallerWindow(Adw.ApplicationWindow):
 
         # ── Format partitions ──
         GLib.idle_add(append_text, buf, "\n=== Formatting partitions ===\n")
-        boot_p1 = f"{boot_path}p1" if "nvme" in boot_path else f"{boot_path}1"
-        boot_p2 = f"{boot_path}p2" if "nvme" in boot_path else f"{boot_path}2"
+        boot_p1 = self.partition_path(boot_path, 1)
+        boot_p2 = self.partition_path(boot_path, 2)
 
         run_stream(["sudo", "mkfs.vfat", "-F", "32", boot_p1], buf)
         run_stream(["sudo", "mkfs.ext4", "-F", "-L", "sovran_systemsos", boot_p2], buf)
 
-        if data_path:
-            data_p1 = f"{data_path}p1" if "nvme" in data_path else f"{data_path}1"
+        if data_path and not self.data_drive_has_timechain:
+            data_p1 = self.partition_path(data_path, 1)
             run_stream(["sudo", "mkfs.ext4", "-F", "-L", "BTCEcoandBackup", data_p1], buf)
 
         # ── Mount filesystems ──
@@ -834,7 +903,7 @@ class InstallerWindow(Adw.ApplicationWindow):
         run_stream(["sudo", "mount", "-o", "umask=0077,defaults", boot_p1, "/mnt/boot/efi"], buf)
 
         if data_path:
-            data_p1 = f"{data_path}p1" if "nvme" in data_path else f"{data_path}1"
+            data_p1 = self.partition_path(data_path, 1)
             run_stream(["sudo", "mkdir", "-p", "/mnt/run/media/Second_Drive"], buf)
             run_stream(["sudo", "mount", data_p1, "/mnt/run/media/Second_Drive"], buf)
             run_stream(["sudo", "mkdir", "-p", "/mnt/run/media/Second_Drive/BTCEcoandBackup/Bitcoin_Node"], buf)
