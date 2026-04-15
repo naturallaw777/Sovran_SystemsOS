@@ -81,6 +81,11 @@ lib.mkIf config.sovran_systemsOS.services.nextcloud {
       DB_HOST="localhost"
       ADMIN_USER=$(pwgen -s 16 1)
       ADMIN_PASS=$(pwgen -s 24 1)
+      SERVER_ID=$(head -c 16 /dev/urandom | od -An -tx1 | tr -d ' \n')
+      if [ -z "$SERVER_ID" ]; then
+          echo "Failed to generate Nextcloud server_id"
+          exit 1
+      fi
 
       echo "══════════════════════════════════════════════"
       echo "  Nextcloud Automated Installation"
@@ -134,13 +139,33 @@ lib.mkIf config.sovran_systemsOS.services.nextcloud {
       /run/wrappers/bin/su -s /bin/sh caddy -c "
         php $INSTALL_DIR/occ config:system:set trusted_domains 0 --value='$DOMAIN'
         php $INSTALL_DIR/occ config:system:set overwrite.cli.url --value='https://$DOMAIN'
+        php $INSTALL_DIR/occ config:system:set overwritehost --value='$DOMAIN'
         php $INSTALL_DIR/occ config:system:set overwriteprotocol --value='https'
       "
 
       /run/wrappers/bin/su -s /bin/sh caddy -c "
+        php $INSTALL_DIR/occ config:system:set trusted_proxies 0 --value='127.0.0.1'
+        php $INSTALL_DIR/occ config:system:set trusted_proxies 1 --value='::1'
+        php $INSTALL_DIR/occ config:system:set forwarded_for_headers 0 --value='HTTP_X_FORWARDED_FOR'
         php $INSTALL_DIR/occ config:system:set default_phone_region --value='US'
+        php $INSTALL_DIR/occ config:system:set maintenance_window_start --type=integer --value=1
         php $INSTALL_DIR/occ config:system:set memcache.local --value='\OC\Memcache\APCu'
+        php $INSTALL_DIR/occ config:system:set memcache.locking --value='\OC\Memcache\APCu'
+        php $INSTALL_DIR/occ config:system:set server_id --value='$SERVER_ID'
         php $INSTALL_DIR/occ background:cron
+      "
+
+      /run/wrappers/bin/su -s /bin/sh caddy -c "
+        php $INSTALL_DIR/occ integrity:check-core
+        php $INSTALL_DIR/occ maintenance:repair
+        php $INSTALL_DIR/occ db:add-missing-indices
+        php $INSTALL_DIR/occ db:add-missing-columns
+        php $INSTALL_DIR/occ db:add-missing-primary-keys
+        php $INSTALL_DIR/occ maintenance:repair --include-expensive
+        # AppAPI deploy daemon warnings are avoided by disabling app_api when present.
+        if php $INSTALL_DIR/occ app:info app_api >/dev/null 2>&1; then
+          php $INSTALL_DIR/occ app:disable app_api
+        fi
       "
 
       /run/wrappers/bin/su -s /bin/sh caddy -c "
@@ -183,6 +208,10 @@ CREDS
     "d /var/lib/www/nextcloud 0750 caddy php -"
     "d /var/lib/nextcloud 0770 caddy php -"
   ];
+
+  services.phpfpm.pools.mypool.phpOptions = lib.mkAfter ''
+    output_buffering = 0
+  '';
 
   environment.systemPackages = with pkgs; [ unzip ];
   
