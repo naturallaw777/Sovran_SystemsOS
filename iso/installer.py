@@ -699,7 +699,7 @@ class InstallerWindow(Adw.ApplicationWindow):
             disk_group.add(data_row)
             if self.data_drive_has_timechain:
                 note_row = Adw.ActionRow()
-                note_row.set_title(f"✓ Existing Bitcoin timechain detected on /dev/{self.data_disk}")
+                note_row.set_title(f"Existing Bitcoin timechain detected on /dev/{self.data_disk}")
                 note_row.set_subtitle("Data will be preserved and mounted as-is.")
                 note_row.add_prefix(symbolic_icon("emblem-ok-symbolic"))
                 disk_group.add(note_row)
@@ -808,7 +808,8 @@ class InstallerWindow(Adw.ApplicationWindow):
         ):
             proc = subprocess.run(cmd, capture_output=True, text=True)
             if proc.returncode == 0:
-                label = proc.stdout.strip().splitlines()[0] if proc.stdout.strip() else ""
+                stdout = proc.stdout.strip()
+                label = stdout.splitlines()[0] if stdout else ""
                 if label:
                     break
 
