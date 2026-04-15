@@ -403,7 +403,8 @@ function handleFeatureToggle(feat, newEnabled) {
           openPortRequirementsModal(feat.name, closedPorts, proceedAfterPortCheck);
         }
       })
-      .catch(function() {
+      .catch(function(err) {
+        console.warn("Failed to fetch port status for feature enable flow:", err);
         // Safe fallback if status check fails
         openPortRequirementsModal(feat.name, ports, proceedAfterPortCheck);
       });
