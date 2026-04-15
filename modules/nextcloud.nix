@@ -146,7 +146,7 @@ lib.mkIf config.sovran_systemsOS.services.nextcloud {
         php $INSTALL_DIR/occ config:system:set maintenance_window_start --type=integer --value=1
         php $INSTALL_DIR/occ config:system:set memcache.local --value='\OC\Memcache\APCu'
         php $INSTALL_DIR/occ config:system:set memcache.locking --value='\OC\Memcache\APCu'
-        php $INSTALL_DIR/occ config:system:set server_id --value=\"\$(head -c 16 /dev/urandom | od -An -tx1 | tr -d ' \n' | head -c 32)\"
+        php $INSTALL_DIR/occ config:system:set server_id --value=\"\$(head -c 16 /dev/urandom | od -An -tx1 | tr -d ' \n')\"
         php $INSTALL_DIR/occ background:cron
       "
 
@@ -157,7 +157,7 @@ lib.mkIf config.sovran_systemsOS.services.nextcloud {
         php $INSTALL_DIR/occ db:add-missing-columns
         php $INSTALL_DIR/occ db:add-missing-primary-keys
         php $INSTALL_DIR/occ maintenance:repair --include-expensive
-        php $INSTALL_DIR/occ app:disable app_api || true
+        php $INSTALL_DIR/occ app:info app_api >/dev/null 2>&1 && php $INSTALL_DIR/occ app:disable app_api || true
       "
 
       /run/wrappers/bin/su -s /bin/sh caddy -c "
