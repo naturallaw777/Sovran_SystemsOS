@@ -77,8 +77,6 @@ NJALLA_SCRIPT     = "/var/lib/njalla/njalla.sh"
 INTERNAL_IP_FILE = "/var/lib/secrets/internal-ip"
 ZEUS_CONNECT_FILE = "/var/lib/secrets/zeus-connect-url"
 
-REBOOT_UNIT = "sovran-hub-reboot.service"
-
 ONBOARDING_FLAG = "/var/lib/sovran/onboarding-complete"
 AUTOLAUNCH_DISABLE_FLAG = "/var/lib/sovran/hub-autolaunch-disabled"
 
@@ -2054,7 +2052,7 @@ async def api_upgrade_to_server():
     # and ports first via the onboarding wizard. Reboot so onboarding runs.
     try:
         proc = await asyncio.create_subprocess_exec(
-            "/run/current-system/sw/bin/systemctl", "start", "--no-block", REBOOT_UNIT,
+            "/run/current-system/sw/bin/reboot",
             stdout=asyncio.subprocess.DEVNULL,
             stderr=asyncio.subprocess.DEVNULL,
         )
@@ -2887,7 +2885,7 @@ async def api_ping():
 async def api_reboot():
     try:
         proc = await asyncio.create_subprocess_exec(
-            "/run/current-system/sw/bin/systemctl", "start", "--no-block", REBOOT_UNIT,
+            "/run/current-system/sw/bin/reboot",
             stdout=asyncio.subprocess.DEVNULL,
             stderr=asyncio.subprocess.DEVNULL,
         )
