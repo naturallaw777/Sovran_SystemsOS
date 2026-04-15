@@ -97,7 +97,7 @@ lib.mkIf config.sovran_systemsOS.services.nextcloud {
           curl -L -o "$TEMP_DIR/nextcloud.zip" "https://download.nextcloud.com/server/releases/latest.zip"
           unzip -q "$TEMP_DIR/nextcloud.zip" -d "$TEMP_DIR"
           mkdir -p "$INSTALL_DIR"
-          cp -a "$TEMP_DIR/nextcloud/"* "$INSTALL_DIR/"
+          cp -a "$TEMP_DIR/nextcloud/." "$INSTALL_DIR/"
           rm -rf "$TEMP_DIR"
           echo "Download complete."
       fi
