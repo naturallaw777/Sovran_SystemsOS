@@ -4401,6 +4401,7 @@ async def _background_domain_reachability_checker():
                     continue
 
             if domains_to_check:
+                # Preserve domain order while removing duplicates.
                 unique_domains = list(dict.fromkeys(domains_to_check))
                 results = await asyncio.gather(*[
                     loop.run_in_executor(None, _check_domain_reachable, domain)
@@ -4412,6 +4413,8 @@ async def _background_domain_reachability_checker():
                         result["checked_at"] = checked_at
                         _domain_reachability_cache[domain] = result
             consecutive_failures = 0
+        except asyncio.CancelledError:
+            raise
         except Exception:
             consecutive_failures += 1
             logger.exception("Background domain reachability checker error")
