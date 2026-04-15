@@ -29,7 +29,12 @@ let
     BG_DIR="/run/current-system/sw/share/backgrounds/sovran"
     ULTRAWIDE="$BG_DIR/sovran-ultrawide.png"
 
-    if [ ! -f "$WALLPAPER_STAMP" ] || [ "$(cat "$WALLPAPER_STAMP")" != "$WALLPAPER_VERSION" ]; then
+    CURRENT_WALLPAPER_VERSION=""
+    if [ -r "$WALLPAPER_STAMP" ]; then
+      read -r CURRENT_WALLPAPER_VERSION < "$WALLPAPER_STAMP"
+    fi
+
+    if [ "$CURRENT_WALLPAPER_VERSION" != "$WALLPAPER_VERSION" ]; then
       if [ -f "$ULTRAWIDE" ]; then
         ${pkgs.dconf}/bin/dconf write /org/gnome/desktop/background/picture-uri "'file://$ULTRAWIDE'"
         ${pkgs.dconf}/bin/dconf write /org/gnome/desktop/background/picture-uri-dark "'file://$ULTRAWIDE'"
