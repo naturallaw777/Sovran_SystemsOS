@@ -73,7 +73,7 @@ lib.mkIf config.sovran_systemsOS.services.nextcloud {
       set -euo pipefail
 
       INSTALL_DIR="/var/lib/www/nextcloud"
-      DATA_DIR="/var/lib/www/nextcloud-data"
+      DATA_DIR="/var/lib/nextcloud"
       DOMAIN=$(cat /var/lib/domains/nextcloud)
       DB_NAME="nextclouddb"
       DB_USER="ncusr"
@@ -97,15 +97,17 @@ lib.mkIf config.sovran_systemsOS.services.nextcloud {
           echo "Download complete."
       fi
 
-      mkdir -p "$DATA_DIR"
-
-      chown -R caddy:root "$INSTALL_DIR"
-      chown -R caddy:root "$DATA_DIR"
+      chown -R caddy:php "$INSTALL_DIR"
       find "$INSTALL_DIR" -type d -exec chmod 750 {} \;
       find "$INSTALL_DIR" -type f -exec chmod 640 {} \;
       chmod -R 770 "$INSTALL_DIR/apps"
       chmod -R 770 "$INSTALL_DIR/config"
-      chmod -R 770 "$DATA_DIR"
+
+      if [ ! -d "$DATA_DIR" ]; then
+          mkdir -p "$DATA_DIR"
+          chown -R caddy:php "$DATA_DIR"
+          chmod -R 770 "$DATA_DIR"
+      fi
 
       echo "Waiting for PostgreSQL..."
       for i in $(seq 1 30); do
@@ -177,9 +179,9 @@ CREDS
   ];
 
   systemd.tmpfiles.rules = [
-    "d /var/lib/www 0755 caddy root -"
-    "d /var/lib/www/nextcloud 0750 caddy root -"
-    "d /var/lib/www/nextcloud-data 0770 caddy root -"
+    "d /var/lib/www 0755 caddy php -"
+    "d /var/lib/www/nextcloud 0750 caddy php -"
+    "d /var/lib/nextcloud 0770 caddy php -"
   ];
 
   environment.systemPackages = with pkgs; [ unzip ];
