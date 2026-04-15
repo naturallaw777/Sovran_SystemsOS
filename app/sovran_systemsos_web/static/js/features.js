@@ -132,6 +132,84 @@ function openDomainSetupModal(feat, onSaved) {
   $domainSetupModal.classList.add("open");
 }
 
+function openDomainReconfigureModal(feat, existingDomain, onSaved) {
+  if (!$domainSetupModal) return;
+  if ($domainSetupTitle) $domainSetupTitle.textContent = "🔄 Reconfigure Domain — " + feat.name;
+
+  var npubField = "";
+  if (feat.id === "haven") {
+    var currentNpub = "";
+    if (feat.extra_fields && feat.extra_fields.length > 0) {
+      for (var i = 0; i < feat.extra_fields.length; i++) {
+        if (feat.extra_fields[i].id === "nostr_npub") {
+          currentNpub = feat.extra_fields[i].current_value || "";
+          break;
+        }
+      }
+    }
+    npubField = '<div class="domain-field-group"><label class="domain-field-label" for="domain-npub-input">Nostr Public Key (npub1...):</label><input class="domain-field-input" type="text" id="domain-npub-input" placeholder="npub1..." value="' + escHtml(currentNpub) + '" /></div>';
+  }
+
+  var externalIp = _cachedExternalIp || "your external IP";
+  var currentDomain = existingDomain || "";
+
+  $domainSetupBody.innerHTML =
+    '<div class="domain-setup-intro">' +
+    '<p>Your domain <strong>' + escHtml(currentDomain || "this domain") + '</strong> is configured but isn\'t resolving correctly.</p>' +
+    '<p><strong>Troubleshooting steps:</strong></p>' +
+    '<ol>' +
+    '<li>Log into your Njal.la dashboard at <a href="https://njal.la" target="_blank" rel="noopener noreferrer" style="color:var(--accent-color);">https://njal.la</a></li>' +
+    '<li>Find the DNS record for <strong>' + escHtml(currentDomain || "your domain") + '</strong></li>' +
+    '<li>Verify it has a <strong>Dynamic</strong> record pointing to your current external IP:<br>' +
+    '<span style="display:inline-block;margin-top:4px;padding:4px 10px;background:var(--card-color);border:1px solid var(--border-color);border-radius:6px;font-family:monospace;font-size:1em;font-weight:700;">' + escHtml(externalIp) + '</span></li>' +
+    '<li>If the IP is wrong or the record is missing, update it</li>' +
+    '<li>If you changed the DDNS curl command, paste the updated one below</li>' +
+    '</ol>' +
+    '</div>' +
+    '<div class="domain-field-group"><label class="domain-field-label" for="domain-subdomain-input">Subdomain (e.g. myservice.example.com):</label><input class="domain-field-input" type="text" id="domain-subdomain-input" placeholder="myservice.example.com" value="' + escHtml(currentDomain) + '" /></div>' +
+    '<div class="domain-field-group"><label class="domain-field-label" for="domain-ddns-input">Njal.la Dynamic DNS Update Command:</label><input class="domain-field-input" type="text" id="domain-ddns-input" placeholder="curl &quot;https://njal.la/update/?h=myservice.example.com&amp;k=abc123&amp;auto&quot;" /><p class="domain-field-hint">ℹ Paste the full curl command from your Njal.la dashboard\'s Dynamic record</p></div>' +
+    npubField +
+    '<div class="domain-field-actions"><button class="btn btn-close-modal" id="domain-setup-cancel-btn">Cancel</button><button class="btn btn-primary" id="domain-setup-save-btn">Save &amp; Update</button></div>';
+
+  document.getElementById("domain-setup-cancel-btn").addEventListener("click", closeDomainSetupModal);
+
+  document.getElementById("domain-setup-save-btn").addEventListener("click", async function() {
+    var subdomain = (document.getElementById("domain-subdomain-input") || {}).value || "";
+    var ddnsUrl   = (document.getElementById("domain-ddns-input")     || {}).value || "";
+    var npub      = document.getElementById("domain-npub-input") ? (document.getElementById("domain-npub-input").value || "") : "";
+    subdomain = subdomain.trim();
+    ddnsUrl   = ddnsUrl.trim();
+    npub      = npub.trim();
+
+    if (!subdomain) { alert("Please enter a subdomain."); return; }
+    if (feat.id === "haven" && !npub) { alert("Please enter your Nostr public key."); return; }
+
+    var saveBtn = document.getElementById("domain-setup-save-btn");
+    saveBtn.disabled = true;
+    saveBtn.textContent = "Saving…";
+
+    try {
+      await apiFetch("/api/domains/set", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          domain_name: feat.domain_name,
+          domain: subdomain,
+          ddns_url: ddnsUrl,
+        }),
+      });
+      closeDomainSetupModal();
+      onSaved(npub);
+    } catch (err) {
+      saveBtn.disabled = false;
+      saveBtn.textContent = "Save & Update";
+      alert("Failed to save domain. Please try again.");
+    }
+  });
+
+  $domainSetupModal.classList.add("open");
+}
+
 function closeDomainSetupModal() {
   if ($domainSetupModal) $domainSetupModal.classList.remove("open");
 }
