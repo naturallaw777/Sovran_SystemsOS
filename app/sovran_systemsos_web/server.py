@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import contextlib
 import hashlib
 import hmac
 import json
@@ -60,6 +61,7 @@ _domain_reachability_cache_lock = Lock()
 _DOMAIN_REACHABILITY_TTL = 60
 _DOMAIN_REACHABILITY_STARTUP_DELAY = 5
 _domain_reachability_task: asyncio.Task | None = None
+_domain_reachability_task_lock = asyncio.Lock()
 
 BACKUP_LOG    = "/var/log/sovran-hub-backup.log"
 BACKUP_STATUS = "/var/log/sovran-hub-backup.status"
@@ -4426,5 +4428,19 @@ async def _background_domain_reachability_checker():
 async def _startup_domain_reachability():
     """Start the background domain reachability checker."""
     global _domain_reachability_task
-    if _domain_reachability_task is None or _domain_reachability_task.done():
-        _domain_reachability_task = asyncio.create_task(_background_domain_reachability_checker())
+    async with _domain_reachability_task_lock:
+        if _domain_reachability_task is None or _domain_reachability_task.done():
+            _domain_reachability_task = asyncio.create_task(_background_domain_reachability_checker())
+
+
+@app.on_event("shutdown")
+async def _shutdown_domain_reachability():
+    """Stop the background domain reachability checker."""
+    global _domain_reachability_task
+    async with _domain_reachability_task_lock:
+        task = _domain_reachability_task
+        _domain_reachability_task = None
+    if task is not None and not task.done():
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
