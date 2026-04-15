@@ -372,13 +372,45 @@ function handleFeatureToggle(feat, newEnabled) {
   }
 
   function proceedAfterConflictCheck() {
-    // Show port requirements notification if the feature has extra port needs
     var ports = feat.port_requirements || [];
-    if (ports.length > 0) {
-      openPortRequirementsModal(feat.name, ports, proceedAfterPortCheck);
-    } else {
+    if (ports.length === 0) {
       proceedAfterPortCheck();
+      return;
     }
+
+    // Check which ports are actually closed before showing the modal
+    fetch("/api/ports/status", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ports: ports }),
+    })
+      .then(function(r) {
+        if (!r.ok) throw new Error("Port status request failed: " + r.status);
+        return r.json();
+      })
+      .then(function(data) {
+        var portStatuses = {};
+        (data.ports || []).forEach(function(p) {
+          portStatuses[p.port + "/" + p.protocol] = p.status;
+        });
+
+        var closedPorts = ports.filter(function(p) {
+          var key = p.port + "/" + p.protocol;
+          var status = portStatuses[key] || "unknown";
+          return status !== "listening" && status !== "firewall_open";
+        });
+
+        if (closedPorts.length === 0) {
+          proceedAfterPortCheck();
+        } else {
+          openPortRequirementsModal(feat.name, closedPorts, proceedAfterPortCheck);
+        }
+      })
+      .catch(function(err) {
+        console.warn("Failed to fetch port status for feature enable flow:", err);
+        // Safe fallback if status check fails
+        openPortRequirementsModal(feat.name, ports, proceedAfterPortCheck);
+      });
   }
 
   if (conflictNames.length > 0) {
