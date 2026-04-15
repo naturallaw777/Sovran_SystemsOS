@@ -58,6 +58,7 @@ _cached_external_ip: str = "unavailable"
 _domain_reachability_cache: dict[str, dict] = {}
 _domain_reachability_cache_lock = Lock()
 _DOMAIN_REACHABILITY_TTL = 60
+_DOMAIN_REACHABILITY_STARTUP_DELAY = 5
 _domain_reachability_task: asyncio.Task | None = None
 
 BACKUP_LOG    = "/var/log/sovran-hub-backup.log"
@@ -4355,7 +4356,8 @@ async def _startup_recover_stale_status():
 
 async def _background_domain_reachability_checker():
     """Periodically curl configured domains and cache reachability results."""
-    await asyncio.sleep(5)
+    await asyncio.sleep(_DOMAIN_REACHABILITY_STARTUP_DELAY)
+    consecutive_failures = 0
     while True:
         try:
             cfg = load_config()
@@ -4407,8 +4409,15 @@ async def _background_domain_reachability_checker():
                     for domain, result in zip(unique_domains, results):
                         result["checked_at"] = checked_at
                         _domain_reachability_cache[domain] = result
+            consecutive_failures = 0
         except Exception:
+            consecutive_failures += 1
             logger.exception("Background domain reachability checker error")
+            if consecutive_failures >= 3:
+                logger.warning(
+                    "Background domain reachability checker has failed %d consecutive times",
+                    consecutive_failures,
+                )
 
         await asyncio.sleep(_DOMAIN_REACHABILITY_TTL)
 
