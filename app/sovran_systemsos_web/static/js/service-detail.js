@@ -296,11 +296,10 @@ async function openServiceDetailModal(unit, name, icon) {
       }
     }
 
-    // Configure Domain button (for non-feature services that need a domain)
+    // Configure / Reconfigure Domain buttons (for non-feature services that need a domain)
     var configDomainBtn = document.getElementById("svc-detail-config-domain-btn");
     var reconfigDomainBtn = document.getElementById("svc-detail-reconfig-domain-btn");
-    var domainBtn = configDomainBtn || reconfigDomainBtn;
-    if (domainBtn && data.needs_domain && data.domain_name) {
+    if ((configDomainBtn || reconfigDomainBtn) && data.needs_domain && data.domain_name) {
       var pseudoFeat = {
         id: data.domain_name,
         name: name,
@@ -308,9 +307,15 @@ async function openServiceDetailModal(unit, name, icon) {
         needs_ddns: true,
         extra_fields: []
       };
-      domainBtn.addEventListener("click", function() {
+      if (configDomainBtn) configDomainBtn.addEventListener("click", function() {
         closeCredsModal();
         openDomainSetupModal(pseudoFeat, function() {
+          openServiceDetailModal(unit, name, icon);
+        });
+      });
+      if (reconfigDomainBtn) reconfigDomainBtn.addEventListener("click", function() {
+        closeCredsModal();
+        openDomainReconfigureModal(pseudoFeat, data.domain || "", function() {
           openServiceDetailModal(unit, name, icon);
         });
       });
