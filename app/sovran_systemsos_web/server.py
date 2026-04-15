@@ -69,7 +69,7 @@ NJALLA_SCRIPT     = "/var/lib/njalla/njalla.sh"
 INTERNAL_IP_FILE = "/var/lib/secrets/internal-ip"
 ZEUS_CONNECT_FILE = "/var/lib/secrets/zeus-connect-url"
 
-REBOOT_COMMAND = ["/run/current-system/sw/bin/systemctl", "reboot"]
+REBOOT_UNIT = "sovran-hub-reboot.service"
 
 ONBOARDING_FLAG = "/var/lib/sovran/onboarding-complete"
 AUTOLAUNCH_DISABLE_FLAG = "/var/lib/sovran/hub-autolaunch-disabled"
@@ -2036,7 +2036,12 @@ async def api_upgrade_to_server():
     # Don't rebuild yet — the user needs to configure domains, SSL email,
     # and ports first via the onboarding wizard. Reboot so onboarding runs.
     try:
-        await asyncio.create_subprocess_exec(*REBOOT_COMMAND)
+        proc = await asyncio.create_subprocess_exec(
+            "/run/current-system/sw/bin/systemctl", "start", "--no-block", REBOOT_UNIT,
+            stdout=asyncio.subprocess.DEVNULL,
+            stderr=asyncio.subprocess.DEVNULL,
+        )
+        await proc.wait()
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Failed to initiate reboot: {exc}")
 
@@ -2860,7 +2865,12 @@ async def api_ping():
 @app.post("/api/reboot")
 async def api_reboot():
     try:
-        await asyncio.create_subprocess_exec(*REBOOT_COMMAND)
+        proc = await asyncio.create_subprocess_exec(
+            "/run/current-system/sw/bin/systemctl", "start", "--no-block", REBOOT_UNIT,
+            stdout=asyncio.subprocess.DEVNULL,
+            stderr=asyncio.subprocess.DEVNULL,
+        )
+        await proc.wait()
     except Exception:
         raise HTTPException(status_code=500, detail="Failed to initiate reboot")
     return {"ok": True}
