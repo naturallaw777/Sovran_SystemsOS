@@ -2422,7 +2422,37 @@ async def api_services():
                     sync_headers = sync.get("headers", 0)
                     sync_ibd = True
         elif status == "inactive":
-            health = "inactive"
+            # For enabled services that are inactive (e.g. socket-activated PHP-FPM),
+            # still check domain/port health so status remains consistent with
+            # other domain services when there are actionable issues.
+            has_domain_issues = False
+            if needs_domain:
+                has_domain_issues = await loop.run_in_executor(
+                    None,
+                    _check_domain_health_fast,
+                    domain,
+                    _cached_external_ip,
+                )
+                if not has_domain_issues and domain:
+                    cached_reachable = _is_domain_reachable_cached(domain)
+                    if cached_reachable is False:
+                        has_domain_issues = True
+            has_port_issues = False
+            if port_requirements:
+                for p in port_requirements:
+                    ps = _check_port_status(
+                        str(p.get("port", "")),
+                        str(p.get("protocol", "TCP")),
+                        listening_ports,
+                        firewall_ports,
+                    )
+                    if ps == "closed":
+                        has_port_issues = True
+                        break
+            if has_domain_issues or has_port_issues:
+                health = "needs_attention"
+            else:
+                health = "inactive"
         elif status == "failed":
             health = "failed"
         else:
@@ -2650,7 +2680,13 @@ async def api_service_detail(unit: str, icon: str | None = None):
                 sync_headers = sync.get("headers", 0)
                 sync_ibd = True
     elif status == "inactive":
-        health = "inactive"
+        # For enabled services that are inactive (e.g. socket-activated PHP-FPM),
+        # still check domain/port health so detail health is consistent.
+        has_port_issues = any(p["status"] == "closed" for p in port_statuses) if port_statuses else False
+        if has_domain_issues or has_port_issues:
+            health = "needs_attention"
+        else:
+            health = "inactive"
     elif status == "failed":
         health = "failed"
     else:
