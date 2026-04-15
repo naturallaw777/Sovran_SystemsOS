@@ -274,7 +274,9 @@ function openPortRequirementsModal(featureName, ports, onContinue) {
         ? data.internal_ip : null;
       renderPortRequirements(internalIp);
     })
-    .catch(function() {});
+    .catch(function(err) {
+      console.warn("Failed to fetch network info for port requirements modal:", err);
+    });
 }
 
 function closePortRequirementsModal() {
