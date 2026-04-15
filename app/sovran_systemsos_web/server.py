@@ -69,7 +69,7 @@ NJALLA_SCRIPT     = "/var/lib/njalla/njalla.sh"
 INTERNAL_IP_FILE = "/var/lib/secrets/internal-ip"
 ZEUS_CONNECT_FILE = "/var/lib/secrets/zeus-connect-url"
 
-REBOOT_COMMAND = ["reboot"]
+REBOOT_COMMAND = ["/run/current-system/sw/bin/systemctl", "reboot"]
 
 ONBOARDING_FLAG = "/var/lib/sovran/onboarding-complete"
 AUTOLAUNCH_DISABLE_FLAG = "/var/lib/sovran/hub-autolaunch-disabled"
