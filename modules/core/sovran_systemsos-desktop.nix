@@ -22,6 +22,28 @@ let
     STAMP="$HOME/.config/sovran-theme-applied"
     USER_DB="$HOME/.config/dconf/user"
 
+    # ── Always apply wallpaper on version change ──
+    WALLPAPER_VERSION="${customWallpaper.version}"
+    WALLPAPER_STAMP="$HOME/.config/sovran-wallpaper-version"
+
+    BG_DIR="/run/current-system/sw/share/backgrounds/sovran"
+    ULTRAWIDE="$BG_DIR/sovran-ultrawide.png"
+
+    CURRENT_WALLPAPER_VERSION=""
+    if [ -r "$WALLPAPER_STAMP" ]; then
+      read -r CURRENT_WALLPAPER_VERSION < "$WALLPAPER_STAMP"
+    fi
+
+    if [ "$CURRENT_WALLPAPER_VERSION" != "$WALLPAPER_VERSION" ]; then
+      if [ -f "$ULTRAWIDE" ]; then
+        ${pkgs.dconf}/bin/dconf write /org/gnome/desktop/background/picture-uri "'file://$ULTRAWIDE'"
+        ${pkgs.dconf}/bin/dconf write /org/gnome/desktop/background/picture-uri-dark "'file://$ULTRAWIDE'"
+        ${pkgs.dconf}/bin/dconf write /org/gnome/desktop/background/picture-options "'zoom'"
+        mkdir -p "$(dirname "$WALLPAPER_STAMP")"
+        echo "$WALLPAPER_VERSION" > "$WALLPAPER_STAMP"
+      fi
+    fi
+
     # Already applied — skip
     if [ -f "$STAMP" ]; then
       exit 0
@@ -36,19 +58,7 @@ let
 
     # Fresh install — no user-db exists yet, apply full Sovran theme below
 
-    BG_DIR="/run/current-system/sw/share/backgrounds/sovran"
-    ULTRAWIDE="$BG_DIR/sovran-ultrawide.png"
-
-    CHOSEN="$ULTRAWIDE"
-
     ${pkgs.dconf}/bin/dconf load / << EOF
-[org/gnome/desktop/background]
-picture-uri='file://$CHOSEN'
-picture-uri-dark='file://$CHOSEN'
-picture-options='zoom'
-primary-color='#000000'
-secondary-color='#000000'
-
 [org/gnome/desktop/interface]
 color-scheme='prefer-dark'
 enable-animations=true
