@@ -948,6 +948,28 @@ def _check_domain_reachable(domain: str) -> dict:
         return {"reachable": False, "error": str(e)}
 
 
+def _check_domain_health_fast(domain: str | None, external_ip: str) -> bool:
+    """Fast domain issue check for tile health (no curl/subprocess calls)."""
+    if not domain:
+        return True
+
+    resolved_ip: str | None = None
+    try:
+        results = socket.getaddrinfo(domain, None)
+        if results:
+            resolved_ip = results[0][4][0]
+    except socket.gaierror:
+        resolved_ip = None
+    except Exception:
+        resolved_ip = None
+
+    if not resolved_ip:
+        return True
+    if external_ip == "unavailable":
+        return False
+    return resolved_ip != external_ip
+
+
 def _evaluate_domain_checklist(domain: str | None, external_ip: str, internal_ip: str | None = None) -> dict:
     """Evaluate sequential domain diagnostics and return UI-ready checklist data."""
     steps: list[dict] = []
@@ -2358,14 +2380,12 @@ async def api_services():
                         break
             has_domain_issues = False
             if needs_domain:
-                domain_eval = await loop.run_in_executor(
+                has_domain_issues = await loop.run_in_executor(
                     None,
-                    _evaluate_domain_checklist,
+                    _check_domain_health_fast,
                     domain,
                     _cached_external_ip,
-                    None,
                 )
-                has_domain_issues = bool(domain_eval.get("has_issues"))
             health = "needs_attention" if (has_port_issues or has_domain_issues) else "healthy"
             # Check Bitcoin IBD state
             if unit == "bitcoind.service" and enabled:
