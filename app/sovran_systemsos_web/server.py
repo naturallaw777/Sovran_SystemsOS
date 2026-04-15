@@ -2409,17 +2409,7 @@ async def api_services():
                     if ps == "closed":
                         has_port_issues = True
                         break
-            has_domain_issues = False
-            if needs_domain:
-                has_domain_issues = await loop.run_in_executor(
-                    None,
-                    _check_domain_health_fast,
-                    domain,
-                    _cached_external_ip,
-                )
-                if not has_domain_issues and domain:
-                    if cached_reachable is False:
-                        has_domain_issues = True
+            has_domain_issues = bool(needs_domain and domain and cached_reachable is False)
             if has_port_issues or has_domain_issues:
                 health = "needs_attention"
             else:
@@ -2440,17 +2430,7 @@ async def api_services():
             # For enabled services that are inactive (e.g. socket-activated PHP-FPM),
             # still check domain/port health so status remains consistent with
             # other domain services when there are actionable issues.
-            has_domain_issues = False
-            if needs_domain:
-                has_domain_issues = await loop.run_in_executor(
-                    None,
-                    _check_domain_health_fast,
-                    domain,
-                    _cached_external_ip,
-                )
-                if not has_domain_issues and domain:
-                    if cached_reachable is False:
-                        has_domain_issues = True
+            has_domain_issues = bool(needs_domain and domain and cached_reachable is False)
             has_port_issues = False
             if port_requirements:
                 for p in port_requirements:
