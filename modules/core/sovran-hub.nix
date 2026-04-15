@@ -352,6 +352,7 @@ in
 
       path = [
         pkgs.qrencode
+        pkgs.curl
         pkgs.iproute2
         pkgs.nftables
         pkgs.iptables
