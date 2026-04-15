@@ -222,13 +222,13 @@ function openPortRequirementsModal(featureName, ports, onContinue) {
   var continueBtn = onContinue
     ? '<button class="btn btn-primary" id="port-req-continue-btn">I Understand — Continue</button>'
     : '';
-  var rows = ports.map(function(p) {
-    return '<tr><td class="port-req-port">' + escHtml(p.port) + '</td>' +
-      '<td class="port-req-proto">' + escHtml(p.protocol) + '</td>' +
-      '<td class="port-req-desc">' + escHtml(p.description) + '</td></tr>';
-  }).join("");
 
   function renderPortRequirements(internalIp) {
+    var rows = ports.map(function(p) {
+      return '<tr><td class="port-req-port">' + escHtml(p.port) + '</td>' +
+        '<td class="port-req-proto">' + escHtml(p.protocol) + '</td>' +
+        '<td class="port-req-desc">' + escHtml(p.description) + '</td></tr>';
+    }).join("");
     var ipLine = internalIp
       ? '<p class="port-req-intro">Forward each port below <strong>to this machine\'s internal IP: <code class="port-req-internal-ip">' + escHtml(internalIp) + '</code></strong></p>'
       : "<p class=\"port-req-intro\">Forward each port below to this machine's internal LAN IP in your router's port forwarding settings.</p>";
@@ -251,15 +251,15 @@ function openPortRequirementsModal(featureName, ports, onContinue) {
       continueBtn +
       '</div>';
 
-    document.getElementById("port-req-dismiss-btn").addEventListener("click", function() {
+    document.getElementById("port-req-dismiss-btn").onclick = function() {
       closePortRequirementsModal();
-    });
+    };
 
     if (onContinue) {
-      document.getElementById("port-req-continue-btn").addEventListener("click", function() {
+      document.getElementById("port-req-continue-btn").onclick = function() {
         closePortRequirementsModal();
         onContinue();
-      });
+      };
     }
   }
 
