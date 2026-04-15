@@ -380,6 +380,14 @@ in
       };
     };
 
+    systemd.services.sovran-hub-reboot = {
+      description = "Sovran_SystemsOS System Reboot";
+      serviceConfig = {
+        Type      = "oneshot";
+        ExecStart = "/run/current-system/sw/bin/systemctl --force reboot";
+      };
+    };
+
     environment.systemPackages = [ sovran-hub-web ];
 
     networking.firewall.allowedTCPPorts = [ 8937 60847 ];
