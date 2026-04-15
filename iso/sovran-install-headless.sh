@@ -108,7 +108,7 @@ if [[ -n "$DATA_DISK" ]]; then
     DATA_P1=$(part_suffix "$DATA_DISK" 1)
     if [[ -b "$DATA_P1" ]]; then
         DATA_LABEL=$(lsblk -no LABEL "$DATA_P1" 2>/dev/null | head -n1 || true)
-        if [[ "$DATA_LABEL" != "BTCEcoandBackup" ]]; then
+        if [[ -z "$DATA_LABEL" ]]; then
             DATA_LABEL=$(blkid -o value -s LABEL "$DATA_P1" 2>/dev/null || true)
         fi
 
