@@ -20,6 +20,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from threading import Lock
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
@@ -54,6 +55,10 @@ REBUILD_UNIT   = "sovran-hub-rebuild.service"
 # even when the frontend's offset is pointing past the pre-restart content.
 _update_recovery_happened: bool = False
 _cached_external_ip: str = "unavailable"
+_domain_reachability_cache: dict[str, dict] = {}
+_domain_reachability_cache_lock = Lock()
+_DOMAIN_REACHABILITY_TTL = 60
+_domain_reachability_task: asyncio.Task | None = None
 
 BACKUP_LOG    = "/var/log/sovran-hub-backup.log"
 BACKUP_STATUS = "/var/log/sovran-hub-backup.status"
@@ -968,6 +973,15 @@ def _check_domain_health_fast(domain: str | None, external_ip: str) -> bool:
     if external_ip == "unavailable":
         return False
     return resolved_ip != external_ip
+
+
+def _is_domain_reachable_cached(domain: str) -> bool | None:
+    """Return cached reachability, or ``None`` if not yet checked."""
+    with _domain_reachability_cache_lock:
+        entry = _domain_reachability_cache.get(domain)
+    if entry is None:
+        return None
+    return bool(entry.get("reachable", False))
 
 
 def _evaluate_domain_checklist(domain: str | None, external_ip: str, internal_ip: str | None = None) -> dict:
@@ -2391,6 +2405,10 @@ async def api_services():
                     domain,
                     _cached_external_ip,
                 )
+                if not has_domain_issues and domain:
+                    cached_reachable = _is_domain_reachable_cached(domain)
+                    if cached_reachable is False:
+                        has_domain_issues = True
             health = "needs_attention" if (has_port_issues or has_domain_issues) else "healthy"
             # Check Bitcoin IBD state
             if unit == "bitcoind.service" and enabled:
@@ -4333,3 +4351,71 @@ async def _startup_recover_stale_status():
     if corrected:
         _update_recovery_happened = True
     await loop.run_in_executor(None, _recover_stale_status, REBUILD_STATUS, REBUILD_LOG, REBUILD_UNIT)
+
+
+async def _background_domain_reachability_checker():
+    """Periodically curl configured domains and cache reachability results."""
+    await asyncio.sleep(5)
+    while True:
+        try:
+            cfg = load_config()
+            services = cfg.get("services", [])
+
+            unit_to_feature = {
+                unit: feat_id
+                for feat_id, unit in FEATURE_SERVICE_MAP.items()
+                if unit is not None
+            }
+
+            loop = asyncio.get_event_loop()
+            overrides, *_ = await loop.run_in_executor(None, _read_hub_overrides)
+
+            domains_to_check: list[str] = []
+            for entry in services:
+                unit = entry.get("unit", "")
+                icon = entry.get("icon", "")
+                enabled = entry.get("enabled", True)
+
+                feat_id = unit_to_feature.get(unit)
+                if feat_id is None:
+                    feat_id = FEATURE_ICON_MAP.get(icon)
+                if feat_id is not None and feat_id in overrides:
+                    enabled = overrides[feat_id]
+                if not enabled:
+                    continue
+
+                domain_key = SERVICE_DOMAIN_MAP.get(unit)
+                if not domain_key:
+                    continue
+                domain_path = os.path.join(DOMAINS_DIR, domain_key)
+                try:
+                    with open(domain_path, "r") as f:
+                        domain = f.read(512).strip()
+                    if domain:
+                        domains_to_check.append(domain)
+                except OSError:
+                    continue
+
+            if domains_to_check:
+                unique_domains = list(dict.fromkeys(domains_to_check))
+                results = await asyncio.gather(*[
+                    loop.run_in_executor(None, _check_domain_reachable, domain)
+                    for domain in unique_domains
+                ])
+                checked_at = time.time()
+                with _domain_reachability_cache_lock:
+                    for domain, result in zip(unique_domains, results):
+                        result["checked_at"] = checked_at
+                        _domain_reachability_cache[domain] = result
+        except Exception:
+            logger.exception("Background domain reachability checker error")
+
+        await asyncio.sleep(_DOMAIN_REACHABILITY_TTL)
+
+
+@app.on_event("startup")
+async def _startup_domain_reachability():
+    """Start the background domain reachability checker."""
+    global _domain_reachability_task
+    if _domain_reachability_task is None or _domain_reachability_task.done():
+        _domain_reachability_task = asyncio.create_task(_background_domain_reachability_checker())
