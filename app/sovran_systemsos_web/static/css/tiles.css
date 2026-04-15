@@ -95,6 +95,7 @@
 .status-dot.disabled       { background-color: var(--grey); }
 .status-dot.needs-attention { background-color: var(--yellow); }
 .status-dot.syncing        { background-color: #f5a623; animation: pulse-badge 1.5s infinite; }
+.status-dot.checking-reachability { background-color: var(--accent-color); animation: pulse-badge 1s infinite; }
 
 /* ── Bitcoin IBD sync progress bar ──────────────────────────────── */
 

@@ -14,6 +14,7 @@ function statusClass(health) {
   if (health === "disabled")        return "disabled";
   if (health === "syncing")         return "syncing";
   if (STATUS_LOADING_STATES.has(health)) return "loading";
+  if (health === "checking_reachability") return "checking-reachability";
   return "unknown";
 }
 
@@ -27,6 +28,7 @@ function statusText(health, enabled) {
   if (health === "syncing")         return "Syncing\u2026";
   if (!health || health === "unknown") return "Unknown";
   if (STATUS_LOADING_STATES.has(health)) return health;
+  if (health === "checking_reachability") return "Checking\u2026";
   return health;
 }
 
