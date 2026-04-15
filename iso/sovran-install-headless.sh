@@ -24,6 +24,7 @@ ROLE="server"
 DEPLOY_KEY=""
 HEADSCALE_SERVER=""
 HEADSCALE_KEY=""
+DATA_DISK_HAS_TIMECHAIN=false
 
 FLAKE="/etc/sovran/flake"
 LOG="/tmp/sovran-headless-install.log"
@@ -102,19 +103,42 @@ part_suffix() {
     fi
 }
 
+# ── Detect existing Bitcoin timechain data on data disk ───────────────────────
+if [[ -n "$DATA_DISK" ]]; then
+    DATA_P1=$(part_suffix "$DATA_DISK" 1)
+    if [[ -b "$DATA_P1" ]]; then
+        DATA_LABEL=$(lsblk -no LABEL "$DATA_P1" 2>/dev/null | head -n1 || true)
+        if [[ "$DATA_LABEL" != "BTCEcoandBackup" ]]; then
+            DATA_LABEL=$(blkid -o value -s LABEL "$DATA_P1" 2>/dev/null || true)
+        fi
+
+        if [[ "$DATA_LABEL" == "BTCEcoandBackup" ]]; then
+            CHECK_MOUNT=$(mktemp -d /tmp/sovran-data-check.XXXXXX)
+            if mount -o ro "$DATA_P1" "$CHECK_MOUNT" 2>/dev/null; then
+                if [[ -d "$CHECK_MOUNT/BTCEcoandBackup/Bitcoin_Node" && -d "$CHECK_MOUNT/BTCEcoandBackup/Electrs_Data" ]]; then
+                    DATA_DISK_HAS_TIMECHAIN=true
+                    log "Existing Bitcoin timechain detected on data drive — preserving data"
+                fi
+                umount "$CHECK_MOUNT" || true
+            fi
+            rmdir "$CHECK_MOUNT" 2>/dev/null || true
+        fi
+    fi
+fi
+
 # ── Step 1: Wipe disks ────────────────────────────────────────────────────────
 log "=== Wiping disk(s) ==="
 
 sgdisk --zap-all "$DISK"
 wipefs --all --force "$DISK"
 
-if [[ -n "$DATA_DISK" ]]; then
+if [[ -n "$DATA_DISK" && "$DATA_DISK_HAS_TIMECHAIN" != true ]]; then
     sgdisk --zap-all "$DATA_DISK"
     wipefs --all --force "$DATA_DISK"
 fi
 
 partprobe "$DISK"
-[[ -n "$DATA_DISK" ]] && partprobe "$DATA_DISK"
+[[ -n "$DATA_DISK" && "$DATA_DISK_HAS_TIMECHAIN" != true ]] && partprobe "$DATA_DISK"
 sleep 2
 
 # ── Step 2: Partition OS disk ─────────────────────────────────────────────────
@@ -129,7 +153,7 @@ partprobe "$DISK"
 sleep 2
 
 # ── Step 3: Partition data disk (if present) ──────────────────────────────────
-if [[ -n "$DATA_DISK" ]]; then
+if [[ -n "$DATA_DISK" && "$DATA_DISK_HAS_TIMECHAIN" != true ]]; then
     log "=== Partitioning data disk ==="
     sgdisk \
         -n "1:1M:0" -t "1:8300" -c "1:primary" \
@@ -147,7 +171,7 @@ BOOT_P2=$(part_suffix "$DISK" 2)
 mkfs.vfat -F 32 "$BOOT_P1"
 mkfs.ext4 -F -L sovran_systemsos "$BOOT_P2"
 
-if [[ -n "$DATA_DISK" ]]; then
+if [[ -n "$DATA_DISK" && "$DATA_DISK_HAS_TIMECHAIN" != true ]]; then
     DATA_P1=$(part_suffix "$DATA_DISK" 1)
     mkfs.ext4 -F -L BTCEcoandBackup "$DATA_P1"
 fi
