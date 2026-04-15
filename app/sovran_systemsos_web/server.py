@@ -2378,6 +2378,16 @@ async def api_services():
                     domain = val if val else None
             except OSError:
                 domain = None
+        cached_reachable: bool | None = None
+        domain_reachability = None
+        if needs_domain and domain and enabled:
+            cached_reachable = _is_domain_reachable_cached(domain)
+            if cached_reachable is None:
+                domain_reachability = "checking"
+            elif cached_reachable:
+                domain_reachability = "reachable"
+            else:
+                domain_reachability = "unreachable"
 
         # Compute composite health
         sync_progress: float | None = None
@@ -2408,10 +2418,15 @@ async def api_services():
                     _cached_external_ip,
                 )
                 if not has_domain_issues and domain:
-                    cached_reachable = _is_domain_reachable_cached(domain)
                     if cached_reachable is False:
                         has_domain_issues = True
-            health = "needs_attention" if (has_port_issues or has_domain_issues) else "healthy"
+            if has_port_issues or has_domain_issues:
+                health = "needs_attention"
+            else:
+                if needs_domain and domain:
+                    health = "checking_reachability" if cached_reachable is None else "healthy"
+                else:
+                    health = "healthy"
             # Check Bitcoin IBD state
             if unit == "bitcoind.service" and enabled:
                 sync = await loop.run_in_executor(None, _get_bitcoin_sync_info)
@@ -2434,7 +2449,6 @@ async def api_services():
                     _cached_external_ip,
                 )
                 if not has_domain_issues and domain:
-                    cached_reachable = _is_domain_reachable_cached(domain)
                     if cached_reachable is False:
                         has_domain_issues = True
             has_port_issues = False
@@ -2451,6 +2465,8 @@ async def api_services():
                         break
             if has_domain_issues or has_port_issues:
                 health = "needs_attention"
+            elif needs_domain and domain:
+                health = "checking_reachability" if cached_reachable is None else "inactive"
             else:
                 health = "inactive"
         elif status == "failed":
@@ -2471,6 +2487,7 @@ async def api_services():
             "port_requirements": port_requirements,
             "needs_domain": needs_domain,
             "domain": domain,
+            "domain_reachability": domain_reachability,
         }
         if sync_ibd is not None:
             service_data["sync_ibd"] = sync_ibd
