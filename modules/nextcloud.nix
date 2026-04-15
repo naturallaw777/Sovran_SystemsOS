@@ -82,6 +82,10 @@ lib.mkIf config.sovran_systemsOS.services.nextcloud {
       ADMIN_USER=$(pwgen -s 16 1)
       ADMIN_PASS=$(pwgen -s 24 1)
       SERVER_ID=$(head -c 16 /dev/urandom | od -An -tx1 | tr -d ' \n')
+      if [ -z "$SERVER_ID" ]; then
+          echo "Failed to generate Nextcloud server_id"
+          exit 1
+      fi
 
       echo "══════════════════════════════════════════════"
       echo "  Nextcloud Automated Installation"
@@ -158,6 +162,7 @@ lib.mkIf config.sovran_systemsOS.services.nextcloud {
         php $INSTALL_DIR/occ db:add-missing-columns
         php $INSTALL_DIR/occ db:add-missing-primary-keys
         php $INSTALL_DIR/occ maintenance:repair --include-expensive
+        # AppAPI deploy daemon warnings are avoided by disabling app_api when present.
         if php $INSTALL_DIR/occ app:info app_api >/dev/null 2>&1; then
           php $INSTALL_DIR/occ app:disable app_api
         fi
