@@ -2378,6 +2378,16 @@ async def api_services():
                     domain = val if val else None
             except OSError:
                 domain = None
+        cached_reachable: bool | None = None
+        domain_reachability = None
+        if needs_domain and domain and enabled:
+            cached_reachable = _is_domain_reachable_cached(domain)
+            if cached_reachable is None:
+                domain_reachability = "checking"
+            elif cached_reachable:
+                domain_reachability = "reachable"
+            else:
+                domain_reachability = "unreachable"
 
         # Compute composite health
         sync_progress: float | None = None
@@ -2400,7 +2410,6 @@ async def api_services():
                         has_port_issues = True
                         break
             has_domain_issues = False
-            cached_reachable: bool | None = None
             if needs_domain:
                 has_domain_issues = await loop.run_in_executor(
                     None,
@@ -2409,15 +2418,12 @@ async def api_services():
                     _cached_external_ip,
                 )
                 if not has_domain_issues and domain:
-                    cached_reachable = _is_domain_reachable_cached(domain)
                     if cached_reachable is False:
                         has_domain_issues = True
             if has_port_issues or has_domain_issues:
                 health = "needs_attention"
             else:
                 if needs_domain and domain:
-                    if cached_reachable is None:
-                        cached_reachable = _is_domain_reachable_cached(domain)
                     health = "checking_reachability" if cached_reachable is None else "healthy"
                 else:
                     health = "healthy"
@@ -2435,7 +2441,6 @@ async def api_services():
             # still check domain/port health so status remains consistent with
             # other domain services when there are actionable issues.
             has_domain_issues = False
-            cached_reachable: bool | None = None
             if needs_domain:
                 has_domain_issues = await loop.run_in_executor(
                     None,
@@ -2444,7 +2449,6 @@ async def api_services():
                     _cached_external_ip,
                 )
                 if not has_domain_issues and domain:
-                    cached_reachable = _is_domain_reachable_cached(domain)
                     if cached_reachable is False:
                         has_domain_issues = True
             has_port_issues = False
@@ -2462,8 +2466,6 @@ async def api_services():
             if has_domain_issues or has_port_issues:
                 health = "needs_attention"
             elif needs_domain and domain:
-                if cached_reachable is None:
-                    cached_reachable = _is_domain_reachable_cached(domain)
                 health = "checking_reachability" if cached_reachable is None else "inactive"
             else:
                 health = "inactive"
@@ -2471,16 +2473,6 @@ async def api_services():
             health = "failed"
         else:
             health = status  # loading states, etc.
-
-        domain_reachability = None
-        if needs_domain and domain and enabled:
-            cached = _is_domain_reachable_cached(domain)
-            if cached is None:
-                domain_reachability = "checking"
-            elif cached:
-                domain_reachability = "reachable"
-            else:
-                domain_reachability = "unreachable"
 
         service_data: dict = {
             "name": entry.get("name", ""),
