@@ -49,6 +49,7 @@ UPDATE_UNIT   = "sovran-hub-update.service"
 REBUILD_LOG    = "/var/log/sovran-hub-rebuild.log"
 REBUILD_STATUS = "/var/log/sovran-hub-rebuild.status"
 REBUILD_UNIT   = "sovran-hub-rebuild.service"
+REBOOT_UNIT    = "sovran-hub-reboot.service"
 
 # Set to True by _startup_recover_stale_status() when it corrects a stale
 # RUNNING → SUCCESS/FAILED for the update unit.  Consumed by the first call
@@ -2052,7 +2053,7 @@ async def api_upgrade_to_server():
     # and ports first via the onboarding wizard. Reboot so onboarding runs.
     try:
         proc = await asyncio.create_subprocess_exec(
-            "/run/current-system/sw/bin/reboot",
+            "/run/current-system/sw/bin/systemctl", "start", "--no-block", REBOOT_UNIT,
             stdout=asyncio.subprocess.DEVNULL,
             stderr=asyncio.subprocess.DEVNULL,
         )
@@ -2885,7 +2886,7 @@ async def api_ping():
 async def api_reboot():
     try:
         proc = await asyncio.create_subprocess_exec(
-            "/run/current-system/sw/bin/reboot",
+            "/run/current-system/sw/bin/systemctl", "start", "--no-block", REBOOT_UNIT,
             stdout=asyncio.subprocess.DEVNULL,
             stderr=asyncio.subprocess.DEVNULL,
         )
