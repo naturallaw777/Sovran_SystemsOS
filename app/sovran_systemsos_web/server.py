@@ -2432,6 +2432,27 @@ async def api_services():
                 if ps == "closed":
                     has_port_issues = True
                     break
+        has_domain_issues = False
+        if needs_domain and domain and enabled:
+            dns_ok = True
+            try:
+                results = socket.getaddrinfo(domain, None)
+                if results:
+                    resolved_ip = results[0][4][0]
+                    if (
+                        _cached_external_ip != "unavailable"
+                        and resolved_ip != _cached_external_ip
+                    ):
+                        dns_ok = False
+                else:
+                    dns_ok = False
+            except (socket.gaierror, Exception):
+                dns_ok = False
+
+            if not dns_ok:
+                has_domain_issues = True
+            elif cached_reachable is False:
+                has_domain_issues = True
 
         # Compute composite health
         sync_progress: float | None = None
@@ -2441,7 +2462,6 @@ async def api_services():
         if not enabled:
             health = "disabled"
         elif status == "active":
-            has_domain_issues = bool(needs_domain and domain and cached_reachable is False)
             if has_port_issues:
                 health = "needs_attention"
             elif has_domain_issues:
@@ -2464,7 +2484,6 @@ async def api_services():
             # For enabled services that are inactive (e.g. socket-activated PHP-FPM),
             # still check domain/port health so status remains consistent with
             # other domain services when there are actionable issues.
-            has_domain_issues = bool(needs_domain and domain and cached_reachable is False)
             if has_port_issues:
                 health = "needs_attention"
             elif has_domain_issues:
