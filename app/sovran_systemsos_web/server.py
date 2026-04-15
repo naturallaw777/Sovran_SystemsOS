@@ -2681,9 +2681,8 @@ async def api_service_detail(unit: str, icon: str | None = None):
     elif status == "inactive":
         # For enabled services that are inactive (e.g. socket-activated PHP-FPM),
         # still check domain/port health so detail health is consistent.
-        has_domain_issues_inactive = has_domain_issues
-        has_port_issues_inactive = any(p["status"] == "closed" for p in port_statuses) if port_statuses else False
-        if has_domain_issues_inactive or has_port_issues_inactive:
+        has_port_issues = any(p["status"] == "closed" for p in port_statuses) if port_statuses else False
+        if has_domain_issues or has_port_issues:
             health = "needs_attention"
         else:
             health = "inactive"
