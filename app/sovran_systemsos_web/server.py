@@ -986,7 +986,20 @@ def _is_domain_reachable_cached(domain: str) -> bool | None:
     return bool(entry.get("reachable", False))
 
 
-def _evaluate_domain_checklist(domain: str | None, external_ip: str, internal_ip: str | None = None) -> dict:
+def _get_domain_reachability_cached(domain: str) -> dict | None:
+    """Return cached domain reachability result, or ``None`` if not yet checked."""
+    with _domain_reachability_cache_lock:
+        entry = _domain_reachability_cache.get(domain)
+    return dict(entry) if entry is not None else None
+
+
+def _evaluate_domain_checklist(
+    domain: str | None,
+    external_ip: str,
+    internal_ip: str | None = None,
+    cached_reachability: dict | None = None,
+    use_cached_reachability: bool = False,
+) -> dict:
     """Evaluate sequential domain diagnostics and return UI-ready checklist data."""
     steps: list[dict] = []
     domain_status: dict = {
@@ -1113,8 +1126,19 @@ def _evaluate_domain_checklist(domain: str | None, external_ip: str, internal_ip
             "detail": f"Resolves to {resolved_ip} (matches your external IP)",
         })
 
-    domain_reachable = _check_domain_reachable(domain)
-    if domain_reachable.get("reachable"):
+    if use_cached_reachability:
+        domain_reachable = cached_reachability
+    else:
+        domain_reachable = _check_domain_reachable(domain)
+
+    if domain_reachable is None:
+        steps.append({
+            "step": 3,
+            "label": "Ports 80 & 443 Open",
+            "status": "warning",
+            "detail": "Checking reachability…",
+        })
+    elif domain_reachable.get("reachable"):
         status_code = domain_reachable.get("status_code")
         steps.append({
             "step": 3,
@@ -2389,6 +2413,26 @@ async def api_services():
             else:
                 domain_reachability = "unreachable"
 
+        health_port_requirements = list(port_requirements)
+        if needs_domain:
+            health_port_requirements = [
+                {"port": "80", "protocol": "TCP"},
+                {"port": "443", "protocol": "TCP"},
+                *health_port_requirements,
+            ]
+        has_port_issues = False
+        if health_port_requirements:
+            for p in health_port_requirements:
+                ps = _check_port_status(
+                    str(p.get("port", "")),
+                    str(p.get("protocol", "TCP")),
+                    listening_ports,
+                    firewall_ports,
+                )
+                if ps == "closed":
+                    has_port_issues = True
+                    break
+
         # Compute composite health
         sync_progress: float | None = None
         sync_blocks: int | None = None
@@ -2397,20 +2441,10 @@ async def api_services():
         if not enabled:
             health = "disabled"
         elif status == "active":
-            has_port_issues = False
-            if port_requirements:
-                for p in port_requirements:
-                    ps = _check_port_status(
-                        str(p.get("port", "")),
-                        str(p.get("protocol", "TCP")),
-                        listening_ports,
-                        firewall_ports,
-                    )
-                    if ps == "closed":
-                        has_port_issues = True
-                        break
             has_domain_issues = bool(needs_domain and domain and cached_reachable is False)
-            if has_port_issues or has_domain_issues:
+            if has_port_issues:
+                health = "needs_attention"
+            elif has_domain_issues:
                 health = "needs_attention"
             else:
                 if needs_domain and domain:
@@ -2431,19 +2465,9 @@ async def api_services():
             # still check domain/port health so status remains consistent with
             # other domain services when there are actionable issues.
             has_domain_issues = bool(needs_domain and domain and cached_reachable is False)
-            has_port_issues = False
-            if port_requirements:
-                for p in port_requirements:
-                    ps = _check_port_status(
-                        str(p.get("port", "")),
-                        str(p.get("protocol", "TCP")),
-                        listening_ports,
-                        firewall_ports,
-                    )
-                    if ps == "closed":
-                        has_port_issues = True
-                        break
-            if has_domain_issues or has_port_issues:
+            if has_port_issues:
+                health = "needs_attention"
+            elif has_domain_issues:
                 health = "needs_attention"
             elif needs_domain and domain:
                 health = "checking_reachability" if cached_reachable is None else "inactive"
@@ -2594,12 +2618,17 @@ async def api_service_detail(unit: str, icon: str | None = None):
     domain_check_steps: list[dict] = []
     has_domain_issues = False
     if needs_domain:
+        cached_domain_reachability = (
+            _get_domain_reachability_cached(domain) if domain else None
+        )
         domain_eval = await loop.run_in_executor(
             None,
             _evaluate_domain_checklist,
             domain,
             external_ip,
             internal_ip,
+            cached_domain_reachability,
+            True,
         )
         domain_status = domain_eval.get("domain_status")
         domain_reachable = domain_eval.get("domain_reachable")
