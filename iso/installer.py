@@ -8,6 +8,7 @@ import os
 import secrets
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 
@@ -816,10 +817,9 @@ class InstallerWindow(Adw.ApplicationWindow):
         if label != "BTCEcoandBackup":
             return False
 
-        check_mount = "/tmp/sovran-installer-data-check"
+        check_mount = tempfile.mkdtemp(prefix="sovran-installer-data-check-")
         mounted = False
         try:
-            run(["sudo", "mkdir", "-p", check_mount])
             run(["sudo", "mount", "-o", "ro", data_p1, check_mount])
             mounted = True
 
@@ -834,7 +834,8 @@ class InstallerWindow(Adw.ApplicationWindow):
                     )
                 return True
             return False
-        except Exception:
+        except Exception as e:
+            log(f"Timechain detection failed for {data_p1} at mount/check step ({check_mount}): {e}")
             return False
         finally:
             if mounted:
