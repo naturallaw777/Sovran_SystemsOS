@@ -340,10 +340,12 @@ in
       description = "Sovran_SystemsOS Hub Web Interface";
       wantedBy    = [ "multi-user.target" ];
       after       = [ "network.target" ];
+      conflicts   = [ "sovran-hub-reboot.service" ];
 
       serviceConfig = {
         ExecStart      = "${sovran-hub-web}/bin/sovran-hub-web";
         Restart        = "on-failure";
+        RestartPreventExitStatus = "SIGTERM";
         RestartSec     = "5s";
         User           = "root";
         StandardOutput = "journal";
