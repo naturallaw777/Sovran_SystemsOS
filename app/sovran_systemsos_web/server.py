@@ -53,6 +53,7 @@ REBUILD_UNIT   = "sovran-hub-rebuild.service"
 # to api_updates_status() so that the full log is returned to the frontend
 # even when the frontend's offset is pointing past the pre-restart content.
 _update_recovery_happened: bool = False
+_cached_external_ip: str = "unavailable"
 
 BACKUP_LOG    = "/var/log/sovran-hub-backup.log"
 BACKUP_STATUS = "/var/log/sovran-hub-backup.status"
@@ -2185,6 +2186,17 @@ async def api_services():
             if needs_domain:
                 if not domain:
                     has_domain_issues = True
+                else:
+                    try:
+                        results = socket.getaddrinfo(domain, None)
+                        if not results:
+                            has_domain_issues = True
+                        else:
+                            resolved_ip = results[0][4][0]
+                            if _cached_external_ip != "unavailable" and resolved_ip != _cached_external_ip:
+                                has_domain_issues = True
+                    except (socket.gaierror, Exception):
+                        has_domain_issues = True
             health = "needs_attention" if (has_port_issues or has_domain_issues) else "healthy"
             # Check Bitcoin IBD state
             if unit == "bitcoind.service" and enabled:
@@ -2331,10 +2343,8 @@ async def api_service_detail(unit: str, icon: str | None = None):
             domain = None
 
     # IPs
-    internal_ip, external_ip = await asyncio.gather(
-        loop.run_in_executor(None, _get_internal_ip),
-        loop.run_in_executor(None, _get_external_ip),
-    )
+    internal_ip = await loop.run_in_executor(None, _get_internal_ip)
+    external_ip = _cached_external_ip
     _save_internal_ip(internal_ip)
 
     # Domain status check
@@ -2512,6 +2522,7 @@ async def api_service_detail(unit: str, icon: str | None = None):
 
 @app.get("/api/network")
 async def api_network():
+    global _cached_external_ip
     loop = asyncio.get_event_loop()
     internal, external = await asyncio.gather(
         loop.run_in_executor(None, _get_internal_ip),
@@ -2519,6 +2530,7 @@ async def api_network():
     )
     # Keep the internal-ip file in sync for credential lookups
     _save_internal_ip(internal)
+    _cached_external_ip = external
     return {"internal_ip": internal, "external_ip": external}
 
 
@@ -3260,7 +3272,7 @@ class DomainCheckRequest(BaseModel):
 async def api_domains_check(req: DomainCheckRequest):
     """Check DNS resolution for each domain and verify it points to this server."""
     loop = asyncio.get_event_loop()
-    external_ip = await loop.run_in_executor(None, _get_external_ip)
+    external_ip = _cached_external_ip
 
     def check_domain(domain: str) -> dict:
         try:
