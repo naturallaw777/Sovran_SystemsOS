@@ -102,9 +102,71 @@ async function openServiceDetailModal(unit, name, icon) {
       '</div>' +
       '</div>';
 
-    // Section C: Ports (only if service has port_requirements)
-    if (data.port_statuses && data.port_statuses.length > 0) {
-      var anyPortClosed = data.port_statuses.some(function(p) { return p.status === "closed"; });
+    // Section C: Domain diagnostics (domain services)
+    if (data.needs_domain) {
+      var steps = data.domain_check_steps || [];
+      var stepsHtml = "";
+      steps.forEach(function(step) {
+        var iconLabel = "—";
+        if (step.status === "ok") iconLabel = "✅";
+        else if (step.status === "error") iconLabel = "❌";
+        else if (step.status === "warning") iconLabel = "⚠️";
+        else if (step.status === "skipped") iconLabel = "⏭️";
+        var detail = escHtml(step.detail || "").replace(/\n/g, "<br>");
+        stepsHtml += '<div class="svc-detail-troubleshoot" style="margin-bottom:10px">' +
+          '<strong>' + iconLabel + ' Step ' + escHtml(String(step.step)) + ': ' + escHtml(step.label || "") + '</strong>' +
+          (detail ? '<div style="margin-top:6px">' + detail + '</div>' : '') +
+          '</div>';
+      });
+
+      var domainActionHtml = "";
+      var ds = data.domain_status || {};
+      if (!data.domain && data.domain_name) {
+        domainActionHtml = '<button class="btn btn-primary svc-detail-domain-btn" id="svc-detail-config-domain-btn">🌐 Configure Domain</button>';
+      } else if (data.domain && (ds.status === "dns_mismatch" || ds.status === "unresolvable")) {
+        domainActionHtml = '<button class="btn btn-primary svc-detail-domain-btn" id="svc-detail-reconfig-domain-btn">🔄 Reconfigure Domain</button>';
+      }
+
+      html += '<div class="svc-detail-section">' +
+        '<div class="svc-detail-section-title">Domain Diagnostic Checklist</div>' +
+        stepsHtml +
+        domainActionHtml +
+        '</div>';
+
+      if (unit === "livekit.service" && data.extra_ports && data.extra_ports.length > 0) {
+        var extraRows = "";
+        data.extra_ports.forEach(function(p) {
+          var statusIcon, statusClass2;
+          if (p.status === "listening") {
+            statusIcon = "✅ Open";
+            statusClass2 = "port-status-listening";
+          } else if (p.status === "firewall_open") {
+            statusIcon = "🟡 Firewall open";
+            statusClass2 = "port-status-open";
+          } else if (p.status === "closed") {
+            statusIcon = "❌ Closed";
+            statusClass2 = "port-status-closed";
+          } else {
+            statusIcon = "— Unknown";
+            statusClass2 = "port-status-unknown";
+          }
+          extraRows += '<tr>' +
+            '<td class="svc-detail-port-table-port">' + escHtml(p.port) + '</td>' +
+            '<td class="svc-detail-port-table-proto">' + escHtml(p.protocol) + '</td>' +
+            '<td class="svc-detail-port-table-desc">' + escHtml(p.description || "") + '</td>' +
+            '<td class="svc-detail-port-table-status ' + statusClass2 + '">' + statusIcon + '</td>' +
+            '</tr>';
+        });
+        html += '<div class="svc-detail-section">' +
+          '<div class="svc-detail-section-title">Step 4: Additional Ports</div>' +
+          '<table class="svc-detail-port-table">' +
+            '<thead><tr><th>Port</th><th>Protocol</th><th>Description</th><th>Status</th></tr></thead>' +
+            '<tbody>' + extraRows + '</tbody>' +
+          '</table>' +
+          '</div>';
+      }
+    } else if (data.port_statuses && data.port_statuses.length > 0) {
+      // Non-domain services (SSH) keep local single-port checks.
       var portTableRows = "";
       data.port_statuses.forEach(function(p) {
         var statusIcon, statusClass2;
@@ -121,137 +183,19 @@ async function openServiceDetailModal(unit, name, icon) {
           statusIcon = "— Unknown";
           statusClass2 = "port-status-unknown";
         }
-        var desc = p.description;
-        var portNum = parseInt(p.port, 10);
-        if (portNum === 80 || portNum === 443) {
-          desc += " (shared — all services)";
-        }
         portTableRows += '<tr>' +
           '<td class="svc-detail-port-table-port">' + escHtml(p.port) + '</td>' +
           '<td class="svc-detail-port-table-proto">' + escHtml(p.protocol) + '</td>' +
-          '<td class="svc-detail-port-table-desc">' + escHtml(desc) + '</td>' +
+          '<td class="svc-detail-port-table-desc">' + escHtml(p.description || "") + '</td>' +
           '<td class="svc-detail-port-table-status ' + statusClass2 + '">' + statusIcon + '</td>' +
           '</tr>';
       });
-
-      var troubleshootHtml = "";
-      if (anyPortClosed) {
-        var sharedPorts = [];
-        var specificPorts = [];
-        data.port_statuses.forEach(function(p) {
-          if (p.status === "closed") {
-            var portNum = parseInt(p.port, 10);
-            if (portNum === 80 || portNum === 443) {
-              sharedPorts.push(p);
-            } else {
-              specificPorts.push(p);
-            }
-          }
-        });
-
-        var troubleParts = [];
-
-        if (sharedPorts.length > 0) {
-          troubleParts.push(
-            '<strong>⚠️ Ports 80 and 443 need to be forwarded on your router.</strong>' +
-            '<p style="margin-top:8px">These are <strong>shared system ports</strong> — you only need to set them up once and they cover all your domain-based services ' +
-            '(BTCPayServer, Nextcloud, Matrix, WordPress, etc.).</p>' +
-            '<p style="margin-top:8px">If you already forwarded these ports during onboarding, you don\'t need to do it again. Otherwise:</p>' +
-            '<ol>' +
-              '<li>Log into your router\'s admin panel (usually <code>http://192.168.1.1</code>)</li>' +
-              '<li>Find the <strong>Port Forwarding</strong> section</li>' +
-              '<li>Forward port <strong>80 (TCP)</strong> and port <strong>443 (TCP)</strong> to your machine\'s internal IP: <code>' + escHtml(data.internal_ip || "—") + '</code></li>' +
-              '<li>Save your router settings</li>' +
-            '</ol>' +
-            '<p style="margin-top:8px">💡 Once these two ports are forwarded, you won\'t see this warning on any service again.</p>'
-          );
-        }
-
-        if (specificPorts.length > 0) {
-          var portList = specificPorts.map(function(p) {
-            return '<strong>' + escHtml(p.port) + ' (' + escHtml(p.protocol) + ')</strong> — ' + escHtml(p.description);
-          }).join('<br>');
-
-          troubleParts.push(
-            '<strong>⚠️ This service requires additional ports to be forwarded:</strong>' +
-            '<p style="margin-top:8px">' + portList + '</p>' +
-            '<ol>' +
-              '<li>Log into your router\'s admin panel</li>' +
-              '<li>Forward each port listed above to your machine\'s internal IP: <code>' + escHtml(data.internal_ip || "—") + '</code></li>' +
-              '<li>Save your router settings</li>' +
-            '</ol>'
-          );
-        }
-
-        troubleshootHtml = '<div class="svc-detail-troubleshoot">' + troubleParts.join('<hr style="border:none;border-top:1px solid rgba(255,255,255,0.1);margin:16px 0">') + '</div>';
-      }
-
       html += '<div class="svc-detail-section">' +
         '<div class="svc-detail-section-title">Port Status</div>' +
         '<table class="svc-detail-port-table">' +
-          '<thead><tr>' +
-            '<th>Port</th><th>Protocol</th><th>Description</th><th>Status</th>' +
-          '</tr></thead>' +
+          '<thead><tr><th>Port</th><th>Protocol</th><th>Description</th><th>Status</th></tr></thead>' +
           '<tbody>' + portTableRows + '</tbody>' +
         '</table>' +
-        troubleshootHtml +
-        '</div>';
-    }
-
-    // Section D: Domain (only if service needs_domain)
-    if (data.needs_domain) {
-      var domainStatusHtml = "";
-      var ds = data.domain_status || {};
-      var domainBadge = "";
-
-      if (data.domain) {
-        if (ds.status === "connected") {
-          domainBadge = '<span class="svc-detail-domain-value"><span class="tile-domain-label--ok">✓ ' + escHtml(data.domain) + '</span></span>';
-        } else if (ds.status === "dns_mismatch") {
-          domainBadge = '<span class="svc-detail-domain-value"><span class="tile-domain-label--warn">⚠ ' + escHtml(data.domain) + ' (IP mismatch)</span></span>';
-          domainStatusHtml = '<div class="svc-detail-troubleshoot">' +
-            '<strong>⚠️ Your domain resolves to ' + escHtml(ds.resolved_ip || "unknown") + ' but your external IP is ' + escHtml(ds.expected_ip || "unknown") + '.</strong>' +
-            '<p style="margin-top:8px">This usually means the DNS record needs to be updated:</p>' +
-            '<ol>' +
-              '<li>Go to <a href="https://njal.la" target="_blank">njal.la</a> and log into your account</li>' +
-              '<li>Find your domain and check the Dynamic DNS record</li>' +
-              '<li>Make sure it points to your current external IP: <code>' + escHtml(ds.expected_ip || "—") + '</code></li>' +
-              '<li>If you set up a DDNS curl command during onboarding, verify it\'s running correctly</li>' +
-            '</ol>' +
-            '</div>';
-        } else if (ds.status === "unresolvable") {
-          domainBadge = '<span class="svc-detail-domain-value"><span class="tile-domain-label--error">✗ ' + escHtml(data.domain) + ' (DNS error)</span></span>';
-          domainStatusHtml = '<div class="svc-detail-troubleshoot">' +
-            '<strong>⚠️ This domain cannot be resolved. DNS is not configured yet.</strong>' +
-            '<p style="margin-top:8px">Let\'s get it set up:</p>' +
-            '<ol>' +
-              '<li>Go to <a href="https://njal.la" target="_blank">njal.la</a> and log into your account</li>' +
-              '<li>Find the domain you purchased for this service</li>' +
-              '<li>Create a Dynamic DNS record pointing to your external IP: <code>' + escHtml(ds.expected_ip || "—") + '</code></li>' +
-              '<li>Copy the DDNS curl command from Njal.la\'s dashboard</li>' +
-            '</ol>' +
-            '<button class="btn btn-primary svc-detail-domain-btn" id="svc-detail-reconfig-domain-btn">🔄 Reconfigure Domain</button>' +
-            '</div>';
-        } else {
-          domainBadge = '<span class="svc-detail-domain-value">' + escHtml(data.domain) + '</span>';
-        }
-      } else {
-        domainBadge = '<span class="svc-detail-domain-value"><span class="tile-domain-label--warn">Not configured</span></span>';
-        domainStatusHtml = '<div class="svc-detail-troubleshoot">' +
-          '<strong>⚠️ No domain has been configured for this service yet.</strong>' +
-          '<p style="margin-top:8px">To get this service working:</p>' +
-          '<ol>' +
-            '<li>Purchase a subdomain at <a href="https://njal.la" target="_blank">njal.la</a> (if you haven\'t already)</li>' +
-            '<li>Use the button below to configure your domain through the setup wizard</li>' +
-          '</ol>' +
-          '<button class="btn btn-primary svc-detail-domain-btn" id="svc-detail-config-domain-btn">🌐 Configure Domain</button>' +
-          '</div>';
-      }
-
-      html += '<div class="svc-detail-section">' +
-        '<div class="svc-detail-section-title">Domain</div>' +
-        domainBadge +
-        domainStatusHtml +
         '</div>';
     }
 

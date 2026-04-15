@@ -277,15 +277,10 @@ FEATURE_SERVICE_MAP = {
 }
 
 # Port requirements for service tiles (keyed by unit name or icon)
-# Services using only 80/443 for domain access share the same base list.
-_PORTS_WEB = [
-    {"port": "80",  "protocol": "TCP", "description": "HTTP (redirect to HTTPS)"},
-    {"port": "443", "protocol": "TCP", "description": "HTTPS"},
-]
-_PORTS_MATRIX_FEDERATION = _PORTS_WEB + [
+_PORTS_MATRIX_FEDERATION = [
     {"port": "8448", "protocol": "TCP", "description": "Matrix server-to-server federation"},
 ]
-_PORTS_ELEMENT_CALLING = _PORTS_WEB + [
+_PORTS_ELEMENT_CALLING = [
     {"port": "7881",        "protocol": "TCP",     "description": "LiveKit WebRTC signalling"},
     {"port": "7882-7894",   "protocol": "UDP",     "description": "LiveKit media streams"},
     {"port": "5349",        "protocol": "TCP",     "description": "TURN over TLS"},
@@ -299,12 +294,12 @@ SERVICE_PORT_REQUIREMENTS: dict[str, list[dict]] = {
     # Communication
     "matrix-synapse.service":           _PORTS_MATRIX_FEDERATION,
     "livekit.service":                  _PORTS_ELEMENT_CALLING,
-    # Domain-based apps (80/443)
-    "btcpayserver.service":             _PORTS_WEB,
-    "vaultwarden.service":              _PORTS_WEB,
-    "phpfpm-nextcloud.service":         _PORTS_WEB,
-    "phpfpm-wordpress.service":         _PORTS_WEB,
-    "haven-relay.service":              _PORTS_WEB,
+    # Domain-based apps (80/443 handled by end-to-end domain reachability checks)
+    "btcpayserver.service":             [],
+    "vaultwarden.service":              [],
+    "phpfpm-nextcloud.service":         [],
+    "phpfpm-wordpress.service":         [],
+    "haven-relay.service":              [],
     # SSH (only open when feature is enabled)
     "sshd.service":                     [{"port": "22", "protocol": "TCP", "description": "SSH"}],
 }
@@ -932,6 +927,185 @@ def _check_port_status(
     if is_allowed:
         return "firewall_open"
     return "closed"
+
+
+def _check_domain_reachable(domain: str) -> dict:
+    """Curl the domain to verify end-to-end HTTPS reachability."""
+    try:
+        result = subprocess.run(
+            ["curl", "-sS", "-o", "/dev/null", "-w", "%{http_code}", "--max-time", "10", f"https://{domain}"],
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+        status_code = result.stdout.strip()
+        if status_code and status_code.isdigit() and int(status_code) > 0:
+            return {"reachable": True, "status_code": int(status_code)}
+        return {"reachable": False, "error": result.stderr.strip() or "No response"}
+    except subprocess.TimeoutExpired:
+        return {"reachable": False, "error": "timeout"}
+    except Exception as e:
+        return {"reachable": False, "error": str(e)}
+
+
+def _evaluate_domain_checklist(domain: str | None, external_ip: str, internal_ip: str | None = None) -> dict:
+    """Evaluate sequential domain diagnostics and return UI-ready checklist data."""
+    steps: list[dict] = []
+    domain_status: dict = {
+        "status": "not_set",
+        "resolved_ip": None,
+        "expected_ip": external_ip,
+    }
+    domain_reachable: dict | None = None
+
+    if not domain:
+        steps.append({
+            "step": 1,
+            "label": "Domain Configured",
+            "status": "error",
+            "detail": "No domain configured",
+        })
+        steps.append({
+            "step": 2,
+            "label": "DNS Points to Your Server",
+            "status": "skipped",
+            "detail": "Skipped until a domain is configured",
+        })
+        steps.append({
+            "step": 3,
+            "label": "Ports 80 & 443 Open",
+            "status": "skipped",
+            "detail": "Skipped until domain and DNS are configured",
+        })
+        return {
+            "domain_status": domain_status,
+            "domain_reachable": domain_reachable,
+            "domain_check_steps": steps,
+            "has_issues": True,
+        }
+
+    steps.append({
+        "step": 1,
+        "label": "Domain Configured",
+        "status": "ok",
+        "detail": domain,
+    })
+
+    resolved_ip: str | None = None
+    try:
+        results = socket.getaddrinfo(domain, None)
+        if results:
+            resolved_ip = results[0][4][0]
+    except socket.gaierror:
+        resolved_ip = None
+    except Exception:
+        resolved_ip = None
+
+    if not resolved_ip:
+        domain_status = {
+            "status": "unresolvable",
+            "resolved_ip": None,
+            "expected_ip": external_ip,
+        }
+        steps.append({
+            "step": 2,
+            "label": "DNS Points to Your Server",
+            "status": "error",
+            "detail": "Domain does not resolve — check your DNS provider",
+        })
+        steps.append({
+            "step": 3,
+            "label": "Ports 80 & 443 Open",
+            "status": "skipped",
+            "detail": "Skipped until DNS resolves to your server",
+        })
+        return {
+            "domain_status": domain_status,
+            "domain_reachable": domain_reachable,
+            "domain_check_steps": steps,
+            "has_issues": True,
+        }
+
+    if external_ip == "unavailable":
+        domain_status = {
+            "status": "error",
+            "resolved_ip": resolved_ip,
+            "expected_ip": external_ip,
+        }
+        steps.append({
+            "step": 2,
+            "label": "DNS Points to Your Server",
+            "status": "warning",
+            "detail": f"Resolves to {resolved_ip} (external IP unavailable for comparison)",
+        })
+    elif resolved_ip != external_ip:
+        domain_status = {
+            "status": "dns_mismatch",
+            "resolved_ip": resolved_ip,
+            "expected_ip": external_ip,
+        }
+        steps.append({
+            "step": 2,
+            "label": "DNS Points to Your Server",
+            "status": "error",
+            "detail": f"Resolves to {resolved_ip} but your external IP is {external_ip}",
+        })
+        steps.append({
+            "step": 3,
+            "label": "Ports 80 & 443 Open",
+            "status": "skipped",
+            "detail": "Skipped until DNS points to your external IP",
+        })
+        return {
+            "domain_status": domain_status,
+            "domain_reachable": domain_reachable,
+            "domain_check_steps": steps,
+            "has_issues": True,
+        }
+    else:
+        domain_status = {
+            "status": "connected",
+            "resolved_ip": resolved_ip,
+            "expected_ip": external_ip,
+        }
+        steps.append({
+            "step": 2,
+            "label": "DNS Points to Your Server",
+            "status": "ok",
+            "detail": f"Resolves to {resolved_ip} (matches your external IP)",
+        })
+
+    domain_reachable = _check_domain_reachable(domain)
+    if domain_reachable.get("reachable"):
+        status_code = domain_reachable.get("status_code")
+        steps.append({
+            "step": 3,
+            "label": "Ports 80 & 443 Open",
+            "status": "ok",
+            "detail": f"HTTPS reachable (HTTP {status_code})",
+        })
+    else:
+        internal = internal_ip or "your server"
+        error_text = domain_reachable.get("error") or "No response"
+        steps.append({
+            "step": 3,
+            "label": "Ports 80 & 443 Open",
+            "status": "error",
+            "detail": (
+                f"Could not reach https://{domain} ({error_text}).\n"
+                f"→ Forward ports 80 & 443 on your router to {internal}\n"
+                "→ This only needs to be done once — all domain services share these ports\n"
+                "→ Test from your phone on mobile data (your home network may not support hairpin NAT / loopback)"
+            ),
+        })
+
+    has_issues = any(step.get("status") == "error" for step in steps[:3])
+    return {
+        "domain_status": domain_status,
+        "domain_reachable": domain_reachable,
+        "domain_check_steps": steps,
+        "has_issues": has_issues,
+    }
 
 
 # ── QR code helper ────────────────────────────────────────────────
@@ -2184,19 +2358,14 @@ async def api_services():
                         break
             has_domain_issues = False
             if needs_domain:
-                if not domain:
-                    has_domain_issues = True
-                else:
-                    try:
-                        results = socket.getaddrinfo(domain, None)
-                        if not results:
-                            has_domain_issues = True
-                        else:
-                            resolved_ip = results[0][4][0]
-                            if _cached_external_ip != "unavailable" and resolved_ip != _cached_external_ip:
-                                has_domain_issues = True
-                    except (socket.gaierror, Exception):
-                        has_domain_issues = True
+                domain_eval = await loop.run_in_executor(
+                    None,
+                    _evaluate_domain_checklist,
+                    domain,
+                    _cached_external_ip,
+                    None,
+                )
+                has_domain_issues = bool(domain_eval.get("has_issues"))
             health = "needs_attention" if (has_port_issues or has_domain_issues) else "healthy"
             # Check Bitcoin IBD state
             if unit == "bitcoind.service" and enabled:
@@ -2347,57 +2516,23 @@ async def api_service_detail(unit: str, icon: str | None = None):
     external_ip = _cached_external_ip
     _save_internal_ip(internal_ip)
 
-    # Domain status check
+    # Domain diagnostics (sequential checklist)
     domain_status: dict | None = None
+    domain_reachable: dict | None = None
+    domain_check_steps: list[dict] = []
+    has_domain_issues = False
     if needs_domain:
-        if domain:
-            def _check_one_domain(d: str) -> dict:
-                try:
-                    results = socket.getaddrinfo(d, None)
-                    if not results:
-                        return {
-                            "status": "unresolvable",
-                            "resolved_ip": None,
-                            "expected_ip": external_ip,
-                        }
-                    resolved_ip = results[0][4][0]
-                    if external_ip == "unavailable":
-                        return {
-                            "status": "error",
-                            "resolved_ip": resolved_ip,
-                            "expected_ip": external_ip,
-                        }
-                    if resolved_ip == external_ip:
-                        return {
-                            "status": "connected",
-                            "resolved_ip": resolved_ip,
-                            "expected_ip": external_ip,
-                        }
-                    return {
-                        "status": "dns_mismatch",
-                        "resolved_ip": resolved_ip,
-                        "expected_ip": external_ip,
-                    }
-                except socket.gaierror:
-                    return {
-                        "status": "unresolvable",
-                        "resolved_ip": None,
-                        "expected_ip": external_ip,
-                    }
-                except Exception:
-                    return {
-                        "status": "error",
-                        "resolved_ip": None,
-                        "expected_ip": external_ip,
-                    }
-
-            domain_status = await loop.run_in_executor(None, _check_one_domain, domain)
-        else:
-            domain_status = {
-                "status": "not_set",
-                "resolved_ip": None,
-                "expected_ip": external_ip,
-            }
+        domain_eval = await loop.run_in_executor(
+            None,
+            _evaluate_domain_checklist,
+            domain,
+            external_ip,
+            internal_ip,
+        )
+        domain_status = domain_eval.get("domain_status")
+        domain_reachable = domain_eval.get("domain_reachable")
+        domain_check_steps = domain_eval.get("domain_check_steps", [])
+        has_domain_issues = bool(domain_eval.get("has_issues"))
 
     # Port requirements and statuses
     port_requirements = SERVICE_PORT_REQUIREMENTS.get(unit, [])
@@ -2417,6 +2552,38 @@ async def api_service_detail(unit: str, icon: str | None = None):
                 "status": ps,
                 "description": p.get("description", ""),
             })
+    extra_ports = port_statuses if unit in ("matrix-synapse.service", "livekit.service") else []
+
+    if needs_domain and unit in ("matrix-synapse.service", "livekit.service"):
+        if has_domain_issues:
+            domain_check_steps.append({
+                "step": 4,
+                "label": "Federation Port" if unit == "matrix-synapse.service" else "Additional Ports Required",
+                "status": "skipped",
+                "detail": "Skipped until Steps 1-3 are complete",
+            })
+        elif unit == "matrix-synapse.service":
+            if extra_ports:
+                matrix_open = extra_ports[0]["status"] != "closed"
+                domain_check_steps.append({
+                    "step": 4,
+                    "label": "Federation Port",
+                    "status": "ok" if matrix_open else "error",
+                    "detail": (
+                        f"Matrix federation port 8448 (TCP) is {'open' if matrix_open else 'closed'}.\n"
+                        f"Matrix federation requires port 8448 (TCP) forwarded to {internal_ip}"
+                    ),
+                })
+        else:
+            extra_open = all(p["status"] != "closed" for p in extra_ports)
+            domain_check_steps.append({
+                "step": 4,
+                "label": "Additional Ports Required",
+                "status": "ok" if extra_open else "error",
+                "detail": (
+                    "Element-Call/LiveKit requires additional forwarded ports for WebRTC and TURN traffic."
+                ),
+            })
 
     # Compute composite health
     sync_progress: float | None = None
@@ -2427,12 +2594,6 @@ async def api_service_detail(unit: str, icon: str | None = None):
         health = "disabled"
     elif status == "active":
         has_port_issues = any(p["status"] == "closed" for p in port_statuses)
-        has_domain_issues = False
-        if needs_domain:
-            if not domain:
-                has_domain_issues = True
-            elif domain_status and domain_status.get("status") not in ("connected", None):
-                has_domain_issues = True
         health = "needs_attention" if (has_port_issues or has_domain_issues) else "healthy"
         # Check Bitcoin IBD state
         if unit == "bitcoind.service" and enabled:
@@ -2499,8 +2660,11 @@ async def api_service_detail(unit: str, icon: str | None = None):
         "domain": domain,
         "domain_name": domain_key,
         "domain_status": domain_status,
+        "domain_reachable": domain_reachable,
+        "domain_check_steps": domain_check_steps,
         "port_requirements": port_requirements,
         "port_statuses": port_statuses,
+        "extra_ports": extra_ports,
         "external_ip": external_ip,
         "internal_ip": internal_ip,
         "feature": feature_entry,
