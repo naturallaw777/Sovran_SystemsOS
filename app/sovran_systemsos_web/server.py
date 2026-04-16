@@ -98,7 +98,7 @@ LOGIN_FAIL_WINDOW = 60.0  # rolling window (seconds) for counting failures
 LOGIN_FAIL_MAX    = 10    # max failures in window before extra delay
 
 # Public paths that are accessible without a valid session
-_AUTH_EXEMPT_PATHS = {"/login", "/api/login", "/api/updates/status", "/api/rebuild/status", "/auto-login", "/api/ping"}
+_AUTH_EXEMPT_PATHS = {"/login", "/api/login", "/api/updates/status", "/api/rebuild/status", "/auto-login", "/api/ping", "/api/reboot"}
 # Prefixes for static assets required by the login page
 _AUTH_EXEMPT_PREFIXES = ("/static/css/", "/static/sovran-hub-icon.svg")
 
