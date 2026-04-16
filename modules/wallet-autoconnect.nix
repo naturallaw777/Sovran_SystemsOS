@@ -42,37 +42,6 @@ EOF
     '';
   };
 
-  # ── Bisq 1 Auto-Connect ─────────────────────────────────────
-  systemd.services.bisq-autoconnect = {
-    description = "Auto-configure Bisq to use local Bitcoin node";
-    after = [ "bitcoind.service" ];
-    wantedBy = [ "multi-user.target" ];
-    serviceConfig = {
-      Type = "oneshot";
-      RemainAfterExit = true;
-    };
-    path = [ pkgs.coreutils pkgs.iproute2 ];
-    script = ''
-      BISQ_CONF="/home/free/.local/share/Bisq/bisq.properties"
-
-      if [ -f "$BISQ_CONF" ]; then
-        echo "Bisq config already exists, skipping"
-        exit 0
-      fi
-
-      mkdir -p /home/free/.local/share/Bisq
-
-      cat > "$BISQ_CONF" << 'EOF'
-btcNodes=127.0.0.1
-useTorForBtc=true
-useCustomBtcNodes=true
-EOF
-
-      chown -R free:users /home/free/.local/share/Bisq
-      echo "Bisq auto-configured to use local Bitcoin node"
-    '';
-  };
-
   # ── Zeus Connect (lndconnect URL for mobile wallet) ──────────
   systemd.services.zeus-connect-setup = {
     description = "Save Zeus lndconnect URL";
