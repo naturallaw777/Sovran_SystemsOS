@@ -62,7 +62,7 @@ EOF
 
       # Wait for bitcoind RPC to be ready (up to 30 attempts)
       ATTEMPTS=0
-      until ss -ltn 2>/dev/null | grep -q ':8333' || [ "$ATTEMPTS" -ge 30 ]; do
+      until ss -ltn 2>/dev/null | grep -q ':8335' || [ "$ATTEMPTS" -ge 30 ]; do
         ATTEMPTS=$((ATTEMPTS + 1))
         sleep 2
       done
@@ -70,7 +70,7 @@ EOF
       mkdir -p /home/free/.local/share/Bisq
 
       cat > "$BISQ_CONF" << 'EOF'
-btcNodes=127.0.0.1:8333
+btcNodes=127.0.0.1:8335
 useTorForBtc=true
 useCustomBtcNodes=true
 EOF
