@@ -21,7 +21,6 @@ lib.mkIf config.sovran_systemsOS.services.bitcoin {
 
   services.electrs = {
     enable = true;
-    tor.proxy = true;
     dataDir = "/run/media/Second_Drive/BTCEcoandBackup/Electrs_Data";
   };
 
