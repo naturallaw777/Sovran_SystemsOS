@@ -308,6 +308,7 @@ async function openServiceDetailModal(unit, name, icon) {
     var restartBtn = document.getElementById("svc-detail-restart-btn");
     var restartResult = document.getElementById("svc-detail-restart-result");
     if (restartBtn && restartResult) {
+      var RESTART_REFRESH_DELAY_MS = 3000;
       restartBtn.addEventListener("click", async function() {
         restartBtn.disabled = true;
         restartBtn.textContent = "Restarting…";
@@ -322,7 +323,7 @@ async function openServiceDetailModal(unit, name, icon) {
           restartBtn.textContent = "🔄 Restart Service";
           setTimeout(function() {
             openServiceDetailModal(unit, name, icon);
-          }, 3000);
+          }, RESTART_REFRESH_DELAY_MS);
         } catch (e) {
           restartResult.classList.add("error");
           restartResult.textContent = e && e.message ? e.message : "Failed to restart service.";

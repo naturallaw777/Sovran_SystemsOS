@@ -2978,7 +2978,7 @@ async def api_service_restart(unit: str):
     try:
         proc = await asyncio.create_subprocess_exec(
             "systemctl", "restart", unit,
-            stdout=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.DEVNULL,
             stderr=asyncio.subprocess.PIPE,
         )
         _, stderr = await proc.communicate()
