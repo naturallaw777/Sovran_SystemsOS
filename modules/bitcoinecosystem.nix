@@ -12,7 +12,6 @@ lib.mkIf config.sovran_systemsOS.services.bitcoin {
     disablewallet = true;
     extraConfig = ''
       peerbloomfilters=1
-      server=1
     '';
   };
 
@@ -102,7 +101,7 @@ lib.mkIf config.sovran_systemsOS.services.bitcoin {
   networking.firewall.allowedTCPPorts = [ 3051 ];
   networking.firewall.allowedUDPPorts = [ 3051 ];
 
-   sovran_systemsOS.domainRequirements = [
+  sovran_systemsOS.domainRequirements = [
     { name = "btcpayserver"; label = "BTCPay Server"; example = "pay.yourdomain.com"; }
   ];
 }
