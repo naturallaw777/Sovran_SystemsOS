@@ -63,10 +63,6 @@ let
         { label = "Server"; value = "tcp://127.0.0.1:50001 (Electrs)"; }
         { label = "Status"; value = "Auto-configured on first boot"; }
       ]; }
-      { name = "Bisq Auto-Link";     unit = "bisq-autoconnect.service";    type = "system"; icon = "bisq";    enabled = cfg.services.bitcoin; category = "bitcoin-apps"; credentials = [
-        { label = "Node"; value = "127.0.0.1:8333 (Bitcoin Core)"; }
-        { label = "Status"; value = "Auto-configured on first boot"; }
-      ]; }
       { name = "Mempool";            unit = "mempool.service";      type = "system"; icon = "mempool";      enabled = cfg.features.mempool;  category = "bitcoin-apps"; credentials = [
         { label = "Tor Access"; file = "/var/lib/tor/onion/mempool-frontend/hostname"; prefix = "http://"; }
         { label = "Local Network"; file = "/var/lib/secrets/internal-ip"; prefix = "http://"; suffix = ":60847"; }
