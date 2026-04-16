@@ -270,7 +270,7 @@ async function openServiceDetailModal(unit, name, icon) {
         '</div>';
     }
 
-    if (effectiveEnabled || data.enabled) {
+    if ((effectiveEnabled || data.enabled) && unit !== "phpfpm-nextcloud.service" && unit !== "phpfpm-wordpress.service") {
       html += '<div class="svc-detail-section svc-detail-restart-section">' +
         '<div class="svc-detail-section-title">Troubleshooting</div>' +
         '<p class="svc-detail-desc">If you\'re experiencing issues with this service, try restarting it.</p>' +
