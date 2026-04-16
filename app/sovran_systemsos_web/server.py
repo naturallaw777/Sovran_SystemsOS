@@ -448,14 +448,6 @@ SERVICE_DESCRIPTIONS: dict[str, str] = {
         "To use Sparrow Wallet, open it directly from your desktop — it's already installed and "
         "auto-configured to connect to your local Electrs server."
     ),
-    "bisq-autoconnect.service": (
-        "Bisq is a decentralized, peer-to-peer Bitcoin exchange — buy and sell Bitcoin "
-        "with no KYC and no middleman. Sovran_SystemsOS automatically connects it to your "
-        "local Bitcoin node on first boot, routing all traffic through Tor. Your trades are "
-        "verified by your own node, keeping you fully sovereign.\n\n"
-        "To use Bisq, open it directly from your desktop — it's already installed and "
-        "auto-configured to connect to your local Bitcoin node."
-    ),
 }
 
 # ── Diceware password generation ─────────────────────────────────
