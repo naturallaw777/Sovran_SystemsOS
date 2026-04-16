@@ -270,6 +270,15 @@ async function openServiceDetailModal(unit, name, icon) {
         '</div>';
     }
 
+    if (effectiveEnabled || data.enabled) {
+      html += '<div class="svc-detail-section svc-detail-restart-section">' +
+        '<div class="svc-detail-section-title">Troubleshooting</div>' +
+        '<p class="svc-detail-desc">If you\'re experiencing issues with this service, try restarting it.</p>' +
+        '<button class="btn btn-warning svc-detail-restart-btn" id="svc-detail-restart-btn">🔄 Restart Service</button>' +
+        '<div class="svc-detail-restart-result" id="svc-detail-restart-result"></div>' +
+        '</div>';
+    }
+
     $credsBody.innerHTML = html;
     _attachCopyHandlers($credsBody);
 
@@ -294,6 +303,33 @@ async function openServiceDetailModal(unit, name, icon) {
           handleFeatureToggle(addonFeat, !addonFeat.enabled);
         });
       }
+    }
+
+    var restartBtn = document.getElementById("svc-detail-restart-btn");
+    var restartResult = document.getElementById("svc-detail-restart-result");
+    if (restartBtn && restartResult) {
+      restartBtn.addEventListener("click", async function() {
+        restartBtn.disabled = true;
+        restartBtn.textContent = "Restarting…";
+        restartResult.className = "svc-detail-restart-result";
+        restartResult.textContent = "";
+
+        try {
+          await apiFetch("/api/service/" + encodeURIComponent(unit) + "/restart", { method: "POST" });
+          restartResult.classList.add("success");
+          restartResult.textContent = "✅ Service restarted successfully.";
+          restartBtn.disabled = false;
+          restartBtn.textContent = "🔄 Restart Service";
+          setTimeout(function() {
+            openServiceDetailModal(unit, name, icon);
+          }, 3000);
+        } catch (e) {
+          restartResult.classList.add("error");
+          restartResult.textContent = e && e.message ? e.message : "Failed to restart service.";
+          restartBtn.disabled = false;
+          restartBtn.textContent = "🔄 Restart Service";
+        }
+      });
     }
 
     // Configure / Reconfigure Domain buttons (for non-feature services that need a domain)
