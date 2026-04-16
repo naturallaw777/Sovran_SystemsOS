@@ -2963,6 +2963,35 @@ async def api_ping():
     return {"ok": True}
 
 
+@app.post("/api/service/{unit}/restart")
+async def api_service_restart(unit: str):
+    cfg = load_config()
+    services = cfg.get("services", [])
+    allowed_units = {
+        str(s.get("unit", "")).strip()
+        for s in services
+        if s.get("unit")
+    }
+    if unit not in allowed_units:
+        raise HTTPException(status_code=404, detail="Service not found")
+
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            "systemctl", "restart", unit,
+            stdout=asyncio.subprocess.DEVNULL,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        _, stderr = await proc.communicate()
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to restart service: {exc}")
+
+    if proc.returncode != 0:
+        detail = stderr.decode(errors="ignore").strip() or "systemctl restart failed"
+        raise HTTPException(status_code=500, detail=detail)
+
+    return {"ok": True}
+
+
 @app.post("/api/reboot")
 async def api_reboot():
     try:
