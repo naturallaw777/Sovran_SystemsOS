@@ -326,7 +326,7 @@ async function openServiceDetailModal(unit, name, icon) {
           }, RESTART_REFRESH_DELAY_MS);
         } catch (e) {
           restartResult.classList.add("error");
-          restartResult.textContent = e && e.message ? e.message : "Failed to restart service.";
+          restartResult.textContent = e && e.message ? e.message : "Failed to restart service. Please check service logs and try again.";
           restartBtn.disabled = false;
           restartBtn.textContent = "🔄 Restart Service";
         }
