@@ -8,6 +8,7 @@ lib.mkIf config.sovran_systemsOS.services.bitcoin {
     dataDir = "/run/media/Second_Drive/BTCEcoandBackup/Bitcoin_Node";
     txindex = true;
     tor.proxy = true;
+    tor.enforce = true;
     disablewallet = true;
     extraConfig = ''
       peerbloomfilters=1
@@ -21,6 +22,7 @@ lib.mkIf config.sovran_systemsOS.services.bitcoin {
 
   services.electrs = {
     enable = true;
+    tor.enforce = true;
     dataDir = "/run/media/Second_Drive/BTCEcoandBackup/Electrs_Data";
   };
 
