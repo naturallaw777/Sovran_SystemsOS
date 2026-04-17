@@ -213,7 +213,7 @@ CREDS
   services.phpfpm.pools.wordpress = {
     user = "caddy";
     group = "php";
-    phpPackage = config.services.phpfpm.pools.mypool.phpPackage;
+    phpPackage = config.sovran_systemsOS.phpPackage;
     settings = {
       "pm" = "dynamic";
       "pm.max_children" = 75;
