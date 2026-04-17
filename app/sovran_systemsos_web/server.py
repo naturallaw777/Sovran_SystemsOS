@@ -84,6 +84,7 @@ AUTOLAUNCH_DISABLE_FLAG = "/var/lib/sovran/hub-autolaunch-disabled"
 # ── Hub web authentication ────────────────────────────────────────
 
 FREE_PASSWORD_FILE      = "/var/lib/secrets/free-password"
+MIGRATION_NEWPASS_FILE  = "/var/lib/secrets/free-password-migration-newpass"
 HUB_SESSION_SECRET_FILE = "/var/lib/secrets/hub-session-secret"
 SESSION_COOKIE_NAME     = "hub_session"
 SESSION_MAX_AGE         = 86400  # 24 hours
@@ -572,6 +573,18 @@ def _check_password(submitted: str) -> bool:
     if stored is None:
         return False
     return hmac.compare_digest(submitted.encode(), stored.encode())
+
+
+def _ensure_onboarding_reopened_for_migration() -> None:
+    """Re-open onboarding when a migration password disclosure is pending."""
+    if not os.path.isfile(MIGRATION_NEWPASS_FILE):
+        return
+    try:
+        os.remove(ONBOARDING_FLAG)
+    except FileNotFoundError:
+        pass
+    except OSError as exc:
+        logger.warning("Could not clear onboarding flag for migration flow: %s", exc)
 
 
 def _record_failure(client_ip: str) -> None:
@@ -1942,6 +1955,7 @@ async def index(request: Request):
 
 @app.get("/onboarding", response_class=HTMLResponse)
 async def onboarding(request: Request):
+    _ensure_onboarding_reopened_for_migration()
     return templates.TemplateResponse("onboarding.html", {
         "request": request,
         "onboarding_js_hash": _ONBOARDING_JS_HASH,
@@ -1950,6 +1964,7 @@ async def onboarding(request: Request):
 
 @app.get("/api/onboarding/status")
 async def api_onboarding_status():
+    _ensure_onboarding_reopened_for_migration()
     complete = os.path.exists(ONBOARDING_FLAG)
     return {"complete": complete}
 
@@ -1983,6 +1998,30 @@ async def api_onboarding_complete():
     )
     await proc.wait()
 
+    return {"ok": True}
+
+
+@app.get("/api/migration/password-status")
+async def api_migration_password_status():
+    """Return whether a migration-generated password is awaiting acknowledgement."""
+    try:
+        with open(MIGRATION_NEWPASS_FILE, "r") as f:
+            return {"pending": True, "password": f.read().strip()}
+    except FileNotFoundError:
+        return {"pending": False}
+    except OSError as exc:
+        raise HTTPException(status_code=500, detail=f"Could not read migration password: {exc}")
+
+
+@app.post("/api/migration/password-acknowledge")
+async def api_migration_password_acknowledge():
+    """Acknowledge and clear the migration password disclosure marker."""
+    try:
+        os.remove(MIGRATION_NEWPASS_FILE)
+    except FileNotFoundError:
+        pass
+    except OSError as exc:
+        raise HTTPException(status_code=500, detail=f"Could not clear migration password: {exc}")
     return {"ok": True}
 
 

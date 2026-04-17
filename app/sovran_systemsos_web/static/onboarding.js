@@ -33,6 +33,8 @@ const DOMAIN_DEFS = [
 var _currentStep  = 1;
 var _servicesData = null;
 var _domainsData  = null;
+var _migrationPending = false;
+var _migrationOccurred = false;
 
 // ── Helpers ───────────────────────────────────────────────────────
 
@@ -63,6 +65,48 @@ function setStatus(elId, msg, type) {
   if (!el) return;
   el.textContent = msg;
   el.className = "onboarding-save-status" + (type ? " onboarding-save-status--" + type : "");
+}
+
+function updateStep5Checklist() {
+  var checklist = document.getElementById("onboarding-checklist");
+  if (!checklist) return;
+  var existing = document.getElementById("onboarding-migration-check");
+  if (_migrationOccurred) {
+    if (!existing) {
+      var li = document.createElement("li");
+      li.id = "onboarding-migration-check";
+      li.textContent = "✅ Migration password noted";
+      checklist.appendChild(li);
+    }
+    return;
+  }
+  if (existing) existing.remove();
+}
+
+function showMigrationStep(password) {
+  for (var i = 1; i <= TOTAL_STEPS; i++) {
+    var panel = document.getElementById("step-" + i);
+    if (panel) panel.style.display = "none";
+  }
+  var migrationPanel = document.getElementById("step-migration");
+  if (migrationPanel) migrationPanel.style.display = "";
+  var pw = document.getElementById("migration-password-value");
+  if (pw) pw.textContent = password || "";
+  var progressBar = document.getElementById("onboarding-progress-bar");
+  if (progressBar) progressBar.style.display = "none";
+  var nav = document.getElementById("onboarding-steps-nav");
+  if (nav) nav.style.display = "none";
+}
+
+function showStep1FromMigration() {
+  var migrationPanel = document.getElementById("step-migration");
+  if (migrationPanel) migrationPanel.style.display = "none";
+  var progressBar = document.getElementById("onboarding-progress-bar");
+  if (progressBar) progressBar.style.display = "";
+  var nav = document.getElementById("onboarding-steps-nav");
+  if (nav) nav.style.display = "";
+  showStep(1);
+  loadStep1();
 }
 
 // ── Progress / step navigation ────────────────────────────────────
@@ -566,6 +610,24 @@ async function completeOnboarding() {
 // ── Event wiring ──────────────────────────────────────────────────
 
 function wireNavButtons() {
+  var migrationContinue = document.getElementById("migration-password-continue");
+  if (migrationContinue) migrationContinue.addEventListener("click", async function() {
+    migrationContinue.disabled = true;
+    migrationContinue.textContent = "Continuing…";
+    setStatus("migration-password-status", "Saving acknowledgement…", "info");
+    try {
+      await apiFetch("/api/migration/password-acknowledge", { method: "POST" });
+      _migrationPending = false;
+      _migrationOccurred = true;
+      updateStep5Checklist();
+      showStep1FromMigration();
+    } catch (err) {
+      setStatus("migration-password-status", "⚠ " + err.message, "error");
+      migrationContinue.disabled = false;
+      migrationContinue.textContent = "I've written it down — Continue →";
+    }
+  });
+
   // Step 1 → next
   var s1next = document.getElementById("step-1-next");
   if (s1next) s1next.addEventListener("click", function() { showStep(nextStep(1)); });
@@ -627,6 +689,19 @@ document.addEventListener("DOMContentLoaded", async function() {
   } catch (_) {}
 
   wireNavButtons();
-  updateProgress(1);
+
+  try {
+    var migration = await apiFetch("/api/migration/password-status");
+    if (migration && migration.pending) {
+      _migrationPending = true;
+      _migrationOccurred = true;
+      updateStep5Checklist();
+      showMigrationStep(migration.password || "");
+      return;
+    }
+  } catch (_) {}
+
+  updateStep5Checklist();
+  showStep(1);
   loadStep1();
 });
