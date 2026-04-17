@@ -180,42 +180,33 @@ CREDS
       RemainAfterExit = true;
     };
 
-    path = with pkgs; [ php wp-cli coreutils gnused shadow util-linux ];
+    path = with pkgs; [ coreutils gnused ];
 
     script = ''
       set -euo pipefail
 
-      CONFIG_FILE="/var/lib/www/wordpress/wp-config.php"
       CREDS_FILE="/var/lib/secrets/wordpress-admin"
       DOMAIN_FILE="/var/lib/domains/wordpress"
-      URL=""
-      DOMAIN=""
+      DOMAIN="your-domain"
 
-      URL="$(php -r '$cfg = @file_get_contents("/var/lib/www/wordpress/wp-config.php"); if ($cfg === false) { exit(0); } if (preg_match("/define\\(\\s*[\"\\x27]WP_HOME[\"\\x27]\\s*,\\s*[\"\\x27]([^\"\\x27]+)[\"\\x27]\\s*\\)/", $cfg, $m)) { echo $m[1]; exit(0); } if (preg_match("/define\\(\\s*[\"\\x27]WP_SITEURL[\"\\x27]\\s*,\\s*[\"\\x27]([^\"\\x27]+)[\"\\x27]\\s*\\)/", $cfg, $m)) { echo $m[1]; }' 2>/dev/null || true)"
-
-      if [ -z "$URL" ] && [ -f /var/lib/www/wordpress/wp-load.php ]; then
-        URL=$(/run/wrappers/bin/su -s /bin/sh caddy -c "cd /var/lib/www/wordpress && wp option get siteurl 2>/dev/null" || true)
+      if [ -f "$DOMAIN_FILE" ]; then
+        FILE_DOMAIN="$(sed -n '1{s/^[[:space:]]*//;s/[[:space:]]*$//;p;}' "$DOMAIN_FILE")"
+        if [ -n "$FILE_DOMAIN" ]; then
+          DOMAIN="$FILE_DOMAIN"
+        fi
       fi
 
-      if [ -n "$URL" ]; then
-        DOMAIN="$(printf '%s' "$URL" | sed -E 's#^[A-Za-z][A-Za-z0-9+.-]*://##; s#/.*$##')"
-      fi
-
-      mkdir -p /var/lib/secrets /var/lib/domains
+      mkdir -p /var/lib/secrets
 
       cat > "$CREDS_FILE" << CREDS
-WordPress Existing Installation
-═══════════════════════════════
-URL:      ''${URL:-Unknown (set in $CONFIG_FILE)}
-Note:     Credentials were set before this flake.
-          Use existing credentials or reset via:
-          wp user update <admin-user> --user_pass='<new-password>'
+WordPress (Pre-existing Installation)
+═══════════════════════════════════════
+URL:      https://$DOMAIN/wp-admin/
+Note:     This WordPress was installed before Sovran_SystemsOS.
+          Use your existing admin credentials to log in.
+Reset:    wp user update <username> --user_pass=<new-password>
 CREDS
       chmod 600 "$CREDS_FILE"
-
-      if [ -n "$DOMAIN" ] && [ ! -f "$DOMAIN_FILE" ]; then
-        printf '%s\n' "$DOMAIN" > "$DOMAIN_FILE"
-      fi
     '';
   };
 
