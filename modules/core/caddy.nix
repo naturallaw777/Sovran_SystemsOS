@@ -110,7 +110,7 @@ EOF
 $WORDPRESS {
   encode gzip zstd
   root * /var/lib/www/wordpress
-  php_fastcgi unix//run/phpfpm/mypool.sock
+  php_fastcgi unix//run/phpfpm/wordpress.sock
   file_server browse
 }
 EOF
@@ -123,7 +123,7 @@ EOF
 $NEXTCLOUD {
   encode gzip zstd
   root * /var/lib/www/nextcloud
-  php_fastcgi unix//run/phpfpm/mypool.sock {
+  php_fastcgi unix//run/phpfpm/nextcloud.sock {
     trusted_proxies private_ranges
   }
   file_server
