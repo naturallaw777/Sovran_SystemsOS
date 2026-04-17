@@ -691,7 +691,6 @@ document.addEventListener("DOMContentLoaded", async function() {
   try {
     var migration = await apiFetch("/api/migration/password-status");
     if (migration && migration.pending) {
-      _migrationOccurred = true;
       updateStep5Checklist();
       showMigrationStep(migration.password || "");
       return;
