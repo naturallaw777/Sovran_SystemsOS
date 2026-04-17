@@ -118,7 +118,6 @@ EOF
         "198.18.0.0/15" "198.51.100.0/24" "2001:db8::/32" "203.0.113.0/24"
         "224.0.0.0/4" "::1/128" "fc00::/7" "fe80::/10" "fec0::/10" "ff00::/8"
       ];
-      url_preview_ip_ranger_whitelist = [ "127.0.0.1" ];
       presence.enabled = true;
       enable_registration = false;
       listeners = [
