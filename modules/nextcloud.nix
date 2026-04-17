@@ -257,14 +257,13 @@ CREDS
     "d /var/lib/nextcloud 0770 caddy php -"
   ];
 
-  services.phpfpm.pools.mypool.phpOptions = lib.mkAfter ''
-    output_buffering = 0
-  '';
-
   services.phpfpm.pools.nextcloud = {
     user = "caddy";
     group = "php";
-    phpPackage = config.services.phpfpm.pools.mypool.phpPackage;
+    phpPackage = config.sovran_systemsOS.phpPackage;
+    phpOptions = lib.mkAfter ''
+      output_buffering = 0
+    '';
     settings = {
       "pm" = "dynamic";
       "pm.max_children" = 75;

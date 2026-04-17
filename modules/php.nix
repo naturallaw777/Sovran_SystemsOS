@@ -28,39 +28,30 @@ let
 	};
 in
 
-{	
-	users.users = {
-
-		php = {
-			isSystemUser = true;
-			createHome = false;
-			uid = 7777;
-		};
+{
+	options.sovran_systemsOS.phpPackage = lib.mkOption {
+		type = lib.types.package;
+		default = custom-php;
+		description = "Shared PHP package with all extensions for Sovran_SystemsOS services";
 	};
 
-	users.users.php.group = "php";
-	
-	users.groups.php = {};
+	config = {
+		users.users = {
 
-	environment.systemPackages = with pkgs; [
-		
-		custom-php
-	];
-
-	services.phpfpm.pools = {
-		mypool = {
-			user = "caddy";
-			group = "php";
-			phpPackage = custom-php;
-			settings = {
-				"pm" = "dynamic";
-				"pm.max_children" = 75;
-				"pm.start_servers" = 10;
-				"pm.min_spare_servers" = 5;
-				"pm.max_spare_servers" = 20;
-				"pm.max_requests" = 500;
-				"clear_env" = "no";
+			php = {
+				isSystemUser = true;
+				createHome = false;
+				uid = 7777;
 			};
-		};			
+		};
+
+		users.users.php.group = "php";
+		
+		users.groups.php = {};
+
+		environment.systemPackages = with pkgs; [
+			
+			custom-php
+		];
 	};
 }
