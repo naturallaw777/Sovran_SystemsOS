@@ -1,6 +1,46 @@
 { config, pkgs, lib, ... }:
 
 let
+  gdm-migration-password-sync = pkgs.writeShellScript "gdm-migration-password-sync" ''
+    set -euo pipefail
+
+    SECRET_DIR="/var/lib/secrets"
+    SECRET_FILE="$SECRET_DIR/free-password"
+    PENDING_FILE="$SECRET_DIR/free-password-migration-pending"
+    NEWPASS_FILE="$SECRET_DIR/free-password-migration-newpass"
+
+    [ "''${PAM_USER:-}" = "free" ] || exit 0
+    [ -f "$PENDING_FILE" ] || exit 0
+
+    ${pkgs.coreutils}/bin/mkdir -p "$SECRET_DIR"
+
+    # Generate a diceware-style passphrase: word-word-word-N
+    WORDS="apple barn brook cabin cedar cloud coral crane delta eagle ember \
+           fern field flame flora flint frost grove haven hedge holly heron \
+           jade juniper kelp larch lemon lilac linden loch lotus maple marsh \
+           meadow mist mossy mount oak ocean olive petal pine pixel plum pond \
+           prism quartz raven ridge river robin rocky rose rowan sage sand \
+           sierra silver slate snow solar spark spruce stone storm summit \
+           swift thorn tide timber torch trout vale vault vine walnut wave \
+           willow wren amber aspen birch blaze bloom bluff coast copper crest \
+           dune elder fjord forge glade glen glow gulf"
+    WORD_ARRAY=($WORDS)
+    COUNT=''${#WORD_ARRAY[@]}
+    W1=''${WORD_ARRAY[$((RANDOM % COUNT))]}
+    W2=''${WORD_ARRAY[$((RANDOM % COUNT))]}
+    W3=''${WORD_ARRAY[$((RANDOM % COUNT))]}
+    DIGIT=$((RANDOM % 10))
+    FREE_PASS="$W1-$W2-$W3-$DIGIT"
+
+    printf '%s\n' "$FREE_PASS" > "$SECRET_FILE"
+    ${pkgs.coreutils}/bin/chmod 600 "$SECRET_FILE"
+    printf 'free:%s\n' "$FREE_PASS" | ${pkgs.shadow}/bin/chpasswd
+
+    printf '%s\n' "$FREE_PASS" > "$NEWPASS_FILE"
+    ${pkgs.coreutils}/bin/chmod 600 "$NEWPASS_FILE"
+    ${pkgs.coreutils}/bin/rm -f "$PENDING_FILE"
+  '';
+
   # ── Helper: change 'free' password and save it ─────────────
   change-free-password = pkgs.writeShellScriptBin "change-free-password" ''
     set -euo pipefail
@@ -125,30 +165,66 @@ in
     path = [ pkgs.shadow pkgs.coreutils ];
     script = ''
       SECRET_FILE="/var/lib/secrets/free-password"
-      if [ ! -f "$SECRET_FILE" ]; then
-        mkdir -p /var/lib/secrets
-        # Generate a diceware-style passphrase: word-word-word-N
-        WORDS="apple barn brook cabin cedar cloud coral crane delta eagle ember \
-               fern field flame flora flint frost grove haven hedge holly heron \
-               jade juniper kelp larch lemon lilac linden loch lotus maple marsh \
-               meadow mist mossy mount oak ocean olive petal pine pixel plum pond \
-               prism quartz raven ridge river robin rocky rose rowan sage sand \
-               sierra silver slate snow solar spark spruce stone storm summit \
-               swift thorn tide timber torch trout vale vault vine walnut wave \
-               willow wren amber aspen birch blaze bloom bluff coast copper crest \
-               dune elder fjord forge glade glen glow gulf"
-        WORD_ARRAY=($WORDS)
-        COUNT=''${#WORD_ARRAY[@]}
-        W1=''${WORD_ARRAY[$((RANDOM % COUNT))]}
-        W2=''${WORD_ARRAY[$((RANDOM % COUNT))]}
-        W3=''${WORD_ARRAY[$((RANDOM % COUNT))]}
-        DIGIT=$((RANDOM % 10))
-        FREE_PASS="$W1-$W2-$W3-$DIGIT"
-        echo "$FREE_PASS" > "$SECRET_FILE"
-        chmod 600 "$SECRET_FILE"
+      PENDING_FILE="/var/lib/secrets/free-password-migration-pending"
+
+      if [ -f "$SECRET_FILE" ]; then
+        echo "free:$(cat "$SECRET_FILE")" | chpasswd
+        exit 0
       fi
-      echo "free:$(cat "$SECRET_FILE")" | chpasswd
+
+      SHADOW_HASH=""
+      while IFS=: read -r user hash _; do
+        if [ "$user" = "free" ]; then
+          SHADOW_HASH="$hash"
+          break
+        fi
+      done < /etc/shadow
+
+      HAS_REAL_HASH=0
+      case "$SHADOW_HASH" in
+        ""|"!"|"*"|"!!"|"!"*|"*"*)
+          HAS_REAL_HASH=0
+          ;;
+        *)
+          HAS_REAL_HASH=1
+          ;;
+      esac
+
+      if [ "$HAS_REAL_HASH" -eq 1 ]; then
+        mkdir -p /var/lib/secrets
+        touch "$PENDING_FILE"
+        chmod 600 "$PENDING_FILE"
+        exit 0
+      fi
+
+      mkdir -p /var/lib/secrets
+      # Generate a diceware-style passphrase: word-word-word-N
+      WORDS="apple barn brook cabin cedar cloud coral crane delta eagle ember \
+             fern field flame flora flint frost grove haven hedge holly heron \
+             jade juniper kelp larch lemon lilac linden loch lotus maple marsh \
+             meadow mist mossy mount oak ocean olive petal pine pixel plum pond \
+             prism quartz raven ridge river robin rocky rose rowan sage sand \
+             sierra silver slate snow solar spark spruce stone storm summit \
+             swift thorn tide timber torch trout vale vault vine walnut wave \
+             willow wren amber aspen birch blaze bloom bluff coast copper crest \
+             dune elder fjord forge glade glen glow gulf"
+      WORD_ARRAY=($WORDS)
+      COUNT=''${#WORD_ARRAY[@]}
+      W1=''${WORD_ARRAY[$((RANDOM % COUNT))]}
+      W2=''${WORD_ARRAY[$((RANDOM % COUNT))]}
+      W3=''${WORD_ARRAY[$((RANDOM % COUNT))]}
+      DIGIT=$((RANDOM % 10))
+      FREE_PASS="$W1-$W2-$W3-$DIGIT"
+      echo "$FREE_PASS" > "$SECRET_FILE"
+      chmod 600 "$SECRET_FILE"
+      echo "free:$FREE_PASS" | chpasswd
     '';
   };
+
+  security.pam.services.gdm-password.text = lib.mkAfter (lib.optionalString
+    (config.sovran_systemsOS.roles.desktop || config.sovran_systemsOS.roles.server_plus_desktop)
+    ''
+      session optional pam_exec.so quiet ${gdm-migration-password-sync}
+    '');
 
 }
