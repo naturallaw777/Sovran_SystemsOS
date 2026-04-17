@@ -94,10 +94,10 @@ lib.mkIf config.sovran_systemsOS.services.wordpress {
           echo "Download complete."
       fi
 
-      chown -R caddy:root "$INSTALL_DIR"
-      find "$INSTALL_DIR" -type d -exec chmod 755 {} \;
-      find "$INSTALL_DIR" -type f -exec chmod 644 {} \;
-      chmod -R 775 "$INSTALL_DIR/wp-content"
+      chown -R caddy:php "$INSTALL_DIR"
+      find "$INSTALL_DIR" -type d -exec chmod 750 {} \;
+      find "$INSTALL_DIR" -type f -exec chmod 640 {} \;
+      chmod -R 770 "$INSTALL_DIR/wp-content"
 
       echo "Generating wp-config.php..."
       cd "$INSTALL_DIR"
@@ -228,7 +228,7 @@ CREDS
 
   systemd.tmpfiles.rules = [
     "d /var/lib/www 0755 caddy root -"
-    "d /var/lib/www/wordpress 0755 caddy root -"
+    "d /var/lib/www/wordpress 0750 caddy php -"
   ];
 
   environment.systemPackages = with pkgs; [ wp-cli unzip ];
