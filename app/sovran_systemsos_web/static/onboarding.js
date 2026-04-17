@@ -33,7 +33,6 @@ const DOMAIN_DEFS = [
 var _currentStep  = 1;
 var _servicesData = null;
 var _domainsData  = null;
-var _migrationPending = false;
 var _migrationOccurred = false;
 
 // ── Helpers ───────────────────────────────────────────────────────
@@ -617,7 +616,6 @@ function wireNavButtons() {
     setStatus("migration-password-status", "Saving acknowledgement…", "info");
     try {
       await apiFetch("/api/migration/password-acknowledge", { method: "POST" });
-      _migrationPending = false;
       _migrationOccurred = true;
       updateStep5Checklist();
       showStep1FromMigration();
@@ -693,7 +691,6 @@ document.addEventListener("DOMContentLoaded", async function() {
   try {
     var migration = await apiFetch("/api/migration/password-status");
     if (migration && migration.pending) {
-      _migrationPending = true;
       _migrationOccurred = true;
       updateStep5Checklist();
       showMigrationStep(migration.password || "");
