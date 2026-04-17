@@ -53,7 +53,7 @@ lib.mkIf config.sovran_systemsOS.services.nextcloud {
   # ── Fully automated Nextcloud setup ───────────────────────
   systemd.services.nextcloud-init = {
     description = "Download, extract, and fully configure Nextcloud";
-    after = [ "network-online.target" "postgresql.service" "phpfpm-mypool.service" "nextcloud-db-init.service" ];
+    after = [ "network-online.target" "postgresql.service" "phpfpm-nextcloud.service" "nextcloud-db-init.service" ];
     wants = [ "network-online.target" ];
     requires = [ "postgresql.service" "nextcloud-db-init.service" ];
     wantedBy = [ "multi-user.target" ];
@@ -199,6 +199,54 @@ CREDS
     '';
   };
 
+  systemd.services.nextcloud-detect-existing = {
+    description = "Detect pre-existing Nextcloud installation and populate hub credentials";
+    after = [ "postgresql.service" ];
+    wants = [ "postgresql.service" ];
+    wantedBy = [ "multi-user.target" ];
+
+    unitConfig = {
+      ConditionPathExists = [
+        "/var/lib/www/nextcloud/config/config.php"
+        "!/var/lib/secrets/nextcloud-admin"
+      ];
+    };
+
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+    };
+
+    path = with pkgs; [ php coreutils gnused ];
+
+    script = ''
+      set -euo pipefail
+
+      CONFIG_FILE="/var/lib/www/nextcloud/config/config.php"
+      CREDS_FILE="/var/lib/secrets/nextcloud-admin"
+      DOMAIN_FILE="/var/lib/domains/nextcloud"
+      DOMAIN=""
+
+      DOMAIN="$(php -r '$cfg = @include "/var/lib/www/nextcloud/config/config.php"; if (!is_array($cfg)) { exit(0); } $url = $cfg["overwrite.cli.url"] ?? ""; if (is_string($url) && $url !== "") { $host = parse_url($url, PHP_URL_HOST); if (is_string($host) && $host !== "") { echo $host; exit(0); } } $trusted = $cfg["trusted_domains"] ?? []; if (is_array($trusted)) { foreach ($trusted as $entry) { if (is_string($entry) && $entry !== "") { $entry = preg_replace("#^https?://#", "", $entry); $entry = preg_replace("#/.*$#", "", $entry); if ($entry !== "") { echo $entry; exit(0); } } } } if (is_string($trusted) && $trusted !== "") { $trusted = preg_replace("#^https?://#", "", $trusted); $trusted = preg_replace("#/.*$#", "", $trusted); echo $trusted; }' 2>/dev/null || true)"
+
+      mkdir -p /var/lib/secrets /var/lib/domains
+
+      cat > "$CREDS_FILE" << CREDS
+Nextcloud Existing Installation
+═══════════════════════════════
+URL:      ''${DOMAIN:+https://$DOMAIN/}''${DOMAIN:-Unknown (set in $CONFIG_FILE)}
+Note:     Credentials were set before this flake.
+          Use existing credentials or reset via:
+          php /var/lib/www/nextcloud/occ user:resetpassword <admin-user>
+CREDS
+      chmod 600 "$CREDS_FILE"
+
+      if [ -n "$DOMAIN" ] && [ ! -f "$DOMAIN_FILE" ]; then
+        printf '%s\n' "$DOMAIN" > "$DOMAIN_FILE"
+      fi
+    '';
+  };
+
   services.cron.systemCronJobs = [
     "*/5 * * * * caddy /run/current-system/sw/bin/php -f /var/lib/www/nextcloud/cron.php"
   ];
@@ -212,6 +260,22 @@ CREDS
   services.phpfpm.pools.mypool.phpOptions = lib.mkAfter ''
     output_buffering = 0
   '';
+
+  services.phpfpm.pools.nextcloud = {
+    user = "caddy";
+    group = "php";
+    phpPackage = config.services.phpfpm.pools.mypool.phpPackage;
+    settings = {
+      "pm" = "dynamic";
+      "pm.max_children" = 75;
+      "pm.start_servers" = 10;
+      "pm.min_spare_servers" = 5;
+      "pm.max_spare_servers" = 20;
+      "pm.max_requests" = 500;
+      "clear_env" = "no";
+      "listen" = "/run/phpfpm/nextcloud.sock";
+    };
+  };
 
   environment.systemPackages = with pkgs; [ unzip ];
   

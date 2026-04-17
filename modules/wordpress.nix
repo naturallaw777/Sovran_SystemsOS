@@ -46,7 +46,7 @@ lib.mkIf config.sovran_systemsOS.services.wordpress {
   # ── Fully automated WordPress setup ───────────────────────
   systemd.services.wordpress-init = {
     description = "Download, extract, and fully configure WordPress";
-    after = [ "network-online.target" "mysql.service" "phpfpm-mypool.service" "wordpress-db-init.service" ];
+    after = [ "network-online.target" "mysql.service" "phpfpm-wordpress.service" "wordpress-db-init.service" ];
     wants = [ "network-online.target" ];
     requires = [ "mysql.service" "wordpress-db-init.service" ];
     wantedBy = [ "multi-user.target" ];
@@ -160,6 +160,79 @@ CREDS
       echo "  Credentials saved to: $CREDS_FILE"
       echo "══════════════════════════════════════════════"
     '';
+  };
+
+  systemd.services.wordpress-detect-existing = {
+    description = "Detect pre-existing WordPress installation and populate hub credentials";
+    after = [ "mysql.service" ];
+    wants = [ "mysql.service" ];
+    wantedBy = [ "multi-user.target" ];
+
+    unitConfig = {
+      ConditionPathExists = [
+        "/var/lib/www/wordpress/wp-config.php"
+        "!/var/lib/secrets/wordpress-admin"
+      ];
+    };
+
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+    };
+
+    path = with pkgs; [ php wp-cli coreutils gnused shadow util-linux ];
+
+    script = ''
+      set -euo pipefail
+
+      CONFIG_FILE="/var/lib/www/wordpress/wp-config.php"
+      CREDS_FILE="/var/lib/secrets/wordpress-admin"
+      DOMAIN_FILE="/var/lib/domains/wordpress"
+      URL=""
+      DOMAIN=""
+
+      URL="$(php -r '$cfg = @file_get_contents("/var/lib/www/wordpress/wp-config.php"); if ($cfg === false) { exit(0); } if (preg_match("/define\\(\\s*[\"\\x27]WP_HOME[\"\\x27]\\s*,\\s*[\"\\x27]([^\"\\x27]+)[\"\\x27]\\s*\\)/", $cfg, $m)) { echo $m[1]; exit(0); } if (preg_match("/define\\(\\s*[\"\\x27]WP_SITEURL[\"\\x27]\\s*,\\s*[\"\\x27]([^\"\\x27]+)[\"\\x27]\\s*\\)/", $cfg, $m)) { echo $m[1]; }' 2>/dev/null || true)"
+
+      if [ -z "$URL" ] && [ -f /var/lib/www/wordpress/wp-load.php ]; then
+        URL=$(/run/wrappers/bin/su -s /bin/sh caddy -c "cd /var/lib/www/wordpress && wp option get siteurl 2>/dev/null" || true)
+      fi
+
+      if [ -n "$URL" ]; then
+        DOMAIN="$(printf '%s' "$URL" | sed -E 's#^[A-Za-z][A-Za-z0-9+.-]*://##; s#/.*$##')"
+      fi
+
+      mkdir -p /var/lib/secrets /var/lib/domains
+
+      cat > "$CREDS_FILE" << CREDS
+WordPress Existing Installation
+═══════════════════════════════
+URL:      ''${URL:-Unknown (set in $CONFIG_FILE)}
+Note:     Credentials were set before this flake.
+          Use existing credentials or reset via:
+          wp user update <admin-user> --user_pass='<new-password>'
+CREDS
+      chmod 600 "$CREDS_FILE"
+
+      if [ -n "$DOMAIN" ] && [ ! -f "$DOMAIN_FILE" ]; then
+        printf '%s\n' "$DOMAIN" > "$DOMAIN_FILE"
+      fi
+    '';
+  };
+
+  services.phpfpm.pools.wordpress = {
+    user = "caddy";
+    group = "php";
+    phpPackage = config.services.phpfpm.pools.mypool.phpPackage;
+    settings = {
+      "pm" = "dynamic";
+      "pm.max_children" = 75;
+      "pm.start_servers" = 10;
+      "pm.min_spare_servers" = 5;
+      "pm.max_spare_servers" = 20;
+      "pm.max_requests" = 500;
+      "clear_env" = "no";
+      "listen" = "/run/phpfpm/wordpress.sock";
+    };
   };
 
   systemd.tmpfiles.rules = [
