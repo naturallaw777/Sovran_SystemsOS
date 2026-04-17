@@ -21,7 +21,7 @@
   <div class="onboarding-shell">
 
     <!-- Progress bar -->
-    <div class="onboarding-progress-bar">
+    <div class="onboarding-progress-bar" id="onboarding-progress-bar">
       <div class="onboarding-progress-fill" id="onboarding-progress-fill"></div>
     </div>
 
@@ -40,6 +40,33 @@
 
     <!-- Step panels -->
     <div class="onboarding-panel-wrap">
+
+      <!-- ── Migration Password Gate (pre-step) ── -->
+      <div class="onboarding-panel" id="step-migration" style="display:none">
+        <div class="onboarding-hero">
+          <div class="onboarding-logo">🔐</div>
+          <h1 class="onboarding-title">Your system has been migrated to Sovran_SystemsOS</h1>
+          <p class="onboarding-subtitle">Important password update required</p>
+        </div>
+        <div class="onboarding-card">
+          <p class="onboarding-body-text" style="text-align:center; margin-bottom:4px;">
+            Your new login password is:
+          </p>
+          <div id="migration-password-value" style="font-family:monospace; font-size:1.35rem; font-weight:700; color:var(--text-primary); background:rgba(109, 191, 139, 0.10); border:1.5px solid rgba(109, 191, 139, 0.35); border-radius:8px; padding:14px 24px; letter-spacing:0.04em; text-align:center; word-break:break-all; margin-bottom:8px;">
+            &nbsp;
+          </div>
+          <div style="padding:10px 14px; background-color:rgba(229, 165, 10, 0.1); border:1px solid rgba(229, 165, 10, 0.35); border-radius:8px; font-size:0.92rem; color:var(--yellow); line-height:1.55;">
+            ⚠ Write this password down! You will need it to log in next time. This is also your Sovran Hub login password.
+          </div>
+          <div id="migration-password-status" class="onboarding-save-status" style="margin-top:8px;"></div>
+        </div>
+        <div class="onboarding-footer">
+          <div></div>
+          <button class="btn btn-primary" id="migration-password-continue">
+            I've written it down — Continue →
+          </button>
+        </div>
+      </div>
 
       <!-- ── Step 1: Welcome ── -->
       <div class="onboarding-panel" id="step-1">
