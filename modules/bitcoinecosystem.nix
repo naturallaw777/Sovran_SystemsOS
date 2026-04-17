@@ -12,6 +12,7 @@ lib.mkIf config.sovran_systemsOS.services.bitcoin {
     disablewallet = true;
     extraConfig = ''
       peerbloomfilters=1
+      server=1
     '';
   };
 
