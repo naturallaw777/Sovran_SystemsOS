@@ -217,33 +217,33 @@ CREDS
       RemainAfterExit = true;
     };
 
-    path = with pkgs; [ php coreutils gnused ];
+    path = with pkgs; [ coreutils gnused ];
 
     script = ''
       set -euo pipefail
 
-      CONFIG_FILE="/var/lib/www/nextcloud/config/config.php"
       CREDS_FILE="/var/lib/secrets/nextcloud-admin"
       DOMAIN_FILE="/var/lib/domains/nextcloud"
-      DOMAIN=""
+      DOMAIN="your-domain"
 
-      DOMAIN="$(php -r '$cfg = @include "/var/lib/www/nextcloud/config/config.php"; if (!is_array($cfg)) { exit(0); } $url = $cfg["overwrite.cli.url"] ?? ""; if (is_string($url) && $url !== "") { $host = parse_url($url, PHP_URL_HOST); if (is_string($host) && $host !== "") { echo $host; exit(0); } } $trusted = $cfg["trusted_domains"] ?? []; if (is_array($trusted)) { foreach ($trusted as $entry) { if (is_string($entry) && $entry !== "") { $entry = preg_replace("#^https?://#", "", $entry); $entry = preg_replace("#/.*$#", "", $entry); if ($entry !== "") { echo $entry; exit(0); } } } } if (is_string($trusted) && $trusted !== "") { $trusted = preg_replace("#^https?://#", "", $trusted); $trusted = preg_replace("#/.*$#", "", $trusted); echo $trusted; }' 2>/dev/null || true)"
+      if [ -f "$DOMAIN_FILE" ]; then
+        FILE_DOMAIN="$(sed -n '1{s/^[[:space:]]*//;s/[[:space:]]*$//;p;}' "$DOMAIN_FILE")"
+        if [ -n "$FILE_DOMAIN" ]; then
+          DOMAIN="$FILE_DOMAIN"
+        fi
+      fi
 
-      mkdir -p /var/lib/secrets /var/lib/domains
+      mkdir -p /var/lib/secrets
 
       cat > "$CREDS_FILE" << CREDS
-Nextcloud Existing Installation
-═══════════════════════════════
-URL:      ''${DOMAIN:+https://$DOMAIN/}''${DOMAIN:-Unknown (set in $CONFIG_FILE)}
-Note:     Credentials were set before this flake.
-          Use existing credentials or reset via:
-          php /var/lib/www/nextcloud/occ user:resetpassword <admin-user>
+Nextcloud (Pre-existing Installation)
+═══════════════════════════════════════
+URL:      https://$DOMAIN/
+Note:     This Nextcloud was installed before Sovran_SystemsOS.
+          Use your existing admin credentials to log in.
+Reset:    sudo -u caddy php /var/lib/www/nextcloud/occ user:resetpassword <username>
 CREDS
       chmod 600 "$CREDS_FILE"
-
-      if [ -n "$DOMAIN" ] && [ ! -f "$DOMAIN_FILE" ]; then
-        printf '%s\n' "$DOMAIN" > "$DOMAIN_FILE"
-      fi
     '';
   };
 
