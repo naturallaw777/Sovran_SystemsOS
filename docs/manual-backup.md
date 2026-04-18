@@ -19,9 +19,9 @@ The script always attempts all four stages, but skips stages that are irrelevant
 | Stage | Directory | Contents |
 |-------|-----------|----------|
 | **1/4 — NixOS config** | `/etc/nixos/` | Full NixOS system configuration: `role-state.nix`, `custom.nix`, flake files, and any other config managed by the Hub |
-| **2/4 — Secrets** | `/etc/nix-bitcoin-secrets`, `/var/lib/domains`, `/var/lib/secrets` | Bitcoin/LND secrets, domain configurations for all web services, and Hub state files |
+| **2/4 — Secrets** | `/etc/nix-bitcoin-secrets` | Bitcoin/LND secrets stored under `/etc/` |
 | **3/4 — Home directory** | `/home/` | All user home directories (`.cache/` and Trash are excluded) |
-| **4/4 — LND wallet data** | `/var/lib/lnd/` | Lightning Network node wallet and channel data (log files excluded) |
+| **4/4 — System data** | `/var/lib/` | Full service data tree, including Vaultwarden, bitcoind, LND, sovran-hub config, domains, secrets, and other `/var/lib` service directories (logs excluded as appropriate) |
 
 ---
 
@@ -36,9 +36,9 @@ All services are enabled: Bitcoin, Matrix Synapse, Vaultwarden, WordPress, Nextc
 | Stage | Status | Notes |
 |-------|--------|-------|
 | Stage 1 — NixOS config | ✅ Backed up | Full server configuration |
-| Stage 2 — Secrets | ✅ Backed up | Bitcoin secrets, domain configs, and Hub state |
+| Stage 2 — Secrets | ✅ Backed up | `/etc/nix-bitcoin-secrets` |
 | Stage 3 — Home directory | ✅ Backed up | Desktop user data |
-| Stage 4 — LND wallet | ✅ Backed up | Lightning wallet and channel data |
+| Stage 4 — System data (`/var/lib`) | ✅ Backed up | Includes Vaultwarden, bitcoind, LND, sovran-hub config, domains, secrets, and all other service data under `/var/lib` (logs excluded) |
 
 This produces the largest backup. All four stages generate meaningful data.
 
@@ -49,9 +49,9 @@ All server services are disabled (`bitcoin = false`, `synapse = false`, `vaultwa
 | Stage | Status | Notes |
 |-------|--------|-------|
 | Stage 1 — NixOS config | ✅ Backed up | Simpler config (no server services) |
-| Stage 2 — Secrets | ⚠️ Partial | `/etc/nix-bitcoin-secrets` is **skipped** (not applicable for Desktop Only role). `/var/lib/domains` and `/var/lib/secrets` (Hub state) are still backed up if present |
+| Stage 2 — Secrets | ⏭️ Skipped | `/etc/nix-bitcoin-secrets` is not applicable for Desktop Only role |
 | Stage 3 — Home directory | ✅ Backed up | **The most important data for this role** |
-| Stage 4 — LND wallet | ⏭️ Skipped | Explicitly skipped — not applicable for Desktop Only role |
+| Stage 4 — System data (`/var/lib`) | ✅ Backed up | Full `/var/lib` backup with `/var/lib/lnd` excluded for Desktop Only role |
 
 This produces the smallest and fastest backup. Stages 1 and 3 are the primary sources of meaningful data.
 
@@ -62,11 +62,11 @@ Only the Bitcoin ecosystem is active: `bitcoind`, `electrs`, `lnd`, `rtl`, `btcp
 | Stage | Status | Notes |
 |-------|--------|-------|
 | Stage 1 — NixOS config | ✅ Backed up | Node-specific configuration |
-| Stage 2 — Secrets | ✅ Backed up | Bitcoin secrets and Hub state. `/var/lib/domains` may be minimal (BTCPay runs but is not exposed via Caddy) |
+| Stage 2 — Secrets | ✅ Backed up | `/etc/nix-bitcoin-secrets` |
 | Stage 3 — Home directory | ✅ Backed up | User data |
-| Stage 4 — LND wallet | ✅ Backed up | **Critical** — Lightning wallet and channel data |
+| Stage 4 — System data (`/var/lib`) | ✅ Backed up | **Critical** — includes Lightning wallet/channel data plus all other `/var/lib` service data |
 
-All four stages run, matching Server + Desktop behaviour. The `/var/lib/domains` directory may be sparsely populated since non-Bitcoin web services are not configured.
+All four stages run, matching Server + Desktop behaviour. Some non-Bitcoin service directories under `/var/lib` may be sparse or absent depending on role.
 
 ---
 
