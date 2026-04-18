@@ -239,33 +239,13 @@ mkdir -p "$BACKUP_DIR/secrets"
 
 if [[ "$ROLE" == "desktop" ]]; then
   log "Skipping /etc/nix-bitcoin-secrets — not applicable for Desktop Only role."
-  # /var/lib/domains is still backed up if present (hub state)
-  for SRC in /var/lib/domains; do
-    if [[ -e "$SRC" ]]; then
-      rsync -a --info=progress2 "$SRC" "$BACKUP_DIR/secrets/" 2>&1 | tee -a "$BACKUP_LOG" || \
-        log "WARNING: Could not copy $SRC — continuing."
-    else
-      log "  (not found: $SRC — skipping)"
-    fi
-  done
 else
-  for SRC in /etc/nix-bitcoin-secrets /var/lib/domains; do
-    if [[ -e "$SRC" ]]; then
-      rsync -a --info=progress2 "$SRC" "$BACKUP_DIR/secrets/" 2>&1 | tee -a "$BACKUP_LOG" || \
-        log "WARNING: Could not copy $SRC — continuing."
-    else
-      log "  (not found: $SRC — skipping)"
-    fi
-  done
-fi
-
-# Hub state files from /var/lib/secrets/ (backed up for all roles)
-if [[ -d /var/lib/secrets ]]; then
-  mkdir -p "$BACKUP_DIR/secrets/hub-state"
-  rsync -a --info=progress2 /var/lib/secrets/ "$BACKUP_DIR/secrets/hub-state/" 2>&1 | tee -a "$BACKUP_LOG" || \
-    log "WARNING: Could not copy /var/lib/secrets — continuing."
-else
-  log "  (not found: /var/lib/secrets — skipping)"
+  if [[ -e /etc/nix-bitcoin-secrets ]]; then
+    rsync -a --info=progress2 /etc/nix-bitcoin-secrets "$BACKUP_DIR/secrets/" 2>&1 | tee -a "$BACKUP_LOG" || \
+      log "WARNING: Could not copy /etc/nix-bitcoin-secrets — continuing."
+  else
+    log "  (not found: /etc/nix-bitcoin-secrets — skipping)"
+  fi
 fi
 
 log "Stage 2 complete."
@@ -286,20 +266,35 @@ else
   log "WARNING: /home not found — skipping."
 fi
 
-# ── Stage 4/4: Wallet and node data ─────────────────────────────
+# ── Stage 4/4: System data ───────────────────────────────────────
 
 log ""
-log "── Stage 4/4: Wallet and node data (/var/lib/lnd) ──────────"
+log "── Stage 4/4: System data (/var/lib) ────────────────────────"
 if [[ "$ROLE" == "desktop" ]]; then
-  log "Skipping Stage 4 (LND wallet data) — not applicable for Desktop Only role."
-elif [[ -d /var/lib/lnd ]]; then
+  if [[ -d /var/lib ]]; then
+    rsync -a --info=progress2 \
+      --filter='- /lnd/***' \
+      --exclude='logs/' \
+      --exclude='log/' \
+      --exclude='*/logs/' \
+      --exclude='*/log/' \
+      /var/lib/ "$BACKUP_DIR/var-lib/" 2>&1 | tee -a "$BACKUP_LOG" || \
+      fail "Stage 4 failed while copying /var/lib for Desktop Only role"
+    log "Stage 4 complete (Desktop Only role excludes /var/lib/lnd)."
+  else
+    log "WARNING: /var/lib not found — skipping."
+  fi
+elif [[ -d /var/lib ]]; then
   rsync -a --info=progress2 \
     --exclude='logs/' \
-    /var/lib/lnd/ "$BACKUP_DIR/lnd/" 2>&1 | tee -a "$BACKUP_LOG" || \
-    fail "Stage 4 failed while copying /var/lib/lnd"
+    --exclude='log/' \
+    --exclude='*/logs/' \
+    --exclude='*/log/' \
+    /var/lib/ "$BACKUP_DIR/var-lib/" 2>&1 | tee -a "$BACKUP_LOG" || \
+    fail "Stage 4 failed while copying /var/lib"
   log "Stage 4 complete."
 else
-  log "WARNING: /var/lib/lnd not found — skipping."
+  log "WARNING: /var/lib not found — skipping."
 fi
 
 # ── Generate manifest ────────────────────────────────────────────
