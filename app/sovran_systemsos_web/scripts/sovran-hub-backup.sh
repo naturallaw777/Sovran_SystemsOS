@@ -270,14 +270,12 @@ fi
 
 log ""
 log "── Stage 4/4: System data (/var/lib) ────────────────────────"
+LOG_EXCLUDES=(--exclude='logs/' --exclude='log/' --exclude='*/logs/' --exclude='*/log/')
 if [[ "$ROLE" == "desktop" ]]; then
   if [[ -d /var/lib ]]; then
     rsync -a --info=progress2 \
-      --filter='- /lnd/***' \
-      --exclude='logs/' \
-      --exclude='log/' \
-      --exclude='*/logs/' \
-      --exclude='*/log/' \
+      --exclude='/lnd/' \
+      "${LOG_EXCLUDES[@]}" \
       /var/lib/ "$BACKUP_DIR/var-lib/" 2>&1 | tee -a "$BACKUP_LOG" || \
       fail "Stage 4 failed while copying /var/lib for Desktop Only role"
     log "Stage 4 complete (Desktop Only role excludes /var/lib/lnd)."
@@ -286,10 +284,7 @@ if [[ "$ROLE" == "desktop" ]]; then
   fi
 elif [[ -d /var/lib ]]; then
   rsync -a --info=progress2 \
-    --exclude='logs/' \
-    --exclude='log/' \
-    --exclude='*/logs/' \
-    --exclude='*/log/' \
+    "${LOG_EXCLUDES[@]}" \
     /var/lib/ "$BACKUP_DIR/var-lib/" 2>&1 | tee -a "$BACKUP_LOG" || \
     fail "Stage 4 failed while copying /var/lib"
   log "Stage 4 complete."
