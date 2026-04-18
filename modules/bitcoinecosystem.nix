@@ -73,6 +73,7 @@ lib.mkIf config.sovran_systemsOS.services.bitcoin {
   systemd.services.bitcoind = {
     requires = [ "run-media-Second_Drive.mount" ];
     after    = [ "run-media-Second_Drive.mount" ];
+    serviceConfig.PrivateUsers = lib.mkForce false;
   };
 
   systemd.services.electrs = {
