@@ -273,7 +273,7 @@ log "── Stage 4/4: System data (/var/lib) ───────────�
 if [[ "$ROLE" == "desktop" ]]; then
   if [[ -d /var/lib ]]; then
     rsync -a --info=progress2 \
-      --exclude='lnd/' \
+      --exclude='/lnd/' \
       --exclude='*/logs/' \
       --exclude='*/log/' \
       /var/lib/ "$BACKUP_DIR/var-lib/" 2>&1 | tee -a "$BACKUP_LOG" || \
@@ -284,7 +284,6 @@ if [[ "$ROLE" == "desktop" ]]; then
   fi
 elif [[ -d /var/lib ]]; then
   rsync -a --info=progress2 \
-    --exclude='lnd/logs/' \
     --exclude='*/logs/' \
     --exclude='*/log/' \
     /var/lib/ "$BACKUP_DIR/var-lib/" 2>&1 | tee -a "$BACKUP_LOG" || \
