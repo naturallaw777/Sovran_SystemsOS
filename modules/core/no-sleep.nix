@@ -17,13 +17,13 @@
     lidSwitch = "ignore";
     lidSwitchDocked = "ignore";
     lidSwitchExternalPower = "ignore";
-    extraConfig = ''
-      HandleSuspendKey=ignore
-      HandleHibernateKey=ignore
-      HandlePowerKey=ignore
-      IdleAction=ignore
-      IdleActionSec=0
-    '';
+    settings.Login = {
+      HandleSuspendKey = "ignore";
+      HandleHibernateKey = "ignore";
+      HandlePowerKey = "ignore";
+      IdleAction = "ignore";
+      IdleActionSec = 0;
+    };
   };
 
   # ── Layer 2: mask systemd sleep targets ───────────────────────────────────
