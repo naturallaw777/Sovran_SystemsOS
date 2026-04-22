@@ -14,6 +14,7 @@
     ./core/sovran-hub.nix
     ./core/legacy-cleanup.nix
     ./core/remote-deploy.nix
+    ./core/no-sleep.nix
 
     # ── Always on (no flag) ───────────────────────────────────
     ./php.nix
