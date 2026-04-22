@@ -18,24 +18,23 @@
   config = lib.mkIf (!config.sovran_systemsOS.roles.desktop) {
 
     # ── Layer 1: logind hardware event handling ──────────────────────────────
-    services.logind = {
-      lidSwitch = "ignore";
-      lidSwitchDocked = "ignore";
-      lidSwitchExternalPower = "ignore";
-      settings.Login = {
-        HandleSuspendKey = "ignore";
-        HandleHibernateKey = "ignore";
-        HandlePowerKey = "ignore";
-        IdleAction = "ignore";
-        IdleActionSec = 0;
-      };
+    services.logind.settings.Login = {
+      HandleLidSwitch              = "ignore";
+      HandleLidSwitchDocked        = "ignore";
+      HandleLidSwitchExternalPower = "ignore";
+      HandleSuspendKey             = "ignore";
+      HandleHibernateKey           = "ignore";
+      HandlePowerKey               = "ignore";
+      IdleAction                   = "ignore";
+      IdleActionSec                = 0;
     };
 
     # ── Layer 2: mask systemd sleep targets ─────────────────────────────────
     # Nothing on the system can suspend/hibernate — not root, not GNOME, not D-Bus.
-    systemd.targets.sleep.enable = false;
-    systemd.targets.suspend.enable = false;
-    systemd.targets.hibernate.enable = false;
+    systemd.targets.sleep.enable        = false;
+    systemd.targets.suspend.enable      = false;
+    systemd.targets.hibernate.enable    = false;
     systemd.targets.hybrid-sleep.enable = false;
+
   };
 }
