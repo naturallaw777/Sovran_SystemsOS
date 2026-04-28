@@ -51,7 +51,7 @@ let
         { label = "Local Network"; file = "/var/lib/secrets/internal-ip"; prefix = "http://"; suffix = ":3051"; }
         { label = "Password"; file = "/etc/nix-bitcoin-secrets/rtl-password"; }
       ]; }
-      { name = "BTCPayserver";       unit = "btcpayserver.service"; type = "system"; icon = "btcpayserver"; enabled = cfg.services.bitcoin;  category = "bitcoin-apps"; credentials = [
+      { name = "BTCPayserver";       unit = "btcpayserver.service"; type = "system"; icon = "btcpayserver"; enabled = cfg.web.btcpayserver;  category = "bitcoin-apps"; credentials = [
         { label = "URL"; file = "/var/lib/domains/btcpayserver"; prefix = "https://"; }
         { label = "Note"; value = "Create your admin account on first visit"; }
       ]; }
