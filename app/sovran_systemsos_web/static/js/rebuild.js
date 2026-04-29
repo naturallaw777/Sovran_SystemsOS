@@ -51,19 +51,26 @@ async function pollRebuildStatus() {
     if (data.running) return;
     _rebuildFinished = true;
     stopRebuildPoll();
-    onRebuildDone(data.result === "success");
+    if (data.result === "reboot_required") {
+      onRebuildDone("reboot_required");
+    } else {
+      onRebuildDone(data.result === "success");
+    }
   } catch (err) {
     if (!_rebuildServerDown) { _rebuildServerDown = true; if ($rebuildStatus) $rebuildStatus.textContent = "Applying changes…"; }
   }
 }
 
-function onRebuildDone(success) {
+function onRebuildDone(result) {
   if ($rebuildSpinner) $rebuildSpinner.classList.remove("spinning");
   if ($rebuildClose) $rebuildClose.disabled = false;
-  if (success) {
+  if (result === true) {
     if ($rebuildStatus) $rebuildStatus.textContent = "✓ Done";
     // Auto-reload the page after a short delay so tiles and toggles reflect the new state
     setTimeout(function() { window.location.reload(); }, 1200);
+  } else if (result === "reboot_required") {
+    if ($rebuildStatus) $rebuildStatus.textContent = "✓ Done — reboot required";
+    if ($rebuildReboot) $rebuildReboot.style.display = "inline-flex";
   } else {
     if ($rebuildStatus) $rebuildStatus.textContent = "✗ Something went wrong";
     if ($rebuildSave) $rebuildSave.style.display = "inline-flex";

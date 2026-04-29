@@ -111,14 +111,20 @@ async function pollUpdateStatus() {
           if (data.log) appendLog(data.log);
           _updateLogOffset = data.offset;
         }
-        if (data.result === "success") {
+        if (data.result === "reboot_required") {
+          appendLog("[Server restarted — update completed, reboot required.]\n");
+        } else if (data.result === "success") {
           appendLog("[Server restarted — update completed successfully.]\n");
         } else {
           appendLog("[Server restarted — update encountered an error.]\n");
         }
         _updateFinished = true;
         stopUpdatePoll();
-        onUpdateDone(data.result === "success");
+        if (data.result === "reboot_required") {
+          onUpdateDone("reboot_required");
+        } else {
+          onUpdateDone(data.result === "success");
+        }
         return;
       }
       appendLog("[Server reconnected]\n");
@@ -129,18 +135,26 @@ async function pollUpdateStatus() {
     if (data.running) return;
     _updateFinished = true;
     stopUpdatePoll();
-    if (data.result === "success") onUpdateDone(true);
-    else onUpdateDone(false);
+    if (data.result === "reboot_required") {
+      onUpdateDone("reboot_required");
+    } else if (data.result === "success") {
+      onUpdateDone(true);
+    } else {
+      onUpdateDone(false);
+    }
   } catch (err) {
     if (!_serverWasDown) { _serverWasDown = true; appendLog("\n[Server restarting — waiting for it to come back…]\n"); if ($modalStatus) $modalStatus.textContent = "Server restarting…"; }
   }
 }
 
-function onUpdateDone(success) {
+function onUpdateDone(result) {
   if ($modalSpinner) $modalSpinner.classList.remove("spinning");
   if ($btnCloseModal) $btnCloseModal.disabled = false;
-  if (success) {
+  if (result === true) {
     if ($modalStatus) $modalStatus.textContent = "✓ Update complete";
+    if ($btnReboot) $btnReboot.style.display = "inline-flex";
+  } else if (result === "reboot_required") {
+    if ($modalStatus) $modalStatus.textContent = "✓ Update complete — reboot required";
     if ($btnReboot) $btnReboot.style.display = "inline-flex";
   } else {
     if ($modalStatus) $modalStatus.textContent = "✗ Update failed";
