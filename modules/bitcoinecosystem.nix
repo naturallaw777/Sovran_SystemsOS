@@ -78,7 +78,21 @@ lib.mkIf config.sovran_systemsOS.services.bitcoin {
 
   systemd.services.electrs = {
     requires = [ "run-media-Second_Drive.mount" ];
-    after    = [ "run-media-Second_Drive.mount" ];
+    after    = [ "run-media-Second_Drive.mount" "bitcoind.service" ];
+    wants    = [ "bitcoind.service" ];
+    serviceConfig = {
+      Restart    = "on-failure";
+      RestartSec = "30s";
+    };
+  };
+
+  systemd.services.lnd = {
+    after  = [ "bitcoind.service" ];
+    wants  = [ "bitcoind.service" ];
+    serviceConfig = {
+      Restart    = "on-failure";
+      RestartSec = "30s";
+    };
   };
 
   systemd.services.sovran-btc-permissions = {
