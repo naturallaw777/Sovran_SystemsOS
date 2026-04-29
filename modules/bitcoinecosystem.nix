@@ -77,8 +77,15 @@ lib.mkIf config.sovran_systemsOS.services.bitcoin {
   };
 
   systemd.services.electrs = {
-    requires = [ "run-media-Second_Drive.mount" ];
-    after    = [ "run-media-Second_Drive.mount" ];
+    requires = lib.mkForce [ "run-media-Second_Drive.mount" ];
+    after    = [ "run-media-Second_Drive.mount" "bitcoind.service" ];
+    wants    = [ "bitcoind.service" ];
+  };
+
+  systemd.services.lnd = {
+    wants = [ "bitcoind.service" ];
+    # requires for bitcoind set by nix-bitcoin; mkForce removes it
+    requires = lib.mkForce [ ];
   };
 
   systemd.services.sovran-btc-permissions = {
