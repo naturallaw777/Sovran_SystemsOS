@@ -64,6 +64,10 @@ _DOMAIN_REACHABILITY_STARTUP_DELAY = 5
 _domain_reachability_task: asyncio.Task | None = None
 _domain_reachability_task_lock = asyncio.Lock()
 
+# Units to start after the next successful rebuild (feature enable flow)
+_pending_service_starts: set[str] = set()
+_pending_service_starts_lock = Lock()
+
 BACKUP_LOG    = "/var/log/sovran-hub-backup.log"
 BACKUP_STATUS = "/var/log/sovran-hub-backup.status"
 BACKUP_SCRIPT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "scripts", "sovran-hub-backup.sh")
@@ -3478,6 +3482,12 @@ async def api_features_toggle(req: FeatureToggleRequest):
     except OSError:
         pass
 
+    # Queue the unit for auto-start once the rebuild succeeds
+    unit_to_start = FEATURE_SERVICE_MAP.get(req.feature)
+    if req.enabled and unit_to_start is not None:
+        with _pending_service_starts_lock:
+            _pending_service_starts.add(unit_to_start)
+
     # Start the rebuild service
     await asyncio.create_subprocess_exec(
         "systemctl", "reset-failed", REBUILD_UNIT,
@@ -3502,6 +3512,23 @@ async def api_rebuild_status(offset: int = 0):
     new_log, new_offset = await loop.run_in_executor(None, _read_rebuild_log, offset)
     running = status == "RUNNING"
     result = "pending" if running else status.lower()
+
+    # Auto-start any services that were just enabled by a feature toggle
+    if result == "success":
+        with _pending_service_starts_lock:
+            units_to_start = set(_pending_service_starts)
+            _pending_service_starts.clear()
+        for unit in units_to_start:
+            try:
+                proc = await asyncio.create_subprocess_exec(
+                    "systemctl", "start", unit,
+                    stdout=asyncio.subprocess.DEVNULL,
+                    stderr=asyncio.subprocess.DEVNULL,
+                )
+                await proc.wait()
+            except Exception:
+                pass
+
     return {
         "running": running,
         "result": result,
