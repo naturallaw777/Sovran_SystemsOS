@@ -127,6 +127,7 @@ in
     };
     path = [ pkgs.shadow pkgs.coreutils ];
     script = ''
+      set -euo pipefail
       SECRET_FILE="/var/lib/secrets/root-password"
       if [ ! -f "$SECRET_FILE" ]; then
         mkdir -p /var/lib/secrets
@@ -158,12 +159,15 @@ in
   systemd.services.free-password-setup = {
     description = "Generate and set a random 'free' user password";
     wantedBy = [ "multi-user.target" ];
+    before = [ "display-manager.service" ];
+    after = [ "systemd-user-sessions.service" ];
     serviceConfig = {
       Type = "oneshot";
       RemainAfterExit = true;
     };
     path = [ pkgs.shadow pkgs.coreutils ];
     script = ''
+      set -euo pipefail
       SECRET_FILE="/var/lib/secrets/free-password"
       PENDING_FILE="/var/lib/secrets/free-password-migration-pending"
 
