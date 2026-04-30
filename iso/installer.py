@@ -948,6 +948,7 @@ class InstallerWindow(Adw.ApplicationWindow):
         if proc.returncode != 0:
             raise RuntimeError(f"Failed to write role-state.nix: {proc.stderr}")
         run(["sudo", "cp", "/mnt/etc/nixos/custom.template.nix", "/mnt/etc/nixos/custom.nix"])
+        run(["sudo", "chmod", "644", "/mnt/etc/nixos/custom.nix"])
 
     # ── Step 4: Ready to install ──────────────────────────────────────────
 
