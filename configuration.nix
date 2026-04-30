@@ -70,13 +70,11 @@
   security.pam.services.gdm-password.enableGnomeKeyring = true;
   security.pam.services.gdm-autologin.enableGnomeKeyring = true;
 
-  # Declaratively guarantee the GNOME Keyring default pointer exists.
-  # The 'f' directive creates the file only when it is absent, so legacy
-  # machines that already have a valid pointer are never overwritten.
-  # The content 'login' tells pam_gnome_keyring which keyring to unlock on login.
-  systemd.tmpfiles.rules = [
-    "d /home/free/.local/share/keyrings 0700 free users -"
-    "f /home/free/.local/share/keyrings/default 0600 free users - login\n"
+  # Declaratively guarantee the GNOME Keyring default pointer exists for the free user.
+  # Running this at the user level prevents root from corrupting ~/.local permissions on fresh installs.
+  systemd.user.tmpfiles.rules = [
+    "d %h/.local/share/keyrings 0700 - - - -"
+    "f %h/.local/share/keyrings/default 0600 - - - login\n"
   ];
 
   # ── Audio ──────────────────────────────────────────────────
