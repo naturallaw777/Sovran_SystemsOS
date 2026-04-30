@@ -2060,6 +2060,29 @@ async def api_migration_password_acknowledge():
             except Exception as exc:
                 logger.warning("chpasswd exception during migration acknowledge: %s", exc)
 
+        # Wipe the old keyring (encrypted with the pre-migration password) and
+        # seed the default pointer so PAM creates a fresh keyring on next login.
+        keyring_dir = "/home/free/.local/share/keyrings"
+        try:
+            if os.path.isdir(keyring_dir):
+                for entry in os.listdir(keyring_dir):
+                    entry_path = os.path.join(keyring_dir, entry)
+                    try:
+                        if os.path.isfile(entry_path) or os.path.islink(entry_path):
+                            os.unlink(entry_path)
+                        elif os.path.isdir(entry_path):
+                            shutil.rmtree(entry_path, ignore_errors=True)
+                    except Exception:
+                        pass
+            os.makedirs(keyring_dir, exist_ok=True)
+            default_file = os.path.join(keyring_dir, "default")
+            with open(default_file, "w") as f:
+                f.write("login\n")
+            free_pw = pwd.getpwnam("free")
+            os.chown(default_file, free_pw.pw_uid, free_pw.pw_gid)
+        except Exception as exc:
+            logger.warning("Keyring wipe exception during migration acknowledge: %s", exc)
+
     # Clear the pending marker
     try:
         os.remove(MIGRATION_NEWPASS_FILE)
@@ -3906,6 +3929,18 @@ async def api_security_reset():
                     pass
     except Exception as exc:
         errors.append(f"keyring wipe: {exc}")
+
+    # Recreate the default pointer so pam_gnome_keyring knows which keyring to
+    # unlock on the next GDM login without prompting the user.
+    try:
+        os.makedirs(keyring_dir, exist_ok=True)
+        default_file = os.path.join(keyring_dir, "default")
+        with open(default_file, "w") as f:
+            f.write("login\n")
+        free_pw = pwd.getpwnam("free")
+        os.chown(default_file, free_pw.pw_uid, free_pw.pw_gid)
+    except Exception as exc:
+        errors.append(f"keyring default recreation: {exc}")
 
     # The user performed a full security reset — the banner's purpose is served.
     try:
