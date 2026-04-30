@@ -1,46 +1,6 @@
 { config, pkgs, lib, ... }:
 
 let
-  gdm-migration-password-sync = pkgs.writeShellScript "gdm-migration-password-sync" ''
-    set -euo pipefail
-
-    SECRET_DIR="/var/lib/secrets"
-    SECRET_FILE="$SECRET_DIR/free-password"
-    PENDING_FILE="$SECRET_DIR/free-password-migration-pending"
-    NEWPASS_FILE="$SECRET_DIR/free-password-migration-newpass"
-
-    [ "''${PAM_USER:-}" = "free" ] || exit 0
-    [ -f "$PENDING_FILE" ] || exit 0
-
-    ${pkgs.coreutils}/bin/mkdir -p "$SECRET_DIR"
-
-    # Generate a diceware-style passphrase: word-word-word-N
-    WORDS="apple barn brook cabin cedar cloud coral crane delta eagle ember \
-           fern field flame flora flint frost grove haven hedge holly heron \
-           jade juniper kelp larch lemon lilac linden loch lotus maple marsh \
-           meadow mist mossy mount oak ocean olive petal pine pixel plum pond \
-           prism quartz raven ridge river robin rocky rose rowan sage sand \
-           sierra silver slate snow solar spark spruce stone storm summit \
-           swift thorn tide timber torch trout vale vault vine walnut wave \
-           willow wren amber aspen birch blaze bloom bluff coast copper crest \
-           dune elder fjord forge glade glen glow gulf"
-    WORD_ARRAY=($WORDS)
-    COUNT=''${#WORD_ARRAY[@]}
-    W1=''${WORD_ARRAY[$((RANDOM % COUNT))]}
-    W2=''${WORD_ARRAY[$((RANDOM % COUNT))]}
-    W3=''${WORD_ARRAY[$((RANDOM % COUNT))]}
-    DIGIT=$((RANDOM % 10))
-    FREE_PASS="$W1-$W2-$W3-$DIGIT"
-
-    printf '%s\n' "$FREE_PASS" > "$SECRET_FILE"
-    ${pkgs.coreutils}/bin/chmod 600 "$SECRET_FILE"
-    printf 'free:%s\n' "$FREE_PASS" | ${pkgs.shadow}/bin/chpasswd
-
-    printf '%s\n' "$FREE_PASS" > "$NEWPASS_FILE"
-    ${pkgs.coreutils}/bin/chmod 600 "$NEWPASS_FILE"
-    ${pkgs.coreutils}/bin/rm -f "$PENDING_FILE"
-  '';
-
   # ── Helper: change 'free' password and save it ─────────────
   change-free-password = pkgs.writeShellScriptBin "change-free-password" ''
     set -euo pipefail
@@ -225,10 +185,53 @@ in
     '';
   };
 
-  security.pam.services.gdm-password.text = lib.mkAfter (lib.optionalString
-    (config.sovran_systemsOS.roles.desktop || config.sovran_systemsOS.roles.server_plus_desktop)
-    ''
-      session optional pam_exec.so quiet ${gdm-migration-password-sync}
-    '');
+  systemd.services.free-password-migration = {
+    description = "Generate and set 'free' password for migrated machines";
+    wantedBy = [ "multi-user.target" ];
+    before = [ "display-manager.service" ];
+    after = [ "systemd-user-sessions.service" "free-password-setup.service" ];
+    requires = [ "free-password-setup.service" ];
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+    };
+    path = [ pkgs.shadow pkgs.coreutils ];
+    script = ''
+      set -euo pipefail
+
+      PENDING_FILE="/var/lib/secrets/free-password-migration-pending"
+      SECRET_FILE="/var/lib/secrets/free-password"
+      NEWPASS_FILE="/var/lib/secrets/free-password-migration-newpass"
+
+      [ -f "$PENDING_FILE" ] || exit 0
+
+      mkdir -p /var/lib/secrets
+
+      WORDS="apple barn brook cabin cedar cloud coral crane delta eagle ember \
+             fern field flame flora flint frost grove haven hedge holly heron \
+             jade juniper kelp larch lemon lilac linden loch lotus maple marsh \
+             meadow mist mossy mount oak ocean olive petal pine pixel plum pond \
+             prism quartz raven ridge river robin rocky rose rowan sage sand \
+             sierra silver slate snow solar spark spruce stone storm summit \
+             swift thorn tide timber torch trout vale vault vine walnut wave \
+             willow wren amber aspen birch blaze bloom bluff coast copper crest \
+             dune elder fjord forge glade glen glow gulf"
+      WORD_ARRAY=($WORDS)
+      COUNT=''${#WORD_ARRAY[@]}
+      W1=''${WORD_ARRAY[$((RANDOM % COUNT))]}
+      W2=''${WORD_ARRAY[$((RANDOM % COUNT))]}
+      W3=''${WORD_ARRAY[$((RANDOM % COUNT))]}
+      DIGIT=$((RANDOM % 10))
+      FREE_PASS="$W1-$W2-$W3-$DIGIT"
+
+      printf '%s\n' "$FREE_PASS" > "$SECRET_FILE"
+      chmod 600 "$SECRET_FILE"
+      printf 'free:%s\n' "$FREE_PASS" | chpasswd
+
+      printf '%s\n' "$FREE_PASS" > "$NEWPASS_FILE"
+      chmod 600 "$NEWPASS_FILE"
+      rm -f "$PENDING_FILE"
+    '';
+  };
 
 }
