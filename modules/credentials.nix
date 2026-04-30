@@ -226,7 +226,6 @@ in
 
       printf '%s\n' "$FREE_PASS" > "$SECRET_FILE"
       chmod 600 "$SECRET_FILE"
-      printf 'free:%s\n' "$FREE_PASS" | chpasswd
 
       printf '%s\n' "$FREE_PASS" > "$NEWPASS_FILE"
       chmod 600 "$NEWPASS_FILE"
