@@ -7,11 +7,16 @@ function _renderCredsHtml(credentials, unit) {
   for (var i = 0; i < credentials.length; i++) {
     var cred = credentials[i];
     var id = "cred-" + Math.random().toString(36).substring(2, 8);
-    var displayValue = linkify(cred.value);
     var qrBlock = "";
     if (cred.qrcode) {
       qrBlock = '<div class="creds-qr-wrap"><img class="creds-qr-img" src="' + cred.qrcode + '" alt="QR Code for ' + escHtml(cred.label) + '"><div class="creds-qr-hint">Scan with Zeus app on your phone</div></div>';
     }
+    // If qronly, render the label + QR block only — skip value and copy button
+    if (cred.qronly) {
+      html += '<div class="creds-row"><div class="creds-label">' + escHtml(cred.label) + '</div>' + qrBlock + '</div>';
+      continue;
+    }
+    var displayValue = linkify(cred.value);
     html += '<div class="creds-row"><div class="creds-label">' + escHtml(cred.label) + '</div>' + qrBlock + '<div class="creds-value-wrap"><div class="creds-value" id="' + id + '">' + displayValue + '</div><button class="creds-copy-btn" data-target="' + id + '">Copy</button></div></div>';
   }
   return html;
@@ -534,7 +539,7 @@ function openSystemChangePasswordModal(unit, name, icon) {
     '<input class="matrix-form-input" type="password" id="sys-chpw-confirm" placeholder="Confirm new password" autocomplete="new-password">' +
     '<button type="button" class="pw-toggle-btn" id="sys-chpw-confirm-toggle" aria-label="Toggle password visibility">👁</button>' +
     '</div></div>' +
-    '<div class="pw-credentials-note">⚠ This will change both your desktop login and Hub login password. After changing, your updated password will appear in the System Passwords credentials tile. Make sure to remember it — you will need it to sign back into the Hub.</div>' +
+    '<div class="pw-credentials-note">⚠ This will change both your desktop login and Hub login password. After changing, your updated password will appear in the System Passwords credentials tile.</div>' +
     '<div class="matrix-form-actions">' +
     '<button class="matrix-form-back" id="sys-chpw-back-btn">← Back</button>' +
     '<button class="matrix-form-submit" id="sys-chpw-submit-btn">Change Password</button>' +
