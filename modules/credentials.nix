@@ -35,6 +35,8 @@ let
     echo "Password for 'free' updated and saved."
     # Delete the old GNOME Keyring so it is recreated with the new password on next GDM login.
     rm -rf /home/free/.local/share/keyrings/*
+    # Recreate the default pointer so PAM knows which keyring to unlock.
+    su - free -c 'echo "login" > ~/.local/share/keyrings/default'
     echo "GNOME Keyring files cleared — a fresh keyring will be created on next login."
   '';
 in
@@ -182,6 +184,15 @@ in
       echo "$FREE_PASS" > "$SECRET_FILE"
       chmod 600 "$SECRET_FILE"
       echo "free:$FREE_PASS" | chpasswd
+      # Seed the GNOME Keyring default pointer so PAM creates a fresh keyring
+      # on first login without prompting the user.  Guard with -f so we never
+      # overwrite an existing pointer on legacy machines that already have one.
+      su - free -c '
+        mkdir -p ~/.local/share/keyrings
+        if [ ! -f ~/.local/share/keyrings/default ]; then
+          echo "login" > ~/.local/share/keyrings/default
+        fi
+      '
     '';
   };
 
