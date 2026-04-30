@@ -30,26 +30,27 @@ let
     # ── Bitcoin Base (node implementations) ────────────────────
     ++ lib.optionals cfg.services.bitcoin [
       { name = "Bitcoin Knots + BIP110"; unit = "bitcoind.service"; type = "system"; icon = "bip110";        enabled = cfg.features.bip110;        category = "bitcoin-base"; credentials = [
-        { label = "Tor Address"; file = "/var/lib/tor/onion/bitcoind/hostname"; prefix = "http://"; }
+        { label = "Tor Address — Access from anywhere via Tor Browser"; file = "/var/lib/tor/onion/bitcoind/hostname"; prefix = "http://"; }
       ]; }
       { name = "Bitcoin Knots";          unit = "bitcoind.service"; type = "system"; icon = "bitcoind";      enabled = cfg.services.bitcoin && !cfg.features.bitcoin-core && !cfg.features.bip110; category = "bitcoin-base"; credentials = [
-        { label = "Tor Address"; file = "/var/lib/tor/onion/bitcoind/hostname"; prefix = "http://"; }
+        { label = "Tor Address — Access from anywhere via Tor Browser"; file = "/var/lib/tor/onion/bitcoind/hostname"; prefix = "http://"; }
       ]; }
       { name = "Bitcoin Core";           unit = "bitcoind.service"; type = "system"; icon = "bitcoin-core";  enabled = cfg.features.bitcoin-core;  category = "bitcoin-base"; credentials = [
-        { label = "Tor Address"; file = "/var/lib/tor/onion/bitcoind/hostname"; prefix = "http://"; }
+        { label = "Tor Address — Access from anywhere via Tor Browser"; file = "/var/lib/tor/onion/bitcoind/hostname"; prefix = "http://"; }
       ]; }
     ]
     # ── Bitcoin Apps (services on top of the node) ─────────────
     ++ lib.optionals cfg.services.bitcoin [
       { name = "Electrs";            unit = "electrs.service";      type = "system"; icon = "electrs";      enabled = cfg.services.bitcoin;  category = "bitcoin-apps"; credentials = [
-        { label = "Tor Address"; file = "/var/lib/tor/onion/electrs/hostname"; prefix = "http://"; }
+        { label = "Tor Address — Access from anywhere via Tor Browser"; file = "/var/lib/tor/onion/electrs/hostname"; prefix = "http://"; }
         { label = "Port"; value = "50001"; }
       ]; }
       { name = "LND";                unit = "lnd.service";          type = "system"; icon = "lnd";          enabled = cfg.services.bitcoin;  category = "bitcoin-apps"; credentials = []; }
       { name = "Ride The Lightning"; unit = "rtl.service";          type = "system"; icon = "rtl";          enabled = cfg.services.bitcoin;  category = "bitcoin-apps"; credentials = [
-        { label = "Tor Access"; file = "/var/lib/tor/onion/rtl/hostname"; prefix = "http://"; }
-        { label = "Local Network"; file = "/var/lib/secrets/internal-ip"; prefix = "http://"; suffix = ":3051"; }
+        { label = "Tor Address — Access from anywhere via Tor Browser"; file = "/var/lib/tor/onion/rtl/hostname"; prefix = "http://"; }
+        { label = "Local Network — Access on your home network only"; file = "/var/lib/secrets/internal-ip"; prefix = "http://"; suffix = ":3051"; }
         { label = "Password"; file = "/etc/nix-bitcoin-secrets/rtl-password"; }
+        { label = "How to Access"; value = "• Tor Address: Open in Tor Browser from any device, anywhere in the world\n• Local Network: Open in any browser, but only when connected to your home network"; }
       ]; }
       { name = "BTCPayserver";       unit = "btcpayserver.service"; type = "system"; icon = "btcpayserver"; enabled = cfg.web.btcpayserver;  category = "bitcoin-apps"; credentials = [
         { label = "URL"; file = "/var/lib/domains/btcpayserver"; prefix = "https://"; }
@@ -64,8 +65,9 @@ let
         { label = "Status"; value = "Auto-configured on first boot"; }
       ]; }
       { name = "Mempool";            unit = "mempool.service";      type = "system"; icon = "mempool";      enabled = cfg.features.mempool;  category = "bitcoin-apps"; credentials = [
-        { label = "Tor Access"; file = "/var/lib/tor/onion/mempool-frontend/hostname"; prefix = "http://"; }
-        { label = "Local Network"; file = "/var/lib/secrets/internal-ip"; prefix = "http://"; suffix = ":60847"; }
+        { label = "Tor Address — Access from anywhere via Tor Browser"; file = "/var/lib/tor/onion/mempool-frontend/hostname"; prefix = "http://"; }
+        { label = "Local Network — Access on your home network only"; file = "/var/lib/secrets/internal-ip"; prefix = "http://"; suffix = ":60847"; }
+        { label = "How to Access"; value = "• Tor Address: Open in Tor Browser from any device, anywhere in the world\n• Local Network: Open in any browser, but only when connected to your home network"; }
       ]; }
     ]
     # ── Communication (server+desktop only) ────────────────────
