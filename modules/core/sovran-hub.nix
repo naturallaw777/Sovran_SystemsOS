@@ -24,7 +24,7 @@ let
         { label = "Username"; file = "/var/lib/gnome-remote-desktop/rdp-username"; }
         { label = "Password"; file = "/var/lib/gnome-remote-desktop/rdp-password"; }
         { label = "Address";  file = "/var/lib/secrets/internal-ip"; suffix = ":3389"; }
-        { label = "How to Connect"; value = "1. Install an RDP client (e.g. Remmina, Microsoft Remote Desktop)\n2. Create a new RDP connection\n3. Enter the Address above as the host\n4. Enter the Username and Password above\n5. Connect — you will see your desktop remotely"; }
+        { label = "How to Connect"; value = "1. Install an RDP client (e.g. Remmina, Microsoft Remote Desktop)\n2. Create a new RDP connection\n3. Enter the Address above as the host\n4. Enter the Username and Password above"; }
       ]; }
     ]
     # ── Bitcoin Base (node implementations) ────────────────────
@@ -56,8 +56,8 @@ let
         { label = "Note"; value = "Create your admin account on first visit"; }
       ]; }
       { name = "Zeus Connect";       unit = "zeus-connect-setup.service"; type = "system"; icon = "zeus";   enabled = cfg.services.bitcoin;  category = "bitcoin-apps"; credentials = [
-        { label = "Connection URL"; file = "/var/lib/secrets/zeus-connect-url"; qrcode = true; }
-        { label = "How to Connect"; value = "1. Download Zeus from App Store or Google Play\n2. Open Zeus → Scan Node Config\n3. Scan the QR code above or paste the Connection URL"; }
+        { label = "Scan QR Code"; file = "/var/lib/secrets/zeus-connect-url"; qrcode = true; qronly = true; }
+        { label = "How to Connect"; value = "1. Download Zeus from App Store or Google Play\n2. Open Zeus → Scan Node Config\n3. Scan the QR code above"; }
       ]; }
       { name = "Sparrow Auto-Link"; unit = "sparrow-autoconnect.service"; type = "system"; icon = "sparrow"; enabled = cfg.services.bitcoin; category = "bitcoin-apps"; credentials = [
         { label = "Server"; value = "tcp://127.0.0.1:50001 (Electrs)"; }
