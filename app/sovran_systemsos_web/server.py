@@ -1243,6 +1243,7 @@ def _resolve_credential(cred: dict) -> dict | None:
     extract = cred.get("extract", "")
     multiline = cred.get("multiline", False)
     qrcode = cred.get("qrcode", False)
+    qronly = cred.get("qronly", False)
 
     # Static value
     if "value" in cred:
@@ -1251,6 +1252,8 @@ def _resolve_credential(cred: dict) -> dict | None:
             qr_data = _generate_qr_base64(result["value"])
             if qr_data:
                 result["qrcode"] = qr_data
+        if qronly:
+            result["qronly"] = True
         return result
 
     # File-based value
@@ -1279,6 +1282,9 @@ def _resolve_credential(cred: dict) -> dict | None:
         qr_data = _generate_qr_base64(value)
         if qr_data:
             result["qrcode"] = qr_data
+
+    if qronly:
+        result["qronly"] = True
 
     return result
 

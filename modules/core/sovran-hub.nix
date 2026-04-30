@@ -56,7 +56,7 @@ let
         { label = "Note"; value = "Create your admin account on first visit"; }
       ]; }
       { name = "Zeus Connect";       unit = "zeus-connect-setup.service"; type = "system"; icon = "zeus";   enabled = cfg.services.bitcoin;  category = "bitcoin-apps"; credentials = [
-        { label = "Scan QR Code"; file = "/var/lib/secrets/zeus-connect-url"; qrcode = true; qronly = true; }
+        { label = "QR Code"; file = "/var/lib/secrets/zeus-connect-url"; qrcode = true; qronly = true; }
         { label = "How to Connect"; value = "1. Download Zeus from App Store or Google Play\n2. Open Zeus → Scan Node Config\n3. Scan the QR code above"; }
       ]; }
       { name = "Sparrow Auto-Link"; unit = "sparrow-autoconnect.service"; type = "system"; icon = "sparrow"; enabled = cfg.services.bitcoin; category = "bitcoin-apps"; credentials = [
