@@ -2019,13 +2019,49 @@ async def api_migration_password_status():
 
 @app.post("/api/migration/password-acknowledge")
 async def api_migration_password_acknowledge():
-    """Acknowledge and clear the migration password disclosure marker."""
+    """Acknowledge the migration password and update /etc/shadow to match."""
+    # Read the new password before deleting the file
+    new_password = None
+    try:
+        with open(MIGRATION_NEWPASS_FILE, "r") as f:
+            new_password = f.read().strip()
+    except FileNotFoundError:
+        pass
+    except OSError as exc:
+        raise HTTPException(status_code=500, detail=f"Could not read migration password: {exc}")
+
+    # Update /etc/shadow so GDM accepts the new password going forward
+    if new_password:
+        chpasswd_bin = (
+            shutil.which("chpasswd")
+            or ("/run/current-system/sw/bin/chpasswd"
+                if os.path.isfile("/run/current-system/sw/bin/chpasswd") else None)
+        )
+        if chpasswd_bin:
+            try:
+                result = subprocess.run(
+                    [chpasswd_bin],
+                    input=f"free:{new_password}",
+                    capture_output=True,
+                    text=True,
+                )
+                if result.returncode != 0:
+                    logger.warning(
+                        "chpasswd failed during migration acknowledge (rc=%d): %s",
+                        result.returncode,
+                        (result.stderr or result.stdout).strip(),
+                    )
+            except Exception as exc:
+                logger.warning("chpasswd exception during migration acknowledge: %s", exc)
+
+    # Clear the pending marker
     try:
         os.remove(MIGRATION_NEWPASS_FILE)
     except FileNotFoundError:
         pass
     except OSError as exc:
         raise HTTPException(status_code=500, detail=f"Could not clear migration password: {exc}")
+
     return {"ok": True}
 
 
