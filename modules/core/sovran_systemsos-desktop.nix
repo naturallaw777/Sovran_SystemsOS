@@ -58,6 +58,16 @@ let
 
     # Fresh install — no user-db exists yet, apply full Sovran theme below
 
+    mkdir -p "$HOME/.config"
+    cat > "$HOME/.config/mimeapps.list" << EOF
+[Default Applications]
+text/html=brave-browser.desktop
+x-scheme-handler/http=brave-browser.desktop
+x-scheme-handler/https=brave-browser.desktop
+x-scheme-handler/about=brave-browser.desktop
+x-scheme-handler/unknown=brave-browser.desktop
+EOF
+
     ${pkgs.dconf}/bin/dconf load / << EOF
 [org/gnome/desktop/interface]
 color-scheme='prefer-dark'
@@ -421,5 +431,15 @@ in
 
   }
   ];
+
+  xdg.mime.defaultApplications = {
+    "text/html" = "brave-browser.desktop";
+    "x-scheme-handler/http" = "brave-browser.desktop";
+    "x-scheme-handler/https" = "brave-browser.desktop";
+    "x-scheme-handler/about" = "brave-browser.desktop";
+    "x-scheme-handler/unknown" = "brave-browser.desktop";
+  };
+
+  environment.sessionVariables.BROWSER = "brave-browser";
 
 }
