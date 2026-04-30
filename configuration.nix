@@ -75,8 +75,8 @@
   # machines that already have a valid pointer are never overwritten.
   # The content 'login' tells pam_gnome_keyring which keyring to unlock on login.
   systemd.tmpfiles.rules = [
-    "d /home/free/.local/share/keyrings 0700 free free -"
-    "f /home/free/.local/share/keyrings/default 0600 free free - login"
+    "d /home/free/.local/share/keyrings 0700 free users -"
+    "f /home/free/.local/share/keyrings/default 0600 free users - login\n"
   ];
 
   # ── Audio ──────────────────────────────────────────────────
