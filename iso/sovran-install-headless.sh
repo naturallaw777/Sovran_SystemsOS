@@ -245,6 +245,7 @@ if [[ -n "$DEPLOY_KEY" || -n "$HEADSCALE_SERVER" ]]; then
     } > /mnt/etc/nixos/custom.nix
 else
     cp /mnt/etc/nixos/custom.template.nix /mnt/etc/nixos/custom.nix
+    chmod 644 /mnt/etc/nixos/custom.nix
 fi
 
 # ── Write Headscale auth key if provided ─────────────────────────────────────
