@@ -31,6 +31,7 @@ lib.mkIf config.sovran_systemsOS.services.bitcoin {
 
       cat > "$CONFIG_FILE" << 'EOF'
 {
+  "mode": "ONLINE",
   "serverType": "ELECTRUM_SERVER",
   "electrumServer": "tcp://127.0.0.1:50001",
   "useProxy": false
