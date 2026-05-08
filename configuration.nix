@@ -21,6 +21,7 @@ in
 	boot.loader.efi.canTouchEfiVariables = true;
 	boot.loader.efi.efiSysMountPoint = "/boot/efi";
 	boot.kernelPackages =  pkgs.linuxPackages_latest;
+  boot.blacklistedKernelModules = [ "rxrpc" ];
 
 	# Enable Automount without Fail for Internal Drive.
 	fileSystems."/run/media/Second_Drive" = {
