@@ -3795,6 +3795,9 @@ async def api_security_reset():
         "/home/free/.ssh",
         "/var/lib/lnd",
         "/var/lib/vaultwarden",
+        "/etc/nix-bitcoin-secrets",
+        "/home/free/.local/share/Bisq",
+        "/home/free/.bisq",
     ]
 
     errors: list[str] = []
