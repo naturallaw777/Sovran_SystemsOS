@@ -11,6 +11,7 @@
   boot.loader.efi.efiSysMountPoint = "/boot/efi";
   boot.kernelPackages = pkgs.linuxPackages_latest;
   boot.kernelParams = [ "quiet" "loglevel=3" "rd.systemd.show_status=false" "udev.log_level=3" ];
+  boot.blacklistedKernelModules = [ "rxrpc" ];
 
   # ── Filesystems ─────────────────────────────────────────────
   fileSystems."/run/media/Second_Drive" = {
