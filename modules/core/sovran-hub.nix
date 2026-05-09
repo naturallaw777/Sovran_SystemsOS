@@ -146,9 +146,12 @@ let
 
     if [ "$RC" -eq 0 ]; then
       echo "── Step 2/3: nixos-rebuild ──────────────────────────"
-      if nixos-rebuild switch --flake /etc/nixos --print-build-logs 2>&1; then
+      SWITCH_OUT=$(nixos-rebuild switch --flake /etc/nixos --print-build-logs 2>&1)
+      SWITCH_RC=$?
+      echo "$SWITCH_OUT"
+      if [ "$SWITCH_RC" -eq 0 ]; then
         echo "[OK] switch succeeded"
-      elif grep -q "switchInhibitors\|Pre-switch checks failed" "$LOG" 2>/dev/null; then
+      elif echo "$SWITCH_OUT" | grep -q "switchInhibitors\|Pre-switch checks failed"; then
         echo ""
         echo "  ✓ Build succeeded — a reboot is required to apply this update"
         echo "  (Critical system components changed; running nixos-rebuild boot instead)"
@@ -206,13 +209,16 @@ let
     echo "══════════════════════════════════════════════════"
     echo ""
     echo "── Rebuilding system configuration ──────────────"
-    if nixos-rebuild switch --flake /etc/nixos --print-build-logs 2>&1; then
+    SWITCH_OUT=$(nixos-rebuild switch --flake /etc/nixos --print-build-logs 2>&1)
+    SWITCH_RC=$?
+    echo "$SWITCH_OUT"
+    if [ "$SWITCH_RC" -eq 0 ]; then
       echo ""
       echo "══════════════════════════════════════════════════"
       echo "  ✓ Rebuild completed successfully"
       echo "══════════════════════════════════════════════════"
       echo "SUCCESS" > "$STATUS"
-    elif grep -q "switchInhibitors\|Pre-switch checks failed" "$LOG" 2>/dev/null; then
+    elif echo "$SWITCH_OUT" | grep -q "switchInhibitors\|Pre-switch checks failed"; then
       echo ""
       echo "  ✓ Build succeeded — a reboot is required to apply this rebuild"
       echo "  (Critical system components changed; running nixos-rebuild boot instead)"
