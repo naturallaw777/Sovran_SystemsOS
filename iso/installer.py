@@ -387,7 +387,7 @@ class InstallerWindow(Adw.ApplicationWindow):
         notice_lbl.set_halign(Gtk.Align.FILL)
         notice_lbl.set_markup(
             "<span weight='bold'>Heads up — Server + Desktop prerequisites</span>\n"
-            "• A domain or subdomain from <span foreground='#3584e4' weight='bold'>https://njal.la</span>\n"
+            "• A domain or subdomain from <span weight='bold'>https://njal.la</span>\n"
             "• The ability to open / forward ports on your router\n\n"
             "Don't worry — after install, the onboarding wizard walks you through every step.\n"
             "<span size='small'>Desktop Only and Node Only do not require a domain or port forwarding.</span>"
