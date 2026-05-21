@@ -363,6 +363,40 @@ class InstallerWindow(Adw.ApplicationWindow):
         sep.set_margin_end(40)
         outer.append(sep)
 
+        notice_frame = Gtk.Frame()
+        notice_frame.add_css_class("card")
+        notice_frame.set_margin_start(40)
+        notice_frame.set_margin_end(40)
+        notice_frame.set_margin_top(20)
+        notice_frame.set_margin_bottom(4)
+
+        notice_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+        notice_box.set_margin_top(12)
+        notice_box.set_margin_bottom(12)
+        notice_box.set_margin_start(16)
+        notice_box.set_margin_end(16)
+
+        notice_icon = symbolic_icon("dialog-information-symbolic")
+        notice_icon.set_valign(Gtk.Align.START)
+        notice_box.append(notice_icon)
+
+        notice_lbl = Gtk.Label()
+        notice_lbl.set_use_markup(True)
+        notice_lbl.set_wrap(True)
+        notice_lbl.set_xalign(0)
+        notice_lbl.set_halign(Gtk.Align.FILL)
+        notice_lbl.set_markup(
+            "<span weight='bold'>Heads up — Server + Desktop prerequisites</span>\n"
+            "• A domain or subdomain from <span weight='bold'>https://njal.la</span>\n"
+            "• The ability to open / forward ports on your router\n\n"
+            "Don't worry — after install, the onboarding wizard walks you through every step.\n"
+            "<span size='small'>Desktop Only and Node Only do not require a domain or port forwarding.</span>"
+        )
+        notice_box.append(notice_lbl)
+
+        notice_frame.set_child(notice_box)
+        outer.append(notice_frame)
+
         # Role label
         role_lbl = Gtk.Label()
         role_lbl.set_markup("<span size='medium' weight='bold'>Choose your installation type:</span>")
