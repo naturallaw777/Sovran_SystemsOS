@@ -21,7 +21,7 @@ DEPLOYED_FLAKE = """\
   description = "Sovran_SystemsOS for the Sovran Pro from Sovran Systems";
 
   inputs = {
-    Sovran_Systems.url = "git+https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS?ref=staging-dev";
+    Sovran_Systems.url = "git+https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS?ref=stable";
   };
 
   outputs = { self, Sovran_Systems, ... }@inputs: {
@@ -1094,7 +1094,7 @@ class InstallerWindow(Adw.ApplicationWindow):
         if proc.returncode != 0:
             log(proc.stderr)
             raise RuntimeError(proc.stderr.strip() or "Failed to write deployed flake.nix")
-        GLib.idle_add(append_text, buf, "Locking flake to staging-dev...\n")
+        GLib.idle_add(append_text, buf, "Locking flake to stable...\n")
         run_stream(["sudo", "nix", "--extra-experimental-features", "nix-command flakes",
                     "flake", "lock", "/mnt/etc/nixos"], buf)
 
