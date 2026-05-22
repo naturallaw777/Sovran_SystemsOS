@@ -557,7 +557,7 @@ async function loadStep4() {
   html += '<thead><tr><th>Port</th><th>Protocol</th><th>Forward&nbsp;to</th><th>Purpose</th></tr></thead>';
   html += '<tbody>';
   html += '<tr><td class="port-req-port">7881</td><td class="port-req-proto">TCP</td><td class="port-req-internal-ip">' + ip + '</td><td class="port-req-desc">LiveKit WebRTC signalling</td></tr>';
-  html += '<tr><td class="port-req-port">7882–7894</td><td class="port-req-proto">UDP</td><td class="port-req-internal-ip">' + ip + '</td><td class="port-req-desc">LiveKit media streams</td></tr>';
+  html += '<tr><td class="port-req-port">7882</td><td class="port-req-proto">UDP</td><td class="port-req-internal-ip">' + ip + '</td><td class="port-req-desc">LiveKit media (UDP mux)</td></tr>';
   html += '<tr><td class="port-req-port">5349</td><td class="port-req-proto">TCP</td><td class="port-req-internal-ip">' + ip + '</td><td class="port-req-desc">TURN over TLS</td></tr>';
   html += '<tr><td class="port-req-port">3478</td><td class="port-req-proto">UDP</td><td class="port-req-internal-ip">' + ip + '</td><td class="port-req-desc">TURN (STUN/relay)</td></tr>';
   html += '<tr><td class="port-req-port">30000–40000</td><td class="port-req-proto">TCP/UDP</td><td class="port-req-internal-ip">' + ip + '</td><td class="port-req-desc">TURN relay (WebRTC)</td></tr>';
