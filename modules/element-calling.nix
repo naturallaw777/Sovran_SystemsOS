@@ -130,7 +130,7 @@ EOF
     keyFile = livekitKeyFile;
     settings = {
       rtc.use_external_ip = true;
-      rtc.udp_port = "7882-7894";
+      rtc.udp_port = 7882;
       room.auto_create = false;
       turn = {
         enabled = true;
@@ -141,10 +141,9 @@ EOF
   };
 
   networking.firewall.allowedTCPPorts = [ 5349 7881 ];
-  networking.firewall.allowedUDPPorts = [ 3478 ];
+  networking.firewall.allowedUDPPorts = [ 3478 7882 ];
   networking.firewall.allowedUDPPortRanges = [
-    { from = 7882; to = 7894; }
-    { from = 30000; to = 40000;}
+    { from = 30000; to = 40000; }
   ];
   networking.firewall.allowedTCPPortRanges = [
     { from = 30000; to = 40000; }
