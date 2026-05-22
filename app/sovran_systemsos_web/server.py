@@ -894,7 +894,7 @@ def _get_firewall_allowed_ports() -> dict[str, set[int]]:
 
 
 def _port_range_to_ints(port_str: str) -> list[int]:
-    """Convert a port string like ``"443"``, ``"7882-7894"`` to a list of ints."""
+    """Convert a port string like ``"443"``, ``"30000-40000"`` to a list of ints."""
     port_str = port_str.strip()
     if re.match(r'^\d+$', port_str):
         return [int(port_str)]
