@@ -2,20 +2,15 @@
 
 <img src="iso/assets/sovran-hub-icon.svg" alt="Sovran Systems" width="160" />
 
-# Sovran_SystemsOS — Internal Mirror
-
-Private development mirror of **Sovran_SystemsOS**.
-Canonical source lives on Gitea — this repo is for internal work only.
+# Sovran_SystemsOS
 
 `Base Development` · NixOS Flake · AGPL-3.0
 
-[Canonical source (Gitea)](https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS) · [Public site](https://sovransystems.com)
+[Sovran Systems](https://sovransystems.com)
 
 </div>
 
 ---
-
-> **Heads up:** This repo is private. End users never see it. Public docs, build instructions, and marketing copy live on the website and on Gitea — do not duplicate them here. This README is for internal contributors.
 
 ## Table of Contents
 
@@ -135,10 +130,6 @@ Facts about the defaults, straight from `configuration.nix` and the modules:
 - **Firewall on, public sshd off, RDP off, auto-login off.**
 - **EFI** is mounted with `umask=0077`.
 - **Kernel surface trimmed.** `boot.blacklistedKernelModules = [ "rxrpc" ];`
-- **Emergency mode disabled** (`systemd.enableEmergencyMode = false`).
-- **GNOME Keyring** wired into PAM (`gdm-password`, `gdm-autologin`); the keyring file is declaratively created with `0600` perms via `systemd.tmpfiles`.
-- **PostgreSQL** is local-only (`local trust`, `127.0.0.1/32 trust`, `::1/128 trust`). Not exposed to the network.
-- **Secrets** are materialized through `modules/credentials.nix` and `nix-bitcoin-secrets` (`/etc/nix-bitcoin-secrets/`, included in backups).
 - **Weekly garbage collection** with `--delete-older-than 7d`.
 
 ## Backups & Recovery
@@ -161,7 +152,3 @@ The second drive is mounted by label (`BTCEcoandBackup`) with `nofail` so a miss
 ## License
 
 Licensed under the **GNU Affero General Public License v3.0** — see [`LICENSE`](./LICENSE).
-
----
-
-<sub>Internal mirror. Public copy lives on Gitea.</sub>
