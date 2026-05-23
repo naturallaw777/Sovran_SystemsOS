@@ -114,21 +114,19 @@ Internal commands. Run from the flake root.
 
 ## Networking & Reverse Proxy
 
-- **Firewall on by default** (`networking.firewall.enable = true`). The only port opened at host level is **UDP 5353** for mDNS (Avahi). Every other port is opened by the module that needs it.
-- **Caddy** (`modules/core/caddy.nix`) terminates TLS for all HTTP services. Operator vhosts go through `sovran_systemsOS.caddy.extraVirtualHosts`.
+- **Firewall on by default** (`networking.firewall.enable = true`). Port are opened by the module that needs it.
+- **Caddy** (`modules/core/caddy.nix`) terminates TLS for all HTTP services.
 - **Njalla** dynamic DNS (`modules/core/njalla.nix`) keeps records in sync via a 15-minute cron job.
-- **Avahi** publishes `sovransystemsos.local` on the LAN.
 - **Tor** is enabled with `torsocks` available. The Bitcoin stack uses it directly — see [Security Posture](#security-posture).
-- **SSH:** localhost-only by default (`core/sshd-localhost.nix`). Public OpenSSH is opt-in (`modules/sshd.nix`).
-
+- **SSH:** localhost-only by default (`core/sshd-localhost.nix`).
+  
 ## Security Posture
 
 Facts about the defaults, straight from `configuration.nix` and the modules:
 
 - **Reproducible builds.** Every artifact derives from `flake.lock`. The same commit produces the same OS.
 - **Bitcoin stack over Tor.** In `modules/bitcoinecosystem.nix`, `bitcoind`, `electrs`, and `lnd` all set `tor.enforce = true`, and onion services are exposed for `bitcoind`, `electrs`, `lnd`, and friends.
-- **Firewall on, public sshd off, RDP off, auto-login off.**
-- **EFI** is mounted with `umask=0077`.
+- **Firewall on, public sshd off, RDP off, auto-login off, fail2bain active**
 - **Kernel surface trimmed.** `boot.blacklistedKernelModules = [ "rxrpc" ];`
 - **Weekly garbage collection** with `--delete-older-than 7d`.
 
