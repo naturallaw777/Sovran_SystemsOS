@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="iso/assets/splash-logo.png" alt="Sovran Systems" width="320" />
+<img src="iso/assets/sovran-hub-icon.svg" alt="Sovran Systems" width="160" />
 
 # Sovran_SystemsOS — Internal Mirror
 
@@ -15,7 +15,7 @@ Canonical source lives on Gitea — this repo is for internal work only.
 
 ---
 
-> **Heads up:** This repo is private. End users never see it. Public docs, build instructions, and marketing copy live on the website and on Gitea — do not duplicate them here. This README is for maintainers.
+> **Heads up:** This repo is private. End users never see it. Public docs, build instructions, and marketing copy live on the website and on Gitea — do not duplicate them here. This README is for internal contributors.
 
 ## Table of Contents
 
@@ -33,9 +33,9 @@ Canonical source lives on Gitea — this repo is for internal work only.
 
 ## What This Repo Is
 
-Sovran_SystemsOS is defined entirely as a **Nix flake** (`flake.nix`) and built from source. There is no pre-built binary — the System Installer is produced from this tree. Everything the system runs is traceable to a `.nix` file in this repo, pinned by `flake.lock`.
+Sovran_SystemsOS is defined entirely as a **Nix flake** (`flake.nix`) and built from source. There is no pre-built binary — the System Installer is produced from this tree. Everything the system does is declared here.
 
-The control center is the **Hub** — a built-in panel that lets the operator launch, monitor, and toggle services without touching a terminal. Under the hood, the Hub writes to `custom.nix`, which is just a normal Nix module.
+The control center is the **Hub** — a built-in panel that lets the operator launch, monitor, and toggle services without touching a terminal. Under the hood, the Hub writes to `custom.nix`, which feeds back into the flake.
 
 ## Architecture
 
@@ -90,7 +90,7 @@ Defaults follow the import order in `modules/modules.nix`. Toggles live in `cust
 | `rdp.nix` | off | xrdp remote desktop |
 | `sshd.nix` | off | Public-facing OpenSSH |
 
-> Tor is wired directly into the Bitcoin stack. In `modules/bitcoinecosystem.nix`, `bitcoind`, `electrs`, and `lnd` all set `tor.enforce = true` and `tor.proxy = true`, and onion services are exposed for `bitcoind`, `electrs`, `lnd`, and `rtl` via `nix-bitcoin.onionServices.*`.
+> Tor is wired directly into the Bitcoin stack. In `modules/bitcoinecosystem.nix`, `bitcoind`, `electrs`, and `lnd` all set `tor.enforce = true` and `tor.proxy = true`, and onion services are exposed for them.
 
 ## The Three Modes (internal reference)
 
@@ -131,7 +131,7 @@ Internal commands. Run from the flake root.
 Facts about the defaults, straight from `configuration.nix` and the modules:
 
 - **Reproducible builds.** Every artifact derives from `flake.lock`. The same commit produces the same OS.
-- **Bitcoin stack over Tor.** In `modules/bitcoinecosystem.nix`, `bitcoind`, `electrs`, and `lnd` all set `tor.enforce = true`, and onion services are exposed for `bitcoind`, `electrs`, `lnd`, and `rtl`.
+- **Bitcoin stack over Tor.** In `modules/bitcoinecosystem.nix`, `bitcoind`, `electrs`, and `lnd` all set `tor.enforce = true`, and onion services are exposed for `bitcoind`, `electrs`, `lnd`, and friends.
 - **Firewall on, public sshd off, RDP off, auto-login off.**
 - **EFI** is mounted with `umask=0077`.
 - **Kernel surface trimmed.** `boot.blacklistedKernelModules = [ "rxrpc" ];`
