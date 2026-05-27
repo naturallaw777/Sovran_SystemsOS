@@ -652,6 +652,35 @@ templates = Jinja2Templates(directory=os.path.join(_BASE_DIR, "templates"))
 
 # ── Static asset cache-busting ────────────────────────────────────
 
+def _compute_asset_version() -> str:
+    """Return a stable asset version string for cache-busting template assets."""
+    nix_match = re.search(r"/nix/store/([a-z0-9]{32})-", os.path.realpath(_BASE_DIR))
+    if nix_match:
+        return nix_match.group(1)[:16]
+
+    hasher = hashlib.sha256()
+    for root in (
+        os.path.join(_BASE_DIR, "static"),
+        os.path.join(_BASE_DIR, "templates"),
+    ):
+        if not os.path.isdir(root):
+            continue
+        for dirpath, dirnames, filenames in os.walk(root):
+            dirnames.sort()
+            for filename in sorted(filenames):
+                path = os.path.join(dirpath, filename)
+                try:
+                    stat = os.stat(path)
+                except OSError:
+                    continue
+                hasher.update(path.encode())
+                hasher.update(f"{stat.st_mtime_ns}:{stat.st_size}".encode())
+    return hasher.hexdigest()[:16]
+
+
+ASSET_VERSION = _compute_asset_version()
+
+
 def _file_hash(filename: str) -> str:
     """Return first 8 chars of the MD5 hex digest for a static file."""
     path = os.path.join(_BASE_DIR, "static", filename)
@@ -1894,7 +1923,10 @@ def _verify_support_removed() -> bool:
 
 @app.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request):
-    return templates.TemplateResponse("login.html", {"request": request})
+    return templates.TemplateResponse("login.html", {
+        "request": request,
+        "asset_version": ASSET_VERSION,
+    })
 
 
 @app.get("/auto-login")
@@ -1961,6 +1993,7 @@ async def api_logout(request: Request):
 async def index(request: Request):
     return templates.TemplateResponse("index.html", {
         "request": request,
+        "asset_version": ASSET_VERSION,
     })
 
 
@@ -1969,6 +2002,7 @@ async def onboarding(request: Request):
     _ensure_onboarding_reopened_for_migration()
     return templates.TemplateResponse("onboarding.html", {
         "request": request,
+        "asset_version": ASSET_VERSION,
         "onboarding_js_hash": _ONBOARDING_JS_HASH,
     })
 
