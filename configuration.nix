@@ -26,6 +26,13 @@
   nix.settings = {
     experimental-features = [ "nix-command" "flakes" ];
     download-buffer-size = 524288000;
+
+    # Network resilience for cache.nixos.org (Fastly) flakiness.
+    connect-timeout = 10;          # fail-fast on dead TCP connects (default: 0 = unlimited)
+    stalled-download-timeout = 90; # default 300s; retry sooner on stalled transfers
+    download-attempts = 7;         # default 5
+    http-connections = 25;         # cap concurrency (helps MTU/middlebox paths)
+    fallback = true;               # build locally if a substitute can't be fetched
   };
 
   # ── Networking ──────────────────────────────────────────────
