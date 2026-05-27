@@ -138,7 +138,11 @@ let
     RC=0
 
     echo "── Step 1/3: nix flake update ────────────────────"
-    if ! nix flake update --flake /etc/nixos --print-build-logs 2>&1; then
+    if ! nix flake update --flake /etc/nixos --print-build-logs \
+          --option connect-timeout 10 \
+          --option stalled-download-timeout 90 \
+          --option download-attempts 7 \
+          --option fallback true 2>&1; then
       echo "[ERROR] nix flake update failed"
       RC=1
     fi
@@ -146,7 +150,11 @@ let
 
     if [ "$RC" -eq 0 ]; then
       echo "── Step 2/3: nixos-rebuild ──────────────────────────"
-      SWITCH_OUT=$(nixos-rebuild switch --flake /etc/nixos --print-build-logs 2>&1)
+      SWITCH_OUT=$(nixos-rebuild switch --flake /etc/nixos --print-build-logs \
+        --option connect-timeout 10 \
+        --option stalled-download-timeout 90 \
+        --option download-attempts 7 \
+        --option fallback true 2>&1)
       SWITCH_RC=$?
       echo "$SWITCH_OUT"
       if [ "$SWITCH_RC" -eq 0 ]; then
@@ -155,7 +163,11 @@ let
         echo ""
         echo "  ✓ Build succeeded — a reboot is required to apply this update"
         echo "  (Critical system components changed; running nixos-rebuild boot instead)"
-        if nixos-rebuild boot --flake /etc/nixos --print-build-logs 2>&1; then
+        if nixos-rebuild boot --flake /etc/nixos --print-build-logs \
+             --option connect-timeout 10 \
+             --option stalled-download-timeout 90 \
+             --option download-attempts 7 \
+             --option fallback true 2>&1; then
           echo "REBOOT_REQUIRED" > "$STATUS"
           exit 0
         else
@@ -209,7 +221,11 @@ let
     echo "══════════════════════════════════════════════════"
     echo ""
     echo "── Rebuilding system configuration ──────────────"
-    SWITCH_OUT=$(nixos-rebuild switch --flake /etc/nixos --print-build-logs 2>&1)
+    SWITCH_OUT=$(nixos-rebuild switch --flake /etc/nixos --print-build-logs \
+      --option connect-timeout 10 \
+      --option stalled-download-timeout 90 \
+      --option download-attempts 7 \
+      --option fallback true 2>&1)
     SWITCH_RC=$?
     echo "$SWITCH_OUT"
     if [ "$SWITCH_RC" -eq 0 ]; then
@@ -222,7 +238,11 @@ let
       echo ""
       echo "  ✓ Build succeeded — a reboot is required to apply this rebuild"
       echo "  (Critical system components changed; running nixos-rebuild boot instead)"
-      if nixos-rebuild boot --flake /etc/nixos --print-build-logs 2>&1; then
+      if nixos-rebuild boot --flake /etc/nixos --print-build-logs \
+           --option connect-timeout 10 \
+           --option stalled-download-timeout 90 \
+           --option download-attempts 7 \
+           --option fallback true 2>&1; then
         echo "REBOOT_REQUIRED" > "$STATUS"
       else
         echo "[ERROR] nixos-rebuild boot also failed"
