@@ -653,7 +653,7 @@ templates = Jinja2Templates(directory=os.path.join(_BASE_DIR, "templates"))
 # ── Static asset cache-busting ────────────────────────────────────
 
 def _compute_asset_version() -> str:
-    """Return a stable asset version string for cache-busting template assets."""
+    """Return a 16-char asset version from Nix store hash or static/template metadata."""
     nix_match = re.search(r"/nix/store/([a-z0-9]{32})-", os.path.realpath(_BASE_DIR))
     if nix_match:
         return nix_match.group(1)[:16]
@@ -674,7 +674,9 @@ def _compute_asset_version() -> str:
                 except OSError:
                     continue
                 hasher.update(path.encode())
+                hasher.update(b"\0")
                 hasher.update(f"{stat.st_mtime_ns}:{stat.st_size}".encode())
+                hasher.update(b"\0")
     return hasher.hexdigest()[:16]
 
 
