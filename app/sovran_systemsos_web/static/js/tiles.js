@@ -4,6 +4,46 @@
 // Keyed by tileId: { progress: float, timestamp: ms }
 var _btcSyncPrev = {};
 
+// ── BIP-110 badge helper ──────────────────────────────────────────
+
+function _renderBip110Badge(bip110) {
+  if (!bip110) return '';
+  var state = bip110.state || 'unknown';
+  var label, cls, title;
+  switch (state) {
+    case 'active':
+      label = 'BIP\u2011110: Active \u2713';
+      cls = 'tile-bip110-badge--active';
+      title = 'BIP-110 is active on this node';
+      break;
+    case 'locked_in':
+      label = 'BIP\u2011110: Locked In';
+      cls = 'tile-bip110-badge--locked_in';
+      title = 'BIP-110 is locked in and will activate shortly';
+      break;
+    case 'signaling':
+      label = 'BIP\u2011110: Signaling';
+      cls = 'tile-bip110-badge--signaling';
+      title = 'Node is signaling readiness for BIP-110';
+      break;
+    case 'not_signaling':
+      label = 'BIP\u2011110: Not Signaling';
+      cls = 'tile-bip110-badge--not_signaling';
+      title = 'Node supports BIP-110 but is not signaling this period';
+      break;
+    case 'unsupported':
+      label = 'BIP\u2011110: Not Supported';
+      cls = 'tile-bip110-badge--unsupported';
+      title = 'This node build does not include BIP-110';
+      break;
+    default:
+      label = 'BIP\u2011110: \u2014';
+      cls = 'tile-bip110-badge--unknown';
+      title = 'Status unavailable (node syncing or RPC not ready)';
+  }
+  return '<div class="tile-bip110-badge ' + cls + '" title="' + escHtml(title) + '">' + escHtml(label) + '</div>';
+}
+
 // ── Render: initial build ─────────────────────────────────────────
 
 function buildTiles(services, categoryLabels) {
@@ -165,7 +205,8 @@ function buildTile(svc) {
 
   var ver = svc.version || svc.bitcoin_version || '';
   var versionLabel = ver ? '<div class="tile-version">' + escHtml(ver) + '</div>' : '';
-  tile.innerHTML = '<img class="tile-icon" src="/static/icons/' + escHtml(svc.icon) + '.svg" alt="' + escHtml(svc.name) + '" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'"><div class="tile-icon-fallback" style="display:none">?</div><div class="tile-name">' + escHtml(svc.name) + '</div>' + versionLabel + '<div class="tile-status"><span class="status-dot ' + sc + '"></span><span class="status-text">' + st + '</span></div>';
+  var bip110Badge = (svc.icon === 'bip110') ? _renderBip110Badge(svc.bip110) : '';
+  tile.innerHTML = '<img class="tile-icon" src="/static/icons/' + escHtml(svc.icon) + '.svg" alt="' + escHtml(svc.name) + '" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'"><div class="tile-icon-fallback" style="display:none">?</div><div class="tile-name">' + escHtml(svc.name) + '</div>' + versionLabel + bip110Badge + '<div class="tile-status"><span class="status-dot ' + sc + '"></span><span class="status-text">' + st + '</span></div>';
 
   tile.style.cursor = "pointer";
   tile.addEventListener("click", function() {
@@ -262,6 +303,31 @@ function updateTiles(services) {
             newVerEl.className = "tile-version";
             newVerEl.textContent = tileVer;
             nameEl.insertAdjacentElement("afterend", newVerEl);
+          }
+        }
+      }
+      // Update BIP-110 badge for bip110 tiles
+      if (svc.icon === 'bip110') {
+        var badgeHtml = _renderBip110Badge(svc.bip110);
+        var badgeEl = tile.querySelector(".tile-bip110-badge");
+        if (badgeEl) {
+          // Replace existing badge in-place
+          var tmp = document.createElement("div");
+          tmp.innerHTML = badgeHtml;
+          var newBadge = tmp.firstElementChild;
+          if (newBadge) {
+            badgeEl.replaceWith(newBadge);
+          } else {
+            badgeEl.remove();
+          }
+        } else if (badgeHtml) {
+          // Insert badge after version label (or after tile-name if no version)
+          var anchorEl = tile.querySelector(".tile-version") || tile.querySelector(".tile-name");
+          if (anchorEl) {
+            var tmpDiv = document.createElement("div");
+            tmpDiv.innerHTML = badgeHtml;
+            var newBadgeEl = tmpDiv.firstElementChild;
+            if (newBadgeEl) anchorEl.insertAdjacentElement("afterend", newBadgeEl);
           }
         }
       }

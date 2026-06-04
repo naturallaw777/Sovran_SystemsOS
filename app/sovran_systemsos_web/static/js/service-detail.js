@@ -107,6 +107,52 @@ async function openServiceDetailModal(unit, name, icon) {
       '</div>' +
       '</div>';
 
+    // Section B2: BIP-110 live status (bip110 tile only)
+    if (icon === 'bip110' && data.bip110) {
+      var bip110 = data.bip110;
+      var bip110State = bip110.state || 'unknown';
+      var bip110BadgeCls, bip110Label, bip110Tooltip;
+      switch (bip110State) {
+        case 'active':
+          bip110BadgeCls = 'tile-bip110-badge--active';
+          bip110Label = 'BIP\u2011110: Active \u2713';
+          bip110Tooltip = 'BIP-110 is active on this node';
+          break;
+        case 'locked_in':
+          bip110BadgeCls = 'tile-bip110-badge--locked_in';
+          bip110Label = 'BIP\u2011110: Locked In';
+          bip110Tooltip = 'BIP-110 is locked in and will activate shortly';
+          break;
+        case 'signaling':
+          bip110BadgeCls = 'tile-bip110-badge--signaling';
+          bip110Label = 'BIP\u2011110: Signaling';
+          bip110Tooltip = 'Node is signaling readiness for BIP-110';
+          break;
+        case 'not_signaling':
+          bip110BadgeCls = 'tile-bip110-badge--not_signaling';
+          bip110Label = 'BIP\u2011110: Not Signaling';
+          bip110Tooltip = 'Node supports BIP-110 but is not signaling this period';
+          break;
+        case 'unsupported':
+          bip110BadgeCls = 'tile-bip110-badge--unsupported';
+          bip110Label = 'BIP\u2011110: Not Supported';
+          bip110Tooltip = 'This node build does not include BIP-110';
+          break;
+        default:
+          bip110BadgeCls = 'tile-bip110-badge--unknown';
+          bip110Label = 'BIP\u2011110: \u2014';
+          bip110Tooltip = 'Status unavailable (node syncing or RPC not ready)';
+      }
+      var bip110Source = bip110.source ? ' <span style="color:var(--text-dim);font-size:0.75rem;">(source: ' + escHtml(bip110.source) + ')</span>' : '';
+      html += '<div class="svc-detail-section">' +
+        '<div class="svc-detail-section-title">BIP-110 Deployment Status</div>' +
+        '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">' +
+          '<span class="tile-bip110-badge ' + bip110BadgeCls + '" title="' + escHtml(bip110Tooltip) + '">' + escHtml(bip110Label) + '</span>' +
+          bip110Source +
+        '</div>' +
+        '</div>';
+    }
+
     // Section C: Domain diagnostics (domain services)
     if (data.needs_domain) {
       var steps = data.domain_check_steps || [];
