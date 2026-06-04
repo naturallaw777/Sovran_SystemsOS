@@ -2437,6 +2437,16 @@ def _get_bip110_status() -> dict:
     """
     _unknown: dict = {"supported": False, "signaling": False, "state": "unknown", "source": "none"}
 
+    def _deployment_bit(entry: dict) -> int | None:
+        bip9 = entry.get("bip9", {}) or {}
+        bip8 = entry.get("bip8", {}) or {}
+        bit = bip9.get("bit")
+        if bit is None:
+            bit = bip8.get("bit")
+        if bit is None:
+            bit = entry.get("bit")
+        return bit
+
     # ── 1. getdeploymentinfo (authoritative) ──────────────────────────
     deploy_info = _get_bitcoin_deployment_info()
     if deploy_info is not None:
@@ -2444,12 +2454,12 @@ def _get_bip110_status() -> dict:
         if isinstance(deployments, dict):
             matched_entry: dict | None = None
 
-            # Primary match: known deployment names (case-insensitive contains)
+            # Primary match: known deployment names (case-insensitive exact match)
             for key, entry in deployments.items():
                 if not isinstance(entry, dict):
                     continue
                 key_lower = key.lower()
-                if not any(name in key_lower for name in BIP110_DEPLOYMENT_NAMES):
+                if key_lower not in BIP110_DEPLOYMENT_NAMES:
                     continue
                 matched_entry = entry
                 break
@@ -2459,14 +2469,7 @@ def _get_bip110_status() -> dict:
                 for _, entry in deployments.items():
                     if not isinstance(entry, dict):
                         continue
-                    bip9 = entry.get("bip9", {}) or {}
-                    bip8 = entry.get("bip8", {}) or {}
-                    bit = bip9.get("bit")
-                    if bit is None:
-                        bit = bip8.get("bit")
-                    if bit is None:
-                        bit = entry.get("bit")
-                    if bit != BIP110_VERSIONBITS_BIT:
+                    if _deployment_bit(entry) != BIP110_VERSIONBITS_BIT:
                         continue
                     matched_entry = entry
                     break
@@ -2492,10 +2495,13 @@ def _get_bip110_status() -> dict:
                 if status in ("started", "defined"):
                     # Check whether deployment is currently signaling in this period.
                     stats = bip9.get("statistics") or bip8.get("statistics") or {}
+                    # Some Knots outputs expose only ``count`` (not explicit signaling bool),
+                    # so treat count>0 as a conservative signaling indicator for this period.
+                    count = stats.get("count")
                     signaling = bool(
                         stats.get("signaling")
                         or stats.get("signalling")
-                        or (isinstance(stats.get("count"), int) and stats.get("count", 0) > 0)
+                        or (isinstance(count, int) and count > 0)
                     )
                     if signaling:
                         return {"supported": True, "signaling": True, "state": "signaling", "source": "getdeploymentinfo"}
