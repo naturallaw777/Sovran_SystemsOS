@@ -31,7 +31,6 @@
 
     # ── Features (default OFF — enable in custom.nix) ─────────
     ./haven.nix
-    ./bip110.nix
     ./element-calling.nix
     ./mempool.nix
     ./bitcoin-core.nix

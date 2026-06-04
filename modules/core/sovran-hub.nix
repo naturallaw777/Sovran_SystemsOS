@@ -29,10 +29,7 @@ let
     ]
     # ── Bitcoin Base (node implementations) ────────────────────
     ++ lib.optionals cfg.services.bitcoin [
-      { name = "Bitcoin Knots + BIP110"; unit = "bitcoind.service"; type = "system"; icon = "bip110";        enabled = cfg.features.bip110;        category = "bitcoin-base"; credentials = [
-        { label = "Tor Address — Access from anywhere via Tor Browser"; file = "/var/lib/tor/onion/bitcoind/hostname"; prefix = "http://"; }
-      ]; }
-      { name = "Bitcoin Knots";          unit = "bitcoind.service"; type = "system"; icon = "bitcoind";      enabled = cfg.services.bitcoin && !cfg.features.bitcoin-core && !cfg.features.bip110; category = "bitcoin-base"; credentials = [
+      { name = "Bitcoin Knots + BIP110"; unit = "bitcoind.service"; type = "system"; icon = "bip110";        enabled = cfg.services.bitcoin && !cfg.features.bitcoin-core; category = "bitcoin-base"; credentials = [
         { label = "Tor Address — Access from anywhere via Tor Browser"; file = "/var/lib/tor/onion/bitcoind/hostname"; prefix = "http://"; }
       ]; }
       { name = "Bitcoin Core";           unit = "bitcoind.service"; type = "system"; icon = "bitcoin-core";  enabled = cfg.features.bitcoin-core;  category = "bitcoin-base"; credentials = [
