@@ -2253,6 +2253,9 @@ _BTC_VERSION_CACHE_TTL = 60  # seconds — version doesn't change at runtime
 # Cache for ``bitcoind --version`` output (available even before RPC is ready)
 _btcd_version_cache: tuple[float, str | None] = (0.0, None)
 
+# Cache for ``bitcoin-cli getdeploymentinfo`` output (BIP-110 live status)
+_btc_deployment_cache: tuple[float, dict | None] = (0.0, None)
+
 
 # ── Generic service version detection (NixOS store path) ─────────
 
@@ -2367,6 +2370,121 @@ def _get_bitcoin_version_info() -> dict | None:
         return None
 
 
+def _get_bitcoin_deployment_info() -> dict | None:
+    """Call bitcoin-cli getdeploymentinfo and return parsed JSON, or None on error.
+
+    Results are cached for _BTC_VERSION_CACHE_TTL seconds.  Never raises.
+    """
+    global _btc_deployment_cache
+    now = time.monotonic()
+    cached_at, cached_val = _btc_deployment_cache
+    if now - cached_at < _BTC_VERSION_CACHE_TTL:
+        return cached_val
+
+    try:
+        result = subprocess.run(
+            ["bitcoin-cli", f"-datadir={BITCOIN_DATADIR}", "getdeploymentinfo"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        if result.returncode != 0:
+            _btc_deployment_cache = (now, None)
+            return None
+        info = json.loads(result.stdout)
+        _btc_deployment_cache = (now, info)
+        return info
+    except Exception:
+        _btc_deployment_cache = (now, None)
+        return None
+
+
+def _get_bip110_status() -> dict:
+    """Return a dict describing the live BIP-110 deployment/signaling state.
+
+    The returned struct has four stable keys::
+
+        {
+          "supported": bool,   # node build is BIP-110-capable
+          "signaling": bool,   # node is actively signaling / locked-in / active
+          "state": str,        # "active" | "locked_in" | "signaling" |
+                               # "not_signaling" | "unsupported" | "unknown"
+          "source": str,       # "getdeploymentinfo" | "subversion" | "none"
+        }
+
+    Resolution order (authoritative → fallback → honest unknown):
+
+    1. ``getdeploymentinfo`` (authoritative) — scan the ``deployments`` dict for an
+       entry whose key (case-insensitive) contains "bip110".  The exact
+       deployment key name is **not** hard-coded because it may vary across Knots
+       releases; detection is intentionally generic so that a name change degrades
+       to "unknown" rather than producing a false result.
+
+    2. Subversion fallback — if getdeploymentinfo is unavailable or yields no
+       recognisable BIP-110 entry, inspect the ``subversion`` field from
+       ``getnetworkinfo``.  A case-insensitive match for "bip110" or "uasf-bip110"
+       in the subversion string is treated as "signaling".
+
+    3. Unknown — if the node is entirely unreachable or neither source is
+       conclusive, return state="unknown", signaling=False, source="none".
+    """
+    _unknown: dict = {"supported": False, "signaling": False, "state": "unknown", "source": "none"}
+
+    # ── 1. getdeploymentinfo (authoritative) ──────────────────────────
+    deploy_info = _get_bitcoin_deployment_info()
+    if deploy_info is not None:
+        deployments = deploy_info.get("deployments", {})
+        if isinstance(deployments, dict):
+            for key, entry in deployments.items():
+                # Generic scan: match key that contains "bip110" (case-insensitive).
+                # Deliberately not matching bare "110" to avoid false positives on
+                # unrelated deployments whose names happen to include that digit sequence.
+                if "bip110" not in key.lower():
+                    continue
+                if not isinstance(entry, dict):
+                    continue
+
+                # bip9 / bip8 status field
+                bip9 = entry.get("bip9", {}) or {}
+                bip8 = entry.get("bip8", {}) or {}
+                status = (
+                    bip9.get("status")
+                    or bip8.get("status")
+                    or entry.get("status")
+                    or ""
+                ).lower()
+                active = entry.get("active", False)
+
+                if active or status == "active":
+                    return {"supported": True, "signaling": True, "state": "active", "source": "getdeploymentinfo"}
+                if status == "locked_in":
+                    return {"supported": True, "signaling": True, "state": "locked_in", "source": "getdeploymentinfo"}
+                if status in ("started", "defined"):
+                    # Check whether the node is currently signaling this period
+                    stats = bip9.get("statistics") or bip8.get("statistics") or {}
+                    signaling = bool(stats.get("signaling", False))
+                    if signaling:
+                        return {"supported": True, "signaling": True, "state": "signaling", "source": "getdeploymentinfo"}
+                    return {"supported": True, "signaling": False, "state": "not_signaling", "source": "getdeploymentinfo"}
+                if status == "failed":
+                    return {"supported": True, "signaling": False, "state": "not_signaling", "source": "getdeploymentinfo"}
+                # Entry found but status unrecognised — node supports BIP-110 but state unclear
+                return {"supported": True, "signaling": False, "state": "unknown", "source": "getdeploymentinfo"}
+
+    # ── 2. Subversion fallback ─────────────────────────────────────────
+    net_info = _get_bitcoin_version_info()
+    if net_info is not None:
+        subversion = net_info.get("subversion", "") or ""
+        sv_lower = subversion.lower()
+        if "bip110" in sv_lower or "uasf-bip110" in sv_lower:
+            return {"supported": True, "signaling": True, "state": "signaling", "source": "subversion"}
+        # Node is reachable via RPC but no BIP-110 marker found anywhere
+        return {"supported": False, "signaling": False, "state": "unsupported", "source": "subversion"}
+
+    # ── 3. Node unreachable / RPC not ready ───────────────────────────
+    return _unknown
+
+
 def _get_bitcoind_version() -> str | None:
     """Run ``bitcoind --version`` and return the raw version string, or None on error.
 
@@ -2479,6 +2597,19 @@ async def api_bitcoin_version():
         "version": _format_bitcoin_version(raw_ver),
         "raw_version": raw_ver,
     }
+
+
+@app.get("/api/bitcoin/bip110")
+async def api_bitcoin_bip110():
+    """Return live BIP-110 deployment/signaling status from bitcoin-cli.
+
+    Always returns HTTP 200.  When bitcoind is unreachable or the node is mid-IBD
+    the response will contain ``state = "unknown"`` so the UI can render a neutral
+    badge rather than an error toast.
+    """
+    loop = asyncio.get_event_loop()
+    status = await loop.run_in_executor(None, _get_bip110_status)
+    return status
 
 
 @app.get("/api/services")
@@ -2661,6 +2792,8 @@ async def api_services():
                 btc_ver = _format_bitcoin_version(raw_ver, icon=icon)
                 service_data["bitcoin_version"] = btc_ver  # backwards compat
                 service_data["version"] = btc_ver
+            if icon == "bip110":
+                service_data["bip110"] = await loop.run_in_executor(None, _get_bip110_status)
         return service_data
 
     results = await asyncio.gather(*[get_status(s) for s in services])
@@ -2945,6 +3078,8 @@ async def api_service_detail(unit: str, icon: str | None = None):
             btc_ver = _format_bitcoin_version(raw_ver, icon=icon)
             service_detail["bitcoin_version"] = btc_ver  # backwards compat
             service_detail["version"] = btc_ver
+        if icon == "bip110":
+            service_detail["bip110"] = await loop.run_in_executor(None, _get_bip110_status)
     return service_detail
 
 
