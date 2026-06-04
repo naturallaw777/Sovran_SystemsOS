@@ -2415,15 +2415,15 @@ def _get_bip110_status() -> dict:
     Resolution order (authoritative → fallback → honest unknown):
 
     1. ``getdeploymentinfo`` (authoritative) — scan the ``deployments`` dict for an
-       entry whose key (case-insensitive) contains "bip110" or "110".  The exact
+       entry whose key (case-insensitive) contains "bip110".  The exact
        deployment key name is **not** hard-coded because it may vary across Knots
        releases; detection is intentionally generic so that a name change degrades
        to "unknown" rather than producing a false result.
 
     2. Subversion fallback — if getdeploymentinfo is unavailable or yields no
        recognisable BIP-110 entry, inspect the ``subversion`` field from
-       ``getnetworkinfo``.  A case-insensitive match for "bip110" or "uasf" in the
-       subversion string is treated as "signaling".
+       ``getnetworkinfo``.  A case-insensitive match for "bip110" or "uasf-bip110"
+       in the subversion string is treated as "signaling".
 
     3. Unknown — if the node is entirely unreachable or neither source is
        conclusive, return state="unknown", signaling=False, source="none".
