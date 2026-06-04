@@ -2256,6 +2256,13 @@ _btcd_version_cache: tuple[float, str | None] = (0.0, None)
 # Cache for ``bitcoin-cli getdeploymentinfo`` output (BIP-110 live status)
 _btc_deployment_cache: tuple[float, dict | None] = (0.0, None)
 
+# Bitcoin Knots exposes BIP-110 as the `reduced_data` versionbits deployment
+# (RDTS, bit 4) in getdeploymentinfo. See Knots src/deploymentinfo.cpp,
+# src/kernel/chainparams.cpp, and doc/bips.md.
+BIP110_DEPLOYMENT_NAMES = {"reduced_data", "rdts", "bip110", "uasf-bip110"}
+BIP110_VERSIONBITS_BIT = 4
+BIP110_SUBVERSION_MARKERS = {"bip110", "uasf-bip110", "reduced_data", "rdts"}
+
 
 # ── Generic service version detection (NixOS store path) ─────────
 
@@ -2414,16 +2421,16 @@ def _get_bip110_status() -> dict:
 
     Resolution order (authoritative → fallback → honest unknown):
 
-    1. ``getdeploymentinfo`` (authoritative) — scan the ``deployments`` dict for an
-       entry whose key (case-insensitive) contains "bip110".  The exact
-       deployment key name is **not** hard-coded because it may vary across Knots
-       releases; detection is intentionally generic so that a name change degrades
-       to "unknown" rather than producing a false result.
+    1. ``getdeploymentinfo`` (authoritative) — scan ``deployments`` for BIP-110.
+       Bitcoin Knots currently exposes BIP-110 as ``reduced_data`` (RDTS, bit 4;
+       see Knots deploymentinfo.cpp / chainparams.cpp / doc/bips.md), so matching
+       first uses known deployment names, then falls back to versionbits bit 4.
 
     2. Subversion fallback — if getdeploymentinfo is unavailable or yields no
        recognisable BIP-110 entry, inspect the ``subversion`` field from
-       ``getnetworkinfo``.  A case-insensitive match for "bip110" or "uasf-bip110"
-       in the subversion string is treated as "signaling".
+       ``getnetworkinfo``.  A case-insensitive match for known BIP-110 markers
+       (including "bip110", "uasf-bip110", "reduced_data", "rdts") is treated as
+       "signaling".
 
     3. Unknown — if the node is entirely unreachable or neither source is
        conclusive, return state="unknown", signaling=False, source="none".
@@ -2435,14 +2442,37 @@ def _get_bip110_status() -> dict:
     if deploy_info is not None:
         deployments = deploy_info.get("deployments", {})
         if isinstance(deployments, dict):
+            matched_entry: dict | None = None
+
+            # Primary match: known deployment names (case-insensitive contains)
             for key, entry in deployments.items():
-                # Generic scan: match key that contains "bip110" (case-insensitive).
-                # Deliberately not matching bare "110" to avoid false positives on
-                # unrelated deployments whose names happen to include that digit sequence.
-                if "bip110" not in key.lower():
-                    continue
                 if not isinstance(entry, dict):
                     continue
+                key_lower = key.lower()
+                if not any(name in key_lower for name in BIP110_DEPLOYMENT_NAMES):
+                    continue
+                matched_entry = entry
+                break
+
+            # Secondary match: versionbits bit (fallback only)
+            if matched_entry is None:
+                for _, entry in deployments.items():
+                    if not isinstance(entry, dict):
+                        continue
+                    bip9 = entry.get("bip9", {}) or {}
+                    bip8 = entry.get("bip8", {}) or {}
+                    bit = bip9.get("bit")
+                    if bit is None:
+                        bit = bip8.get("bit")
+                    if bit is None:
+                        bit = entry.get("bit")
+                    if bit != BIP110_VERSIONBITS_BIT:
+                        continue
+                    matched_entry = entry
+                    break
+
+            if matched_entry is not None:
+                entry = matched_entry
 
                 # bip9 / bip8 status field
                 bip9 = entry.get("bip9", {}) or {}
@@ -2460,9 +2490,13 @@ def _get_bip110_status() -> dict:
                 if status == "locked_in":
                     return {"supported": True, "signaling": True, "state": "locked_in", "source": "getdeploymentinfo"}
                 if status in ("started", "defined"):
-                    # Check whether the node is currently signaling this period
+                    # Check whether deployment is currently signaling in this period.
                     stats = bip9.get("statistics") or bip8.get("statistics") or {}
-                    signaling = bool(stats.get("signaling", False))
+                    signaling = bool(
+                        stats.get("signaling")
+                        or stats.get("signalling")
+                        or (isinstance(stats.get("count"), int) and stats.get("count", 0) > 0)
+                    )
                     if signaling:
                         return {"supported": True, "signaling": True, "state": "signaling", "source": "getdeploymentinfo"}
                     return {"supported": True, "signaling": False, "state": "not_signaling", "source": "getdeploymentinfo"}
@@ -2476,7 +2510,7 @@ def _get_bip110_status() -> dict:
     if net_info is not None:
         subversion = net_info.get("subversion", "") or ""
         sv_lower = subversion.lower()
-        if "bip110" in sv_lower or "uasf-bip110" in sv_lower:
+        if any(marker in sv_lower for marker in BIP110_SUBVERSION_MARKERS):
             return {"supported": True, "signaling": True, "state": "signaling", "source": "subversion"}
         # Node is reachable via RPC but no BIP-110 marker found anywhere
         return {"supported": False, "signaling": False, "state": "unsupported", "source": "subversion"}
