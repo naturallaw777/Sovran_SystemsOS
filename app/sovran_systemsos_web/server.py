@@ -223,27 +223,15 @@ FEATURE_REGISTRY = [
         "port_requirements": [],
     },
     {
-        "id": "bip110",
-        "name": "Bitcoin Knots + BIP110",
-        "description": "Only one Bitcoin node implementation can be active at a time: Bitcoin Knots (default), Bitcoin Knots + BIP110, or Bitcoin Core. Enabling this option replaces the default Bitcoin Knots with Bitcoin Knots + BIP110 consensus changes. It will disable the currently active alternative.",
-        "category": "bitcoin",
-        "needs_domain": False,
-        "domain_name": None,
-        "needs_ddns": False,
-        "extra_fields": [],
-        "conflicts_with": ["bitcoin-core"],
-        "port_requirements": [],
-    },
-    {
         "id": "bitcoin-core",
         "name": "Bitcoin Core",
-        "description": "Only one Bitcoin node implementation can be active at a time: Bitcoin Knots (default), Bitcoin Knots + BIP110, or Bitcoin Core. Enabling this option replaces the default Bitcoin Knots with Bitcoin Core. It will disable the currently active alternative.",
+        "description": "Only one Bitcoin node implementation can be active: Bitcoin Knots + BIP110 (default) or Bitcoin Core. Enabling this replaces Knots + BIP110 with Bitcoin Core. Your timechain data is preserved.",
         "category": "bitcoin",
         "needs_domain": False,
         "domain_name": None,
         "needs_ddns": False,
         "extra_fields": [],
-        "conflicts_with": ["bip110"],
+        "conflicts_with": [],
         "port_requirements": [],
     },
     {
@@ -283,7 +271,6 @@ FEATURE_SERVICE_MAP = {
     "haven": "haven-relay.service",
     "element-calling": "livekit.service",
     "mempool": "mempool.service",
-    "bip110": None,
     "bitcoin-core": None,
     "btcpay-web": "btcpayserver.service",
     "sshd": "sshd.service",
@@ -331,7 +318,6 @@ SERVICE_DOMAIN_MAP: dict[str, str] = {
 
 # For features that share a unit, disambiguate by icon field
 FEATURE_ICON_MAP = {
-    "bip110": "bip110",
     "bitcoin-core": "bitcoin-core",
 }
 
@@ -352,7 +338,7 @@ ROLE_CATEGORIES: dict[str, set[str] | None] = {
 ROLE_FEATURES: dict[str, set[str] | None] = {
     "server_plus_desktop": None,
     "desktop":             {"rdp", "sshd"},
-    "node":                {"rdp", "bip110", "bitcoin-core", "mempool", "btcpay-web", "sshd"},
+    "node":                {"rdp", "bitcoin-core", "mempool", "btcpay-web", "sshd"},
 }
 
 SERVICE_DESCRIPTIONS: dict[str, str] = {
@@ -1606,7 +1592,7 @@ def _is_feature_enabled_in_config(feature_id: str) -> bool | None:
         return False  # Default off in Node role; only on via explicit hub toggle
     unit = FEATURE_SERVICE_MAP.get(feature_id)
     if unit is None:
-        return None  # bip110, bitcoin-core — can't determine from config
+        return None  # bitcoin-core — can't determine from config
     cfg = load_config()
     for svc in cfg.get("services", []):
         if svc.get("unit") == unit:
@@ -2343,8 +2329,8 @@ def _get_bitcoind_version() -> str | None:
     """Run ``bitcoind --version`` and return the raw version string, or None on error.
 
     Parses the first output line to extract the token after "version ".
-    For example: "Bitcoin Knots daemon version v29.3.knots20260210+bip110-v0.4.1"
-    returns "v29.3.knots20260210+bip110-v0.4.1".
+    For example: "Bitcoin Knots daemon version v29.3.knots20260508"
+    returns "v29.3.knots20260508".
 
     Works regardless of whether the RPC server is ready (IBD, warmup, etc.).
     Results are cached for 60 seconds (_BTC_VERSION_CACHE_TTL).
@@ -2379,26 +2365,13 @@ def _get_bitcoind_version() -> str | None:
 def _format_bitcoin_version(raw_version: str, icon: str = "") -> str:
     """Format a raw version string from ``bitcoind --version`` for tile display.
 
-    Strips the ``+bip110-vX.Y.Z`` patch suffix so the base version is shown
-    cleanly (e.g. "v29.3.knots20260210+bip110-v0.4.1" → "v29.3.knots20260210").
-    For the BIP110 tile (icon == "bip110") a " (bip110 vX.Y.Z)" tag is appended
-    including the patch version.
+    For the BIP110 tile (icon == "bip110") a " (bip110)" tag is appended,
+    since mainline Bitcoin Knots (29.3.knots20260508+) now includes BIP-110
+    and no longer carries a separate ``+bip110-vX.Y.Z`` suffix.
     """
-    # Extract the BIP110 patch version before stripping the suffix
-    bip110_ver = ""
-    bip_match = re.search(r"\+bip110-v(\S+)", raw_version)
-    if bip_match:
-        bip110_ver = bip_match.group(1)
-
-    # Strip the +bip110... suffix for the base Knots version
-    display = re.sub(r"\+bip110\S*", "", raw_version)
-
-    # For BIP110 tile, append both the tag and the patch version
-    if icon == "bip110":
-        if bip110_ver:
-            display += f" (bip110 v{bip110_ver})"
-        elif "(bip110)" not in display.lower():
-            display += " (bip110)"
+    display = raw_version
+    if icon == "bip110" and "(bip110)" not in display.lower():
+        display += " (bip110)"
     return display
 
 

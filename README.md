@@ -39,7 +39,7 @@ The control center is the **Hub** — a built-in panel that lets the operator la
                         │        flake.nix        │
                         │  inputs: nixpkgs,       │
                         │  nix-bitcoin, nixvim,   │
-                        │  btc-clients, bip110    │
+                        │  btc-clients            │
                         └───────────┬─────────────┘
                                     │ nixosModules.Sovran_SystemsOS
                                     ▼
@@ -78,10 +78,9 @@ Defaults follow the import order in `modules/modules.nix`. Toggles live in `cust
 | `bitcoinecosystem.nix` | **on** | bitcoind/electrs/LND/RTL/BTCPay (over Tor) |
 | `wallet-autoconnect.nix` | **on** | Sparrow/Bisq ↔ node handshake |
 | `haven.nix` | off | Nostr relay |
-| `bip110.nix` | off | Bitcoin Knots BIP-110 |
 | `element-calling.nix` | off | LiveKit + JWT for E2E calling |
 | `mempool.nix` | off | Mempool.space dashboard |
-| `bitcoin-core.nix` | off | Standalone bitcoind |
+| `bitcoin-core.nix` | off | Switch node to Bitcoin Core (replaces default Bitcoin Knots + BIP110) |
 | `rdp.nix` | off | xrdp remote desktop |
 | `sshd.nix` | off | Public-facing OpenSSH |
 
