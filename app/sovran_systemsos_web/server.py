@@ -265,6 +265,10 @@ FEATURE_REGISTRY = [
     },
 ]
 
+# Feature ids that have been removed/deprecated. The Hub must never write these
+# back into custom.nix, and should strip any it finds (see startup migration).
+DEPRECATED_FEATURE_IDS: set[str] = {"bip110"}
+
 # Map feature IDs to their systemd units in config.json
 FEATURE_SERVICE_MAP = {
     "rdp": "gnome-remote-desktop.service",
@@ -1505,7 +1509,9 @@ def _read_hub_overrides() -> tuple[dict, str | None, str | None, str | None]:
             r'sovran_systemsOS\.features\.([a-zA-Z0-9_-]+)\s*=\s*(?:lib\.mkForce\s+)?(true|false)\s*;',
             section,
         ):
-            features[m.group(1)] = m.group(2) == "true"
+            feat_id = m.group(1)
+            if feat_id not in DEPRECATED_FEATURE_IDS:
+                features[feat_id] = m.group(2) == "true"
         for m in re.finditer(
             r'sovran_systemsOS\.web\.btcpayserver\s*=\s*(?:lib\.mkForce\s+)?(true|false)\s*;',
             section,
@@ -1538,6 +1544,8 @@ def _write_hub_overrides(features: dict, nostr_npub: str | None, timezone: str |
     """Write the Hub Managed section inside custom.nix."""
     lines = []
     for feat_id, enabled in features.items():
+        if feat_id in DEPRECATED_FEATURE_IDS:
+            continue
         val = "true" if enabled else "false"
         if feat_id == "btcpay-web":
             lines.append(f"  sovran_systemsOS.web.btcpayserver = lib.mkForce {val};")
@@ -1581,6 +1589,40 @@ def _write_hub_overrides(features: dict, nostr_npub: str | None, timezone: str |
 
     with open(CUSTOM_NIX, "w") as f:
         f.write(content)
+
+
+def _migrate_strip_deprecated_features() -> None:
+    """One-time migration: remove deprecated feature lines from the Hub Managed
+    section of custom.nix.  Any feature id in DEPRECATED_FEATURE_IDS is dropped
+    while all other Hub-managed settings (other features, nostr_npub, timezone,
+    locale) are preserved byte-for-byte in meaning.
+
+    This is a no-op (and never raises) if CUSTOM_NIX is missing, unreadable, or
+    contains no deprecated lines.
+    """
+    try:
+        with open(CUSTOM_NIX, "r") as f:
+            content = f.read()
+    except (FileNotFoundError, OSError):
+        return
+
+    # Quick-exit: if none of the deprecated ids appear, nothing to do.
+    hub_begin = content.find(HUB_BEGIN)
+    hub_end   = content.find(HUB_END)
+    if hub_begin == -1 or hub_end == -1:
+        return
+    section = content[hub_begin:hub_end]
+    if not any(f"features.{dep_id}" in section for dep_id in DEPRECATED_FEATURE_IDS):
+        return
+
+    try:
+        features, nostr_npub, timezone, locale = _read_hub_overrides()
+        # _read_hub_overrides already excludes DEPRECATED_FEATURE_IDS, so
+        # calling _write_hub_overrides with its output drops the stale lines.
+        _write_hub_overrides(features, nostr_npub, timezone, locale)
+    except Exception:
+        # Never let a migration failure break startup.
+        pass
 
 
 # ── Feature status helpers ─────────────────────────────────────────
@@ -4568,6 +4610,14 @@ async def _startup_recover_stale_status():
     if corrected:
         _update_recovery_happened = True
     await loop.run_in_executor(None, _recover_stale_status, REBUILD_STATUS, REBUILD_LOG, REBUILD_UNIT)
+
+
+@app.on_event("startup")
+async def _startup_migrate_deprecated_features():
+    """Strip deprecated feature lines (e.g. bip110) from the Hub Managed section
+    of custom.nix so they are never re-written and do not cause stale warnings."""
+    loop = asyncio.get_event_loop()
+    await loop.run_in_executor(None, _migrate_strip_deprecated_features)
 
 
 async def _background_domain_reachability_checker():
