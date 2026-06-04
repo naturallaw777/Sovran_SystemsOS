@@ -415,10 +415,8 @@ function handleFeatureToggle(feat, newEnabled) {
 
   if (conflictNames.length > 0) {
     var confirmMsg;
-    if (feat.id === "bip110") {
-      confirmMsg = "Only one Bitcoin node implementation can be active. Enabling Bitcoin Knots + BIP110 will disable Bitcoin Core (if active). Your timechain data will be preserved — you will not need to re-download the timechain. Continue?";
-    } else if (feat.id === "bitcoin-core") {
-      confirmMsg = "Only one Bitcoin node implementation can be active. Enabling Bitcoin Core will disable Bitcoin Knots + BIP110 (if active). Your timechain data will be preserved — you will not need to re-download the timechain. Continue?";
+    if (feat.id === "bitcoin-core") {
+      confirmMsg = "Only one Bitcoin node implementation can be active. Enabling Bitcoin Core will replace Bitcoin Knots + BIP110. Your timechain data will be preserved — you will not need to re-download the timechain. Continue?";
     } else {
       confirmMsg = "This will disable " + conflictNames.join(", ") + ". Continue?";
     }

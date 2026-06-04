@@ -242,7 +242,7 @@ async function openServiceDetailModal(unit, name, icon) {
       var addonBtnCls      = feat.enabled ? "btn btn-close-modal" : "btn btn-primary";
 
       // Section title: use a more specific label for mutually-exclusive Bitcoin node features
-      var addonSectionTitle = (feat.id === "bip110" || feat.id === "bitcoin-core")
+      var addonSectionTitle = (feat.id === "bitcoin-core")
         ? "\u20BF Bitcoin Node Selection"
         : "\uD83D\uDD27 Addon Feature";
 
