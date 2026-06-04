@@ -43,7 +43,6 @@
     # ── Features (default OFF — user can enable in custom.nix) ──
     features = {
       haven = lib.mkEnableOption "Haven NOSTR relay";
-      bip110 = lib.mkEnableOption "BIP-110 Bitcoin Better Money";
       mempool = lib.mkEnableOption "Bitcoin Mempool Explorer";
       element-calling = lib.mkEnableOption "Element Video and Audio Calling";
       bitcoin-core = lib.mkEnableOption "Bitcoin Core";
