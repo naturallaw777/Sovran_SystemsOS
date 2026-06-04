@@ -48,6 +48,19 @@
       bitcoin-core = lib.mkEnableOption "Bitcoin Core";
       rdp = lib.mkEnableOption "Gnome Remote Desktop";
       sshd = lib.mkEnableOption "SSH remote access";
+
+      # Deprecated: BIP-110 is now built into mainline Bitcoin Knots and is the
+      # default node. This option is retained ONLY so that existing machines with
+      # `sovran_systemsOS.features.bip110 = lib.mkForce true;` left in their local
+      # custom.nix continue to evaluate. It has no effect and will be removed in a
+      # future release once the Hub has cleaned up old custom.nix files.
+      bip110 = lib.mkOption {
+        type = lib.types.nullOr lib.types.bool;
+        default = null;
+        internal = true;
+        visible = false;
+        description = "(Deprecated, no-op) BIP-110 is now built into Bitcoin Knots.";
+      };
     };
 
     # ── Web exposure (controls Caddy vhosts) ──────────────────
@@ -87,5 +100,16 @@
       default = "";
       description = "Nostr public key (npub1...) for Haven relay";
     };
+  };
+
+  config = lib.mkIf (config.sovran_systemsOS.features.bip110 != null) {
+    warnings = [
+      ''
+        sovran_systemsOS.features.bip110 is deprecated and has no effect:
+        BIP-110 is now built into mainline Bitcoin Knots, which is the default node.
+        You can safely remove the `sovran_systemsOS.features.bip110` line from
+        /etc/nixos/custom.nix. The Sovran Hub will also remove it automatically.
+      ''
+    ];
   };
 }
