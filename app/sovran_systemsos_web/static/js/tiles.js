@@ -13,6 +13,12 @@ function _renderBip110Badge(bip110) {
   return '<div class="tile-bip110-badge ' + cfg.cls + '" title="' + escHtml(cfg.title) + '">' + escHtml(cfg.label) + '</div>';
 }
 
+function _firstElementFromHtml(html) {
+  var tmp = document.createElement("div");
+  tmp.innerHTML = html;
+  return tmp.firstElementChild || null;
+}
+
 // ── Render: initial build ─────────────────────────────────────────
 
 function buildTiles(services, categoryLabels) {
@@ -281,21 +287,13 @@ function updateTiles(services) {
         var badgeEl = tile.querySelector(".tile-bip110-badge");
         if (badgeEl) {
           // Replace existing badge in-place
-          var tmp = document.createElement("div");
-          tmp.innerHTML = badgeHtml;
-          var newBadge = tmp.firstElementChild;
-          if (newBadge) {
-            badgeEl.replaceWith(newBadge);
-          } else {
-            badgeEl.remove();
-          }
+          var newBadge = _firstElementFromHtml(badgeHtml);
+          if (newBadge) { badgeEl.replaceWith(newBadge); } else { badgeEl.remove(); }
         } else if (badgeHtml) {
           // Insert badge after version label (or after tile-name if no version)
           var anchorEl = tile.querySelector(".tile-version") || tile.querySelector(".tile-name");
           if (anchorEl) {
-            var tmpDiv = document.createElement("div");
-            tmpDiv.innerHTML = badgeHtml;
-            var newBadgeEl = tmpDiv.firstElementChild;
+            var newBadgeEl = _firstElementFromHtml(badgeHtml);
             if (newBadgeEl) anchorEl.insertAdjacentElement("afterend", newBadgeEl);
           }
         }
