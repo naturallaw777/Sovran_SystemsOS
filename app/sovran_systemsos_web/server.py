@@ -1608,7 +1608,7 @@ def _migrate_strip_deprecated_features() -> None:
 
     # Quick-exit: if none of the deprecated ids appear, nothing to do.
     hub_begin = content.find(HUB_BEGIN)
-    hub_end   = content.find(HUB_END)
+    hub_end = content.find(HUB_END)
     if hub_begin == -1 or hub_end == -1:
         return
     section = content[hub_begin:hub_end]
@@ -1622,7 +1622,7 @@ def _migrate_strip_deprecated_features() -> None:
         _write_hub_overrides(features, nostr_npub, timezone, locale)
     except Exception:
         # Never let a migration failure break startup.
-        pass
+        logger.exception("_migrate_strip_deprecated_features: unexpected error (non-fatal)")
 
 
 # ── Feature status helpers ─────────────────────────────────────────
