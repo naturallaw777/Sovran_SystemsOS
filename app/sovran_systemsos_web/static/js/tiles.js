@@ -9,39 +9,8 @@ var _btcSyncPrev = {};
 function _renderBip110Badge(bip110) {
   if (!bip110) return '';
   var state = bip110.state || 'unknown';
-  var label, cls, title;
-  switch (state) {
-    case 'active':
-      label = 'BIP\u2011110: Active \u2713';
-      cls = 'tile-bip110-badge--active';
-      title = 'BIP-110 is active on this node';
-      break;
-    case 'locked_in':
-      label = 'BIP\u2011110: Locked In';
-      cls = 'tile-bip110-badge--locked_in';
-      title = 'BIP-110 is locked in and will activate shortly';
-      break;
-    case 'signaling':
-      label = 'BIP\u2011110: Signaling';
-      cls = 'tile-bip110-badge--signaling';
-      title = 'Node is signaling readiness for BIP-110';
-      break;
-    case 'not_signaling':
-      label = 'BIP\u2011110: Not Signaling';
-      cls = 'tile-bip110-badge--not_signaling';
-      title = 'Node supports BIP-110 but is not signaling this period';
-      break;
-    case 'unsupported':
-      label = 'BIP\u2011110: Not Supported';
-      cls = 'tile-bip110-badge--unsupported';
-      title = 'This node build does not include BIP-110';
-      break;
-    default:
-      label = 'BIP\u2011110: \u2014';
-      cls = 'tile-bip110-badge--unknown';
-      title = 'Status unavailable (node syncing or RPC not ready)';
-  }
-  return '<div class="tile-bip110-badge ' + cls + '" title="' + escHtml(title) + '">' + escHtml(label) + '</div>';
+  var cfg = BIP110_BADGE_CONFIG[state] || BIP110_BADGE_CONFIG.unknown;
+  return '<div class="tile-bip110-badge ' + cfg.cls + '" title="' + escHtml(cfg.title) + '">' + escHtml(cfg.label) + '</div>';
 }
 
 // ── Render: initial build ─────────────────────────────────────────

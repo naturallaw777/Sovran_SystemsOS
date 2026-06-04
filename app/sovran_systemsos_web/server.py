@@ -2436,8 +2436,10 @@ def _get_bip110_status() -> dict:
         deployments = deploy_info.get("deployments", {})
         if isinstance(deployments, dict):
             for key, entry in deployments.items():
-                # Generic scan: match key containing "bip110" or "110"
-                if not ("bip110" in key.lower() or "110" in key.lower()):
+                # Generic scan: match key that contains "bip110" (case-insensitive).
+                # Deliberately not matching bare "110" to avoid false positives on
+                # unrelated deployments whose names happen to include that digit sequence.
+                if "bip110" not in key.lower():
                     continue
                 if not isinstance(entry, dict):
                     continue
@@ -2460,7 +2462,7 @@ def _get_bip110_status() -> dict:
                 if status in ("started", "defined"):
                     # Check whether the node is currently signaling this period
                     stats = bip9.get("statistics") or bip8.get("statistics") or {}
-                    signaling = bool(stats.get("signaling", False)) if stats else False
+                    signaling = bool(stats.get("signaling", False))
                     if signaling:
                         return {"supported": True, "signaling": True, "state": "signaling", "source": "getdeploymentinfo"}
                     return {"supported": True, "signaling": False, "state": "not_signaling", "source": "getdeploymentinfo"}
@@ -2474,7 +2476,7 @@ def _get_bip110_status() -> dict:
     if net_info is not None:
         subversion = net_info.get("subversion", "") or ""
         sv_lower = subversion.lower()
-        if "bip110" in sv_lower or "uasf-bip110" in sv_lower or "uasf" in sv_lower:
+        if "bip110" in sv_lower or "uasf-bip110" in sv_lower:
             return {"supported": True, "signaling": True, "state": "signaling", "source": "subversion"}
         # Node is reachable via RPC but no BIP-110 marker found anywhere
         return {"supported": False, "signaling": False, "state": "unsupported", "source": "subversion"}
