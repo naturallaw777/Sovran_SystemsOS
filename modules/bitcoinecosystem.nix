@@ -4,7 +4,7 @@ lib.mkIf config.sovran_systemsOS.services.bitcoin {
 
   services.bitcoind = {
     enable = true;
-    package = config.nix-bitcoin.pkgs.bitcoind-knots;
+    package = pkgs.bitcoind-knots;
     dataDir = "/run/media/Second_Drive/BTCEcoandBackup/Bitcoin_Node";
     txindex = true;
     tor.proxy = true;
