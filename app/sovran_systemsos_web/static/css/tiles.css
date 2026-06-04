@@ -155,6 +155,69 @@
   white-space: nowrap;
 }
 
+/* ── BIP-110 status badge (tile + detail modal) ───────────────────── */
+
+.tile-bip110-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.64rem;
+  font-weight: 600;
+  border-radius: 4px;
+  padding: 2px 6px;
+  margin-top: 4px;
+  white-space: nowrap;
+  letter-spacing: 0.02em;
+}
+
+.tile-bip110-badge--active {
+  background: rgba(109, 191, 139, 0.18);
+  color: var(--green);
+  border: 1px solid rgba(109, 191, 139, 0.3);
+}
+
+.tile-bip110-badge--locked_in {
+  background: rgba(94, 173, 138, 0.15);
+  color: var(--accent-color);
+  border: 1px solid rgba(94, 173, 138, 0.3);
+}
+
+.tile-bip110-badge--signaling {
+  background: rgba(94, 173, 138, 0.12);
+  color: var(--accent-color);
+  border: 1px solid rgba(94, 173, 138, 0.2);
+}
+
+.tile-bip110-badge--not_signaling {
+  background: rgba(229, 165, 10, 0.12);
+  color: var(--yellow);
+  border: 1px solid rgba(229, 165, 10, 0.25);
+}
+
+.tile-bip110-badge--unsupported {
+  background: rgba(94, 122, 106, 0.12);
+  color: var(--grey);
+  border: 1px solid rgba(94, 122, 106, 0.2);
+}
+
+.tile-bip110-badge--unknown {
+  background: transparent;
+  color: var(--text-dim);
+  border: 1px solid var(--border-color);
+}
+
+.bip110-status-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.bip110-source-label {
+  color: var(--text-dim);
+  font-size: 0.75rem;
+}
+
 /* ── Service detail modal sections ───────────────────────────────── */
 
 .svc-detail-section {

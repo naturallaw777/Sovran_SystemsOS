@@ -107,6 +107,21 @@ async function openServiceDetailModal(unit, name, icon) {
       '</div>' +
       '</div>';
 
+    // Section B2: BIP-110 live status (bip110 tile only)
+    if (icon === 'bip110' && data.bip110) {
+      var bip110 = data.bip110;
+      var bip110State = bip110.state || 'unknown';
+      var bip110Cfg = BIP110_BADGE_CONFIG[bip110State] || BIP110_BADGE_CONFIG.unknown;
+      var bip110Source = bip110.source ? ' <span class="bip110-source-label">(source: ' + escHtml(bip110.source) + ')</span>' : '';
+      html += '<div class="svc-detail-section">' +
+        '<div class="svc-detail-section-title">BIP-110 Deployment Status</div>' +
+        '<div class="bip110-status-row">' +
+          '<span class="tile-bip110-badge ' + bip110Cfg.cls + '" title="' + escHtml(bip110Cfg.title) + '">' + escHtml(bip110Cfg.label) + '</span>' +
+          bip110Source +
+        '</div>' +
+        '</div>';
+    }
+
     // Section C: Domain diagnostics (domain services)
     if (data.needs_domain) {
       var steps = data.domain_check_steps || [];
