@@ -12,7 +12,7 @@
 
 <div align="center">
 
-<img src="assets/desktop-screenshot.png" alt="Sovran_SystemsOS desktop" width="800" />
+<img src="assets/desktop-screenshot.png" alt="Sovran_SystemsOS desktop showing application dock and PRIVACY. SOVEREIGNTY. BITCOIN. tagline" width="800" />
 
 *The Sovran_SystemsOS desktop — "Privacy. Sovereignty. Bitcoin."*
 
