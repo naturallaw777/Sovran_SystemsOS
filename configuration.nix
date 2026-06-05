@@ -145,10 +145,10 @@
     ranger fastfetch gedit openssl pwgen
     aspell aspellDicts.en lm_sensors
     hunspell hunspellDicts.en_US
-    synadm brave dua bitwarden-desktop
+    synadm brave dua
     gparted pv unzip parted screen zenity
     libargon2 gnome-terminal libreoffice-fresh
-    dig firefox element-desktop wp-cli axel
+    dig firefox wp-cli axel
     lk-jwt-service livekit-libwebrtc livekit-cli livekit
     matrix-synapse age
   ];
