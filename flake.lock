@@ -1,33 +1,15 @@
 {
   "nodes": {
-    "bip110": {
+    "btc-clients": {
       "inputs": {
         "nixpkgs": "nixpkgs"
       },
       "locked": {
-        "lastModified": 1778967282,
-        "narHash": "sha256-0g9RvVCD6zxY2vy54GhbB1OeeEZdKuxTr9r0whcpRjQ=",
-        "owner": "emmanuelrosa",
-        "repo": "bitcoin-knots-bip-110-nix",
-        "rev": "8d23ed98940d70e42ee870d719677a073a0a5920",
-        "type": "github"
-      },
-      "original": {
-        "owner": "emmanuelrosa",
-        "repo": "bitcoin-knots-bip-110-nix",
-        "type": "github"
-      }
-    },
-    "btc-clients": {
-      "inputs": {
-        "nixpkgs": "nixpkgs_2"
-      },
-      "locked": {
-        "lastModified": 1779889285,
-        "narHash": "sha256-5QOMNn/rxJjsy9n2pAG5+AwUXOAPXSzcr62y1tGHXKA=",
+        "lastModified": 1780397635,
+        "narHash": "sha256-6WH7LKD6i91VLWoz4mEpoULtqVinCEZxG7ZjJPMSi3k=",
         "owner": "emmanuelrosa",
         "repo": "btc-clients-nix",
-        "rev": "9a3dd86e11ea5fb17ace9043aa3d0d5ed359a3ca",
+        "rev": "feacd7684dc6bfcd49c57764944a2049bbd71924",
         "type": "github"
       },
       "original": {
@@ -105,7 +87,7 @@
       "inputs": {
         "extra-container": "extra-container",
         "flake-utils": "flake-utils",
-        "nixpkgs": "nixpkgs_3",
+        "nixpkgs": "nixpkgs_2",
         "nixpkgs-25_05": "nixpkgs-25_05",
         "nixpkgs-unstable": "nixpkgs-unstable"
       },
@@ -126,16 +108,15 @@
     },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1777728799,
-        "narHash": "sha256-z7jjYQqhkFKab92VQ3duB7QVO7f7Y62qTFrJYXO/lyo=",
+        "lastModified": 1780218263,
+        "narHash": "sha256-T/f0pPDrH3Qc1VXyQXbK7yfHWRn90l3xwplc/nsxin4=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "4b2287113c2f9a2331c04899b2e2e5ab92dea9c5",
+        "rev": "7fc393d1b46fa000d48ff14e8b6a3c9985f03af0",
         "type": "github"
       },
       "original": {
         "owner": "nixos",
-        "ref": "master",
         "repo": "nixpkgs",
         "type": "github"
       }
@@ -158,16 +139,16 @@
     },
     "nixpkgs-stable": {
       "locked": {
-        "lastModified": 1751274312,
-        "narHash": "sha256-/bVBlRpECLVzjV19t5KMdMFWSwKLtb5RyXdjz3LJT+g=",
+        "lastModified": 1780453794,
+        "narHash": "sha256-bXMRa9VTsHSPXL4Cw8R6JJLQeY3Y/IP4+YJCYVmQ7FY=",
         "owner": "nixos",
         "repo": "nixpkgs",
-        "rev": "50ab793786d9de88ee30ec4e4c24fb4236fc2674",
+        "rev": "6b316287bae2ee04c9b93c8c858d930fd07d7338",
         "type": "github"
       },
       "original": {
         "owner": "nixos",
-        "ref": "nixos-24.11",
+        "ref": "nixos-26.05",
         "repo": "nixpkgs",
         "type": "github"
       }
@@ -190,21 +171,6 @@
     },
     "nixpkgs_2": {
       "locked": {
-        "lastModified": 1777728799,
-        "narHash": "sha256-z7jjYQqhkFKab92VQ3duB7QVO7f7Y62qTFrJYXO/lyo=",
-        "owner": "NixOS",
-        "repo": "nixpkgs",
-        "rev": "4b2287113c2f9a2331c04899b2e2e5ab92dea9c5",
-        "type": "github"
-      },
-      "original": {
-        "owner": "nixos",
-        "repo": "nixpkgs",
-        "type": "github"
-      }
-    },
-    "nixpkgs_3": {
-      "locked": {
         "lastModified": 1778737229,
         "narHash": "sha256-6xWoytx8jFW4PF1GjRm/i/53trbpKGfz6zjzQGBr4cI=",
         "owner": "NixOS",
@@ -219,13 +185,13 @@
         "type": "github"
       }
     },
-    "nixpkgs_4": {
+    "nixpkgs_3": {
       "locked": {
-        "lastModified": 1779560665,
-        "narHash": "sha256-tpyBcxPpcQb8ukyNF7DoCwfSY3VPsxHoYwj00Cayv5o=",
+        "lastModified": 1780243769,
+        "narHash": "sha256-x5UQuRsH3MqI0U9afaXSNqzTPSeZlRLvFAav2Ux1pNw=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "64c08a7ca051951c8eae34e3e3cb1e202fe36786",
+        "rev": "331800de5053fcebacf6813adb5db9c9dca22a0c",
         "type": "github"
       },
       "original": {
@@ -235,13 +201,13 @@
         "type": "github"
       }
     },
-    "nixpkgs_5": {
+    "nixpkgs_4": {
       "locked": {
-        "lastModified": 1779259093,
-        "narHash": "sha256-7DKWmH23hL2eYdkxCKeqj2i+yljTKuU+3Nk1UPHOnxc=",
+        "lastModified": 1780336545,
+        "narHash": "sha256-vhVhuXzFrIOfcssC/9hDHx7MHzDKjF3keHuREOQqQiQ=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "d99b013d5d1931ad77fe3912ed218170dec5d9a4",
+        "rev": "4df1b885d76a54e1aa1a318f8d16fd6005b6401f",
         "type": "github"
       },
       "original": {
@@ -254,15 +220,15 @@
     "nixvim": {
       "inputs": {
         "flake-parts": "flake-parts",
-        "nixpkgs": "nixpkgs_5",
+        "nixpkgs": "nixpkgs_4",
         "systems": "systems_2"
       },
       "locked": {
-        "lastModified": 1779816597,
-        "narHash": "sha256-Kgod3gZlhSp6WozZ2pFaclXbWpjs6kQLAtldoxb85Lc=",
+        "lastModified": 1780646548,
+        "narHash": "sha256-Ckyl/l1XBmEwnaHcHD8PvBZk1uph0NqwbJ//CAvB7iE=",
         "owner": "nix-community",
         "repo": "nixvim",
-        "rev": "297f9341476ba7f821a42d7a2805e206ef8c6ef8",
+        "rev": "816a15282e58678dde831477964987d0262d4293",
         "type": "github"
       },
       "original": {
@@ -273,10 +239,9 @@
     },
     "root": {
       "inputs": {
-        "bip110": "bip110",
         "btc-clients": "btc-clients",
         "nix-bitcoin": "nix-bitcoin",
-        "nixpkgs": "nixpkgs_4",
+        "nixpkgs": "nixpkgs_3",
         "nixpkgs-stable": "nixpkgs-stable",
         "nixvim": "nixvim"
       }
@@ -298,15 +263,16 @@
     },
     "systems_2": {
       "locked": {
-        "lastModified": 1681028828,
-        "narHash": "sha256-Vy1rq5AaRuLzOxct8nz4T6wlgyUR7zLU309k9mBC768=",
+        "lastModified": 1774449309,
+        "narHash": "sha256-brhZ8DmuGtzkCYHJg4HEd602amKm89Y9ytsFZ5uWD1w=",
         "owner": "nix-systems",
         "repo": "default",
-        "rev": "da67096a3b9bf56a91d16901293e51ba5b49a27e",
+        "rev": "c29398b59d2048c4ab79345812849c9bd15e9150",
         "type": "github"
       },
       "original": {
         "owner": "nix-systems",
+        "ref": "future-26.11",
         "repo": "default",
         "type": "github"
       }
