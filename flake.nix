@@ -6,7 +6,7 @@
 		nix-bitcoin.url = "github:fort-nix/nix-bitcoin/release";
 		nixvim.url = "github:nix-community/nixvim";
 		btc-clients.url = "github:emmanuelrosa/btc-clients-nix";
-		nixpkgs-stable.url = "github:nixos/nixpkgs/nixos-24.11";
+		nixpkgs-stable.url = "github:nixos/nixpkgs/nixos-26.05";
 	};
 
 	outputs = { self, nixpkgs, nix-bitcoin, nixvim, btc-clients, nixpkgs-stable, ... }:
