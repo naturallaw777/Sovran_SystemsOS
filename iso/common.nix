@@ -16,7 +16,6 @@ in
 {
   imports = [
     "${modulesPath}/installer/cd-dvd/installation-cd-graphical-gnome.nix"
-    ./branding.nix
   ];
 
   image.baseName = lib.mkForce "Sovran_SystemsOS";
