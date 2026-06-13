@@ -94,10 +94,10 @@ EOF
 $MATRIX {
   reverse_proxy /_matrix/* http://localhost:8008
   reverse_proxy /_synapse/client/* http://localhost:8008
-}
-
-$MATRIX:8448 {
-  reverse_proxy http://localhost:8008
+  handle /.well-known/matrix/server {
+    header Content-Type application/json
+    respond \`{"m.server":"$MATRIX:443"}\` 200
+  }
 }
 EOF
         fi
