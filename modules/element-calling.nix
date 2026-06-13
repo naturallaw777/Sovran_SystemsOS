@@ -68,10 +68,7 @@ $MATRIX {
   header /.well-known/matrix/* Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
   header /.well-known/matrix/* Access-Control-Allow-Headers "X-Requested-With, Content-Type, Authorization"
   respond /.well-known/matrix/client \`{ "m.homeserver": {"base_url": "https://$MATRIX" }, "org.matrix.msc4143.rtc_foci": [{ "type":"livekit", "livekit_service_url":"https://$ELEMENT_CALLING/livekit/jwt" }] }\`
-}
-
-$MATRIX:8448 {
-  reverse_proxy http://localhost:8008
+  respond /.well-known/matrix/server \`{"m.server":"$MATRIX:443"}\`
 }
 
 $ELEMENT_CALLING {
