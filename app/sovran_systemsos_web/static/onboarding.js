@@ -551,7 +551,7 @@ async function loadStep4() {
   // Optional ports table
   html += '<div class="onboarding-port-section" style="margin-bottom:20px;">';
   html += '<div class="onboarding-port-section-title" style="font-weight:700;margin-bottom:4px;">Optional — Only needed if you enable Element Calling:</div>';
-  html += '<div style="font-size:0.88em;margin-bottom:8px;color:var(--color-text-muted,#888);">These additional port openings are required on top of the 3 required ports above.</div>';
+  html += '<div style="font-size:0.88em;margin-bottom:8px;color:var(--color-text-muted,#888);">These 5 additional port openings are required on top of the 3 required ports above.</div>';
   html += '<table class="onboarding-port-table">';
   html += '<thead><tr><th>Port</th><th>Protocol</th><th>Forward&nbsp;to</th><th>Purpose</th></tr></thead>';
   html += '<tbody>';
@@ -559,16 +559,15 @@ async function loadStep4() {
   html += '<tr><td class="port-req-port">7882</td><td class="port-req-proto">UDP</td><td class="port-req-internal-ip">' + ip + '</td><td class="port-req-desc">LiveKit media (UDP mux)</td></tr>';
   html += '<tr><td class="port-req-port">5349</td><td class="port-req-proto">TCP</td><td class="port-req-internal-ip">' + ip + '</td><td class="port-req-desc">TURN over TLS</td></tr>';
   html += '<tr><td class="port-req-port">3478</td><td class="port-req-proto">UDP</td><td class="port-req-internal-ip">' + ip + '</td><td class="port-req-desc">TURN (STUN/relay)</td></tr>';
-  html += '<tr><td class="port-req-port">30000–40000</td><td class="port-req-proto">TCP</td><td class="port-req-internal-ip">' + ip + '</td><td class="port-req-desc">TURN relay (WebRTC) — TCP rule</td></tr>';
-  html += '<tr><td class="port-req-port">30000–40000</td><td class="port-req-proto">UDP</td><td class="port-req-internal-ip">' + ip + '</td><td class="port-req-desc">TURN relay (WebRTC) — UDP rule</td></tr>';
+  html += '<tr><td class="port-req-port">30000–40000</td><td class="port-req-proto">TCP &amp; UDP</td><td class="port-req-internal-ip">' + ip + '</td><td class="port-req-desc">TURN relay (WebRTC)</td></tr>';
   html += '</tbody></table>';
-  html += '<div style="font-size:0.85em;margin-top:6px;color:var(--color-text-muted,#888);">ℹ The <strong>30000–40000</strong> range must be forwarded for <strong>both</strong> TCP and UDP. On most routers these are two separate forwarding rules.</div>';
+  html += '<div style="font-size:0.85em;margin-top:6px;color:var(--color-text-muted,#888);">ℹ The <strong>30000–40000</strong> range is a single forwarding rule — just set its protocol to <strong>both TCP and UDP</strong> (often shown as "Both" or "TCP/UDP" on your router).</div>';
   html += '</div>';
 
   // Totals
   html += '<div class="onboarding-port-totals">';
   html += '<strong>Total port openings: 3</strong> (without Element Calling)<br>';
-  html += '<strong>Total port openings: 9</strong> (with Element Calling — 3 required + 6 optional; the 30000–40000 range counts as one TCP rule and one UDP rule)';
+  html += '<strong>Total port openings: 8</strong> (with Element Calling — 3 required + 5 optional)';
   html += '</div>';
 
   html += '<div class="onboarding-port-warn" style="margin-bottom:16px;">'
