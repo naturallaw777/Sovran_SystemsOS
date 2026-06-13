@@ -281,9 +281,6 @@ FEATURE_SERVICE_MAP = {
 }
 
 # Port requirements for service tiles (keyed by unit name or icon)
-_PORTS_MATRIX_FEDERATION = [
-    {"port": "8448", "protocol": "TCP", "description": "Matrix server-to-server federation"},
-]
 _PORTS_ELEMENT_CALLING = [
     {"port": "7881",        "protocol": "TCP",     "description": "LiveKit WebRTC signalling"},
     {"port": "7882",        "protocol": "UDP",     "description": "LiveKit media (UDP mux)"},
@@ -296,7 +293,7 @@ SERVICE_PORT_REQUIREMENTS: dict[str, list[dict]] = {
     # Infrastructure
     "caddy.service":                    [],
     # Communication
-    "matrix-synapse.service":           _PORTS_MATRIX_FEDERATION,
+    "matrix-synapse.service":           [],
     "livekit.service":                  _PORTS_ELEMENT_CALLING,
     # Domain-based apps (80/443 handled by end-to-end domain reachability checks)
     "btcpayserver.service":             [],
@@ -2983,28 +2980,16 @@ async def api_service_detail(unit: str, icon: str | None = None):
                 "status": ps,
                 "description": p.get("description", ""),
             })
-    extra_ports = port_statuses if unit in ("matrix-synapse.service", "livekit.service") else []
+    extra_ports = port_statuses if unit == "livekit.service" else []
 
-    if needs_domain and unit in ("matrix-synapse.service", "livekit.service"):
+    if needs_domain and unit == "livekit.service":
         if has_domain_issues:
             domain_check_steps.append({
                 "step": 4,
-                "label": "Federation Port" if unit == "matrix-synapse.service" else "Additional Ports Required",
+                "label": "Additional Ports Required",
                 "status": "skipped",
                 "detail": "Skipped until Steps 1-3 are complete",
             })
-        elif unit == "matrix-synapse.service":
-            if extra_ports:
-                matrix_open = extra_ports[0]["status"] != "closed"
-                domain_check_steps.append({
-                    "step": 4,
-                    "label": "Federation Port",
-                    "status": "ok" if matrix_open else "error",
-                    "detail": (
-                        f"Matrix federation port 8448 (TCP) is {'open' if matrix_open else 'closed'}.\n"
-                        f"Matrix federation requires port 8448 (TCP) forwarded to {internal_ip}"
-                    ),
-                })
         else:
             extra_open = all(p["status"] != "closed" for p in extra_ports)
             domain_check_steps.append({
