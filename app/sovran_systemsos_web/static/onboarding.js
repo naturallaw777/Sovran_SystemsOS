@@ -545,14 +545,13 @@ async function loadStep4() {
   html += '<tr><td class="port-req-port">80</td><td class="port-req-proto">TCP</td><td class="port-req-internal-ip">' + ip + '</td><td class="port-req-desc">HTTP</td></tr>';
   html += '<tr><td class="port-req-port">443</td><td class="port-req-proto">TCP</td><td class="port-req-internal-ip">' + ip + '</td><td class="port-req-desc">HTTPS</td></tr>';
   html += '<tr><td class="port-req-port">22</td><td class="port-req-proto">TCP</td><td class="port-req-internal-ip">' + ip + '</td><td class="port-req-desc">SSH Remote Access</td></tr>';
-  html += '<tr><td class="port-req-port">8448</td><td class="port-req-proto">TCP</td><td class="port-req-internal-ip">' + ip + '</td><td class="port-req-desc">Matrix Federation</td></tr>';
   html += '</tbody></table>';
   html += '</div>';
 
   // Optional ports table
   html += '<div class="onboarding-port-section" style="margin-bottom:20px;">';
   html += '<div class="onboarding-port-section-title" style="font-weight:700;margin-bottom:4px;">Optional — Only needed if you enable Element Calling:</div>';
-  html += '<div style="font-size:0.88em;margin-bottom:8px;color:var(--color-text-muted,#888);">These 5 additional port openings are required on top of the 4 required ports above.</div>';
+  html += '<div style="font-size:0.88em;margin-bottom:8px;color:var(--color-text-muted,#888);">These 5 additional port openings are required on top of the 3 required ports above.</div>';
   html += '<table class="onboarding-port-table">';
   html += '<thead><tr><th>Port</th><th>Protocol</th><th>Forward&nbsp;to</th><th>Purpose</th></tr></thead>';
   html += '<tbody>';
@@ -566,8 +565,8 @@ async function loadStep4() {
 
   // Totals
   html += '<div class="onboarding-port-totals">';
-  html += '<strong>Total port openings: 4</strong> (without Element Calling)<br>';
-  html += '<strong>Total port openings: 9</strong> (with Element Calling — 4 required + 5 optional)';
+  html += '<strong>Total port openings: 3</strong> (without Element Calling)<br>';
+  html += '<strong>Total port openings: 8</strong> (with Element Calling — 3 required + 5 optional)';
   html += '</div>';
 
   html += '<div class="onboarding-port-warn" style="margin-bottom:16px;">'
