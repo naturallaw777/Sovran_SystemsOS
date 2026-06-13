@@ -355,9 +355,9 @@ async function loadStep3() {
       + '<strong>Before you continue:</strong>'
       + '<ol style="margin:8px 0 0 16px; padding:0; line-height:1.7;">'
       + '<li>Create an account at <a href="https://njal.la" target="_blank" style="color:var(--accent-color);">https://njal.la</a></li>'
-      + '<li>Purchase a new domain on Njal.la, or create a subdomain from a domain you already own. Tip: Subdomains are free to create — you only need to purchase one domain, and you can add as many subdomains as you need at no extra cost.</li>'
+      + '<li>Purchase a new domain on Njal.la, or create a subdomain from a domain you already own. Tip: Subdomains are free to create — you only need to purchase one domain, and you can add as many subdomains as you like.</li>'
       + '<li>In the Njal.la web interface, create a <strong>Dynamic</strong> record pointing to this machine\'s external IP address:<br>'
-      + '<span style="display:inline-block;margin-top:4px;padding:4px 12px;background:var(--card-color);border:1px solid var(--border-color);border-radius:6px;font-family:monospace;font-size:1.1em;font-weight:700;letter-spacing:0.03em;">' + escHtml(externalIp) + '</span></li>'
+      + '<span style="display:inline-block;margin-top:4px;padding:4px 12px;background:var(--card-color);border:1px solid var(--border-color);border-radius:6px;font-family:monospace;font-size:1.1em;font-weight:700;">' + escHtml(externalIp) + '</span></li>'
       + '<li>Njal.la will give you a curl command like:<br>'
       + '<code style="font-size:0.8em;">curl "https://njal.la/update/?h=sub.domain.com&amp;k=abc123&amp;auto"</code></li>'
       + '<li>Enter the subdomain and paste that curl command below for each service</li>'
@@ -370,7 +370,7 @@ async function loadStep3() {
       html += '<label class="onboarding-domain-label">' + escHtml(d.label) + '</label>';
       html += '<input class="onboarding-domain-input domain-field-input" type="text" id="domain-input-' + escHtml(d.name) + '" data-domain="' + escHtml(d.name) + '" placeholder="e.g. ' + escHtml(d.name) + '.yourdomain.com" value="' + escHtml(currentVal) + '" />';
       html += '<label class="onboarding-domain-label onboarding-domain-label--sub">Njal.la DDNS Curl Command</label>';
-      html += '<input class="onboarding-domain-input domain-field-input" type="text" id="ddns-input-' + escHtml(d.name) + '" data-ddns="' + escHtml(d.name) + '" placeholder="curl &quot;https://njal.la/update/?h=' + escHtml(d.name) + '.yourdomain.com&amp;k=abc123&amp;auto&quot;" />';
+      html += '<input class="onboarding-domain-input domain-field-input" type="text" id="ddns-input-' + escHtml(d.name) + '" data-ddns="' + escHtml(d.name) + '" placeholder="curl &quot;https://njal.la/update/?h=...&amp;k=...&amp;auto&quot;" />';
       html += '<p class="onboarding-hint" style="margin-top:4px;">ℹ Paste the curl URL from your Njal.la dashboard\'s Dynamic record</p>';
       html += '<button type="button" class="btn btn-primary onboarding-domain-save-btn" data-save-domain="' + escHtml(d.name) + '" style="align-self:flex-start;margin-top:8px;font-size:0.82rem;padding:6px 16px;">Save</button>';
       html += '<span class="onboarding-domain-save-status" id="domain-save-status-' + escHtml(d.name) + '" style="font-size:0.82rem;min-height:1.2em;"></span>';
@@ -551,7 +551,7 @@ async function loadStep4() {
   // Optional ports table
   html += '<div class="onboarding-port-section" style="margin-bottom:20px;">';
   html += '<div class="onboarding-port-section-title" style="font-weight:700;margin-bottom:4px;">Optional — Only needed if you enable Element Calling:</div>';
-  html += '<div style="font-size:0.88em;margin-bottom:8px;color:var(--color-text-muted,#888);">These 5 additional port openings are required on top of the 3 required ports above.</div>';
+  html += '<div style="font-size:0.88em;margin-bottom:8px;color:var(--color-text-muted,#888);">These additional port openings are required on top of the 3 required ports above.</div>';
   html += '<table class="onboarding-port-table">';
   html += '<thead><tr><th>Port</th><th>Protocol</th><th>Forward&nbsp;to</th><th>Purpose</th></tr></thead>';
   html += '<tbody>';
@@ -559,14 +559,16 @@ async function loadStep4() {
   html += '<tr><td class="port-req-port">7882</td><td class="port-req-proto">UDP</td><td class="port-req-internal-ip">' + ip + '</td><td class="port-req-desc">LiveKit media (UDP mux)</td></tr>';
   html += '<tr><td class="port-req-port">5349</td><td class="port-req-proto">TCP</td><td class="port-req-internal-ip">' + ip + '</td><td class="port-req-desc">TURN over TLS</td></tr>';
   html += '<tr><td class="port-req-port">3478</td><td class="port-req-proto">UDP</td><td class="port-req-internal-ip">' + ip + '</td><td class="port-req-desc">TURN (STUN/relay)</td></tr>';
-  html += '<tr><td class="port-req-port">30000–40000</td><td class="port-req-proto">TCP/UDP</td><td class="port-req-internal-ip">' + ip + '</td><td class="port-req-desc">TURN relay (WebRTC)</td></tr>';
+  html += '<tr><td class="port-req-port">30000–40000</td><td class="port-req-proto">TCP</td><td class="port-req-internal-ip">' + ip + '</td><td class="port-req-desc">TURN relay (WebRTC) — TCP rule</td></tr>';
+  html += '<tr><td class="port-req-port">30000–40000</td><td class="port-req-proto">UDP</td><td class="port-req-internal-ip">' + ip + '</td><td class="port-req-desc">TURN relay (WebRTC) — UDP rule</td></tr>';
   html += '</tbody></table>';
+  html += '<div style="font-size:0.85em;margin-top:6px;color:var(--color-text-muted,#888);">ℹ The <strong>30000–40000</strong> range must be forwarded for <strong>both</strong> TCP and UDP. On most routers these are two separate forwarding rules.</div>';
   html += '</div>';
 
   // Totals
   html += '<div class="onboarding-port-totals">';
   html += '<strong>Total port openings: 3</strong> (without Element Calling)<br>';
-  html += '<strong>Total port openings: 8</strong> (with Element Calling — 3 required + 5 optional)';
+  html += '<strong>Total port openings: 9</strong> (with Element Calling — 3 required + 6 optional; the 30000–40000 range counts as one TCP rule and one UDP rule)';
   html += '</div>';
 
   html += '<div class="onboarding-port-warn" style="margin-bottom:16px;">'
