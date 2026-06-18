@@ -149,7 +149,7 @@
     gparted pv unzip parted screen zenity
     libargon2 gnome-terminal libreoffice-fresh
     dig firefox wp-cli axel
-    lk-jwt-service livekit-libwebrtc livekit-cli livekit
+    lk-jwt-service livekit-libwebrtc livekit
     matrix-synapse age
   ];
 
