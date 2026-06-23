@@ -333,8 +333,6 @@ async function loadStep3() {
     return;
   }
 
-  var externalIp = (networkData && networkData.external_ip) || "Unknown (could not retrieve)";
-
   // Build set of enabled service units
   var enabledUnits = new Set();
   (_servicesData || []).forEach(function(svc) {
@@ -352,18 +350,24 @@ async function loadStep3() {
     html += '<p class="onboarding-body-text">No domain-based services are enabled for your role. You can skip this step.</p>';
   } else {
     html += '<div class="onboarding-port-warn" style="margin-bottom:16px;">'
-      + '<strong>Before you continue:</strong>'
+      + '<p style="margin:0 0 8px;"><strong>Sovran_SystemsOS uses Njal.la for domains and Dynamic DNS.</strong></p>'
       + '<ol style="margin:8px 0 0 16px; padding:0; line-height:1.7;">'
-      + '<li>Create an account at <a href="https://njal.la" target="_blank" style="color:var(--accent-color);">https://njal.la</a></li>'
-      + '<li>Purchase a new domain on Njal.la, or create a subdomain from a domain you already own. Tip: Subdomains are free to create — you only need to purchase one domain, and you can add as many subdomains as you like.</li>'
-      + '<li>In the Njal.la web interface, create a <strong>Dynamic</strong> record pointing to this machine\'s external IP address:<br>'
-      + '<span style="display:inline-block;margin-top:4px;padding:4px 12px;background:var(--card-color);border:1px solid var(--border-color);border-radius:6px;font-family:monospace;font-size:1.1em;font-weight:700;">' + escHtml(externalIp) + '</span></li>'
-      + '<li>Njal.la will give you a curl command like:<br>'
-      + '<code style="font-size:0.8em;">curl "https://njal.la/update/?h=sub.domain.com&amp;k=abc123&amp;auto"</code></li>'
-      + '<li>Enter the subdomain and paste that curl command below for each service</li>'
+      + '<li>Create an account at <a href="https://njal.la" target="_blank" style="color:var(--accent-color);">https://njal.la</a>.</li>'
+      + '<li>Buy at least one domain. Each service below needs its own domain — you can either give each service its own subdomain of a single domain you buy (subdomains are free, and one domain can have many), OR use a separate domain for each. Your choice.</li>'
+      + '<li>For each service, add a <strong>Dynamic</strong> record in Njal.la:'
+      + '<ul style="margin:4px 0 0 16px;padding:0;line-height:1.7;">'
+      + '<li>In the Njal.la <strong>Name</strong> field, type ONLY the host part — the word before your domain.<br>'
+      + '(Example only, your choice — for &quot;call.yourdomain.com&quot; you&apos;d type just: <code>call</code>.)<br>'
+      + 'If you bought a whole separate domain just for this service, leave Name blank or use <code>@</code>.<br>'
+      + '&#9888; Do NOT type the full domain in the Name field — Njal.la adds it automatically.</li>'
+      + '<li>A Dynamic record has NO IP field. You don&apos;t enter an IP anywhere — it auto-fills once Sovran_SystemsOS updates it (on save, and again after reboot).</li>'
+      + '</ul>'
+      + '</li>'
+      + '<li>Njal.la gives you a curl command like:<br>'
+      + '<code style="font-size:0.8em;">curl &quot;https://njal.la/update/?h=call.yourdomain.com&amp;k=abc123&amp;auto&quot;</code></li>'
       + '</ol>'
       + '</div>';
-    html += '<p class="onboarding-hint">Enter each fully-qualified subdomain (e.g. <code>matrix.yourdomain.com</code>) and its Njal.la DDNS curl command.</p>';
+    html += '<p class="onboarding-hint">Enter each service\'s full domain — a subdomain (e.g. <code>call.yourdomain.com</code>) or a separate domain (e.g. <code>call.com</code>) — and its Njal.la DDNS curl command.</p>';
     relevantDomains.forEach(function(d) {
       var currentVal = (_domainsData && _domainsData[d.name]) || "";
       html += '<div class="onboarding-domain-group">';

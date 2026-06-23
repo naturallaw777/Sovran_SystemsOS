@@ -73,22 +73,47 @@ function openDomainSetupModal(feat, onSaved) {
     npubField = '<div class="domain-field-group"><label class="domain-field-label" for="domain-npub-input">Nostr Public Key (npub1...):</label><input class="domain-field-input" type="text" id="domain-npub-input" placeholder="npub1..." value="' + escHtml(currentNpub) + '" /></div>';
   }
 
-  var externalIp = _cachedExternalIp || "your external IP";
+  var introHtml;
+  if (_currentRole === "node") {
+    introHtml =
+      '<p>To enable <strong>' + escHtml(feat.name) + '</strong>, it needs its own domain from Njal.la.</p>' +
+      '<ol style="margin:8px 0 0 16px;padding:0;line-height:1.7;">' +
+      '<li>Create an account at <a href="https://njal.la" target="_blank" rel="noopener noreferrer" style="color:var(--accent-color);">njal.la</a>.</li>' +
+      '<li>Set up a domain for it — either a free subdomain or a separate domain. Pick one option:</li>' +
+      '</ol>';
+  } else {
+    introHtml =
+      '<p>To enable <strong>' + escHtml(feat.name) + '</strong>, it needs its own domain from Njal.la. ' +
+      'In your Njal.la account, set up a domain for it — either a free subdomain or a separate domain. Pick one option:</p>';
+  }
 
   $domainSetupBody.innerHTML =
     '<div class="domain-setup-intro">' +
-    '<p><strong>Before continuing:</strong></p>' +
-    '<ol>' +
-    '<li>Create an account at <a href="https://njal.la" target="_blank" rel="noopener noreferrer" style="color:var(--accent-color);">https://njal.la</a></li>' +
-    '<li>Purchase a new domain on Njal.la, or create a subdomain from a domain you already own. Tip: Subdomains are free to create — you only need to purchase one domain, and you can add as many subdomains as you need at no extra cost.</li>' +
-    '<li>In the Njal.la web interface, create a <strong>Dynamic</strong> record pointing to this machine\'s external IP address:<br>' +
-    '<span style="display:inline-block;margin-top:4px;padding:4px 10px;background:var(--card-color);border:1px solid var(--border-color);border-radius:6px;font-family:monospace;font-size:1em;font-weight:700;">' + escHtml(externalIp) + '</span></li>' +
-    '<li>Njal.la will give you a curl command like:<br>' +
-    '<code style="font-size:0.8em;">curl &quot;https://njal.la/update/?h=sub.domain.com&amp;k=abc123&amp;auto&quot;</code></li>' +
-    '<li>Enter the subdomain and paste that curl command below</li>' +
+    introHtml +
+    '<details style="margin-top:10px;">' +
+    '<summary style="cursor:pointer;font-weight:600;">Option A — Free subdomain (recommended)</summary>' +
+    '<ol style="margin:8px 0 0 16px;padding:0;line-height:1.7;">' +
+    '<li>In Njal.la, open a domain you own and click &quot;Add record&quot;.</li>' +
+    '<li>Set record type to <strong>Dynamic</strong>.</li>' +
+    '<li>In the <strong>Name</strong> field, type ONLY the host part — the word before your domain.<br>' +
+    '(Example only, your choice — for &quot;call.yourdomain.com&quot; you&apos;d type just: &nbsp;<code>call</code>)<br>' +
+    '&#9888; Do NOT type the full domain here — Njal.la adds it automatically.</li>' +
+    '<li>A Dynamic record has NO IP field — the IP auto-fills after the rebuild/reboot.</li>' +
+    '<li>Copy the curl command Njal.la gives you, e.g.:<br>' +
+    '<code style="font-size:0.8em;">curl &quot;https://njal.la/update/?h=call.yourdomain.com&amp;k=abc123&amp;auto&quot;</code></li>' +
     '</ol>' +
+    '</details>' +
+    '<details style="margin-top:6px;">' +
+    '<summary style="cursor:pointer;font-weight:600;">Option B — Separate / new domain</summary>' +
+    '<ol style="margin:8px 0 0 16px;padding:0;line-height:1.7;">' +
+    '<li>In Njal.la, buy the domain you want.</li>' +
+    '<li>Add a Dynamic record as in Option A. If this domain is dedicated to the service, leave the Name field blank or use <code>@</code>.</li>' +
+    '<li>Copy the curl command Njal.la gives you.</li>' +
+    '</ol>' +
+    '</details>' +
+    '<p style="margin-top:10px;">Below, enter the full domain for this service — a subdomain (e.g. call.yourdomain.com) or a separate domain (e.g. call.com) — and paste its curl command.</p>' +
     '</div>' +
-    '<div class="domain-field-group"><label class="domain-field-label" for="domain-subdomain-input">Subdomain (e.g. myservice.example.com):</label><input class="domain-field-input" type="text" id="domain-subdomain-input" placeholder="myservice.example.com" /></div>' +
+    '<div class="domain-field-group"><label class="domain-field-label" for="domain-subdomain-input">Service domain (e.g. call.yourdomain.com):</label><input class="domain-field-input" type="text" id="domain-subdomain-input" placeholder="myservice.example.com" /></div>' +
     '<div class="domain-field-group"><label class="domain-field-label" for="domain-ddns-input">Njal.la Dynamic DNS Update Command:</label><input class="domain-field-input" type="text" id="domain-ddns-input" placeholder="curl &quot;https://njal.la/update/?h=myservice.example.com&amp;k=abc123&amp;auto&quot;" /><p class="domain-field-hint">ℹ Paste the full curl command from your Njal.la dashboard\'s Dynamic record</p></div>' +
     npubField +
     '<div class="domain-field-actions"><button class="btn btn-close-modal" id="domain-setup-cancel-btn">Cancel</button><button class="btn btn-primary" id="domain-setup-save-btn">Save &amp; Enable</button></div>';
@@ -103,7 +128,7 @@ function openDomainSetupModal(feat, onSaved) {
     ddnsUrl   = ddnsUrl.trim();
     npub      = npub.trim();
 
-    if (!subdomain) { alert("Please enter a subdomain."); return; }
+    if (!subdomain) { alert("Please enter a domain."); return; }
     if (feat.id === "haven" && !npub) { alert("Please enter your Nostr public key."); return; }
 
     var saveBtn = document.getElementById("domain-setup-save-btn");
@@ -159,14 +184,14 @@ function openDomainReconfigureModal(feat, existingDomain, onSaved) {
     '<p><strong>Troubleshooting steps:</strong></p>' +
     '<ol>' +
     '<li>Log into your Njal.la dashboard at <a href="https://njal.la" target="_blank" rel="noopener noreferrer" style="color:var(--accent-color);">https://njal.la</a></li>' +
-    '<li>Find the DNS record for <strong>' + escHtml(currentDomain || "your domain") + '</strong></li>' +
+    '<li>Find the DNS record for <strong>' + escHtml(currentDomain || "your domain") + '</strong>. In Njal.la\'s Name field, note that only the host part is stored (the word before the domain) — not the full domain.</li>' +
     '<li>Verify it has a <strong>Dynamic</strong> record pointing to your current external IP:<br>' +
     '<span style="display:inline-block;margin-top:4px;padding:4px 10px;background:var(--card-color);border:1px solid var(--border-color);border-radius:6px;font-family:monospace;font-size:1em;font-weight:700;">' + escHtml(externalIp) + '</span></li>' +
     '<li>If the IP is wrong or the record is missing, update it</li>' +
     '<li>If you changed the DDNS curl command, paste the updated one below</li>' +
     '</ol>' +
     '</div>' +
-    '<div class="domain-field-group"><label class="domain-field-label" for="domain-subdomain-input">Subdomain (e.g. myservice.example.com):</label><input class="domain-field-input" type="text" id="domain-subdomain-input" placeholder="myservice.example.com" value="' + escHtml(currentDomain) + '" /></div>' +
+    '<div class="domain-field-group"><label class="domain-field-label" for="domain-subdomain-input">Service domain (e.g. call.yourdomain.com):</label><input class="domain-field-input" type="text" id="domain-subdomain-input" placeholder="myservice.example.com" value="' + escHtml(currentDomain) + '" /></div>' +
     '<div class="domain-field-group"><label class="domain-field-label" for="domain-ddns-input">Njal.la Dynamic DNS Update Command:</label><input class="domain-field-input" type="text" id="domain-ddns-input" placeholder="curl &quot;https://njal.la/update/?h=myservice.example.com&amp;k=abc123&amp;auto&quot;" /><p class="domain-field-hint">ℹ Paste the full curl command from your Njal.la dashboard\'s Dynamic record</p></div>' +
     npubField +
     '<div class="domain-field-actions"><button class="btn btn-close-modal" id="domain-setup-cancel-btn">Cancel</button><button class="btn btn-primary" id="domain-setup-save-btn">Save &amp; Update</button></div>';
