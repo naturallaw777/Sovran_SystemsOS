@@ -2986,18 +2986,22 @@ async def api_service_detail(unit: str, icon: str | None = None):
         if has_domain_issues:
             domain_check_steps.append({
                 "step": 4,
-                "label": "Additional Ports Required",
+                "label": "Router Setup Needed",
                 "status": "skipped",
-                "detail": "Skipped until Steps 1-3 are complete",
+                "detail": "Finish the domain steps first, then forward the Element Call ports in your router.",
             })
         else:
-            extra_open = all(p["status"] != "closed" for p in extra_ports)
+            # These checks are local-only (listening/firewall state on this computer),
+            # not an outside-in verification of router/NAT forwarding.
+            all_local_ready = all(p["status"] != "closed" for p in extra_ports)
             domain_check_steps.append({
                 "step": 4,
-                "label": "Additional Ports Required",
-                "status": "ok" if extra_open else "error",
+                "label": "Router Setup Needed" if all_local_ready else "Sovran_SystemsOS Port Setup Needed",
+                "status": "warning" if all_local_ready else "error",
                 "detail": (
-                    "Element-Call/LiveKit requires additional forwarded ports for WebRTC and TURN traffic."
+                    "Sovran_SystemsOS is ready to use these ports on this computer. Now forward them in your router so Element Call can work from outside your home network."
+                    if all_local_ready
+                    else "Sovran_SystemsOS is not ready to use all required Element Call ports on this computer yet. Fix the ports marked “Not ready” below, then forward them in your router."
                 ),
             })
 
