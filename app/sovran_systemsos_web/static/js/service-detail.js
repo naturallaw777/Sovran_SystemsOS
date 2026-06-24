@@ -154,17 +154,32 @@ async function openServiceDetailModal(unit, name, icon) {
         '</div>';
 
       if (unit === "livekit.service" && data.extra_ports && data.extra_ports.length > 0) {
+        var internalIp = (data.internal_ip && String(data.internal_ip).trim()) ? String(data.internal_ip).trim() : "";
+        var internalIpHtml = internalIp ? escHtml(internalIp) : "Could not detect";
+        var routerIpHelp = internalIp
+          ? "Use this IP address as the destination/internal IP when creating each router forwarding rule."
+          : "Use this computer’s internal IP as the destination/internal IP when creating each router forwarding rule.";
+        var routerNextStep = internalIp
+          ? 'Next step: Log in to your router and create forwarding rules for the ports above. Set the destination/internal IP to <strong>' + internalIpHtml + '</strong>.'
+          : 'Next step: Log in to your router and create forwarding rules for the ports above. Use this computer’s internal IP as the destination/internal IP.';
+        var domainConfigured = !!(data.domain && String(data.domain).trim());
         var extraRows = "";
         data.extra_ports.forEach(function(p) {
           var statusIcon, statusClass2;
-          if (p.status === "listening") {
+          if (!effectiveEnabled) {
+            statusIcon = "⚠ Configure Element Call first";
+            statusClass2 = "port-status-open";
+          } else if (!domainConfigured) {
+            statusIcon = "⚠ Configure domain first";
+            statusClass2 = "port-status-open";
+          } else if (p.status === "listening") {
             statusIcon = "✅ Ready";
             statusClass2 = "port-status-listening";
           } else if (p.status === "firewall_open") {
             statusIcon = "✅ Ready";
             statusClass2 = "port-status-open";
           } else if (p.status === "closed") {
-            statusIcon = "❌ Not ready";
+            statusIcon = "❌ Not ready yet";
             statusClass2 = "port-status-closed";
           } else {
             statusIcon = "— Could not check";
@@ -179,12 +194,15 @@ async function openServiceDetailModal(unit, name, icon) {
         });
         html += '<div class="svc-detail-section">' +
           '<div class="svc-detail-section-title">Ports to Forward in Your Router</div>' +
-          '<div class="svc-detail-port-note">These checks only confirm that Sovran_SystemsOS is prepared on this computer. Your router still needs to forward these ports from the public internet to this computer.</div>' +
+          '<div class="svc-detail-port-note">Forward these ports in your router to this Sovran_SystemsOS computer.</div>' +
+          '<div class="svc-detail-port-note"><strong>Router Forward-To IP:</strong> ' + internalIpHtml + '</div>' +
+          '<div class="svc-detail-port-note">' + routerIpHelp + '</div>' +
           '<table class="svc-detail-port-table">' +
             '<thead><tr><th>Port</th><th>Protocol</th><th>Used For</th><th>Sovran_SystemsOS Status</th></tr></thead>' +
             '<tbody>' + extraRows + '</tbody>' +
           '</table>' +
-          '<div class="svc-detail-port-note">Next step: Log in to your router and forward the ports above to this Sovran_SystemsOS computer.<br>Full public port verification requires an outside internet check, so the Hub cannot fully confirm router forwarding from inside your home network.</div>' +
+          '<div class="svc-detail-port-note">The Hub can check whether Sovran_SystemsOS is ready on this computer, but full public port verification requires an outside internet check.</div>' +
+          '<div class="svc-detail-port-note">' + routerNextStep + '</div>' +
           '</div>';
       }
     } else if (data.port_statuses && data.port_statuses.length > 0) {
