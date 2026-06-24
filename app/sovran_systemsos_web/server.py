@@ -3001,7 +3001,7 @@ async def api_service_detail(unit: str, icon: str | None = None):
                 "detail": (
                     "Sovran_SystemsOS is ready to use these ports on this computer. Now forward them in your router so Element Call can work from outside your home network."
                     if all_local_ready
-                    else "Sovran_SystemsOS is not ready to use all required Element Call ports on this computer yet. Fix the ports marked “Not ready” below, then forward them in your router."
+                    else "Sovran_SystemsOS is not ready to use all required Element Call ports on this computer yet. Fix the ports marked “Not ready yet” below, then forward them in your router."
                 ),
             })
 
