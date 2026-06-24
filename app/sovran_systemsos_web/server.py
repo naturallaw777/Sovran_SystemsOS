@@ -2991,13 +2991,15 @@ async def api_service_detail(unit: str, icon: str | None = None):
                 "detail": "Skipped until Steps 1-3 are complete",
             })
         else:
-            extra_open = all(p["status"] != "closed" for p in extra_ports)
+            extra_closed = any(p["status"] == "closed" for p in extra_ports)
             domain_check_steps.append({
                 "step": 4,
                 "label": "Additional Ports Required",
-                "status": "ok" if extra_open else "error",
+                "status": "error" if extra_closed else "warning",
                 "detail": (
-                    "Element-Call/LiveKit requires additional forwarded ports for WebRTC and TURN traffic."
+                    "Element-Call/LiveKit requires additional forwarded ports for WebRTC and TURN traffic.\n"
+                    "Local checks only confirm service listening/firewall rules on this server.\n"
+                    "Router port forwarding must still be configured and verified from an external network."
                 ),
             })
 

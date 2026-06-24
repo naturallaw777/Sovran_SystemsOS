@@ -158,10 +158,10 @@ async function openServiceDetailModal(unit, name, icon) {
         data.extra_ports.forEach(function(p) {
           var statusIcon, statusClass2;
           if (p.status === "listening") {
-            statusIcon = "✅ Open";
+            statusIcon = "🟢 Listening locally";
             statusClass2 = "port-status-listening";
           } else if (p.status === "firewall_open") {
-            statusIcon = "🟡 Firewall open";
+            statusIcon = "🟡 Allowed by server firewall";
             statusClass2 = "port-status-open";
           } else if (p.status === "closed") {
             statusIcon = "❌ Closed";
@@ -191,10 +191,10 @@ async function openServiceDetailModal(unit, name, icon) {
       data.port_statuses.forEach(function(p) {
         var statusIcon, statusClass2;
         if (p.status === "listening") {
-          statusIcon = "✅ Open";
+          statusIcon = "🟢 Listening locally";
           statusClass2 = "port-status-listening";
         } else if (p.status === "firewall_open") {
-          statusIcon = "🟡 Firewall open";
+          statusIcon = "🟡 Allowed by server firewall";
           statusClass2 = "port-status-open";
         } else if (p.status === "closed") {
           statusIcon = "🔴 Closed";
