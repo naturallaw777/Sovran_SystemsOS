@@ -158,16 +158,16 @@ async function openServiceDetailModal(unit, name, icon) {
         data.extra_ports.forEach(function(p) {
           var statusIcon, statusClass2;
           if (p.status === "listening") {
-            statusIcon = "✅ Open";
+            statusIcon = "✅ Ready";
             statusClass2 = "port-status-listening";
           } else if (p.status === "firewall_open") {
-            statusIcon = "🟡 Firewall open";
+            statusIcon = "✅ Ready";
             statusClass2 = "port-status-open";
           } else if (p.status === "closed") {
-            statusIcon = "❌ Closed";
+            statusIcon = "❌ Not ready";
             statusClass2 = "port-status-closed";
           } else {
-            statusIcon = "— Unknown";
+            statusIcon = "— Could not check";
             statusClass2 = "port-status-unknown";
           }
           extraRows += '<tr>' +
@@ -178,11 +178,13 @@ async function openServiceDetailModal(unit, name, icon) {
             '</tr>';
         });
         html += '<div class="svc-detail-section">' +
-          '<div class="svc-detail-section-title">Step 4: Additional Ports</div>' +
+          '<div class="svc-detail-section-title">Ports to Forward in Your Router</div>' +
+          '<div class="svc-detail-port-note">These checks only confirm that Sovran_SystemsOS is prepared on this computer. Your router still needs to forward these ports from the public internet to this computer.</div>' +
           '<table class="svc-detail-port-table">' +
-            '<thead><tr><th>Port</th><th>Protocol</th><th>Description</th><th>Status</th></tr></thead>' +
+            '<thead><tr><th>Port</th><th>Protocol</th><th>Used For</th><th>Sovran_SystemsOS Status</th></tr></thead>' +
             '<tbody>' + extraRows + '</tbody>' +
           '</table>' +
+          '<div class="svc-detail-port-note">Next step: Log in to your router and forward the ports above to this Sovran_SystemsOS computer.<br>Full public port verification requires an outside internet check, so the Hub cannot fully confirm router forwarding from inside your home network.</div>' +
           '</div>';
       }
     } else if (data.port_statuses && data.port_statuses.length > 0) {
@@ -191,16 +193,16 @@ async function openServiceDetailModal(unit, name, icon) {
       data.port_statuses.forEach(function(p) {
         var statusIcon, statusClass2;
         if (p.status === "listening") {
-          statusIcon = "✅ Open";
+          statusIcon = "✅ Ready";
           statusClass2 = "port-status-listening";
         } else if (p.status === "firewall_open") {
-          statusIcon = "🟡 Firewall open";
+          statusIcon = "✅ Ready";
           statusClass2 = "port-status-open";
         } else if (p.status === "closed") {
-          statusIcon = "🔴 Closed";
+          statusIcon = "❌ Not ready";
           statusClass2 = "port-status-closed";
         } else {
-          statusIcon = "— Unknown";
+          statusIcon = "— Could not check";
           statusClass2 = "port-status-unknown";
         }
         portTableRows += '<tr>' +
@@ -211,9 +213,10 @@ async function openServiceDetailModal(unit, name, icon) {
           '</tr>';
       });
       html += '<div class="svc-detail-section">' +
-        '<div class="svc-detail-section-title">Port Status</div>' +
+        '<div class="svc-detail-section-title">Port Requirements</div>' +
+        '<div class="svc-detail-port-note">This shows whether Sovran_SystemsOS is ready to use this port on this computer. If you need access from outside your home network, forward this port in your router.</div>' +
         '<table class="svc-detail-port-table">' +
-          '<thead><tr><th>Port</th><th>Protocol</th><th>Description</th><th>Status</th></tr></thead>' +
+          '<thead><tr><th>Port</th><th>Protocol</th><th>Used For</th><th>Sovran_SystemsOS Status</th></tr></thead>' +
           '<tbody>' + portTableRows + '</tbody>' +
         '</table>' +
         '</div>';
