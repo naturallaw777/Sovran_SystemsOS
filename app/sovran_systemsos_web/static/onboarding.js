@@ -527,9 +527,15 @@ async function loadStep4() {
     return;
   }
 
-  var internalIp = (networkData && networkData.internal_ip) || "unknown";
-
-  var ip = escHtml(internalIp);
+  var internalIp = (networkData && networkData.internal_ip && String(networkData.internal_ip).trim()) ? String(networkData.internal_ip).trim() : "";
+  var hasInternalIp = !!internalIp;
+  var ip = escHtml(internalIp || "Could not detect");
+  var routerIpHelp = hasInternalIp
+    ? "Use this IP address as the destination/internal IP when creating each router forwarding rule."
+    : "Use this computer’s internal IP as the destination/internal IP when creating each router forwarding rule.";
+  var destinationInstruction = hasInternalIp
+    ? 'Set the destination/internal IP to <strong>' + ip + '</strong>'
+    : 'Use this computer’s internal IP as the destination/internal IP';
 
   var html = '<p class="onboarding-port-note" style="margin-bottom:14px;">'
     + '⚠ <strong>Each port only needs to be forwarded once — all services share the same ports.</strong>'
@@ -539,6 +545,7 @@ async function loadStep4() {
   html += '  <span class="onboarding-port-ip-label">Forward router traffic to this Sovran_SystemsOS computer:</span>';
   html += '  <span class="port-req-internal-ip">' + ip + '</span>';
   html += '</div>';
+  html += '<div class="onboarding-port-note" style="margin:8px 0 16px;">' + routerIpHelp + '</div>';
 
   // Required ports table
   html += '<div class="onboarding-port-section" style="margin-bottom:20px;">';
@@ -570,8 +577,8 @@ async function loadStep4() {
 
   // Totals
   html += '<div class="onboarding-port-totals">';
-  html += '<strong>Total port openings: 3</strong> (without Element Calling)<br>';
-  html += '<strong>Total port openings: 8</strong> (with Element Calling — 3 required + 5 optional)';
+  html += '<strong>Total port openings: 3</strong> (without Element Call)<br>';
+  html += '<strong>Total port openings: 8</strong> (with Element Call — 3 required + 5 optional)';
   html += '</div>';
 
   html += '<div class="onboarding-port-warn" style="margin-bottom:16px;">'
@@ -586,7 +593,7 @@ async function loadStep4() {
     + '<li>Open your router\'s admin panel — usually <code>http://192.168.1.1</code> or <code>http://192.168.0.1</code></li>'
     + '<li>Look for <strong>"Port Forwarding"</strong>, <strong>"NAT"</strong>, or <strong>"Virtual Server"</strong> in the settings</li>'
     + '<li>Create a new rule for each port listed above</li>'
-    + '<li>Set the destination/internal IP to <strong>' + ip + '</strong></li>'
+    + '<li>' + destinationInstruction + '</li>'
     + '<li>Set both internal and external port to the same number</li>'
     + '<li>Save and apply changes</li>'
     + '</ol>'
