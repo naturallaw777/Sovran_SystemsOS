@@ -154,7 +154,8 @@ async function openServiceDetailModal(unit, name, icon) {
         '</div>';
 
       if (unit === "livekit.service" && data.extra_ports && data.extra_ports.length > 0) {
-        var internalIp = (data.internal_ip && String(data.internal_ip).trim()) ? String(data.internal_ip).trim() : "";
+        var trimmedInternalIp = data.internal_ip ? String(data.internal_ip).trim() : "";
+        var internalIp = trimmedInternalIp || "";
         var internalIpHtml = internalIp ? escHtml(internalIp) : "Could not detect";
         var routerIpHelp = internalIp
           ? "Use this IP address as the destination/internal IP when creating each router forwarding rule."
