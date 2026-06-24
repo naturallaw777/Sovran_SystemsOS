@@ -527,7 +527,8 @@ async function loadStep4() {
     return;
   }
 
-  var internalIp = (networkData && networkData.internal_ip && String(networkData.internal_ip).trim()) ? String(networkData.internal_ip).trim() : "";
+  var trimmedInternalIp = (networkData && networkData.internal_ip) ? String(networkData.internal_ip).trim() : "";
+  var internalIp = trimmedInternalIp || "";
   var hasInternalIp = !!internalIp;
   var ip = escHtml(internalIp || "Could not detect");
   var routerIpHelp = hasInternalIp
