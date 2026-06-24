@@ -31,7 +31,7 @@ lib.mkIf userExists {
   };
 
   systemd.services.factory-ssh-keygen = {
-    description = "Generate factory SSH key for ${userName} if missing";
+    description = "Generate or repair factory SSH key for ${userName}";
     wantedBy = [ "multi-user.target" ];
     after = [ "ssh-passphrase-setup.service" ];
     requires = [ "ssh-passphrase-setup.service" ];
@@ -41,12 +41,34 @@ lib.mkIf userExists {
     };
     path = [ pkgs.openssh pkgs.coreutils ];
     script = ''
-      if [ ! -f "${keyPath}" ]; then
-        PASSPHRASE=$(cat /var/lib/secrets/ssh-passphrase)
+      PASSPHRASE=$(cat /var/lib/secrets/ssh-passphrase)
+
+      generate_factory_key() {
         ssh-keygen -q -N "$PASSPHRASE" -t ed25519 -f "${keyPath}"
         chown ${userName}:users "${keyPath}" "${keyPath}.pub"
         chmod 600 "${keyPath}"
         chmod 644 "${keyPath}.pub"
+      }
+
+      if [ ! -f "${keyPath}" ]; then
+        generate_factory_key
+      elif ! ssh-keygen -y -P "$PASSPHRASE" -f "${keyPath}" >/dev/null 2>&1; then
+        backup_suffix=$(date -u +%Y%m%d%H%M%S)
+        backup_path="${keyPath}.bak-$backup_suffix"
+        backup_index=0
+
+        while [ -e "$backup_path" ] || [ -e "$backup_path.pub" ]; do
+          backup_index=$((backup_index + 1))
+          backup_path="${keyPath}.bak-$backup_suffix-$backup_index"
+        done
+
+        mv "${keyPath}" "$backup_path"
+
+        if [ -f "${keyPath}.pub" ]; then
+          mv "${keyPath}.pub" "$backup_path.pub"
+        fi
+
+        generate_factory_key
       fi
     '';
   };
