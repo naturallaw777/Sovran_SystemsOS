@@ -144,7 +144,7 @@ turn:
   key_file: /run/credentials/livekit.service/turn-key
 EOF
 
-      chmod 640 /run/livekit/livekit.yaml
+      chmod 644 /run/livekit/livekit.yaml
     '';
   };
 
@@ -174,10 +174,11 @@ EOF
   # weakening it. Everything else about the standard unit is left intact.
   systemd.services.livekit.serviceConfig.ExecStart = lib.mkForce [
     ""
-    "${pkgs.livekit}/bin/livekit-server --config /run/livekit/livekit.yaml --key-file /run/credentials/livekit.service/livekit-secrets"
+    "${pkgs.livekit}/bin/livekit-server --config /run/credentials/livekit.service/livekit-config --key-file /run/credentials/livekit.service/livekit-secrets"
   ];
 
   systemd.services.livekit.serviceConfig.LoadCredential = [
+    "livekit-config:/run/livekit/livekit.yaml"
     "livekit-secrets:${livekitKeyFile}"
     "turn-cert:/var/lib/livekit/turn.crt"
     "turn-key:/var/lib/livekit/turn.key"
