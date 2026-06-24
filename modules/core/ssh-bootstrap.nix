@@ -39,19 +39,19 @@ lib.mkIf userExists {
       Type = "oneshot";
       RemainAfterExit = true;
     };
-    path = [ pkgs.openssh pkgs.coreutils ];
+    path = [ pkgs.openssh pkgs.coreutils pkgs.util-linux ];
     script = ''
       set -eu
 
       PASSPHRASE=$(cat /var/lib/secrets/ssh-passphrase)
-      lock_dir="${keyPath}.lock"
+      lock_file="${keyPath}.lock"
 
-      if ! mkdir "$lock_dir"; then
+      exec 9>"$lock_file"
+
+      if ! flock -n 9; then
         echo "Factory SSH key setup is already running." >&2
         exit 1
       fi
-
-      trap 'rmdir "$lock_dir"' EXIT
 
       generate_factory_key() {
         ssh-keygen -q -N "$PASSPHRASE" -t ed25519 -f "${keyPath}"
@@ -63,8 +63,7 @@ lib.mkIf userExists {
       if [ ! -f "${keyPath}" ]; then
         generate_factory_key
       elif ! ssh-keygen -y -P "$PASSPHRASE" -f "${keyPath}" >/dev/null 2>&1; then
-        echo "Existing factory SSH key does not match current passphrase; backing it up and generating a replacement."
-        backup_suffix=$(date -u +%Y%m%d_%H%M%S)
+        backup_suffix="$(date -u +%Y%m%d_%H%M%S)-$$"
         backup_path="${keyPath}.bak-$backup_suffix"
         backup_index=0
 
@@ -73,6 +72,7 @@ lib.mkIf userExists {
           backup_path="${keyPath}.bak-$backup_suffix-$backup_index"
         done
 
+        echo "Existing factory SSH key does not match current passphrase; backing it up to $backup_path and generating a replacement."
         mv "${keyPath}" "$backup_path"
 
         if [ -f "${keyPath}.pub" ]; then
