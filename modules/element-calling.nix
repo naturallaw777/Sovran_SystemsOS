@@ -34,8 +34,8 @@ lib.mkIf config.sovran_systemsOS.features.element-calling {
   };
 
   ####### ENSURE SERVICES START AFTER KEY EXISTS #######
-  systemd.services.livekit.after = [ "livekit-key-setup.service" ];
-  systemd.services.livekit.wants = [ "livekit-key-setup.service" ];
+  systemd.services.livekit.after = [ "livekit-key-setup.service" "livekit-turn-setup.service" ];
+  systemd.services.livekit.wants = [ "livekit-key-setup.service" "livekit-turn-setup.service" ];
   systemd.services.lk-jwt-service.after = [ "livekit-key-setup.service" ];
   systemd.services.lk-jwt-service.wants = [ "livekit-key-setup.service" ];
 
@@ -89,11 +89,17 @@ EOF
     '';
   };
 
-  ####### LIVEKIT RUNTIME CONFIG #######
-  systemd.services.livekit-runtime-config = {
-    description = "Generate LiveKit runtime config from domain files";
+  ####### LIVEKIT TURN SETUP (runtime cert + config) #######
+  # Replaces the old dead livekit-runtime-config.service. At runtime this:
+  #   * reads the matrix domain from /var/lib/domains/matrix (never hardcoded)
+  #   * copies Caddy's already-issued matrix cert/key into /var/lib/livekit
+  #     so LoadCredential can stage them for the (DynamicUser) livekit unit
+  #   * writes a complete LiveKit config (with turn.domain substituted) that the
+  #     overridden ExecStart loads.
+  systemd.services.livekit-turn-setup = {
+    description = "Stage TURN cert and generate LiveKit runtime config from domain files";
+    after = [ "caddy.service" "livekit-key-setup.service" ];
     before = [ "livekit.service" ];
-    after = [ "livekit-key-setup.service" ];
     requiredBy = [ "livekit.service" ];
     wantedBy = [ "multi-user.target" ];
     serviceConfig = {
@@ -103,20 +109,42 @@ EOF
     unitConfig = {
       ConditionPathExists = "/var/lib/domains/element-calling";
     };
-    path = [ pkgs.coreutils ];
+    path = [ pkgs.coreutils pkgs.findutils ];
     script = ''
       MATRIX=$(cat /var/lib/domains/matrix)
 
       mkdir -p /run/livekit
 
-      cat > /run/livekit/runtime-config.yaml <<EOF
+      # Copy Caddy's already-issued matrix cert/key into LiveKit's state dir.
+      # The ACME CA hostname directory can vary, so glob for the domain dir.
+      CRT=$(find /var/lib/caddy -path "*/$MATRIX/$MATRIX.crt" | head -n1)
+      KEY=$(find /var/lib/caddy -path "*/$MATRIX/$MATRIX.key" | head -n1)
+      cp "$CRT" /var/lib/livekit/turn.crt
+      cp "$KEY" /var/lib/livekit/turn.key
+      chmod 640 /var/lib/livekit/turn.crt /var/lib/livekit/turn.key
+
+      # Generate the full LiveKit config the daemon will load. turn.domain is
+      # only known at runtime, so it is substituted here. The cert/key paths
+      # point at the LoadCredential-staged copies under /run/credentials.
+      cat > /run/livekit/livekit.yaml <<EOF
+port: 7880
+rtc:
+  use_external_ip: true
+  udp_port: 7882
+  port_range_start: 30000
+  port_range_end: 40000
+room:
+  auto_create: false
 turn:
+  enabled: true
   domain: $MATRIX
-  cert_file: /var/lib/livekit/$MATRIX.crt
-  key_file: /var/lib/livekit/$MATRIX.key
+  tls_port: 5349
+  udp_port: 3478
+  cert_file: /run/credentials/livekit.service/turn-cert
+  key_file: /run/credentials/livekit.service/turn-key
 EOF
 
-      chmod 640 /run/livekit/runtime-config.yaml
+      chmod 640 /run/livekit/livekit.yaml
     '';
   };
 
@@ -128,6 +156,8 @@ EOF
     settings = {
       rtc.use_external_ip = true;
       rtc.udp_port = 7882;
+      rtc.port_range_start = 30000;
+      rtc.port_range_end = 40000;
       room.auto_create = false;
       turn = {
         enabled = true;
@@ -137,15 +167,25 @@ EOF
     };
   };
 
+  # Override ExecStart to load the runtime-generated config (which carries the
+  # runtime-only turn.domain), mirroring the Caddy ExecStart override pattern in
+  # modules/core/caddy.nix. Deliver the TURN cert/key via LoadCredential so they
+  # are readable under the upstream unit's DynamicUser=true sandbox without
+  # weakening it. Everything else about the standard unit is left intact.
+  systemd.services.livekit.serviceConfig.ExecStart = lib.mkForce [
+    ""
+    "${pkgs.livekit}/bin/livekit-server --config /run/livekit/livekit.yaml --key-file /run/credentials/livekit.service/livekit-secrets"
+  ];
+
+  systemd.services.livekit.serviceConfig.LoadCredential = [
+    "livekit-secrets:${livekitKeyFile}"
+    "turn-cert:/var/lib/livekit/turn.crt"
+    "turn-key:/var/lib/livekit/turn.key"
+  ];
+
   networking.firewall.allowedTCPPorts = [ 5349 7881 ];
   networking.firewall.allowedUDPPorts = [ 3478 7882 ];
-  networking.firewall.allowedUDPPortRanges = [
-    { from = 30000; to = 40000; }
-  ];
-  networking.firewall.allowedTCPPortRanges = [
-    { from = 30000; to = 40000; }
-  ];
-  
+
   ####### JWT SERVICE RUNTIME CONFIG #######
   systemd.services.lk-jwt-service-runtime-config = {
     description = "Generate lk-jwt-service runtime config from domain files";
