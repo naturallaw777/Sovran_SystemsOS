@@ -53,6 +53,7 @@ lib.mkIf userExists {
       if [ ! -f "${keyPath}" ]; then
         generate_factory_key
       elif ! ssh-keygen -y -P "$PASSPHRASE" -f "${keyPath}" >/dev/null 2>&1; then
+        echo "Existing factory SSH key does not match current passphrase; backing it up and generating a replacement."
         backup_suffix=$(date -u +%Y%m%d%H%M%S)
         backup_path="${keyPath}.bak-$backup_suffix"
         backup_index=0
