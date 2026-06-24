@@ -44,6 +44,14 @@ lib.mkIf userExists {
       set -eu
 
       PASSPHRASE=$(cat /var/lib/secrets/ssh-passphrase)
+      lock_dir="${keyPath}.lock"
+
+      if ! mkdir "$lock_dir"; then
+        echo "Factory SSH key setup is already running." >&2
+        exit 1
+      fi
+
+      trap 'rmdir "$lock_dir"' EXIT
 
       generate_factory_key() {
         ssh-keygen -q -N "$PASSPHRASE" -t ed25519 -f "${keyPath}"
