@@ -1950,10 +1950,13 @@ def _verify_support_removed() -> bool:
 
 @app.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request):
-    return templates.TemplateResponse("login.html", {
-        "request": request,
-        "asset_version": ASSET_VERSION,
-    })
+    return templates.TemplateResponse(
+        request=request,
+        name="login.html",
+        context={
+            "asset_version": ASSET_VERSION,
+        },
+    )
 
 
 @app.get("/auto-login")
@@ -2018,20 +2021,26 @@ async def api_logout(request: Request):
 
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
-    return templates.TemplateResponse("index.html", {
-        "request": request,
-        "asset_version": ASSET_VERSION,
-    })
+    return templates.TemplateResponse(
+        request=request,
+        name="index.html",
+        context={
+            "asset_version": ASSET_VERSION,
+        },
+    )
 
 
 @app.get("/onboarding", response_class=HTMLResponse)
 async def onboarding(request: Request):
     _ensure_onboarding_reopened_for_migration()
-    return templates.TemplateResponse("onboarding.html", {
-        "request": request,
-        "asset_version": ASSET_VERSION,
-        "onboarding_js_hash": _ONBOARDING_JS_HASH,
-    })
+    return templates.TemplateResponse(
+        request=request,
+        name="onboarding.html",
+        context={
+            "asset_version": ASSET_VERSION,
+            "onboarding_js_hash": _ONBOARDING_JS_HASH,
+        },
+    )
 
 
 @app.get("/api/onboarding/status")
