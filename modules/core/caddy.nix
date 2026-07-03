@@ -16,7 +16,10 @@ let
 in
 {
   services.caddy = {
-    enable = true;
+    # Only enable Caddy when at least one domain-based service needs it or
+    # the operator has defined custom vhosts.  This prevents Caddy from
+    # running on Desktop Only installs that have no web services configured.
+    enable = needsHttpsPorts || extraVhosts != "";
     user = "caddy";
     group = "root";
   };
