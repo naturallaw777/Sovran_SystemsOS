@@ -61,9 +61,22 @@ lib.mkIf config.sovran_systemsOS.features.rdp {
       DEFAULT_USERNAME="sovran"
 
       grdctl_system() {
-        timeout --kill-after=5s 15s \
+        local rc=0
+
+        if timeout --kill-after=5s 10s \
           runuser -u gnome-remote-desktop -- \
-          grdctl --system "$@"
+          grdctl --system "$@"; then
+          return 0
+        else
+          rc=$?
+        fi
+
+        if [ "$rc" -eq 124 ] || [ "$rc" -eq 137 ]; then
+          echo "grdctl command timed out: $*" >&2
+        fi
+        echo "grdctl command failed (exit $rc): $*" >&2
+
+        return "$rc"
       }
 
       mkdir -p "$STATE_DIR/.local/share/gnome-remote-desktop" "$TLS_DIR"
@@ -104,6 +117,18 @@ lib.mkIf config.sovran_systemsOS.features.rdp {
         USERNAME="$DEFAULT_USERNAME"
         printf '%s\n' "$USERNAME" > "$USERNAME_FILE"
       fi
+      if [ "''${#USERNAME}" -gt 32 ]; then
+        echo "RDP username is too long (''${#USERNAME} characters, maximum 32): $USERNAME from $USERNAME_FILE" >&2
+        exit 1
+      fi
+      case "$USERNAME" in
+        [A-Za-z_][A-Za-z0-9_-]*)
+          ;;
+        *)
+          echo "RDP username must start with a letter or underscore and contain only letters, numbers, underscores, and hyphens: $USERNAME from $USERNAME_FILE" >&2
+          exit 1
+          ;;
+      esac
       chown gnome-remote-desktop:gnome-remote-desktop "$USERNAME_FILE"
       chmod 600 "$USERNAME_FILE"
 
@@ -115,10 +140,17 @@ lib.mkIf config.sovran_systemsOS.features.rdp {
         echo "RDP password file is empty: $PASSWORD_FILE" >&2
         exit 1
       fi
+      if [ "''${#PASSWORD}" -lt 8 ]; then
+        echo "RDP password is too short (''${#PASSWORD} characters, minimum 8): $PASSWORD_FILE" >&2
+        exit 1
+      fi
       chown gnome-remote-desktop:gnome-remote-desktop "$PASSWORD_FILE"
       chmod 600 "$PASSWORD_FILE"
 
       LOCAL_IP="$(hostname -I | awk '{print $1}')"
+      if [ -z "$LOCAL_IP" ]; then
+        LOCAL_IP="127.0.0.1"
+      fi
 
       cat > "$CRED_FILE" <<EOF
       ========================================
