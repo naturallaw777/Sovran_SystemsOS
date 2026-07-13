@@ -146,33 +146,16 @@ let
     echo ""
 
     if [ "$RC" -eq 0 ]; then
-      echo "── Step 2/3: nixos-rebuild ──────────────────────────"
-      SWITCH_OUT=$(nixos-rebuild switch --flake /etc/nixos --print-build-logs \
+      echo "── Step 2/3: nixos-rebuild boot (stage next reboot) ──"
+      BOOT_OUT=$(nixos-rebuild boot --flake /etc/nixos --print-build-logs \
         --option connect-timeout 10 \
         --option stalled-download-timeout 90 \
         --option download-attempts 7 \
         --option fallback true 2>&1)
-      SWITCH_RC=$?
-      echo "$SWITCH_OUT"
-      if [ "$SWITCH_RC" -eq 0 ]; then
-        echo "[OK] switch succeeded"
-      elif echo "$SWITCH_OUT" | grep -q "switchInhibitors\|Pre-switch checks failed"; then
-        echo ""
-        echo "  ✓ Build succeeded — a reboot is required to apply this update"
-        echo "  (Critical system components changed; running nixos-rebuild boot instead)"
-        if nixos-rebuild boot --flake /etc/nixos --print-build-logs \
-             --option connect-timeout 10 \
-             --option stalled-download-timeout 90 \
-             --option download-attempts 7 \
-             --option fallback true 2>&1; then
-          echo "REBOOT_REQUIRED" > "$STATUS"
-          exit 0
-        else
-          echo "[ERROR] nixos-rebuild boot also failed"
-          RC=1
-        fi
-      else
-        echo "[ERROR] nixos-rebuild switch failed"
+      BOOT_RC=$?
+      echo "$BOOT_OUT"
+      if [ "$BOOT_RC" -ne 0 ]; then
+        echo "[ERROR] nixos-rebuild boot failed"
         RC=1
       fi
       echo ""
@@ -188,9 +171,10 @@ let
 
     if [ "$RC" -eq 0 ]; then
       echo "══════════════════════════════════════════════════"
-      echo "  ✓ Update completed successfully"
+      echo "  ✓ Update staged successfully"
+      echo "  Reboot required to activate the new system"
       echo "══════════════════════════════════════════════════"
-      echo "SUCCESS" > "$STATUS"
+      echo "REBOOT_REQUIRED" > "$STATUS"
     else
       echo "══════════════════════════════════════════════════"
       echo "  ✗ Update failed — see errors above"
