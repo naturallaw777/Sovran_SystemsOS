@@ -72,17 +72,30 @@ $MATRIX {
 }
 
 $ELEMENT_CALLING {
-  handle /livekit/jwt/sfu/get {
+  # Route all current lk-jwt-service authorization endpoints to port 8073,
+  # stripping the /livekit/jwt prefix that Caddy adds on the public URL.
+  @lk_jwt path /livekit/jwt/sfu/get* /livekit/jwt/get_token* /livekit/jwt/healthz* /livekit/jwt/sfu_webhook* /livekit/jwt/delegate_delayed_leave*
+  handle @lk_jwt {
     uri strip_prefix /livekit/jwt
     reverse_proxy [::1]:8073 {
       header_up Host {host}
       header_up X-Forwarded-Server {host}
       header_up X-Real-IP {remote_host}
       header_up X-Forwarded-For {remote_host}
+      header_up X-Forwarded-Proto {scheme}
     }
   }
   handle {
-    reverse_proxy localhost:7880
+    reverse_proxy localhost:7880 {
+      header_up Host {host}
+      header_up X-Forwarded-Proto {scheme}
+      header_up X-Forwarded-For {remote_host}
+      header_up X-Real-IP {remote_host}
+      transport http {
+        read_timeout 300s
+        write_timeout 300s
+      }
+    }
   }
 }
 EOF
@@ -94,8 +107,11 @@ EOF
   #   * reads the matrix domain from /var/lib/domains/matrix (never hardcoded)
   #   * copies Caddy's already-issued matrix cert/key into /var/lib/livekit
   #     so LoadCredential can stage them for the (DynamicUser) livekit unit
-  #   * writes a complete LiveKit config (with turn.domain substituted) that the
-  #     overridden ExecStart loads.
+  #   * detects the primary network interface from the IPv4 default route so
+  #     LiveKit only advertises real ICE candidates — not VPN/container/private
+  #     addresses from interfaces like Tailscale or Docker bridges
+  #   * writes a complete LiveKit config (with turn.domain and interface
+  #     substituted) that the overridden ExecStart loads.
   systemd.services.livekit-turn-setup = {
     description = "Stage TURN cert and generate LiveKit runtime config from domain files";
     after = [ "caddy.service" "livekit-key-setup.service" ];
@@ -109,7 +125,7 @@ EOF
     unitConfig = {
       ConditionPathExists = "/var/lib/domains/element-calling";
     };
-    path = [ pkgs.coreutils pkgs.findutils ];
+    path = [ pkgs.coreutils pkgs.findutils pkgs.iproute2 pkgs.gawk ];
     script = ''
       MATRIX=$(cat /var/lib/domains/matrix)
 
@@ -123,16 +139,37 @@ EOF
       cp "$KEY" /var/lib/livekit/turn.key
       chmod 640 /var/lib/livekit/turn.crt /var/lib/livekit/turn.key
 
-      # Generate the full LiveKit config the daemon will load. turn.domain is
-      # only known at runtime, so it is substituted here. The cert/key paths
-      # point at the LoadCredential-staged copies under /run/credentials.
+      # Detect the primary network interface from the IPv4 default route.
+      # Restricting LiveKit to this single interface prevents it from
+      # advertising VPN/container/private ICE candidates (e.g. Tailscale,
+      # Docker bridges) that remote peers cannot reach, which causes all
+      # ICE negotiation attempts to fail with responsesReceived: 0.
+      IFACE=$(ip -4 route show default | awk '/^default/ { for(i=1;i<=NF;i++) if($i=="dev" && (i+1)<=NF) { print $(i+1); exit } }')
+      if [ -z "$IFACE" ]; then
+        echo "ERROR: Could not detect a default-route network interface from 'ip -4 route show default'." >&2
+        echo "ERROR: Cannot generate a valid LiveKit config without a real interface to bind ICE candidates to." >&2
+        echo "ERROR: Ensure a default IPv4 route is configured, e.g.: ip route add default via <gateway> dev <interface>" >&2
+        echo "ERROR: Inspect the current routing table with: ip -4 route show" >&2
+        exit 1
+      fi
+      echo "Detected primary network interface: $IFACE"
+
+      # Generate the full LiveKit config the daemon will load. turn.domain and
+      # rtc.interfaces.includes are only known at runtime, so they are
+      # substituted here. The cert/key paths point at the LoadCredential-staged
+      # copies under /run/credentials.
       cat > /run/livekit/livekit.yaml <<EOF
 port: 7880
 rtc:
   use_external_ip: true
+  skip_external_ip_validation: true
+  tcp_port: 7881
   udp_port: 7882
   port_range_start: 30000
   port_range_end: 40000
+  interfaces:
+    includes:
+      - $IFACE
 room:
   auto_create: false
 turn:
@@ -155,6 +192,8 @@ EOF
     keyFile = livekitKeyFile;
     settings = {
       rtc.use_external_ip = true;
+      rtc.skip_external_ip_validation = true;
+      rtc.tcp_port = 7881;
       rtc.udp_port = 7882;
       rtc.port_range_start = 30000;
       rtc.port_range_end = 40000;
@@ -186,6 +225,9 @@ EOF
 
   networking.firewall.allowedTCPPorts = [ 5349 7881 ];
   networking.firewall.allowedUDPPorts = [ 3478 7882 ];
+  networking.firewall.allowedUDPPortRanges = [
+    { from = 30000; to = 40000; } # LiveKit internal TURN relay range
+  ];
 
   ####### JWT SERVICE RUNTIME CONFIG #######
   systemd.services.lk-jwt-service-runtime-config = {
@@ -204,11 +246,13 @@ EOF
     path = [ pkgs.coreutils ];
     script = ''
       ELEMENT_CALLING=$(cat /var/lib/domains/element-calling)
+      MATRIX=$(cat /var/lib/domains/matrix)
 
       mkdir -p /run/lk-jwt-service
 
       cat > /run/lk-jwt-service/env <<EOF
 LIVEKIT_URL=wss://$ELEMENT_CALLING
+LIVEKIT_FULL_ACCESS_HOMESERVERS=$MATRIX
 EOF
 
       chmod 640 /run/lk-jwt-service/env
