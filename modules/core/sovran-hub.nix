@@ -146,7 +146,7 @@ let
     echo ""
 
     if [ "$RC" -eq 0 ]; then
-      echo "── Step 2/3: nixos-rebuild boot (stage next reboot) ─"
+      echo "── Step 2/3: nixos-rebuild boot (stage next reboot) ──"
       BOOT_OUT=$(nixos-rebuild boot --flake /etc/nixos --print-build-logs \
         --option connect-timeout 10 \
         --option stalled-download-timeout 90 \
