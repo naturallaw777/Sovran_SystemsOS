@@ -1219,7 +1219,7 @@ def _generate_qr_base64(data: str) -> str | None:
 # ── Update helpers (file-based, no systemctl) ────────────────────
 
 def _read_update_status() -> str:
-    """Read the status file. Returns RUNNING, REBOOT_REQUIRED, SUCCESS, FAILED, or IDLE."""
+    """Read the status file. Returns RUNNING, SUCCESS, REBOOT_REQUIRED, FAILED, or IDLE."""
     try:
         with open(UPDATE_STATUS, "r") as f:
             return f.read().strip()
