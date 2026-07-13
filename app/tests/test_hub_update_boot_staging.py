@@ -6,8 +6,12 @@ HUB_NIX = Path(__file__).resolve().parents[2] / "modules" / "core" / "sovran-hub
 
 
 def _section(source: str, start: str, end: str) -> str:
-    start_idx = source.index(start)
-    end_idx = source.index(end, start_idx)
+    start_idx = source.find(start)
+    if start_idx == -1:
+        raise AssertionError(f"Expected section start not found: {start!r}")
+    end_idx = source.find(end, start_idx)
+    if end_idx == -1:
+        raise AssertionError(f"Expected section end not found: {end!r}")
     return source[start_idx:end_idx]
 
 
