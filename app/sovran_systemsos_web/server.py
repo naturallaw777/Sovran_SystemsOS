@@ -1219,7 +1219,7 @@ def _generate_qr_base64(data: str) -> str | None:
 # ── Update helpers (file-based, no systemctl) ────────────────────
 
 def _read_update_status() -> str:
-    """Read the status file. Returns RUNNING, SUCCESS, FAILED, or IDLE."""
+    """Read the status file. Returns RUNNING, REBOOT_REQUIRED, SUCCESS, FAILED, or IDLE."""
     try:
         with open(UPDATE_STATUS, "r") as f:
             return f.read().strip()
@@ -4755,17 +4755,21 @@ def _recover_stale_status(status_file: str, log_file: str, unit_name: str) -> bo
     except Exception:
         pass
 
-    new_status = "SUCCESS" if unit_result == "success" else "FAILED"
+    if unit_result == "success":
+        new_status = "REBOOT_REQUIRED" if unit_name == UPDATE_UNIT else "SUCCESS"
+    else:
+        new_status = "FAILED"
     try:
         with open(status_file, "w") as f:
             f.write(new_status)
     except OSError:
         pass
-    msg = (
-        "\n[Update completed successfully while the server was restarting.]\n"
-        if new_status == "SUCCESS"
-        else "\n[Update encountered an error. See log above for details.]\n"
-    )
+    if new_status == "REBOOT_REQUIRED":
+        msg = "\n[Update staged successfully while the server was restarting. Reboot required.]\n"
+    elif new_status == "SUCCESS":
+        msg = "\n[Update completed successfully while the server was restarting.]\n"
+    else:
+        msg = "\n[Update encountered an error. See log above for details.]\n"
     try:
         with open(log_file, "a") as f:
             f.write(msg)
