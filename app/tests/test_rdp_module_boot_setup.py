@@ -54,7 +54,7 @@ class RdpModuleBootSetupTests(unittest.TestCase):
 
     def test_setup_runs_grdctl_directly_as_root(self):
         # The oneshot service already runs as root; system-mode grdctl must be
-        # invoked directly so it does not attempt pkexec authorisation.
+        # invoked directly so it does not attempt pkexec authorization.
         self.assertIn('grdctl --system "$@"', self.setup_service)
         self.assertNotIn("runuser", self.setup_service)
         self.assertNotIn("pkexec", self.setup_service)
