@@ -53,16 +53,41 @@ class RdpModuleBootSetupTests(unittest.TestCase):
         self.assertIn('echo "grdctl command failed (exit $rc): $*" >&2', self.setup_service)
 
     def test_setup_runs_grdctl_directly_as_root(self):
-        # The oneshot service already runs as root; system-mode grdctl must be
-        # invoked directly so it does not attempt pkexec authorization.
+        # The oneshot service runs as root; grdctl --system is called directly.
+        # GRD 50.x invokes pkexec internally, but the call itself is plain
+        # grdctl --system, not a manual pkexec invocation.
         self.assertIn('grdctl --system "$@"', self.setup_service)
         self.assertNotIn("runuser", self.setup_service)
-        self.assertNotIn("pkexec", self.setup_service)
         self.assertNotIn("sudo", self.setup_service)
+        # No direct Nix-store pkexec invocation (pkgs.polkit}/bin/pkexec).
+        self.assertNotIn("pkgs.polkit}/bin/pkexec", self.setup_service)
 
     def test_privilege_escalation_packages_absent_from_setup_path(self):
         self.assertNotIn("pkgs.polkit", self.setup_service)
         self.assertNotIn("pkgs.util-linux", self.setup_service)
+
+    def test_run_wrappers_bin_prepended_to_path(self):
+        # /run/wrappers/bin must be prepended to PATH before any grdctl_system
+        # invocation so that grdctl --system resolves the NixOS setuid pkexec.
+        path_export = 'export PATH="/run/wrappers/bin:$PATH"'
+        grdctl_marker = "grdctl_system"
+        script = self.setup_service
+        path_idx = script.find(path_export)
+        grdctl_idx = script.find(grdctl_marker)
+        self.assertGreater(path_idx, -1, f"{path_export!r} not found in setup script")
+        self.assertGreater(
+            grdctl_idx, path_idx,
+            "PATH export must appear before the first grdctl_system usage",
+        )
+
+    def test_pkexec_preflight_check(self):
+        # A preflight must confirm /run/wrappers/bin/pkexec is executable
+        # with a clear error message before any GRD configuration changes.
+        self.assertIn("test -x /run/wrappers/bin/pkexec", self.setup_service)
+        self.assertIn(
+            "/run/wrappers/bin/pkexec is absent or not executable",
+            self.setup_service,
+        )
 
     def test_hub_files_are_the_source_of_truth_for_username_and_password(self):
         self.assertIn('DEFAULT_USERNAME="sovran"', self.setup_service)
