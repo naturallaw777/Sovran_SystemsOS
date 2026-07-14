@@ -51,6 +51,13 @@ lib.mkIf config.sovran_systemsOS.features.rdp {
     script = ''
       set -euo pipefail
 
+      # GRD 50.x invokes pkexec internally for every grdctl --system call, even
+      # when the caller is root.  NixOS exposes the required setuid wrapper at
+      # /run/wrappers/bin/pkexec; the Nix-store polkit binary is not setuid and
+      # must not shadow it.  Prepend the wrapper directory so every subsequent
+      # grdctl --system resolves the correct binary.
+      export PATH="/run/wrappers/bin:$PATH"
+
       STATE_DIR="/var/lib/gnome-remote-desktop"
       TLS_DIR="$STATE_DIR/tls"
       USERNAME_FILE="$STATE_DIR/rdp-username"
@@ -165,6 +172,15 @@ lib.mkIf config.sovran_systemsOS.features.rdp {
 
       chown gnome-remote-desktop:gnome-remote-desktop "$CRED_FILE"
       chmod 600 "$CRED_FILE"
+
+      # Preflight: the NixOS setuid pkexec wrapper must be present and executable
+      # before any grdctl --system call.  Absence means the system was booted
+      # without security.wrappers or the wrapper directory is not mounted yet.
+      if ! test -x /run/wrappers/bin/pkexec; then
+        echo "Preflight check failed: /run/wrappers/bin/pkexec is absent or not executable." >&2
+        echo "GNOME Remote Desktop system configuration requires the NixOS setuid pkexec wrapper at /run/wrappers/bin/pkexec." >&2
+        exit 1
+      fi
 
       grdctl_system rdp enable
       grdctl_system rdp set-tls-cert "$TLS_DIR/rdp-tls.crt"
