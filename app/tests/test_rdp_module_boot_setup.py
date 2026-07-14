@@ -52,9 +52,17 @@ class RdpModuleBootSetupTests(unittest.TestCase):
         self.assertIn('echo "grdctl command timed out: $*" >&2', self.setup_service)
         self.assertIn('echo "grdctl command failed (exit $rc): $*" >&2', self.setup_service)
 
-    def test_setup_runs_grdctl_as_gnome_remote_desktop_user(self):
-        self.assertIn("runuser -u gnome-remote-desktop -- \\", self.setup_service)
+    def test_setup_runs_grdctl_directly_as_root(self):
+        # The oneshot service already runs as root; system-mode grdctl must be
+        # invoked directly so it does not attempt pkexec authorization.
         self.assertIn('grdctl --system "$@"', self.setup_service)
+        self.assertNotIn("runuser", self.setup_service)
+        self.assertNotIn("pkexec", self.setup_service)
+        self.assertNotIn("sudo", self.setup_service)
+
+    def test_privilege_escalation_packages_absent_from_setup_path(self):
+        self.assertNotIn("pkgs.polkit", self.setup_service)
+        self.assertNotIn("pkgs.util-linux", self.setup_service)
 
     def test_hub_files_are_the_source_of_truth_for_username_and_password(self):
         self.assertIn('DEFAULT_USERNAME="sovran"', self.setup_service)

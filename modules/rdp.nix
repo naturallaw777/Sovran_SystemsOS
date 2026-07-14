@@ -46,9 +46,7 @@ lib.mkIf config.sovran_systemsOS.features.rdp {
       pkgs.gnome-remote-desktop
       pkgs.hostname
       pkgs.openssl
-      pkgs.polkit
       pkgs.systemd
-      pkgs.util-linux
     ];
     script = ''
       set -euo pipefail
@@ -64,7 +62,6 @@ lib.mkIf config.sovran_systemsOS.features.rdp {
         local rc=0
 
         if timeout --kill-after=5s 10s \
-          runuser -u gnome-remote-desktop -- \
           grdctl --system "$@"; then
           return 0
         else
