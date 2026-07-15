@@ -133,6 +133,23 @@ function renderSidebarSupport(supportServices) {
   var hr = document.createElement("hr");
   hr.className = "sidebar-divider";
   $sidebarSupport.appendChild(hr);
+
+  // ── Restart Entire System button (bottom, visually separated)
+  var restartDivider = document.createElement("hr");
+  restartDivider.className = "sidebar-divider";
+  $sidebarSupport.appendChild(restartDivider);
+
+  var restartBtn = document.createElement("button");
+  restartBtn.className = "sidebar-support-btn sidebar-restart-btn";
+  restartBtn.id = "sidebar-btn-restart";
+  restartBtn.innerHTML =
+    '<span class="sidebar-support-icon sidebar-restart-icon" aria-hidden="true">\u21BB</span>' +
+    '<span class="sidebar-support-text">' +
+      '<span class="sidebar-support-title">Restart Entire System</span>' +
+      '<span class="sidebar-support-hint sidebar-restart-hint">Restarts the computer, desktop, and all services</span>' +
+    '</span>';
+  restartBtn.addEventListener("click", function() { openRestartConfirmDialog(); });
+  $sidebarSupport.appendChild(restartBtn);
 }
 
 function buildTile(svc) {

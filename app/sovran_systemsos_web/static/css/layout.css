@@ -84,6 +84,21 @@
   margin: 16px 0;
 }
 
+/* ── Sidebar restart button (amber/muted treatment) ─────────────── */
+
+.sidebar-restart-btn {
+  border-color: rgba(184, 125, 0, 0.25);
+}
+
+.sidebar-restart-btn:hover {
+  border-color: #b87d00;
+  background-color: rgba(184, 125, 0, 0.08);
+}
+
+.sidebar-restart-btn .sidebar-restart-hint {
+  color: #c98d08;
+}
+
 /* ── Upgrade modal ──────────────────────────────────────────────── */
 
 .upgrade-dialog {

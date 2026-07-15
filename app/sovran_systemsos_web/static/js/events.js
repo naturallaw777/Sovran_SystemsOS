@@ -44,6 +44,25 @@ if ($upgradeCloseBtn) $upgradeCloseBtn.addEventListener("click", closeUpgradeMod
 if ($upgradeCancelBtn) $upgradeCancelBtn.addEventListener("click", closeUpgradeModal);
 if ($upgradeModal) $upgradeModal.addEventListener("click", function(e) { if (e.target === $upgradeModal) closeUpgradeModal(); });
 
+// Restart confirm dialog
+if ($restartConfirmCancel) $restartConfirmCancel.addEventListener("click", closeRestartConfirmDialog);
+if ($restartConfirmModal) $restartConfirmModal.addEventListener("click", function(e) { if (e.target === $restartConfirmModal) closeRestartConfirmDialog(); });
+if ($restartConfirmModal) $restartConfirmModal.addEventListener("keydown", function(e) { if (e.key === "Escape") closeRestartConfirmDialog(); });
+if ($restartConfirmOk) $restartConfirmOk.addEventListener("click", function() {
+  if ($restartConfirmOk.disabled) return;
+  $restartConfirmOk.disabled = true;
+  closeRestartConfirmDialog();
+  doReboot();
+});
+
+// Reboot error card buttons
+var $rebootErrorCloseBtn = document.getElementById("reboot-error-close-btn");
+var $rebootErrorRetryBtn = document.getElementById("reboot-error-retry-btn");
+if ($rebootErrorCloseBtn) $rebootErrorCloseBtn.addEventListener("click", function() {
+  if ($rebootOverlay) $rebootOverlay.classList.remove("visible");
+});
+if ($rebootErrorRetryBtn) $rebootErrorRetryBtn.addEventListener("click", doReboot);
+
 // ── Upgrade modal functions ───────────────────────────────────────
 
 function openUpgradeModal() {
@@ -52,6 +71,37 @@ function openUpgradeModal() {
 
 function closeUpgradeModal() {
   if ($upgradeModal) $upgradeModal.classList.remove("open");
+}
+
+// ── Restart confirm dialog functions ─────────────────────────────
+
+var _restartDialogOpener = null;
+
+function openRestartConfirmDialog() {
+  if (!$restartConfirmModal) return;
+  _restartDialogOpener = document.activeElement;
+
+  // Detect conflicting operations
+  var conflicted = !!_updatePollTimer || !!_rebuildPollTimer;
+  if ($restartConflictBox) $restartConflictBox.style.display = conflicted ? "" : "none";
+  if ($restartConfirmOk) $restartConfirmOk.disabled = conflicted;
+
+  $restartConfirmModal.classList.add("open");
+
+  // Focus Cancel initially for safety
+  var cancelBtn = document.getElementById("restart-confirm-cancel-btn");
+  if (cancelBtn) setTimeout(function() { cancelBtn.focus(); }, 50);
+}
+
+function closeRestartConfirmDialog() {
+  if ($restartConfirmModal) $restartConfirmModal.classList.remove("open");
+  // Re-enable confirm button for next open
+  if ($restartConfirmOk) $restartConfirmOk.disabled = false;
+  // Return focus to the element that opened the dialog
+  if (_restartDialogOpener && _restartDialogOpener.focus) {
+    try { _restartDialogOpener.focus(); } catch (_) {}
+    _restartDialogOpener = null;
+  }
 }
 
 async function doUpgradeToServer() {
