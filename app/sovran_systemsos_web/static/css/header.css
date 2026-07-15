@@ -91,3 +91,30 @@
   border-color: var(--accent-color);
   color: var(--accent-color);
 }
+
+/* ── Header reboot button ───────────────────────────────────────── */
+
+.btn-header-reboot {
+  background: transparent;
+  border: 1px solid rgba(184, 125, 0, 0.35);
+  color: #c98d08;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: var(--radius-btn);
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background-color 0.15s;
+}
+
+.btn-header-reboot:hover {
+  border-color: #b87d00;
+  color: #e0a010;
+  background-color: rgba(184, 125, 0, 0.1);
+}
+
+@media (max-width: 480px) {
+  .btn-header-reboot {
+    padding: 4px 8px;
+    font-size: 0.72rem;
+  }
+}

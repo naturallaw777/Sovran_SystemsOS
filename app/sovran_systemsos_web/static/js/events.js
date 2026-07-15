@@ -48,6 +48,9 @@ if ($upgradeModal) $upgradeModal.addEventListener("click", function(e) { if (e.t
 if ($restartConfirmCancel) $restartConfirmCancel.addEventListener("click", closeRestartConfirmDialog);
 if ($restartConfirmModal) $restartConfirmModal.addEventListener("click", function(e) { if (e.target === $restartConfirmModal) closeRestartConfirmDialog(); });
 if ($restartConfirmModal) $restartConfirmModal.addEventListener("keydown", function(e) { if (e.key === "Escape") closeRestartConfirmDialog(); });
+
+// Header Reboot button
+if ($headerRebootBtn) $headerRebootBtn.addEventListener("click", function() { openRestartConfirmDialog(); });
 if ($restartConfirmOk) $restartConfirmOk.addEventListener("click", function() {
   if ($restartConfirmOk.disabled) return;
   $restartConfirmOk.disabled = true;
