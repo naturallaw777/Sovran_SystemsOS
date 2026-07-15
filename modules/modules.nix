@@ -16,6 +16,7 @@
     ./core/remote-deploy.nix
     ./core/no-sleep.nix
     ./core/cpu-performance.nix
+    ./core/local-domain-loopback.nix
 
     # ── Always on (no flag) ───────────────────────────────────
     ./php.nix
