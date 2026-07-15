@@ -110,5 +110,8 @@ const $restartConfirmOk     = document.getElementById("restart-confirm-ok-btn");
 const $restartConfirmCancel = document.getElementById("restart-confirm-cancel-btn");
 const $restartConflictBox   = document.getElementById("restart-conflict-box");
 
+// Header reboot button
+const $headerRebootBtn = document.getElementById("btn-header-reboot");
+
 // System status banner
 // (removed — health is now shown per-tile via the composite health field)
