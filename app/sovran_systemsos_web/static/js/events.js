@@ -82,9 +82,9 @@ function openRestartConfirmDialog() {
   _restartDialogOpener = document.activeElement;
 
   // Detect conflicting operations
-  var conflicted = !!_updatePollTimer || !!_rebuildPollTimer;
-  if ($restartConflictBox) $restartConflictBox.style.display = conflicted ? "" : "none";
-  if ($restartConfirmOk) $restartConfirmOk.disabled = conflicted;
+  var isOperationInProgress = !!_updatePollTimer || !!_rebuildPollTimer;
+  if ($restartConflictBox) $restartConflictBox.style.display = isOperationInProgress ? "" : "none";
+  if ($restartConfirmOk) $restartConfirmOk.disabled = isOperationInProgress;
 
   $restartConfirmModal.classList.add("open");
 
