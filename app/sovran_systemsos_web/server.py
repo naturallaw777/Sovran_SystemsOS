@@ -977,6 +977,8 @@ def _check_port_status(
 
 # Regex for validating domain values written into /etc/hosts.  Rejects anything
 # containing whitespace, newlines, or characters that could escape a hosts entry.
+# NOTE: The equivalent pattern in modules/core/local-domain-loopback.nix (shell
+# grep -E) must be kept in sync with this Python regex.
 _SAFE_DOMAIN_RE = re.compile(
     r'^(?:[a-zA-Z0-9](?:[a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$'
 )
@@ -1005,15 +1007,20 @@ def _is_loopback_address(ip: str) -> bool:
 
 
 def _resolve_all_addresses(domain: str) -> list[str]:
-    """Return all IP addresses that *domain* resolves to, or an empty list."""
+    """Return all unique IP addresses that *domain* resolves to, or an empty list.
+
+    The first element is the address that the system resolver would normally
+    use for a connection.  All elements are checked when determining whether
+    any address matches the expected public IP or is a loopback address.
+    """
     try:
         results = socket.getaddrinfo(domain, None)
-        seen: list[str] = []
+        unique_addresses: list[str] = []
         for r in results:
             addr = r[4][0]
-            if addr not in seen:
-                seen.append(addr)
-        return seen
+            if addr not in unique_addresses:
+                unique_addresses.append(addr)
+        return unique_addresses
     except Exception:
         return []
 
@@ -1198,8 +1205,10 @@ def _evaluate_domain_checklist(
             "status": "ok",
             "detail": (
                 "Server-local loopback override is active — this computer routes the domain "
-                "directly to Caddy. Public DNS verification is skipped on this computer; "
-                "confirm your DNS provider points the domain to your external IP separately."
+                "directly to Caddy without going through the router. "
+                "Public DNS cannot be verified from this computer while the override is in place. "
+                "To check your public DNS from outside, use a tool such as "
+                "https://dnschecker.org or run: dig @1.1.1.1 " + domain
             ),
         })
     elif external_ip == "unavailable":

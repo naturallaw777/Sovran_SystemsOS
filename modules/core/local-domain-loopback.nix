@@ -47,7 +47,7 @@
       #!/bin/sh
       # Regenerate the Sovran-managed loopback block in /etc/hosts.
       # Safe to run multiple times — idempotent.
-      set -euf
+      set -eu
 
       DOMAINS_DIR="/var/lib/domains"
       HOSTS_FILE="/etc/hosts"
@@ -75,6 +75,8 @@
       " "$HOSTS_FILE" > "$TMP"
 
       # ── Step 3: collect valid configured service domains ──────────────────
+      # NOTE: The hostname validation regex below must stay in sync with
+      # _SAFE_DOMAIN_RE in app/sovran_systemsos_web/server.py.
       ENTRIES=""
       for KEY in matrix wordpress nextcloud btcpayserver vaultwarden haven element-calling; do
         FILE="$DOMAINS_DIR/$KEY"
@@ -82,7 +84,7 @@
         # Read the domain value (strip all whitespace, limit to 253 chars)
         DOMAIN=$(tr -d '[:space:]' < "$FILE" | head -c 253)
         [ -z "$DOMAIN" ] && continue
-        # Validate: must match a reasonable hostname pattern
+        # Validate: must match a reasonable hostname pattern (no injection)
         if ! printf '%s' "$DOMAIN" | grep -qE \
           '^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$'; then
           echo "sovran-hosts-update: skipping invalid domain value for $KEY: $DOMAIN" >&2
