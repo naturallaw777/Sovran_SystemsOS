@@ -8,6 +8,7 @@ import contextlib
 import glob
 import hashlib
 import hmac
+import ipaddress
 import json
 import logging
 import os
@@ -79,6 +80,15 @@ HUB_END     = "  # ── End Hub Managed ────────────�
 DOMAINS_DIR = "/var/lib/domains"
 NOSTR_NPUB_FILE   = "/var/lib/secrets/nostr_npub"
 NJALLA_SCRIPT     = "/var/lib/njalla/njalla.sh"
+
+# Systemd service that rewrites the Sovran-managed /etc/hosts loopback block
+SOVRAN_HOSTS_SERVICE = "sovran-hosts-update.service"
+
+# Domain keys that produce a public HTTPS virtual host via Caddy
+_SERVICE_DOMAIN_KEYS = frozenset([
+    "matrix", "wordpress", "nextcloud", "btcpayserver",
+    "vaultwarden", "haven", "element-calling",
+])
 
 INTERNAL_IP_FILE = "/var/lib/secrets/internal-ip"
 ZEUS_CONNECT_FILE = "/var/lib/secrets/zeus-connect-url"
@@ -964,18 +974,87 @@ def _check_port_status(
     return "closed"
 
 
+
+# Regex for validating domain values written into /etc/hosts.  Rejects anything
+# containing whitespace, newlines, or characters that could escape a hosts entry.
+_SAFE_DOMAIN_RE = re.compile(
+    r'^(?:[a-zA-Z0-9](?:[a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$'
+)
+
+
+def _validate_domain_value(domain: str) -> bool:
+    """Return True if *domain* is a valid hostname safe to write into /etc/hosts.
+
+    Rejects values containing whitespace, newlines, or other characters that
+    could inject additional entries or corrupt the hosts file.
+    """
+    if not domain or len(domain) > 253:
+        return False
+    # Guard against newline / whitespace injection before regex check.
+    if any(c in domain for c in ('\n', '\r', ' ', '\t', '#')):
+        return False
+    return bool(_SAFE_DOMAIN_RE.match(domain))
+
+
+def _is_loopback_address(ip: str) -> bool:
+    """Return True if *ip* is a loopback address (127.0.0.0/8 or ::1)."""
+    try:
+        return ipaddress.ip_address(ip).is_loopback
+    except ValueError:
+        return False
+
+
+def _resolve_all_addresses(domain: str) -> list[str]:
+    """Return all IP addresses that *domain* resolves to, or an empty list."""
+    try:
+        results = socket.getaddrinfo(domain, None)
+        seen: list[str] = []
+        for r in results:
+            addr = r[4][0]
+            if addr not in seen:
+                seen.append(addr)
+        return seen
+    except Exception:
+        return []
+
+
+def _trigger_hosts_update() -> None:
+    """Start the sovran-hosts-update systemd service (best-effort, no-op if unavailable)."""
+    try:
+        subprocess.run(
+            ["systemctl", "start", SOVRAN_HOSTS_SERVICE],
+            timeout=30,
+            check=False,
+            capture_output=True,
+        )
+    except Exception:
+        pass
+
+
 def _check_domain_reachable(domain: str) -> dict:
-    """Curl the domain to verify end-to-end HTTPS reachability."""
+    """Check HTTPS reachability for *domain* via local Caddy (loopback).
+
+    Using ``--resolve`` ensures the request reaches Caddy on this computer
+    without depending on router NAT loopback or the public DNS result.
+    A successful local check is sufficient to confirm that Caddy and the
+    virtual-host configuration are working correctly.
+    """
     try:
         result = subprocess.run(
-            ["curl", "-sS", "-o", "/dev/null", "-w", "%{http_code}", "--max-time", "10", f"https://{domain}"],
+            [
+                "curl", "-sS", "-o", "/dev/null", "-w", "%{http_code}",
+                "--max-time", "10",
+                "--resolve", f"{domain}:443:127.0.0.1",
+                "--resolve", f"{domain}:80:127.0.0.1",
+                f"https://{domain}",
+            ],
             capture_output=True,
             text=True,
             timeout=15,
         )
         status_code = result.stdout.strip()
         if status_code and status_code.isdigit() and int(status_code) > 0:
-            return {"reachable": True, "status_code": int(status_code)}
+            return {"reachable": True, "status_code": int(status_code), "via_loopback": True}
         return {"reachable": False, "error": result.stderr.strip() or "No response"}
     except subprocess.TimeoutExpired:
         return {"reachable": False, "error": "timeout"}
@@ -984,25 +1063,28 @@ def _check_domain_reachable(domain: str) -> dict:
 
 
 def _check_domain_health_fast(domain: str | None, external_ip: str) -> bool:
-    """Fast domain issue check for tile health (no curl/subprocess calls)."""
+    """Fast domain issue check for tile health (no curl/subprocess calls).
+
+    Returns ``True`` when a domain issue is detected that warrants
+    ``needs_attention``, ``False`` otherwise.
+    Loopback resolution is treated as an intentional server-local override,
+    not a DNS mismatch.
+    """
     if not domain:
         return True
 
-    resolved_ip: str | None = None
-    try:
-        results = socket.getaddrinfo(domain, None)
-        if results:
-            resolved_ip = results[0][4][0]
-    except socket.gaierror:
-        resolved_ip = None
-    except Exception:
-        resolved_ip = None
-
-    if not resolved_ip:
+    addrs = _resolve_all_addresses(domain)
+    if not addrs:
         return True
+
+    # If every resolved address is loopback the intentional /etc/hosts
+    # override is in place — this is healthy, not a mismatch.
+    if all(_is_loopback_address(a) for a in addrs):
+        return False
+
     if external_ip == "unavailable":
         return False
-    return resolved_ip != external_ip
+    return not any(a == external_ip for a in addrs)
 
 
 def _is_domain_reachable_cached(domain: str) -> bool | None:
@@ -1070,15 +1152,8 @@ def _evaluate_domain_checklist(
         "detail": domain,
     })
 
-    resolved_ip: str | None = None
-    try:
-        results = socket.getaddrinfo(domain, None)
-        if results:
-            resolved_ip = results[0][4][0]
-    except socket.gaierror:
-        resolved_ip = None
-    except Exception:
-        resolved_ip = None
+    addrs = _resolve_all_addresses(domain)
+    resolved_ip: str | None = addrs[0] if addrs else None
 
     if not resolved_ip:
         domain_status = {
@@ -1105,7 +1180,29 @@ def _evaluate_domain_checklist(
             "has_issues": True,
         }
 
-    if external_ip == "unavailable":
+    # Detect intentional server-local loopback override from /etc/hosts.
+    # When all addresses are loopback the public DNS is not checked via the
+    # system resolver (which would always return the override).  We proceed
+    # to the reachability check so Caddy health can still be verified.
+    loopback_override = all(_is_loopback_address(a) for a in addrs)
+
+    if loopback_override:
+        domain_status = {
+            "status": "local_override",
+            "resolved_ip": resolved_ip,
+            "expected_ip": external_ip,
+        }
+        steps.append({
+            "step": 2,
+            "label": "DNS / Local Override",
+            "status": "ok",
+            "detail": (
+                "Server-local loopback override is active — this computer routes the domain "
+                "directly to Caddy. Public DNS verification is skipped on this computer; "
+                "confirm your DNS provider points the domain to your external IP separately."
+            ),
+        })
+    elif external_ip == "unavailable":
         domain_status = {
             "status": "error",
             "resolved_ip": resolved_ip,
@@ -1117,7 +1214,7 @@ def _evaluate_domain_checklist(
             "status": "warning",
             "detail": f"Resolves to {resolved_ip} (external IP unavailable for comparison)",
         })
-    elif resolved_ip != external_ip:
+    elif not any(a == external_ip for a in addrs):
         domain_status = {
             "status": "dns_mismatch",
             "resolved_ip": resolved_ip,
@@ -2749,19 +2846,17 @@ async def api_services():
                     break
         has_domain_issues = False
         if needs_domain and domain and enabled:
+            addrs = _resolve_all_addresses(domain)
             dns_ok = True
-            try:
-                results = socket.getaddrinfo(domain, None)
-                if results:
-                    resolved_ip = results[0][4][0]
-                    if (
-                        _cached_external_ip != "unavailable"
-                        and resolved_ip != _cached_external_ip
-                    ):
-                        dns_ok = False
-                else:
-                    dns_ok = False
-            except (socket.gaierror, Exception):
+            if not addrs:
+                dns_ok = False
+            elif all(_is_loopback_address(a) for a in addrs):
+                # Intentional server-local /etc/hosts override — not a mismatch.
+                dns_ok = True
+            elif (
+                _cached_external_ip != "unavailable"
+                and not any(a == _cached_external_ip for a in addrs)
+            ):
                 dns_ok = False
 
             if not dns_ok:
@@ -3886,6 +3981,12 @@ async def api_domains_set(req: DomainSetRequest):
         except Exception:
             pass
 
+    # Regenerate the server-local /etc/hosts loopback entries so the newly
+    # saved domain is immediately reachable on this computer without NAT
+    # loopback support on the router.
+    if req.domain_name in _SERVICE_DOMAIN_KEYS:
+        _trigger_hosts_update()
+
     return {"ok": True}
 
 
@@ -3933,38 +4034,35 @@ async def api_domains_check(req: DomainCheckRequest):
     external_ip = _cached_external_ip
 
     def check_domain(domain: str) -> dict:
-        try:
-            results = socket.getaddrinfo(domain, None)
-            if not results:
-                return {
-                    "domain": domain, "status": "unresolvable",
-                    "resolved_ip": None, "expected_ip": external_ip,
-                }
-            resolved_ip = results[0][4][0]
-            if external_ip == "unavailable":
-                return {
-                    "domain": domain, "status": "error",
-                    "resolved_ip": resolved_ip, "expected_ip": external_ip,
-                }
-            if resolved_ip == external_ip:
-                return {
-                    "domain": domain, "status": "connected",
-                    "resolved_ip": resolved_ip, "expected_ip": external_ip,
-                }
-            return {
-                "domain": domain, "status": "dns_mismatch",
-                "resolved_ip": resolved_ip, "expected_ip": external_ip,
-            }
-        except socket.gaierror:
+        addrs = _resolve_all_addresses(domain)
+        if not addrs:
             return {
                 "domain": domain, "status": "unresolvable",
                 "resolved_ip": None, "expected_ip": external_ip,
             }
-        except Exception:
+        resolved_ip = addrs[0]
+        # Server-local /etc/hosts loopback override — report as such rather
+        # than as a DNS mismatch.  Public DNS cannot be verified from this
+        # computer when the override is active.
+        if all(_is_loopback_address(a) for a in addrs):
+            return {
+                "domain": domain, "status": "local_override",
+                "resolved_ip": resolved_ip, "expected_ip": external_ip,
+            }
+        if external_ip == "unavailable":
             return {
                 "domain": domain, "status": "error",
-                "resolved_ip": None, "expected_ip": external_ip,
+                "resolved_ip": resolved_ip, "expected_ip": external_ip,
             }
+        if any(a == external_ip for a in addrs):
+            return {
+                "domain": domain, "status": "connected",
+                "resolved_ip": resolved_ip, "expected_ip": external_ip,
+            }
+        return {
+            "domain": domain, "status": "dns_mismatch",
+            "resolved_ip": resolved_ip, "expected_ip": external_ip,
+        }
 
     check_results = await asyncio.gather(*[
         loop.run_in_executor(None, check_domain, d) for d in req.domains
