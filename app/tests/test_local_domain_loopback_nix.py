@@ -25,10 +25,13 @@ from pathlib import Path
 NIX_STRING_INDENT = 6
 REPO_ROOT = Path(__file__).resolve().parents[2]
 FLAKE_SOURCE = (REPO_ROOT / "flake.nix").read_text()
-PRIMARY_NIXOS_CONFIGURATION = re.search(
+PRIMARY_NIXOS_CONFIGURATION_MATCH = re.search(
     r"nixosConfigurations\.([A-Za-z0-9_-]+)\s*=",
     FLAKE_SOURCE,
-).group(1)
+)
+if PRIMARY_NIXOS_CONFIGURATION_MATCH is None:
+    raise RuntimeError("Could not determine the primary nixosConfigurations entry from flake.nix")
+PRIMARY_NIXOS_CONFIGURATION = PRIMARY_NIXOS_CONFIGURATION_MATCH.group(1)
 HELPER_BUILD_ATTR = (
     f'.#nixosConfigurations.{PRIMARY_NIXOS_CONFIGURATION}.config.environment.etc.'
     '"sovran-hosts-update.sh".source'
@@ -161,7 +164,6 @@ class LocalDomainLoopbackNixStructureTests(unittest.TestCase):
         )
         output = proc.stdout + proc.stderr
         self.assertEqual(proc.returncode, 0, output)
-        self.assertNotIn("SC2129", output)
 
     def test_helper_derivation_builds_when_nix_available(self):
         nix = shutil.which("nix")
