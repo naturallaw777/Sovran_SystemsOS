@@ -16,12 +16,23 @@ Verifies that the sovran-hosts-update helper:
   - does NOT rely on environment.systemPackages for the helper's dependencies.
 """
 
+import re
 import shutil
 import subprocess
 import unittest
 from pathlib import Path
 
+NIX_STRING_INDENT = 6
 REPO_ROOT = Path(__file__).resolve().parents[2]
+FLAKE_SOURCE = (REPO_ROOT / "flake.nix").read_text()
+PRIMARY_NIXOS_CONFIGURATION = re.search(
+    r"nixosConfigurations\.([A-Za-z0-9_-]+)\s*=",
+    FLAKE_SOURCE,
+).group(1)
+HELPER_BUILD_ATTR = (
+    f'.#nixosConfigurations.{PRIMARY_NIXOS_CONFIGURATION}.config.environment.etc.'
+    '"sovran-hosts-update.sh".source'
+)
 NIX_FILE = (
     REPO_ROOT
     / "modules"
@@ -38,7 +49,9 @@ class LocalDomainLoopbackNixStructureTests(unittest.TestCase):
         start = self.source.index("text = ''") + len("text = ''")
         end = self.source.index("    '';", start)
         return "\n".join(
-            line[6:] if line.startswith("      ") else line
+            line[NIX_STRING_INDENT:]
+            if line.startswith(" " * NIX_STRING_INDENT)
+            else line
             for line in self.source[start:end].splitlines()
         ).lstrip("\n")
 
@@ -158,7 +171,7 @@ class LocalDomainLoopbackNixStructureTests(unittest.TestCase):
             [
                 nix,
                 "build",
-                '.#nixosConfigurations.nixos.config.environment.etc."sovran-hosts-update.sh".source',
+                HELPER_BUILD_ATTR,
                 "--no-link",
             ],
             cwd=REPO_ROOT,
