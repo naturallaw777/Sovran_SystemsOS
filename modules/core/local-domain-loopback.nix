@@ -107,11 +107,13 @@ let
 
       # ── Step 4: append the Sovran block if there are any entries ──────────
       if [ -n "$ENTRIES" ]; then
-        printf '\n%s\n' "$BEGIN_MARKER" >> "$TMP"
-        printf '%s\n' "# These entries route configured service domains to local Caddy." >> "$TMP"
-        printf '%s\n' "# They are managed automatically — do not edit this block." >> "$TMP"
-        printf '%s\n' "$ENTRIES" >> "$TMP"
-        printf '%s\n' "$END_MARKER" >> "$TMP"
+        {
+          printf '\n%s\n' "$BEGIN_MARKER"
+          printf '%s\n' "# These entries route configured service domains to local Caddy."
+          printf '%s\n' "# They are managed automatically — do not edit this block."
+          printf '%s\n' "$ENTRIES"
+          printf '%s\n' "$END_MARKER"
+        } >> "$TMP"
       fi
 
       # ── Step 5: atomically replace /etc/hosts ─────────────────────────────
