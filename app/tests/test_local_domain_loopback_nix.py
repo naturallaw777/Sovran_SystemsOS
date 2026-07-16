@@ -16,11 +16,14 @@ Verifies that the sovran-hosts-update helper:
   - does NOT rely on environment.systemPackages for the helper's dependencies.
 """
 
+import shutil
+import subprocess
 import unittest
 from pathlib import Path
 
+REPO_ROOT = Path(__file__).resolve().parents[2]
 NIX_FILE = (
-    Path(__file__).resolve().parents[2]
+    REPO_ROOT
     / "modules"
     / "core"
     / "local-domain-loopback.nix"
@@ -30,6 +33,14 @@ NIX_FILE = (
 class LocalDomainLoopbackNixStructureTests(unittest.TestCase):
     def setUp(self):
         self.source = NIX_FILE.read_text()
+
+    def _helper_script(self) -> str:
+        start = self.source.index("text = ''") + len("text = ''")
+        end = self.source.index("    '';", start)
+        return "\n".join(
+            line[6:] if line.startswith("      ") else line
+            for line in self.source[start:end].splitlines()
+        ).lstrip("\n")
 
     # ── writeShellApplication and explicit runtimeInputs ────────────────────
 
@@ -119,6 +130,43 @@ class LocalDomainLoopbackNixStructureTests(unittest.TestCase):
         """awk strip of the managed block must be present for idempotency."""
         self.assertIn("skip=1", self.source)
         self.assertIn("skip=0", self.source)
+
+    def test_managed_block_uses_grouped_append_redirect(self):
+        self.assertIn('} >> "$TMP"', self.source)
+        self.assertEqual(self.source.count('>> "$TMP"'), 1)
+
+    def test_helper_script_passes_shellcheck(self):
+        shellcheck = shutil.which("shellcheck")
+        if shellcheck is None:
+            self.skipTest("shellcheck is not installed")
+        proc = subprocess.run(
+            [shellcheck, "-s", "bash", "-"],
+            input=self._helper_script(),
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        output = proc.stdout + proc.stderr
+        self.assertEqual(proc.returncode, 0, output)
+        self.assertNotIn("SC2129", output)
+
+    def test_helper_derivation_builds_when_nix_available(self):
+        nix = shutil.which("nix")
+        if nix is None:
+            self.skipTest("nix is not installed")
+        proc = subprocess.run(
+            [
+                nix,
+                "build",
+                '.#nixosConfigurations.nixos.config.environment.etc."sovran-hosts-update.sh".source',
+                "--no-link",
+            ],
+            cwd=REPO_ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
 
     # ── Activation script warns on failure rather than silently swallowing ───
 
