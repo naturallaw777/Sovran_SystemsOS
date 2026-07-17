@@ -664,7 +664,7 @@ CHECKSUM_FILE="$BACKUP_DIR/SHA256SUMS.txt"
 
 {
   echo "Sovran_SystemsOS Backup Manifest"
-  echo "Generated: $(date -Is)"
+  echo "Generated: $(date -u '+%Y-%m-%dT%H:%M:%SZ')"
   echo "Timestamp: $TIMESTAMP"
   echo "Hostname:  $(hostname)"
   echo "Role:      $ROLE_LABEL"
@@ -701,7 +701,7 @@ CHECKSUM_FILE="$BACKUP_DIR/SHA256SUMS.txt"
   fi
   echo ""
   echo "Restore guidance:"
-  echo "- Verify artifacts: cd '$BACKUP_DIR' && sha256sum -c SHA256SUMS.txt"
+  echo "- Verify artifacts: cd <backup_dir> && sha256sum -c SHA256SUMS.txt"
   echo "- Extract a tar archive: sudo tar --acls --xattrs --numeric-owner -xpf <archive>.tar -C /"
   echo "- PostgreSQL globals: sudo -u postgres psql -f database-dumps/postgresql_globals.sql"
   echo "- PostgreSQL DB dump: sudo -u postgres pg_restore --create --clean --if-exists -d postgres database-dumps/postgresql_<db>.dump"
