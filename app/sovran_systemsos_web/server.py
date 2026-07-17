@@ -1493,6 +1493,41 @@ def _is_internal_mount(mnt: str) -> bool:
     return False
 
 
+def _is_supported_backup_fstype(path: str, fstype: str) -> bool:
+    """Return whether the target filesystem type is supported for manual backup."""
+    fstype = (fstype or "").lower()
+    if fstype == "exfat":
+        return True
+    if fstype != "fuseblk":
+        return False
+
+    src_dev = ""
+    try:
+        result = subprocess.run(
+            ["findmnt", "-n", "-o", "SOURCE", "-T", path],
+            capture_output=True, text=True, timeout=5,
+        )
+        if result.returncode == 0:
+            src_dev = result.stdout.strip()
+    except Exception:
+        src_dev = ""
+
+    if not src_dev:
+        return False
+
+    for cmd in (
+        ["lsblk", "-no", "FSTYPE", src_dev],
+        ["blkid", "-o", "value", "-s", "TYPE", src_dev],
+    ):
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
+            if result.returncode == 0 and result.stdout.strip().lower() in {"exfat", "fuseblk"}:
+                return True
+        except Exception:
+            continue
+    return False
+
+
 def _detect_external_drives() -> list[dict]:
     """Scan for mounted external USB drives.
 
@@ -3746,7 +3781,7 @@ async def api_backup_run(target: str = ""):
 
     selected_target = selected.get("path", "")
     selected_fstype = (selected.get("fstype") or "").lower()
-    if selected_fstype and selected_fstype not in {"exfat", "fuseblk"}:
+    if selected_fstype and not _is_supported_backup_fstype(selected_target, selected_fstype):
         raise HTTPException(
             status_code=400,
             detail=f"Selected drive filesystem '{selected_fstype}' is not supported for manual backup.",
