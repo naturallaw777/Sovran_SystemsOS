@@ -1502,7 +1502,8 @@ def _detect_external_drives() -> list[dict]:
     /run/media/ directly if lsblk is unavailable, applying the same
     label/path filters.
 
-    Returns a list of dicts with name, path, free_gb, total_gb, fstype.
+    Returns:
+        list[dict]: Each dict contains name, path, free_gb, total_gb, fstype.
     """
     import json as _json
     import subprocess as _subprocess

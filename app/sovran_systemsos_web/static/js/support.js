@@ -584,7 +584,7 @@ async function pollBackupStatus() {
       logDiv.scrollTop = logDiv.scrollHeight;
     }
     _backupLogOffset = data.offset;
-    var result = (data.result || "").toLowerCase();
+    const result = (data.result || "").toLowerCase();
     if (result === "success" || result === "failed") {
       stopBackupPoll();
       renderBackupDone(result === "success");
