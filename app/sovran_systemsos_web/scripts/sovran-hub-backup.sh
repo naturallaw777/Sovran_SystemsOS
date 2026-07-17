@@ -355,6 +355,7 @@ if [[ "$LND_AVAILABLE" -eq 1 ]]; then
 fi
 
 ESTIMATED_BYTES=$(( ETC_NIXOS_BYTES + HOME_BYTES + SECRETS_BYTES + VAR_LIB_BYTES + LND_BYTES ))
+# Require 20% growth headroom plus an additional fixed 1 GiB safety margin.
 REQUIRED_BYTES=$(( ESTIMATED_BYTES + (ESTIMATED_BYTES / 5) + SAFETY_MARGIN_BYTES ))
 
 FREE_BYTES=$(df -B1 --output=avail "$TARGET" | tail -1 | tr -d ' ')
@@ -715,8 +716,6 @@ CHECKSUM_FILE="$BACKUP_DIR/SHA256SUMS.txt"
   echo "Artifact listing:"
   find "$BACKUP_DIR" -mindepth 1 -maxdepth 2 -type f | sort
 } > "$MANIFEST_FILE"
-
-ARCHIVE_FILES+=("BACKUP_MANIFEST.txt")
 
 # ── Generate checksums for all backup artifacts ─────────────────
 
