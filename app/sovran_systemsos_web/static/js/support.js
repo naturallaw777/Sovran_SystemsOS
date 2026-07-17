@@ -491,7 +491,7 @@ function renderBackupReady(drives) {
       '<div class="support-steps-title">Requirements</div>',
       '<ol class="support-backup-steps">',
         '<li>USB hard drive plugged into one of the open USB ports on your Sovran Pro</li>',
-        '<li>At least 500 GB of free space on the drive</li>',
+        '<li>Enough free space for your selected backup data (the backup checks this before starting)</li>',
         '<li>Drive must be formatted as <strong>exFAT</strong></li>',
       '</ol>',
     '</div>',
@@ -584,9 +584,10 @@ async function pollBackupStatus() {
       logDiv.scrollTop = logDiv.scrollHeight;
     }
     _backupLogOffset = data.offset;
-    if (!data.running) {
+    var result = (data.result || "").toLowerCase();
+    if (result === "success" || result === "failed") {
       stopBackupPoll();
-      renderBackupDone(data.result === "success");
+      renderBackupDone(result === "success");
     }
   } catch (_) {}
 }
