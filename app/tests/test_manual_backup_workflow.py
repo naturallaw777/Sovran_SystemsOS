@@ -17,8 +17,15 @@ NIX_HUB_FILE = REPO_ROOT / "modules" / "core" / "sovran-hub.nix"
 
 def _extract_bash_function(script_path: Path, func_name: str) -> str:
     """Extract a bash function definition from a shell script using Python regex.
-    Returns the complete function definition as a string that can be inlined into
-    test scripts, avoiding eval of awk output and the associated risks."""
+
+    The pattern matches from 'funcname() {' to the first line whose only content
+    is '}' (the function closing brace, at column 0). This works correctly for
+    functions whose control structures (case/if/while/for) use indented braces,
+    because only the function's own closing brace sits at column 0. It would not
+    correctly extract a function that contains a nested function definition.
+
+    Returns the complete function definition, safe to inline into a test bash
+    script without eval or awk."""
     source = script_path.read_text()
     pattern = r"^" + re.escape(func_name) + r"\(\) \{.*?^}"
     match = re.search(pattern, source, re.MULTILINE | re.DOTALL)

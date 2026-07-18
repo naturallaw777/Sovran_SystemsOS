@@ -68,6 +68,9 @@ cleanup() {
     done
   fi
 
+  # Release the concurrency lock file descriptor if it was opened
+  [[ -n "${LOCK_FD:-}" ]] && exec {LOCK_FD}>&- 2>/dev/null || true
+
   if [[ "$LND_STOPPED" -eq 1 ]]; then
     log "Restarting previously active LND-related services…"
     for (( idx=${#LND_UNITS_TO_RESTART[@]}-1 ; idx>=0 ; idx-- )); do
@@ -500,6 +503,9 @@ _create_archive_impl() {
     fail "Archive $archive_name is empty after creation."
   fi
 
+  # Fast readability check: read only the first tar entry header (~512 bytes).
+  # head -1 closes the pipe after one line, sending SIGPIPE to tar which then
+  # exits early — so this is O(1) regardless of archive size.
   local spot_entry
   spot_entry="$(LC_ALL=C tar --list --file "$partial_path" 2>/dev/null | head -1 || true)"
   if [[ -z "$spot_entry" ]]; then
@@ -860,6 +866,10 @@ CHECKSUM_FILE="$BACKUP_DIR/SHA256SUMS.txt"
   echo "(/run/media/Second_Drive) and are reconstructable/internal-backup data."
   echo ""
   echo "Artifact listing:"
+  # INCOMPLETE exists at this point (created at backup start); BACKUP_COMPLETE does not
+  # exist yet (written after checksums). Excluding both marker files here is intentional:
+  # INCOMPLETE is excluded so it doesn't appear as a data artifact, and BACKUP_COMPLETE
+  # is excluded defensively for consistency should the ordering ever change.
   find "$BACKUP_DIR" -mindepth 1 -maxdepth 2 -type f \
     ! -name 'INCOMPLETE' ! -name 'BACKUP_COMPLETE' -print0 | sort -z | tr '\0' '\n'
 } > "$MANIFEST_FILE"
