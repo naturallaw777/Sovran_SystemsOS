@@ -108,8 +108,10 @@ class ManualBackupWorkflowTests(unittest.TestCase):
         the FAILED log entry so the UI shows what went wrong (e.g. 'bash: not
         found') rather than only the raw exit code."""
         source = SERVER_FILE.read_text()
+        self.assertIn("stderr_chunks", source)
         self.assertIn("stderr_text", source)
-        self.assertIn('if stderr_text else ""', source)
+        # stderr detail is conditionally appended only when non-empty
+        self.assertIn('detail = f" — stderr: {stderr_text}"', source)
 
     def test_exit_code_127_subprocess_stderr_drain(self):
         """Behavioral regression: a subprocess that exits 127 must have its

@@ -3762,8 +3762,11 @@ async def _monitor_backup_subprocess(proc: asyncio.subprocess.Process) -> None:
     if status in {"SUCCESS", "FAILED"}:
         return
 
-    stderr_text = b"".join(stderr_chunks).decode("utf-8", errors="replace").strip()
-    detail = f" — stderr: {stderr_text}" if stderr_text else ""
+    detail = ""
+    if stderr_chunks:
+        stderr_text = b"".join(stderr_chunks).decode("utf-8", errors="replace").strip()
+        if stderr_text:
+            detail = f" — stderr: {stderr_text}"
     msg = f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] ERROR: Backup subprocess exited unexpectedly (code {rc}).{detail}"
     await loop.run_in_executor(None, _append_backup_log, msg)
     await loop.run_in_executor(None, _write_backup_status, "FAILED")
