@@ -1,5 +1,6 @@
 import asyncio
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -12,6 +13,18 @@ BACKUP_SCRIPT = REPO_ROOT / "app" / "sovran_systemsos_web" / "scripts" / "sovran
 SERVER_FILE = REPO_ROOT / "app" / "sovran_systemsos_web" / "server.py"
 SUPPORT_JS = REPO_ROOT / "app" / "sovran_systemsos_web" / "static" / "js" / "support.js"
 NIX_HUB_FILE = REPO_ROOT / "modules" / "core" / "sovran-hub.nix"
+
+
+def _extract_bash_function(script_path: Path, func_name: str) -> str:
+    """Extract a bash function definition from a shell script using Python regex.
+    Returns the complete function definition as a string that can be inlined into
+    test scripts, avoiding eval of awk output and the associated risks."""
+    source = script_path.read_text()
+    pattern = r"^" + re.escape(func_name) + r"\(\) \{.*?^}"
+    match = re.search(pattern, source, re.MULTILINE | re.DOTALL)
+    if match is None:
+        raise ValueError(f"Function '{func_name}' not found in {script_path}")
+    return match.group(0)
 
 
 class ManualBackupWorkflowTests(unittest.TestCase):
@@ -337,19 +350,22 @@ class ManualBackupWorkflowTests(unittest.TestCase):
 
     def test_allowlist_accepts_file_changed_message(self):
         """Behavioral: _is_home_warning_allowlisted (from the actual backup script)
-        returns true for the exact GNU tar 'file changed as we read it' message (LC_ALL=C)."""
-        script = f"""#!/usr/bin/env bash
-# Load the production function directly from the backup script to avoid logic drift
-eval "$(awk '/^_is_home_warning_allowlisted[(][)]/,/^[}}]/' {BACKUP_SCRIPT})"
-msgs=(
-  "tar: /home/user/firefox.db: file changed as we read it"
-  "tar: /home/user/.local/share/app: file removed before we read it"
-)
-for msg in "${{msgs[@]}}"; do
-  _is_home_warning_allowlisted "$msg" || {{ echo "BLOCKED: $msg"; exit 1; }}
-  echo "ALLOWED: $msg"
-done
-"""
+        returns true for the exact GNU tar 'file changed as we read it' message (LC_ALL=C).
+        The function definition is extracted from the production script via Python regex
+        to ensure the test exercises the real allowlist without eval-of-awk risks."""
+        func_def = _extract_bash_function(BACKUP_SCRIPT, "_is_home_warning_allowlisted")
+        script = (
+            "#!/usr/bin/env bash\n"
+            + func_def + "\n"
+            + 'msgs=(\n'
+            + '  "tar: /home/user/firefox.db: file changed as we read it"\n'
+            + '  "tar: /home/user/.local/share/app: file removed before we read it"\n'
+            + ")\n"
+            + 'for msg in "${msgs[@]}"; do\n'
+            + '  _is_home_warning_allowlisted "$msg" || { echo "BLOCKED: $msg"; exit 1; }\n'
+            + '  echo "ALLOWED: $msg"\n'
+            + "done\n"
+        )
         with tempfile.NamedTemporaryFile(mode="w", suffix=".sh", delete=False) as f:
             f.write(script)
             script_path = f.name
@@ -365,21 +381,22 @@ done
         """Behavioral: _is_home_warning_allowlisted (from the actual backup script)
         returns false for permission errors, I/O errors, write errors, and other
         fatal conditions."""
-        script = f"""#!/usr/bin/env bash
-# Load the production function directly from the backup script to avoid logic drift
-eval "$(awk '/^_is_home_warning_allowlisted[(][)]/,/^[}}]/' {BACKUP_SCRIPT})"
-msgs=(
-  "tar: /home/user/file: Permission denied"
-  "tar: /dev/sdb: Cannot read: Input/output error"
-  "tar: Error is not recoverable: exiting now"
-  "Write error"
-  "tar: /home/user: Cannot stat: No such file or directory"
-)
-for msg in "${{msgs[@]}}"; do
-  _is_home_warning_allowlisted "$msg" && {{ echo "ALLOWED_BUT_SHOULD_NOT: $msg"; exit 1; }}
-  echo "CORRECTLY_BLOCKED: $msg"
-done
-"""
+        func_def = _extract_bash_function(BACKUP_SCRIPT, "_is_home_warning_allowlisted")
+        script = (
+            "#!/usr/bin/env bash\n"
+            + func_def + "\n"
+            + 'msgs=(\n'
+            + '  "tar: /home/user/file: Permission denied"\n'
+            + '  "tar: /dev/sdb: Cannot read: Input/output error"\n'
+            + '  "tar: Error is not recoverable: exiting now"\n'
+            + '  "Write error"\n'
+            + '  "tar: /home/user: Cannot stat: No such file or directory"\n'
+            + ")\n"
+            + 'for msg in "${msgs[@]}"; do\n'
+            + '  _is_home_warning_allowlisted "$msg" && { echo "ALLOWED_BUT_SHOULD_NOT: $msg"; exit 1; }\n'
+            + '  echo "CORRECTLY_BLOCKED: $msg"\n'
+            + "done\n"
+        )
         with tempfile.NamedTemporaryFile(mode="w", suffix=".sh", delete=False) as f:
             f.write(script)
             script_path = f.name

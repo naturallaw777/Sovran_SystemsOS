@@ -277,6 +277,7 @@ log "Starting backup process…"
 # stale RUNNING status after a Hub restart).
 
 LOCK_FILE="/var/lock/sovran-hub-backup.lock"
+# Note: exec {LOCK_FD}>>file requires bash 4.1+ (NixOS provides bash 5.x).
 exec {LOCK_FD}>>"$LOCK_FILE" 2>/dev/null || \
   fail "Cannot open lock file: $LOCK_FILE. Ensure /var/lock is writable."
 flock --nonblock "$LOCK_FD" 2>/dev/null || \
@@ -443,6 +444,8 @@ _create_archive_impl() {
   local archive_path="$BACKUP_DIR/$archive_name"
   local partial_path="${archive_path}.partial"
   local diag_tmp
+  # mktemp creates files with mode 0600 (owner-only) by default, so tar
+  # diagnostics (which may include file paths) are not readable by other users.
   diag_tmp="$(mktemp /tmp/sovran-tar-diag.XXXXXX)"
   PARTIAL_FILES+=("$partial_path" "$diag_tmp")
 
@@ -857,7 +860,8 @@ CHECKSUM_FILE="$BACKUP_DIR/SHA256SUMS.txt"
   echo "(/run/media/Second_Drive) and are reconstructable/internal-backup data."
   echo ""
   echo "Artifact listing:"
-  find "$BACKUP_DIR" -mindepth 1 -maxdepth 2 -type f ! -name 'INCOMPLETE' ! -name 'BACKUP_COMPLETE' | sort
+  find "$BACKUP_DIR" -mindepth 1 -maxdepth 2 -type f \
+    ! -name 'INCOMPLETE' ! -name 'BACKUP_COMPLETE' -print0 | sort -z | tr '\0' '\n'
 } > "$MANIFEST_FILE"
 
 # ── Generate checksums for all backup artifacts ─────────────────
