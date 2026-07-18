@@ -649,7 +649,7 @@ fail "tar exited with code 2"
         source = BACKUP_SCRIPT.read_text()
         # Both constructs must be present
         self.assertIn(
-            "#ARCHIVE_WARNINGS[@]}\" -gt 0",
+            "${#ARCHIVE_WARNINGS[@]}",
             source,
             "backup script must check ARCHIVE_WARNINGS count before success message",
         )
