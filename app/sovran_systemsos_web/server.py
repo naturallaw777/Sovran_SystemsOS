@@ -1451,6 +1451,12 @@ def _read_backup_status() -> str:
         return "IDLE"
 
 
+def _write_backup_status(value: str) -> None:
+    """Write backup status file."""
+    with open(BACKUP_STATUS, "w") as f:
+        f.write(value)
+
+
 def _read_backup_log(offset: int = 0) -> tuple[str, int]:
     """Read the backup log file from the given byte offset.
     Returns (new_text, new_offset)."""
@@ -1467,6 +1473,12 @@ def _read_backup_log(offset: int = 0) -> tuple[str, int]:
         return "", 0
 
 
+def _append_backup_log(line: str) -> None:
+    """Append one line to backup log."""
+    with open(BACKUP_LOG, "a") as f:
+        f.write(line.rstrip("\n") + "\n")
+
+
 _INTERNAL_LABELS  = {"BTCEcoandBackup", "sovran_systemsos"}
 _INTERNAL_MOUNTS  = {"/", "/boot/efi"}
 _INTERNAL_MOUNT_PREFIX = "/run/media/Second_Drive"
@@ -1481,6 +1493,41 @@ def _is_internal_mount(mnt: str) -> bool:
     return False
 
 
+def _is_supported_backup_fstype(path: str, fstype: str) -> bool:
+    """Return whether the target filesystem type is supported for manual backup."""
+    fstype = (fstype or "").lower()
+    if fstype == "exfat":
+        return True
+    if fstype != "fuseblk":
+        return False
+
+    src_dev = ""
+    try:
+        result = subprocess.run(
+            ["findmnt", "-n", "-o", "SOURCE", "-T", path],
+            capture_output=True, text=True, timeout=5,
+        )
+        if result.returncode == 0:
+            src_dev = result.stdout.strip()
+    except Exception:
+        src_dev = ""
+
+    if not src_dev:
+        return False
+
+    for cmd in (
+        ["lsblk", "-no", "FSTYPE", src_dev],
+        ["blkid", "-o", "value", "-s", "TYPE", src_dev],
+    ):
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
+            if result.returncode == 0 and result.stdout.strip().lower() in {"exfat", "fuseblk"}:
+                return True
+        except Exception:
+            continue
+    return False
+
+
 def _detect_external_drives() -> list[dict]:
     """Scan for mounted external USB drives.
 
@@ -1490,7 +1537,8 @@ def _detect_external_drives() -> list[dict]:
     /run/media/ directly if lsblk is unavailable, applying the same
     label/path filters.
 
-    Returns a list of dicts with name, path, free_gb, total_gb.
+    Returns:
+        list[dict]: Each dict contains name, path, free_gb, total_gb, fstype.
     """
     import json as _json
     import subprocess as _subprocess
@@ -1501,7 +1549,7 @@ def _detect_external_drives() -> list[dict]:
     # ── Primary path: lsblk JSON ────────────────────────────────
     try:
         result = _subprocess.run(
-            ["lsblk", "-J", "-o", "NAME,LABEL,MOUNTPOINT,HOTPLUG,RM,TYPE"],
+            ["lsblk", "-J", "-o", "NAME,LABEL,FSTYPE,MOUNTPOINT,HOTPLUG,RM,TYPE"],
             capture_output=True, text=True, timeout=10
         )
         if result.returncode == 0:
@@ -1519,6 +1567,7 @@ def _detect_external_drives() -> list[dict]:
                 hotplug    = str(dev.get("hotplug", "0"))
                 rm         = str(dev.get("rm", "0"))
                 label      = dev.get("label") or ""
+                fstype     = (dev.get("fstype") or "").lower()
                 mountpoint = dev.get("mountpoint") or ""
 
                 if dev_type not in ("part", "disk"):
@@ -1544,6 +1593,7 @@ def _detect_external_drives() -> list[dict]:
                         "path":     mountpoint,
                         "free_gb":  free_gb,
                         "total_gb": total_gb,
+                        "fstype":   fstype,
                     })
                     seen_paths.add(mountpoint)
                 except OSError:
@@ -1577,11 +1627,20 @@ def _detect_external_drives() -> list[dict]:
                     st = os.statvfs(drive_path)
                     total_gb = round((st.f_blocks * st.f_frsize) / (1024 ** 3), 1)
                     free_gb  = round((st.f_bavail * st.f_frsize) / (1024 ** 3), 1)
+                    fstype = ""
+                    try:
+                        fstype = _subprocess.run(
+                            ["findmnt", "-n", "-o", "FSTYPE", "-T", drive_path],
+                            capture_output=True, text=True, timeout=5
+                        ).stdout.strip().lower()
+                    except Exception:
+                        fstype = ""
                     drives.append({
                         "name":     drive_name,
                         "path":     drive_path,
                         "free_gb":  free_gb,
                         "total_gb": total_gb,
+                        "fstype":   fstype,
                     })
                     seen_paths.add(drive_path)
                 except OSError:
@@ -3682,6 +3741,22 @@ async def api_backup_drives():
     return {"drives": drives}
 
 
+async def _monitor_backup_subprocess(proc: asyncio.subprocess.Process) -> None:
+    """Mark status FAILED if backup subprocess exits unexpectedly."""
+    rc = await proc.wait()
+    if rc == 0:
+        return
+
+    loop = asyncio.get_event_loop()
+    status = await loop.run_in_executor(None, _read_backup_status)
+    if status in {"SUCCESS", "FAILED"}:
+        return
+
+    msg = f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] ERROR: Backup subprocess exited unexpectedly (code {rc})."
+    await loop.run_in_executor(None, _append_backup_log, msg)
+    await loop.run_in_executor(None, _write_backup_status, "FAILED")
+
+
 @app.post("/api/backup/run")
 async def api_backup_run(target: str = ""):
     """Start the backup script as a background subprocess.
@@ -3692,6 +3767,26 @@ async def api_backup_run(target: str = ""):
     if status == "RUNNING":
         return {"ok": True, "status": "already_running"}
 
+    drives = await loop.run_in_executor(None, _detect_external_drives)
+    if not drives:
+        raise HTTPException(status_code=400, detail="No external backup drive detected.")
+
+    drive_map = {d.get("path", ""): d for d in drives if d.get("path")}
+    if target:
+        if target not in drive_map:
+            raise HTTPException(status_code=400, detail="Selected backup target is not an available external drive.")
+        selected = drive_map[target]
+    else:
+        selected = drives[0]
+
+    selected_target = selected.get("path", "")
+    selected_fstype = (selected.get("fstype") or "").lower()
+    if selected_fstype and not _is_supported_backup_fstype(selected_target, selected_fstype):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Selected drive filesystem '{selected_fstype}' is not supported for manual backup.",
+        )
+
     # Clear stale log before starting
     try:
         with open(BACKUP_LOG, "w") as f:
@@ -3699,21 +3794,34 @@ async def api_backup_run(target: str = ""):
     except OSError:
         pass
 
-    env = dict(os.environ)
-    if target:
-        env["BACKUP_TARGET"] = target
+    try:
+        await loop.run_in_executor(None, _write_backup_status, "RUNNING")
+    except OSError as exc:
+        raise HTTPException(status_code=500, detail=f"Could not set backup status: {exc}")
 
-    # Fire-and-forget: the script writes its own status/log files.
-    # Progress is read by the client via /api/backup/status (same pattern
-    # as /api/updates/run and the rebuild feature).
-    await asyncio.create_subprocess_exec(
-        "/usr/bin/env", "bash", BACKUP_SCRIPT,
-        stdout=asyncio.subprocess.DEVNULL,
-        stderr=asyncio.subprocess.DEVNULL,
-        env=env,
+    await loop.run_in_executor(
+        None,
+        _append_backup_log,
+        f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] Starting backup process…",
     )
 
-    return {"ok": True, "status": "started"}
+    env = dict(os.environ)
+    env["BACKUP_TARGET"] = selected_target
+
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            "/usr/bin/env", "bash", BACKUP_SCRIPT,
+            stdout=asyncio.subprocess.DEVNULL,
+            stderr=asyncio.subprocess.DEVNULL,
+            env=env,
+        )
+    except Exception as exc:
+        await loop.run_in_executor(None, _append_backup_log, f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] ERROR: Failed to launch backup script: {exc}")
+        await loop.run_in_executor(None, _write_backup_status, "FAILED")
+        raise HTTPException(status_code=500, detail="Failed to launch backup process.")
+
+    asyncio.create_task(_monitor_backup_subprocess(proc))
+    return {"ok": True, "status": "started", "target": selected_target}
 
 
 # ── Feature Manager endpoints ─────────────────────────────────────

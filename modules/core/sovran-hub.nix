@@ -388,7 +388,16 @@ in
         pkgs.nftables
         pkgs.iptables
         pkgs.hostname
-      ] ++ lib.optional cfg.services.bitcoin config.services.bitcoind.package;
+        pkgs.coreutils
+        pkgs.findutils
+        pkgs.gnugrep
+        pkgs.gnutar
+        pkgs.util-linux
+      ]
+      ++ lib.optional cfg.services.bitcoin config.services.bitcoind.package
+      ++ lib.optionals cfg.services.bitcoin [ pkgs.lnd ]
+      ++ lib.optionals (cfg.services.nextcloud || cfg.services.synapse) [ config.services.postgresql.package ]
+      ++ lib.optionals config.services.mysql.enable [ config.services.mysql.package ];
     };
 
     systemd.services.sovran-hub-update = {
