@@ -382,6 +382,8 @@ in
       };
 
       path = [
+        pkgs.bash
+        pkgs.gawk
         pkgs.qrencode
         pkgs.curl
         pkgs.iproute2

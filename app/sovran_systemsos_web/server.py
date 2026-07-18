@@ -3742,8 +3742,18 @@ async def api_backup_drives():
 
 
 async def _monitor_backup_subprocess(proc: asyncio.subprocess.Process) -> None:
-    """Mark status FAILED if backup subprocess exits unexpectedly."""
+    """Drain stderr, then mark status FAILED if backup subprocess exits unexpectedly."""
+    stderr_chunks: list[bytes] = []
+
+    async def _drain_stderr() -> None:
+        if proc.stderr is not None:
+            async for line in proc.stderr:
+                stderr_chunks.append(line)
+
+    drain_task = asyncio.create_task(_drain_stderr())
     rc = await proc.wait()
+    await drain_task
+
     if rc == 0:
         return
 
@@ -3752,7 +3762,9 @@ async def _monitor_backup_subprocess(proc: asyncio.subprocess.Process) -> None:
     if status in {"SUCCESS", "FAILED"}:
         return
 
-    msg = f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] ERROR: Backup subprocess exited unexpectedly (code {rc})."
+    stderr_text = b"".join(stderr_chunks).decode("utf-8", errors="replace").strip()
+    detail = f" — stderr: {stderr_text}" if stderr_text else ""
+    msg = f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] ERROR: Backup subprocess exited unexpectedly (code {rc}).{detail}"
     await loop.run_in_executor(None, _append_backup_log, msg)
     await loop.run_in_executor(None, _write_backup_status, "FAILED")
 
@@ -3808,11 +3820,25 @@ async def api_backup_run(target: str = ""):
     env = dict(os.environ)
     env["BACKUP_TARGET"] = selected_target
 
+    bash_path = shutil.which("bash")
+    if bash_path is None:
+        no_bash_msg = (
+            f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] ERROR: Cannot start backup:"
+            " interpreter 'bash' not found on PATH."
+            " Ensure pkgs.bash is in the sovran-hub-web service PATH."
+        )
+        await loop.run_in_executor(None, _append_backup_log, no_bash_msg)
+        await loop.run_in_executor(None, _write_backup_status, "FAILED")
+        raise HTTPException(
+            status_code=500,
+            detail="Backup interpreter (bash) not available. Check service PATH configuration.",
+        )
+
     try:
         proc = await asyncio.create_subprocess_exec(
-            "/usr/bin/env", "bash", BACKUP_SCRIPT,
+            bash_path, BACKUP_SCRIPT,
             stdout=asyncio.subprocess.DEVNULL,
-            stderr=asyncio.subprocess.DEVNULL,
+            stderr=asyncio.subprocess.PIPE,
             env=env,
         )
     except Exception as exc:
