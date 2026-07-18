@@ -477,9 +477,9 @@ _create_archive_impl() {
   elif [[ "$mode" == "HOME" && "$tar_rc" -eq 1 && "$has_fatal_diag" -eq 0 ]]; then
     accept=1
     log "NOTE: $archive_name completed with nonfatal warnings (live files changed" \
-        "during backup — this is normal on an active desktop and does not affect" \
+        "during backup -- this is normal on an active desktop and does not affect" \
         "the safety of your backup)."
-    ARCHIVE_WARNINGS+=("$archive_name: nonfatal warnings — live files changed during backup (normal on an active desktop)")
+    ARCHIVE_WARNINGS+=("$archive_name: nonfatal warnings -- live files changed during backup (normal on an active desktop)")
   fi
 
   if [[ "$accept" -eq 0 ]]; then
