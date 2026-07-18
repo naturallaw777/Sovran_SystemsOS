@@ -32,6 +32,8 @@ LND_STOPPED=0
 LND_UNITS_TO_RESTART=()
 
 ARCHIVE_FILES=()
+ARCHIVE_WARNINGS=()
+PARTIAL_FILES=()
 DB_DUMP_FILES=()
 MANIFEST_EXCLUDES=()
 LND_BACKUP_NOTES=()
@@ -57,6 +59,17 @@ fail() {
 cleanup() {
   local rc=$?
   local restart_failed=0
+
+  # Remove any partial archive files or temporary diagnostic files
+  if [[ "${#PARTIAL_FILES[@]}" -gt 0 ]]; then
+    local partial
+    for partial in "${PARTIAL_FILES[@]}"; do
+      [[ -f "$partial" ]] && rm -f "$partial" || true
+    done
+  fi
+
+  # Release the concurrency lock file descriptor if it was opened
+  [[ -n "${LOCK_FD:-}" ]] && exec {LOCK_FD}>&- 2>/dev/null || true
 
   if [[ "$LND_STOPPED" -eq 1 ]]; then
     log "Restarting previously active LND-related services…"
@@ -85,6 +98,11 @@ cleanup() {
   if [[ "$FAILED_ALREADY" -eq 0 ]]; then
     log "ERROR: Backup terminated unexpectedly (exit code $rc)."
     set_status "FAILED"
+  fi
+
+  # Mark the backup directory as incomplete so failed runs are identifiable
+  if [[ -n "${BACKUP_DIR:-}" && -d "${BACKUP_DIR:-}" && ! -f "${BACKUP_DIR:-}/BACKUP_COMPLETE" ]]; then
+    touch "${BACKUP_DIR}/INCOMPLETE" 2>/dev/null || true
   fi
 }
 
@@ -257,6 +275,17 @@ set_status "RUNNING"
 log "=== Sovran_SystemsOS External Hub Backup ==="
 log "Starting backup process…"
 
+# ── Acquire exclusive run lock ────────────────────────────────────
+# Prevents two simultaneous backup runs (e.g. from double-click or
+# stale RUNNING status after a Hub restart).
+
+LOCK_FILE="/var/lock/sovran-hub-backup.lock"
+# Note: exec {LOCK_FD}>>file requires bash 4.1+ (NixOS provides bash 5.x).
+exec {LOCK_FD}>>"$LOCK_FILE" 2>/dev/null || \
+  fail "Cannot open lock file: $LOCK_FILE. Ensure /var/lock is writable."
+flock --nonblock "$LOCK_FD" 2>/dev/null || \
+  fail "Another backup is already running. Wait for it to complete or check $BACKUP_STATUS."
+
 require_cmd tar
 require_cmd sha256sum
 require_cmd findmnt
@@ -272,6 +301,8 @@ require_cmd hostname
 require_cmd date
 require_cmd python3
 require_cmd runuser
+require_cmd mktemp
+require_cmd flock
 
 # ── Detect system role ───────────────────────────────────────────
 
@@ -324,7 +355,15 @@ MANIFEST_EXCLUDES+=(
   "/var/lib/electrs (excluded from manual backup)"
   "/var/lib/*/log and /var/lib/*/logs"
   "/var/lib/*/cache and /var/lib/*/tmp"
-  "/home/*/.cache and /home/*/.local/share/Trash"
+  "/home/*/.cache (system and application disk caches)"
+  "/home/*/.local/share/Trash and /home/*/Trash (trash directories)"
+  "/home/*/.mozilla/firefox/*/cache2 and */startupCache (Firefox volatile cache — profile data is kept)"
+  "/home/*/.config/google-chrome/*/Cache (Chrome disk cache — profile data is kept)"
+  "/home/*/.config/chromium/*/Cache (Chromium disk cache — profile data is kept)"
+  "/home/*/.config/BraveSoftware/Brave-Browser/*/Cache (Brave disk cache — profile data is kept)"
+  "/home/*/.local/share/baloo (KDE file indexer — rebuilt automatically)"
+  "/home/*/.thumbnails (thumbnail cache — rebuilt automatically)"
+  "/home/*/.xsession-errors and .xsession-errors.old (X session error logs)"
 )
 
 if [[ "$ROLE" == "desktop" || "$LND_AVAILABLE" -eq 1 ]]; then
@@ -375,26 +414,115 @@ TIMESTAMP="$(date '+%Y%m%d_%H%M%S')"
 BACKUP_DIR="${TARGET}/Sovran_SystemsOS_Backup/${TIMESTAMP}"
 DB_DUMP_DIR="$BACKUP_DIR/database-dumps"
 mkdir -p "$BACKUP_DIR" "$DB_DUMP_DIR"
+# Write an INCOMPLETE marker immediately; it is removed only on successful completion.
+# Failed runs keep this marker so they are easily identifiable and not confused with
+# complete backups during restore selection.
+touch "$BACKUP_DIR/INCOMPLETE"
 log "Backup destination: $BACKUP_DIR"
 
 create_tar_archive() {
-  local archive_name="$1"
-  shift
+  _create_archive_impl STRICT "$@"
+}
+
+# ── Helper: classify a GNU tar (LC_ALL=C) diagnostic line ────────
+# Returns 0 (true) if the message is an allowlisted transient condition
+# that is safe to ignore for /home (live desktop file changes).
+# Only two verified GNU tar messages qualify; all others are fatal.
+_is_home_warning_allowlisted() {
+  local msg="$1"
+  case "$msg" in
+    *"file changed as we read it"*)   return 0 ;;
+    *"file removed before we read it"*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+# ── Internal archive builder ──────────────────────────────────────
+# mode: STRICT — any tar error fails.
+#       HOME   — tar exit 1 is accepted when every diagnostic is an
+#                allowlisted transient condition (live file changes).
+_create_archive_impl() {
+  local mode="$1"; shift
+  local archive_name="$1"; shift
   local archive_path="$BACKUP_DIR/$archive_name"
+  local partial_path="${archive_path}.partial"
+  local diag_tmp
+  # mktemp creates files with mode 0600 (owner-only) by default, so tar
+  # diagnostics (which may include file paths) are not readable by other users.
+  diag_tmp="$(mktemp /tmp/sovran-tar-diag.XXXXXX)"
+  PARTIAL_FILES+=("$partial_path" "$diag_tmp")
 
   log "Creating $archive_name …"
-  tar \
+
+  local tar_rc=0
+  LC_ALL=C tar \
     --create \
-    --file "$archive_path" \
+    --file "$partial_path" \
     --numeric-owner \
     --acls \
     --xattrs \
     --sparse \
     --one-file-system \
-    "$@"
+    "$@" 2>"$diag_tmp" || tar_rc=$?
 
+  # Log every tar diagnostic to the backup log so it appears in the Hub UI
+  local has_fatal_diag=0
+  if [[ -s "$diag_tmp" ]]; then
+    while IFS= read -r diag_line; do
+      [[ -n "$diag_line" ]] || continue
+      log "tar: $diag_line"
+      if [[ "$mode" == "HOME" ]] && ! _is_home_warning_allowlisted "$diag_line"; then
+        has_fatal_diag=1
+      fi
+    done < "$diag_tmp"
+  fi
+
+  local accept=0
+  if [[ "$tar_rc" -eq 0 ]]; then
+    accept=1
+  elif [[ "$mode" == "HOME" && "$tar_rc" -eq 1 && "$has_fatal_diag" -eq 0 ]]; then
+    accept=1
+    log "NOTE: $archive_name completed with nonfatal warnings (live files changed during backup -- this is normal on an active desktop and does not affect the safety of your backup)."
+    ARCHIVE_WARNINGS+=("$archive_name: nonfatal warnings -- live files changed during backup (normal on an active desktop)")
+  fi
+
+  if [[ "$accept" -eq 0 ]]; then
+    rm -f "$partial_path" "$diag_tmp"
+    if [[ "$tar_rc" -gt 1 ]]; then
+      fail "tar exited with fatal code $tar_rc while creating $archive_name."
+    elif [[ "$mode" == "HOME" ]]; then
+      fail "tar exited with code $tar_rc and unrecognized diagnostics while creating $archive_name."
+    else
+      fail "tar exited with code $tar_rc while creating $archive_name."
+    fi
+  fi
+
+  # Verify the partial archive is non-empty and readable (spot-check first entry)
+  if [[ ! -s "$partial_path" ]]; then
+    rm -f "$partial_path" "$diag_tmp"
+    fail "Archive $archive_name is empty after creation."
+  fi
+
+  # Fast readability check: read only the first tar entry header (~512 bytes).
+  # head -1 closes the pipe after one line, sending SIGPIPE to tar which then
+  # exits early — so this is O(1) regardless of archive size.
+  local spot_entry
+  spot_entry="$(LC_ALL=C tar --list --file "$partial_path" 2>/dev/null | head -1 || true)"
+  if [[ -z "$spot_entry" ]]; then
+    rm -f "$partial_path" "$diag_tmp"
+    fail "Archive $archive_name failed readability check."
+  fi
+
+  # Atomic publish: rename partial to final path only after acceptance
+  mv "$partial_path" "$archive_path"
+  rm -f "$diag_tmp"
   ARCHIVE_FILES+=("$archive_name")
   log "Created archive: $archive_name"
+}
+
+# ── Home archive: tolerates allowlisted live-file warnings ───────
+create_home_tar_archive() {
+  _create_archive_impl HOME "$@"
 }
 
 export_postgresql_dumps() {
@@ -605,11 +733,24 @@ log "Stage 2 complete."
 log ""
 log "── Stage 3/5: Home directory (/home) ───────────────────────"
 if [[ -d /home ]]; then
-  create_tar_archive "home.tar" \
+  create_home_tar_archive "home.tar" \
     -C / \
     --exclude='home/*/.cache' \
     --exclude='home/*/.local/share/Trash' \
     --exclude='home/*/Trash' \
+    --exclude='home/*/.mozilla/firefox/*/cache2' \
+    --exclude='home/*/.mozilla/firefox/*/startupCache' \
+    --exclude='home/*/.mozilla/firefox/*/thumbnails' \
+    --exclude='home/*/.config/google-chrome/*/Cache' \
+    --exclude='home/*/.config/google-chrome/*/Code Cache' \
+    --exclude='home/*/.config/chromium/*/Cache' \
+    --exclude='home/*/.config/chromium/*/Code Cache' \
+    --exclude='home/*/.config/BraveSoftware/Brave-Browser/*/Cache' \
+    --exclude='home/*/.config/BraveSoftware/Brave-Browser/*/Code Cache' \
+    --exclude='home/*/.local/share/baloo' \
+    --exclude='home/*/.thumbnails' \
+    --exclude='home/*/.xsession-errors' \
+    --exclude='home/*/.xsession-errors.old' \
     home
   log "Stage 3 complete."
 else
@@ -708,13 +849,29 @@ CHECKSUM_FILE="$BACKUP_DIR/SHA256SUMS.txt"
   echo "- PostgreSQL DB dump: sudo -u postgres pg_restore --create --clean --if-exists -d postgres database-dumps/postgresql_<db>.dump"
   echo "- MariaDB DB dump: mariadb <db_name> < database-dumps/mariadb_<db>.sql"
   echo "- LND SCB: keep lnd-static-channel-backup.scb with wallet seed for channel recovery procedures"
+  echo "- Note: when restoring /var/lib, exclude raw DB directories (var/lib/postgresql, var/lib/mysql)"
+  echo "  and restore from native dumps instead for PostgreSQL and MariaDB"
+  echo ""
+  echo "Nonfatal warnings:"
+  if [[ "${#ARCHIVE_WARNINGS[@]}" -eq 0 ]]; then
+    echo "- none"
+  else
+    for warning in "${ARCHIVE_WARNINGS[@]}"; do
+      echo "- $warning"
+    done
+  fi
   echo ""
   echo "Important note: Bitcoin blockchain and Electrs index data are intentionally excluded"
   echo "from manual external backup because they already live on the internal second drive"
   echo "(/run/media/Second_Drive) and are reconstructable/internal-backup data."
   echo ""
   echo "Artifact listing:"
-  find "$BACKUP_DIR" -mindepth 1 -maxdepth 2 -type f | sort
+  # INCOMPLETE exists at this point (created at backup start); BACKUP_COMPLETE does not
+  # exist yet (written after checksums). Excluding both marker files here is intentional:
+  # INCOMPLETE is excluded so it doesn't appear as a data artifact, and BACKUP_COMPLETE
+  # is excluded defensively for consistency should the ordering ever change.
+  find "$BACKUP_DIR" -mindepth 1 -maxdepth 2 -type f \
+    ! -name 'INCOMPLETE' ! -name 'BACKUP_COMPLETE' -print0 | sort -z | tr '\0' '\n'
 } > "$MANIFEST_FILE"
 
 # ── Generate checksums for all backup artifacts ─────────────────
@@ -724,7 +881,7 @@ log "Generating SHA-256 checksums …"
   cd "$BACKUP_DIR"
   while IFS= read -r -d '' file; do
     sha256sum "$file"
-  done < <(find . -mindepth 1 -maxdepth 2 -type f ! -name 'SHA256SUMS.txt' -print0 | sort -z)
+  done < <(find . -mindepth 1 -maxdepth 2 -type f ! -name 'SHA256SUMS.txt' ! -name 'INCOMPLETE' ! -name 'BACKUP_COMPLETE' -print0 | sort -z)
 ) > "$CHECKSUM_FILE"
 
 log "Manifest written to $MANIFEST_FILE"
@@ -733,8 +890,21 @@ log "Checksums written to $CHECKSUM_FILE"
 # ── Done ─────────────────────────────────────────────────────────
 
 log ""
+if [[ "${#ARCHIVE_WARNINGS[@]}" -gt 0 ]]; then
+  log "Backup completed with nonfatal warnings:"
+  for warning in "${ARCHIVE_WARNINGS[@]}"; do
+    log "  WARNING: $warning"
+  done
+  log "Your important data is backed up. The warnings above indicate files that changed"
+  log "during backup, which is normal on an active desktop and does not affect your backup."
+  log ""
+fi
 log "All Finished! Your data is now backed up to a third location."
 log "Please eject the drive safely before removing it from your Sovran Pro."
+
+# Remove incomplete marker and write completion marker only after all work succeeds
+rm -f "$BACKUP_DIR/INCOMPLETE"
+echo "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" > "$BACKUP_DIR/BACKUP_COMPLETE"
 
 BACKUP_COMPLETE=1
 set_status "SUCCESS"
