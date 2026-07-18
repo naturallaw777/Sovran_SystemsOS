@@ -336,43 +336,38 @@ class ManualBackupWorkflowTests(unittest.TestCase):
     # ── Behavioral tests ──────────────────────────────────────────────────────
 
     def test_allowlist_accepts_file_changed_message(self):
-        """Behavioral: _is_home_warning_allowlisted returns true for the exact
-        GNU tar 'file changed as we read it' message (LC_ALL=C)."""
-        script = r"""
-_is_home_warning_allowlisted() {
-  local msg="$1"
-  case "$msg" in
-    *"file changed as we read it"*)   return 0 ;;
-    *"file removed before we read it"*) return 0 ;;
-    *) return 1 ;;
-  esac
-}
+        """Behavioral: _is_home_warning_allowlisted (from the actual backup script)
+        returns true for the exact GNU tar 'file changed as we read it' message (LC_ALL=C)."""
+        script = f"""#!/usr/bin/env bash
+# Load the production function directly from the backup script to avoid logic drift
+eval "$(awk '/^_is_home_warning_allowlisted[(][)]/,/^[}}]/' {BACKUP_SCRIPT})"
 msgs=(
   "tar: /home/user/firefox.db: file changed as we read it"
   "tar: /home/user/.local/share/app: file removed before we read it"
 )
-for msg in "${msgs[@]}"; do
-  _is_home_warning_allowlisted "$msg" || { echo "BLOCKED: $msg"; exit 1; }
+for msg in "${{msgs[@]}}"; do
+  _is_home_warning_allowlisted "$msg" || {{ echo "BLOCKED: $msg"; exit 1; }}
   echo "ALLOWED: $msg"
 done
 """
-        result = subprocess.run(["bash", "-c", script], capture_output=True, text=True)
-        self.assertEqual(result.returncode, 0, f"stderr: {result.stderr}")
-        self.assertIn("ALLOWED", result.stdout)
-        self.assertNotIn("BLOCKED", result.stdout)
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".sh", delete=False) as f:
+            f.write(script)
+            script_path = f.name
+        try:
+            result = subprocess.run(["bash", script_path], capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, f"stderr: {result.stderr}")
+            self.assertIn("ALLOWED", result.stdout)
+            self.assertNotIn("BLOCKED", result.stdout)
+        finally:
+            os.unlink(script_path)
 
     def test_allowlist_rejects_fatal_diagnostics(self):
-        """Behavioral: _is_home_warning_allowlisted returns false for permission
-        errors, I/O errors, write errors, and other fatal conditions."""
-        script = r"""
-_is_home_warning_allowlisted() {
-  local msg="$1"
-  case "$msg" in
-    *"file changed as we read it"*)   return 0 ;;
-    *"file removed before we read it"*) return 0 ;;
-    *) return 1 ;;
-  esac
-}
+        """Behavioral: _is_home_warning_allowlisted (from the actual backup script)
+        returns false for permission errors, I/O errors, write errors, and other
+        fatal conditions."""
+        script = f"""#!/usr/bin/env bash
+# Load the production function directly from the backup script to avoid logic drift
+eval "$(awk '/^_is_home_warning_allowlisted[(][)]/,/^[}}]/' {BACKUP_SCRIPT})"
 msgs=(
   "tar: /home/user/file: Permission denied"
   "tar: /dev/sdb: Cannot read: Input/output error"
@@ -380,15 +375,21 @@ msgs=(
   "Write error"
   "tar: /home/user: Cannot stat: No such file or directory"
 )
-for msg in "${msgs[@]}"; do
-  _is_home_warning_allowlisted "$msg" && { echo "ALLOWED_BUT_SHOULD_NOT: $msg"; exit 1; }
+for msg in "${{msgs[@]}}"; do
+  _is_home_warning_allowlisted "$msg" && {{ echo "ALLOWED_BUT_SHOULD_NOT: $msg"; exit 1; }}
   echo "CORRECTLY_BLOCKED: $msg"
 done
 """
-        result = subprocess.run(["bash", "-c", script], capture_output=True, text=True)
-        self.assertEqual(result.returncode, 0, f"stderr: {result.stderr}")
-        self.assertIn("CORRECTLY_BLOCKED", result.stdout)
-        self.assertNotIn("ALLOWED_BUT_SHOULD_NOT", result.stdout)
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".sh", delete=False) as f:
+            f.write(script)
+            script_path = f.name
+        try:
+            result = subprocess.run(["bash", script_path], capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, f"stderr: {result.stderr}")
+            self.assertIn("CORRECTLY_BLOCKED", result.stdout)
+            self.assertNotIn("ALLOWED_BUT_SHOULD_NOT", result.stdout)
+        finally:
+            os.unlink(script_path)
 
     def test_home_tar_exits_1_with_only_allowlisted_warnings_is_accepted(self):
         """Behavioral: _create_archive_impl in HOME mode accepts tar exit 1 when
