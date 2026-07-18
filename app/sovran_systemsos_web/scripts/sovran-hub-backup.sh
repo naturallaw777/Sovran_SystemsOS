@@ -476,9 +476,7 @@ _create_archive_impl() {
     accept=1
   elif [[ "$mode" == "HOME" && "$tar_rc" -eq 1 && "$has_fatal_diag" -eq 0 ]]; then
     accept=1
-    log "NOTE: $archive_name completed with nonfatal warnings (live files changed" \
-        "during backup -- this is normal on an active desktop and does not affect" \
-        "the safety of your backup)."
+    log "NOTE: $archive_name completed with nonfatal warnings (live files changed during backup -- this is normal on an active desktop and does not affect the safety of your backup)."
     ARCHIVE_WARNINGS+=("$archive_name: nonfatal warnings -- live files changed during backup (normal on an active desktop)")
   fi
 
@@ -859,7 +857,7 @@ CHECKSUM_FILE="$BACKUP_DIR/SHA256SUMS.txt"
   echo "(/run/media/Second_Drive) and are reconstructable/internal-backup data."
   echo ""
   echo "Artifact listing:"
-  find "$BACKUP_DIR" -mindepth 1 -maxdepth 2 -type f ! -name 'INCOMPLETE' | sort
+  find "$BACKUP_DIR" -mindepth 1 -maxdepth 2 -type f ! -name 'INCOMPLETE' ! -name 'BACKUP_COMPLETE' | sort
 } > "$MANIFEST_FILE"
 
 # ── Generate checksums for all backup artifacts ─────────────────
@@ -869,7 +867,7 @@ log "Generating SHA-256 checksums …"
   cd "$BACKUP_DIR"
   while IFS= read -r -d '' file; do
     sha256sum "$file"
-  done < <(find . -mindepth 1 -maxdepth 2 -type f ! -name 'SHA256SUMS.txt' ! -name 'INCOMPLETE' -print0 | sort -z)
+  done < <(find . -mindepth 1 -maxdepth 2 -type f ! -name 'SHA256SUMS.txt' ! -name 'INCOMPLETE' ! -name 'BACKUP_COMPLETE' -print0 | sort -z)
 ) > "$CHECKSUM_FILE"
 
 log "Manifest written to $MANIFEST_FILE"
