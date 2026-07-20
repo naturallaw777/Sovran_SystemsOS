@@ -393,7 +393,8 @@ in
         pkgs.coreutils
         pkgs.findutils
         pkgs.gnugrep
-        pkgs.gnutar
+        pkgs.rsync
+        pkgs.acl
         pkgs.util-linux
       ]
       ++ lib.optional cfg.services.bitcoin config.services.bitcoind.package
