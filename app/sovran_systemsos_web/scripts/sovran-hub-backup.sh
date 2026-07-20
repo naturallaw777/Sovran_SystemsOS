@@ -39,9 +39,9 @@ FAILED_ALREADY=0
 BACKUP_COMPLETE=0
 RSYNC_WARNINGS=()
 
-# Stable mirror path — not timestamped so later runs update the same
-# destination and only transfer new or changed files.
-CURRENT_DIR_NAME="Sovran_SystemsOS_Backup/current"
+# Stable rsync mirror sub-path under the target drive. Not timestamped
+# so later runs update the same destination and only transfer new or changed files.
+BACKUP_SUBPATH="Sovran_SystemsOS_Backup/current"
 
 # ── Logging helpers ──────────────────────────────────────────────
 
@@ -329,7 +329,7 @@ validate_target_mount "$TARGET"
 # ── Set up stable backup destination ────────────────────────────
 # Subsequent runs update the same mirror, transferring only new or changed files.
 
-BACKUP_DIR="${TARGET}/${CURRENT_DIR_NAME}"
+BACKUP_DIR="${TARGET}/${BACKUP_SUBPATH}"
 mkdir -p "$BACKUP_DIR"
 
 # Write an INCOMPLETE marker immediately; replaced by BACKUP_COMPLETE only

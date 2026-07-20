@@ -76,6 +76,8 @@ class ManualBackupWorkflowTests(unittest.TestCase):
         source = BACKUP_SCRIPT.read_text()
         self.assertIn("Sovran_SystemsOS_Backup/current", source,
             "backup must use a stable 'current' mirror path")
+        self.assertIn("BACKUP_SUBPATH", source,
+            "stable sub-path must be defined in BACKUP_SUBPATH variable")
         # Must not create new timestamped directories per run
         self.assertNotIn(
             "date '+%Y%m%d_%H%M%S'",
@@ -566,8 +568,8 @@ echo "SHOULD_NOT_REACH_HERE"
             script = f"""#!/usr/bin/env bash
 set -euo pipefail
 TARGET="{target}"
-CURRENT_DIR_NAME="Sovran_SystemsOS_Backup/current"
-BACKUP_DIR="${{TARGET}}/${{CURRENT_DIR_NAME}}"
+BACKUP_SUBPATH="Sovran_SystemsOS_Backup/current"
+BACKUP_DIR="${{TARGET}}/${{BACKUP_SUBPATH}}"
 mkdir -p "$BACKUP_DIR"
 echo "$BACKUP_DIR"
 """
