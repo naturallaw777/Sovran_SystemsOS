@@ -251,7 +251,61 @@ class ManualBackupWorkflowTests(unittest.TestCase):
             "manifest must show rsync restore command",
         )
 
-    # ── Exit code 24 (vanished files) for /home only ──────────────────────────
+    # ── sync_tree helper design ────────────────────────────────────────────────
+
+    def test_backup_script_uses_sync_tree_not_run_rsync(self):
+        """Script must define sync_tree (new helper) and not the old run_rsync."""
+        source = BACKUP_SCRIPT.read_text()
+        self.assertIn("sync_tree()", source, "script must define sync_tree helper")
+        self.assertNotIn("run_rsync()", source, "old run_rsync function must be removed")
+        self.assertNotIn("run_rsync ", source, "old run_rsync call sites must be removed")
+
+    def test_sync_tree_signature_has_explicit_source_and_destination(self):
+        """sync_tree must have explicit <source> <destination> parameters."""
+        source = BACKUP_SCRIPT.read_text()
+        self.assertIn("local source=", source,
+            "sync_tree must declare explicit 'source' local variable")
+        self.assertIn("local destination=", source,
+            "sync_tree must declare explicit 'destination' local variable")
+
+    def test_sync_tree_creates_destination_with_mkdir_p(self):
+        """sync_tree must run mkdir -p on the destination before rsync."""
+        source = BACKUP_SCRIPT.read_text()
+        self.assertIn('mkdir -p -- "$destination"', source,
+            "sync_tree must create destination hierarchy with 'mkdir -p -- \"$destination\"'")
+
+    def test_sync_tree_mkdir_failure_is_fatal(self):
+        """sync_tree must fail with a logged message if mkdir -p fails."""
+        source = BACKUP_SCRIPT.read_text()
+        self.assertIn("failed to create destination directory", source,
+            "sync_tree must log a descriptive failure message when mkdir fails")
+
+    def test_sync_tree_re_verifies_mountpoint_before_rsync(self):
+        """sync_tree must re-verify $TARGET is a mount point before each rsync stage."""
+        source = BACKUP_SCRIPT.read_text()
+        self.assertIn('mountpoint -q "$TARGET"', source,
+            "sync_tree must call mountpoint -q \"$TARGET\" to re-verify mount before each stage")
+        self.assertIn("no longer mounted", source,
+            "sync_tree must emit a clear message when the drive is no longer mounted")
+
+    def test_sync_tree_checks_destination_within_backup_dir(self):
+        """sync_tree must verify destination is beneath BACKUP_DIR."""
+        source = BACKUP_SCRIPT.read_text()
+        self.assertIn("outside BACKUP_DIR", source,
+            "sync_tree must reject destinations outside BACKUP_DIR")
+
+    def test_new_run_removes_stale_backup_complete(self):
+        """A new backup run must remove a stale BACKUP_COMPLETE before starting."""
+        source = BACKUP_SCRIPT.read_text()
+        # rm -f BACKUP_COMPLETE must appear BEFORE the touch INCOMPLETE line
+        complete_pos = source.find('rm -f "$BACKUP_DIR/BACKUP_COMPLETE"')
+        incomplete_pos = source.find('touch "$BACKUP_DIR/INCOMPLETE"')
+        self.assertGreater(complete_pos, 0,
+            "script must remove stale BACKUP_COMPLETE at the start of each run")
+        self.assertGreater(incomplete_pos, 0,
+            "script must touch INCOMPLETE after removing stale BACKUP_COMPLETE")
+        self.assertLess(complete_pos, incomplete_pos,
+            "BACKUP_COMPLETE removal must come before INCOMPLETE marker is written")
 
     def test_backup_script_exit_code_24_nonfatal_for_home(self):
         """Rsync exit code 24 (vanished files) must be nonfatal for /home only."""
@@ -268,25 +322,25 @@ class ManualBackupWorkflowTests(unittest.TestCase):
         )
 
     def test_backup_script_home_stage_allows_vanished(self):
-        """Stage 3 (/home) must call run_rsync with allow_vanished=yes."""
+        """Stage 3 (/home) must call sync_tree with allow_vanished=yes."""
         source = BACKUP_SCRIPT.read_text()
         # The /home call must pass "yes" as the allow_vanished argument
         self.assertIn(
-            'run_rsync "/home" yes',
+            'sync_tree "/home" yes /home/',
             source,
-            "/home stage must pass allow_vanished=yes to run_rsync",
+            "/home stage must pass allow_vanished=yes to sync_tree",
         )
 
     def test_backup_script_other_stages_disallow_vanished(self):
-        """Stages other than /home must call run_rsync with allow_vanished=no."""
+        """Stages other than /home must call sync_tree with allow_vanished=no."""
         source = BACKUP_SCRIPT.read_text()
         self.assertIn(
-            'run_rsync "/etc/nixos" no',
+            'sync_tree "/etc/nixos" no /etc/nixos/',
             source,
             "/etc/nixos stage must use allow_vanished=no",
         )
         self.assertIn(
-            'run_rsync "/var/lib" no',
+            'sync_tree "/var/lib" no /var/lib/',
             source,
             "/var/lib stage must use allow_vanished=no",
         )
@@ -742,6 +796,594 @@ BACKUP_COMPLETE=1
             support_source,
             "UI must explain that databases are not included",
         )
+
+    # ── Behavioral: sync_tree creates nested destination dirs (regression) ─────
+
+    def test_sync_tree_creates_nested_dest_dirs_regression(self):
+        """Regression: sync_tree must create the full destination hierarchy before
+        calling rsync so that rsync never fails with
+        'mkdir current/etc/nixos failed: No such file or directory'.
+
+        Initial state: only Sovran_SystemsOS_Backup/current/ exists.
+        Expected: current/etc/nixos/ is created and populated by sync_tree."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Source tree
+            src = os.path.join(tmpdir, "src", "etc", "nixos")
+            os.makedirs(src)
+            with open(os.path.join(src, "configuration.nix"), "w") as f:
+                f.write("{ }: {}\n")
+
+            # Backup target: only current/ exists, NOT current/etc/
+            target = os.path.join(tmpdir, "target")
+            backup_dir = os.path.join(target, "Sovran_SystemsOS_Backup", "current")
+            os.makedirs(backup_dir)
+            dest = os.path.join(backup_dir, "etc", "nixos")
+
+            self.assertFalse(os.path.exists(dest),
+                "destination must not exist before sync_tree runs")
+            self.assertFalse(os.path.exists(os.path.join(backup_dir, "etc")),
+                "intermediate parent current/etc/ must not exist before sync_tree runs")
+
+            script = f"""#!/usr/bin/env bash
+set -euo pipefail
+TARGET="{target}"
+BACKUP_DIR="{backup_dir}"
+RSYNC_WARNINGS=()
+
+log() {{ echo "$*"; }}
+fail() {{ echo "FAIL: $*" >&2; exit 1; }}
+
+sync_tree() {{
+  local label="$1" allow_vanished="$2" source="$3" destination="$4"
+  shift 4
+
+  # Path-safety check
+  case "$destination" in
+    "$BACKUP_DIR"/*|"$BACKUP_DIR") ;;
+    *) fail "Stage $label: destination outside BACKUP_DIR"; ;;
+  esac
+
+  # THE FIX: create full hierarchy before rsync
+  mkdir -p -- "$destination" || fail "Stage $label: mkdir failed for '$destination'"
+
+  local rc=0
+  rsync --archive --one-file-system "$@" "$source" "$destination" || rc=$?
+
+  if [[ "$rc" -eq 0 ]]; then return 0
+  elif [[ "$allow_vanished" == "yes" && "$rc" -eq 24 ]]; then
+    RSYNC_WARNINGS+=("$label: vanished"); return 0
+  else
+    fail "rsync failed for $label (exit code $rc)"
+  fi
+}}
+
+sync_tree "/etc/nixos" no "{src}/" "{dest}/"
+echo "SUCCESS"
+"""
+            script_file = os.path.join(tmpdir, "test.sh")
+            with open(script_file, "w") as sf:
+                sf.write(script)
+            result = subprocess.run(["bash", script_file], capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0,
+                f"sync_tree failed:\nstdout: {result.stdout}\nstderr: {result.stderr}")
+            self.assertIn("SUCCESS", result.stdout)
+            self.assertTrue(os.path.exists(os.path.join(dest, "configuration.nix")),
+                "configuration.nix must be present after sync_tree")
+
+    def test_sync_tree_all_four_stages_create_nested_dirs(self):
+        """End-to-end: all four production stage mappings create and populate
+        their nested destination directories starting from an empty current/."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Source trees
+            src_etc_nixos = os.path.join(tmpdir, "src", "etc", "nixos")
+            src_secrets   = os.path.join(tmpdir, "src", "etc", "nix-bitcoin-secrets")
+            src_home      = os.path.join(tmpdir, "src", "home")
+            src_varlib    = os.path.join(tmpdir, "src", "var", "lib")
+            for d in (src_etc_nixos, src_secrets, src_home, src_varlib):
+                os.makedirs(d)
+
+            with open(os.path.join(src_etc_nixos, "configuration.nix"), "w") as f:
+                f.write("{ }: {}\n")
+            with open(os.path.join(src_secrets, "bitcoin-key.txt"), "w") as f:
+                f.write("test-key-data\n")
+            with open(os.path.join(src_home, "user.txt"), "w") as f:
+                f.write("home\n")
+            with open(os.path.join(src_varlib, "app.db"), "w") as f:
+                f.write("db\n")
+
+            # Backup target: only current/ exists
+            target = os.path.join(tmpdir, "target")
+            backup_dir = os.path.join(target, "Sovran_SystemsOS_Backup", "current")
+            os.makedirs(backup_dir)
+
+            dest_nixos   = os.path.join(backup_dir, "etc", "nixos")
+            dest_secrets = os.path.join(backup_dir, "etc", "nix-bitcoin-secrets")
+            dest_home    = os.path.join(backup_dir, "home")
+            dest_varlib  = os.path.join(backup_dir, "var", "lib")
+
+            script = f"""#!/usr/bin/env bash
+set -euo pipefail
+TARGET="{target}"
+BACKUP_DIR="{backup_dir}"
+RSYNC_WARNINGS=()
+
+log() {{ echo "$*"; }}
+fail() {{ echo "FAIL: $*" >&2; exit 1; }}
+
+sync_tree() {{
+  local label="$1" allow_vanished="$2" source="$3" destination="$4"
+  shift 4
+  case "$destination" in
+    "$BACKUP_DIR"/*|"$BACKUP_DIR") ;;
+    *) fail "unsafe destination"; ;;
+  esac
+  mkdir -p -- "$destination" || fail "mkdir failed for $destination"
+  local rc=0
+  rsync --archive --one-file-system "$@" "$source" "$destination" || rc=$?
+  [[ "$rc" -eq 0 ]] || ([[ "$allow_vanished" == "yes" && "$rc" -eq 24 ]] && return 0) || \
+    fail "rsync failed (exit $rc)"
+}}
+
+sync_tree "/etc/nixos" no "{src_etc_nixos}/" "{dest_nixos}/"
+sync_tree "/etc/nix-bitcoin-secrets" no "{src_secrets}/" "{dest_secrets}/"
+sync_tree "/home" yes "{src_home}/" "{dest_home}/"
+sync_tree "/var/lib" no "{src_varlib}/" "{dest_varlib}/"
+echo "ALL_STAGES_OK"
+"""
+            script_file = os.path.join(tmpdir, "test.sh")
+            with open(script_file, "w") as sf:
+                sf.write(script)
+            result = subprocess.run(["bash", script_file], capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0,
+                f"stdout: {result.stdout}\nstderr: {result.stderr}")
+            self.assertIn("ALL_STAGES_OK", result.stdout)
+            self.assertTrue(os.path.exists(os.path.join(dest_nixos,   "configuration.nix")))
+            self.assertTrue(os.path.exists(os.path.join(dest_secrets, "bitcoin-key.txt")))
+            self.assertTrue(os.path.exists(os.path.join(dest_home,    "user.txt")))
+            self.assertTrue(os.path.exists(os.path.join(dest_varlib,  "app.db")))
+
+    def test_sync_tree_spaces_in_paths_work(self):
+        """sync_tree must handle spaces in target and backup-dir paths correctly."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            src = os.path.join(tmpdir, "src with spaces", "etc", "nixos")
+            os.makedirs(src)
+            with open(os.path.join(src, "configuration.nix"), "w") as f:
+                f.write("{ }: {}\n")
+
+            target = os.path.join(tmpdir, "S_S Backup")
+            backup_dir = os.path.join(target, "Sovran_SystemsOS_Backup", "current")
+            os.makedirs(backup_dir)
+            dest = os.path.join(backup_dir, "etc", "nixos")
+
+            script = f"""#!/usr/bin/env bash
+set -euo pipefail
+TARGET="{target}"
+BACKUP_DIR="{backup_dir}"
+RSYNC_WARNINGS=()
+
+log() {{ echo "$*"; }}
+fail() {{ echo "FAIL: $*" >&2; exit 1; }}
+
+sync_tree() {{
+  local label="$1" allow_vanished="$2" source="$3" destination="$4"
+  shift 4
+  mkdir -p -- "$destination" || fail "mkdir failed"
+  rsync --archive --one-file-system "$@" "$source" "$destination" || fail "rsync failed"
+}}
+
+sync_tree "/etc/nixos" no "{src}/" "{dest}/"
+echo "SUCCESS"
+"""
+            script_file = os.path.join(tmpdir, "test.sh")
+            with open(script_file, "w") as sf:
+                sf.write(script)
+            result = subprocess.run(["bash", script_file], capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0,
+                f"stdout: {result.stdout}\nstderr: {result.stderr}")
+            self.assertIn("SUCCESS", result.stdout)
+            self.assertTrue(os.path.exists(os.path.join(dest, "configuration.nix")))
+
+    def test_no_delete_dest_only_file_survives_second_run(self):
+        """Behavioral: without --delete, a file present only in the destination
+        must survive a second sync_tree run.  Accidental source-side deletion
+        must NOT silently wipe the backup copy."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            src  = os.path.join(tmpdir, "src")
+            dest = os.path.join(tmpdir, "dest")
+            os.makedirs(src)
+            os.makedirs(dest)
+
+            with open(os.path.join(src,  "keep.txt"), "w") as f:
+                f.write("keep\n")
+            with open(os.path.join(dest, "dest_only.txt"), "w") as f:
+                f.write("destination-only file\n")
+
+            # First run
+            r1 = subprocess.run(
+                ["rsync", "--archive", "--one-file-system", src + "/", dest + "/"],
+                capture_output=True, text=True,
+            )
+            self.assertEqual(r1.returncode, 0, r1.stderr)
+
+            # Second run (no new source files added)
+            r2 = subprocess.run(
+                ["rsync", "--archive", "--one-file-system", src + "/", dest + "/"],
+                capture_output=True, text=True,
+            )
+            self.assertEqual(r2.returncode, 0, r2.stderr)
+
+            # dest_only.txt must still be present — no --delete was used
+            self.assertTrue(os.path.exists(os.path.join(dest, "dest_only.txt")),
+                "destination-only file must survive because --delete is not used")
+            self.assertTrue(os.path.exists(os.path.join(dest, "keep.txt")))
+
+    def test_sync_tree_mkdir_failure_is_fatal_with_context(self):
+        """Behavioral: when mkdir -p fails, sync_tree must exit non-zero with a
+        message that includes the stage label, source, and destination."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            target     = os.path.join(tmpdir, "target")
+            backup_dir = os.path.join(target, "current")
+            os.makedirs(backup_dir)
+
+            # Make the destination parent read-only so mkdir -p fails
+            os.chmod(backup_dir, 0o555)
+
+            dest = os.path.join(backup_dir, "nested", "dir")
+
+            script = f"""#!/usr/bin/env bash
+TARGET="{target}"
+BACKUP_DIR="{backup_dir}"
+
+log() {{ echo "$*"; }}
+fail() {{ echo "MKDIR_FAIL_MSG: $*" >&2; exit 1; }}
+
+sync_tree() {{
+  local label="$1" allow_vanished="$2" source="$3" destination="$4"
+  shift 4
+  mkdir -p -- "$destination" 2>/dev/null || \
+    fail "Stage $label: failed to create destination directory '$destination' (source: '$source')."
+  echo "SHOULD_NOT_REACH"
+}}
+
+sync_tree "test-stage" no /some/source "{dest}"
+"""
+            try:
+                script_file = os.path.join(tmpdir, "test.sh")
+                with open(script_file, "w") as sf:
+                    sf.write(script)
+                result = subprocess.run(["bash", script_file], capture_output=True, text=True)
+                self.assertNotEqual(result.returncode, 0,
+                    "sync_tree must fail when mkdir -p fails")
+                self.assertIn("MKDIR_FAIL_MSG", result.stderr,
+                    "failure message must be present in stderr")
+                self.assertIn("test-stage", result.stderr,
+                    "failure message must include the stage label")
+                self.assertNotIn("SHOULD_NOT_REACH", result.stdout,
+                    "rsync must not run after mkdir failure")
+            finally:
+                os.chmod(backup_dir, 0o755)
+
+    def test_sync_tree_mountpoint_check_prevents_write_on_disconnect(self):
+        """Behavioral: sync_tree must abort with a clear message if $TARGET is
+        no longer a mount point (simulating drive disconnection)."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            src        = os.path.join(tmpdir, "src")
+            target     = os.path.join(tmpdir, "target")
+            backup_dir = os.path.join(target, "current")
+            dest       = os.path.join(backup_dir, "etc", "nixos")
+            os.makedirs(src)
+            os.makedirs(backup_dir)
+            with open(os.path.join(src, "file.nix"), "w") as f:
+                f.write("{ }: {}\n")
+
+            # Inject a fake 'mountpoint' that always returns 1 (drive gone)
+            script = f"""#!/usr/bin/env bash
+set -euo pipefail
+TARGET="{target}"
+BACKUP_DIR="{backup_dir}"
+RSYNC_WARNINGS=()
+
+log() {{ echo "$*"; }}
+fail() {{ echo "MOUNT_FAIL: $*" >&2; exit 1; }}
+
+# Fake mountpoint: always returns failure (simulates drive disconnection)
+mountpoint() {{ return 1; }}
+export -f mountpoint
+
+sync_tree() {{
+  local label="$1" allow_vanished="$2" source="$3" destination="$4"
+  shift 4
+  mountpoint -q "$TARGET" 2>/dev/null || \
+    fail "Stage $label: external drive '$TARGET' is no longer mounted. Refusing to write."
+  mkdir -p -- "$destination" || fail "mkdir failed"
+  rsync --archive "$@" "$source" "$destination" || fail "rsync failed"
+  echo "RSYNC_RAN"
+}}
+
+sync_tree "/etc/nixos" no "{src}/" "{dest}/"
+"""
+            script_file = os.path.join(tmpdir, "test.sh")
+            with open(script_file, "w") as sf:
+                sf.write(script)
+            result = subprocess.run(["bash", script_file], capture_output=True, text=True)
+            self.assertNotEqual(result.returncode, 0,
+                "sync_tree must fail when mount check fails")
+            self.assertIn("MOUNT_FAIL", result.stderr,
+                "failure message must be in stderr")
+            self.assertIn("no longer mounted", result.stderr,
+                "failure message must say 'no longer mounted'")
+            self.assertNotIn("RSYNC_RAN", result.stdout,
+                "rsync must not run after mount check fails")
+
+    def test_failed_run_leaves_incomplete_not_backup_complete(self):
+        """Behavioral: a failed run must leave INCOMPLETE and must NOT create
+        BACKUP_COMPLETE."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            backup_dir = os.path.join(tmpdir, "current")
+            os.makedirs(backup_dir)
+
+            script = f"""#!/usr/bin/env bash
+BACKUP_DIR="{backup_dir}"
+BACKUP_COMPLETE=0
+FAILED_ALREADY=0
+
+log() {{ echo "$*"; }}
+set_status() {{ echo "STATUS: $1"; }}
+
+fail() {{
+  FAILED_ALREADY=1
+  log "ERROR: $*"
+  set_status "FAILED"
+  exit 1
+}}
+
+cleanup() {{
+  local rc=$?
+  if [[ "$BACKUP_COMPLETE" -eq 1 && "$rc" -eq 0 ]]; then return; fi
+  if [[ "$FAILED_ALREADY" -eq 0 ]]; then
+    log "ERROR: unexpected exit $rc"
+    set_status "FAILED"
+  fi
+  if [[ -n "${{BACKUP_DIR:-}}" && -d "${{BACKUP_DIR:-}}" && ! -f "${{BACKUP_DIR:-}}/BACKUP_COMPLETE" ]]; then
+    touch "${{BACKUP_DIR}}/INCOMPLETE" 2>/dev/null || true
+  fi
+}}
+trap cleanup EXIT
+
+# Remove stale BACKUP_COMPLETE from prior run
+rm -f "$BACKUP_DIR/BACKUP_COMPLETE"
+touch "$BACKUP_DIR/INCOMPLETE"
+
+# Simulate a stage failure
+fail "stage failed"
+"""
+            script_file = os.path.join(tmpdir, "test.sh")
+            with open(script_file, "w") as sf:
+                sf.write(script)
+            result = subprocess.run(["bash", script_file], capture_output=True, text=True)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertTrue(os.path.exists(os.path.join(backup_dir, "INCOMPLETE")),
+                "INCOMPLETE marker must exist after a failed run")
+            self.assertFalse(os.path.exists(os.path.join(backup_dir, "BACKUP_COMPLETE")),
+                "BACKUP_COMPLETE must NOT be created after a failed run")
+
+    def test_successful_run_removes_incomplete_writes_backup_complete(self):
+        """Behavioral: a successful run must remove INCOMPLETE and write BACKUP_COMPLETE."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            backup_dir = os.path.join(tmpdir, "current")
+            os.makedirs(backup_dir)
+
+            script = f"""#!/usr/bin/env bash
+set -euo pipefail
+BACKUP_DIR="{backup_dir}"
+BACKUP_COMPLETE=0
+
+rm -f "$BACKUP_DIR/BACKUP_COMPLETE"
+touch "$BACKUP_DIR/INCOMPLETE"
+
+# Simulate all work succeeding
+rm -f "$BACKUP_DIR/INCOMPLETE"
+date -u '+%Y-%m-%dT%H:%M:%SZ' > "$BACKUP_DIR/BACKUP_COMPLETE"
+BACKUP_COMPLETE=1
+echo "SUCCESS"
+"""
+            script_file = os.path.join(tmpdir, "test.sh")
+            with open(script_file, "w") as sf:
+                sf.write(script)
+            result = subprocess.run(["bash", script_file], capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0,
+                f"stderr: {result.stderr}")
+            self.assertFalse(os.path.exists(os.path.join(backup_dir, "INCOMPLETE")),
+                "INCOMPLETE must be removed after success")
+            self.assertTrue(os.path.exists(os.path.join(backup_dir, "BACKUP_COMPLETE")),
+                "BACKUP_COMPLETE must be written after success")
+
+    def test_stale_backup_complete_removed_before_new_run(self):
+        """Behavioral: a stale BACKUP_COMPLETE from a prior successful run must
+        be removed at the start of the new run so the run is unambiguously marked
+        as INCOMPLETE while in progress."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            backup_dir = os.path.join(tmpdir, "current")
+            os.makedirs(backup_dir)
+
+            # Simulate state after a prior successful run
+            with open(os.path.join(backup_dir, "BACKUP_COMPLETE"), "w") as f:
+                f.write("2026-07-01T00:00:00Z\n")
+
+            script = f"""#!/usr/bin/env bash
+set -euo pipefail
+BACKUP_DIR="{backup_dir}"
+BACKUP_COMPLETE=0
+
+# New run starts: remove stale BACKUP_COMPLETE, write INCOMPLETE
+rm -f "$BACKUP_DIR/BACKUP_COMPLETE"
+touch "$BACKUP_DIR/INCOMPLETE"
+
+[[ ! -f "$BACKUP_DIR/BACKUP_COMPLETE" ]] && echo "STALE_COMPLETE_REMOVED"
+[[ -f "$BACKUP_DIR/INCOMPLETE" ]] && echo "INCOMPLETE_PRESENT"
+"""
+            script_file = os.path.join(tmpdir, "test.sh")
+            with open(script_file, "w") as sf:
+                sf.write(script)
+            result = subprocess.run(["bash", script_file], capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0)
+            self.assertIn("STALE_COMPLETE_REMOVED", result.stdout,
+                "stale BACKUP_COMPLETE must be removed at run start")
+            self.assertIn("INCOMPLETE_PRESENT", result.stdout,
+                "INCOMPLETE must be present during the run")
+
+    def test_rerun_after_failed_run_succeeds_without_manual_cleanup(self):
+        """Behavioral: a directory left with only INCOMPLETE (prior failed run)
+        can be rerun successfully without any manual cleanup."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            src = os.path.join(tmpdir, "src")
+            os.makedirs(src)
+            with open(os.path.join(src, "file.txt"), "w") as f:
+                f.write("data\n")
+
+            backup_dir = os.path.join(tmpdir, "backup", "current")
+            os.makedirs(backup_dir)
+
+            # Simulate state after a prior failed run: only INCOMPLETE exists
+            with open(os.path.join(backup_dir, "INCOMPLETE"), "w") as f:
+                f.write("")
+
+            dest = os.path.join(backup_dir, "data")
+
+            script = f"""#!/usr/bin/env bash
+set -euo pipefail
+BACKUP_DIR="{backup_dir}"
+BACKUP_COMPLETE=0
+RSYNC_WARNINGS=()
+
+log() {{ echo "$*"; }}
+fail() {{ echo "FAIL: $*" >&2; exit 1; }}
+
+sync_tree() {{
+  local label="$1" allow_vanished="$2" source="$3" destination="$4"
+  shift 4
+  mkdir -p -- "$destination" || fail "mkdir failed"
+  rsync --archive --one-file-system "$@" "$source" "$destination" || fail "rsync failed"
+}}
+
+# New run: remove stale BACKUP_COMPLETE (none here), write INCOMPLETE
+rm -f "$BACKUP_DIR/BACKUP_COMPLETE"
+touch "$BACKUP_DIR/INCOMPLETE"
+
+# Run stage
+sync_tree "data" no "{src}/" "{dest}/"
+
+# Mark success
+rm -f "$BACKUP_DIR/INCOMPLETE"
+date -u '+%Y-%m-%dT%H:%M:%SZ' > "$BACKUP_DIR/BACKUP_COMPLETE"
+BACKUP_COMPLETE=1
+echo "RERUN_SUCCESS"
+"""
+            script_file = os.path.join(tmpdir, "test.sh")
+            with open(script_file, "w") as sf:
+                sf.write(script)
+            result = subprocess.run(["bash", script_file], capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0,
+                f"stdout: {result.stdout}\nstderr: {result.stderr}")
+            self.assertIn("RERUN_SUCCESS", result.stdout)
+            self.assertFalse(os.path.exists(os.path.join(backup_dir, "INCOMPLETE")),
+                "INCOMPLETE must be removed after successful rerun")
+            self.assertTrue(os.path.exists(os.path.join(backup_dir, "BACKUP_COMPLETE")),
+                "BACKUP_COMPLETE must exist after successful rerun")
+            self.assertTrue(os.path.exists(os.path.join(dest, "file.txt")),
+                "backed-up file must exist after successful rerun")
+
+    def test_behavioral_database_exclusions(self):
+        """Behavioral: postgresql, mysql, mariadb, bitcoind, electrs directories
+        must be excluded from the var/lib rsync stage."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            src_varlib = os.path.join(tmpdir, "var", "lib")
+            for d in ("postgresql", "mysql", "mariadb", "bitcoind", "electrs", "myapp"):
+                os.makedirs(os.path.join(src_varlib, d))
+                with open(os.path.join(src_varlib, d, "data.bin"), "w") as f:
+                    f.write("data\n")
+
+            dest_varlib = os.path.join(tmpdir, "backup", "var", "lib")
+            os.makedirs(dest_varlib)
+
+            result = subprocess.run(
+                [
+                    "rsync", "--archive", "--one-file-system",
+                    "--exclude=postgresql/",
+                    "--exclude=mysql/",
+                    "--exclude=mariadb/",
+                    "--exclude=bitcoind/",
+                    "--exclude=electrs/",
+                    src_varlib + "/", dest_varlib + "/",
+                ],
+                capture_output=True, text=True,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+
+            # Excluded directories must NOT appear in dest
+            for excluded in ("postgresql", "mysql", "mariadb", "bitcoind", "electrs"):
+                self.assertFalse(
+                    os.path.exists(os.path.join(dest_varlib, excluded)),
+                    f"{excluded}/ must be excluded from the backup",
+                )
+            # Non-excluded directory must appear
+            self.assertTrue(
+                os.path.exists(os.path.join(dest_varlib, "myapp", "data.bin")),
+                "non-excluded directories must be backed up",
+            )
+
+    def test_behavioral_home_cache_exclusion(self):
+        """Behavioral: .cache/ and browser cache dirs must be excluded from /home."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            user_home = os.path.join(tmpdir, "home", "user")
+            cache_dir = os.path.join(user_home, ".cache", "something")
+            docs_dir  = os.path.join(user_home, "Documents")
+            ff_cache  = os.path.join(user_home, ".mozilla", "firefox", "default", "cache2")
+            brave_cache = os.path.join(
+                user_home, ".config", "BraveSoftware", "Brave-Browser", "Default", "Cache"
+            )
+            for d in (cache_dir, docs_dir, ff_cache, brave_cache):
+                os.makedirs(d)
+            with open(os.path.join(cache_dir,    "tmp.bin"),  "w") as f: f.write("cache\n")
+            with open(os.path.join(docs_dir,     "note.txt"), "w") as f: f.write("note\n")
+            with open(os.path.join(ff_cache,     "entry"),    "w") as f: f.write("ff\n")
+            with open(os.path.join(brave_cache,  "entry"),    "w") as f: f.write("brave\n")
+
+            src  = os.path.join(tmpdir, "home")
+            dest = os.path.join(tmpdir, "backup", "home")
+            os.makedirs(dest)
+
+            result = subprocess.run(
+                [
+                    "rsync", "--archive", "--one-file-system",
+                    "--exclude=.cache/",
+                    "--exclude=.mozilla/firefox/*/cache2/",
+                    "--exclude=.config/BraveSoftware/Brave-Browser/*/Cache/",
+                    src + "/", dest + "/",
+                ],
+                capture_output=True, text=True,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+
+            dest_user = os.path.join(dest, "user")
+            self.assertFalse(
+                os.path.exists(os.path.join(dest_user, ".cache")),
+                ".cache/ must be excluded",
+            )
+            self.assertFalse(
+                os.path.exists(os.path.join(dest_user, ".mozilla", "firefox",
+                                            "default", "cache2")),
+                "Firefox cache2/ must be excluded",
+            )
+            self.assertFalse(
+                os.path.exists(os.path.join(dest_user, ".config", "BraveSoftware",
+                                            "Brave-Browser", "Default", "Cache")),
+                "Brave Cache/ must be excluded",
+            )
+            self.assertTrue(
+                os.path.exists(os.path.join(dest_user, "Documents", "note.txt")),
+                "Documents must be backed up",
+            )
 
 
 if __name__ == "__main__":
