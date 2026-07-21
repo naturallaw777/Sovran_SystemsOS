@@ -46,7 +46,8 @@ BACKUP_SUBPATH="Sovran_SystemsOS_Backup/current"
 # ── Logging helpers ──────────────────────────────────────────────
 
 log() {
-  local msg="[$(date '+%Y-%m-%d %H:%M:%S')] $*"
+  local msg
+  msg="[$(date '+%Y-%m-%d %H:%M:%S')] $*"
   echo "$msg" | tee -a "$BACKUP_LOG"
 }
 
@@ -65,7 +66,9 @@ cleanup() {
   local rc=$?
 
   # Release the concurrency lock file descriptor if it was opened
-  [[ -n "${LOCK_FD:-}" ]] && exec {LOCK_FD}>&- 2>/dev/null || true
+  if [[ -n "${LOCK_FD:-}" ]]; then
+    exec {LOCK_FD}>&- 2>/dev/null || true
+  fi
 
   if [[ "$BACKUP_COMPLETE" -eq 1 && "$rc" -eq 0 ]]; then
     return
@@ -222,15 +225,49 @@ estimate_path_bytes() {
   echo "$size"
 }
 
-# ── Run rsync for one source tree ────────────────────────────────
+# ── Sync one source tree to its backup destination ───────────────
+# Usage: sync_tree <label> <allow_vanished> <source> <destination> [rsync options...]
+#
 # allow_vanished: "yes" means rsync exit 24 (vanished files) is nonfatal.
-# For /home only — files may disappear while the desktop is active.
+# Used for /home only — files may disappear while the desktop is active.
 # All other nonzero exit codes are always fatal.
-run_rsync() {
+#
+# Before every rsync call this helper:
+#   1. Re-verifies $TARGET is still a mount point (fails if drive disconnected).
+#   2. Verifies the destination path remains beneath $BACKUP_DIR and $BACKUP_DIR
+#      remains beneath $TARGET (safe-path check).
+#   3. Creates the full destination directory hierarchy with mkdir -p so that
+#      rsync never fails trying to create a directory whose parent is absent.
+sync_tree() {
   local label="$1"
   local allow_vanished="$2"
-  shift 2
-  # Remaining args are passed directly to rsync (filters + source + dest).
+  local source="$3"
+  local destination="$4"
+  shift 4
+  # Remaining "$@" are rsync options (--exclude, etc.)
+
+  # ── Re-verify the external drive is still mounted ────────────────
+  mountpoint -q "$TARGET" 2>/dev/null || \
+    fail "Stage $label: external drive '$TARGET' is no longer mounted. Refusing to write."
+
+  # ── Verify path safety ────────────────────────────────────────────
+  # BACKUP_DIR must remain beneath TARGET.
+  case "$BACKUP_DIR" in
+    "$TARGET"/*) ;;
+    *) fail "Stage $label: BACKUP_DIR '$BACKUP_DIR' is outside TARGET '$TARGET'." ;;
+  esac
+  # Destination must remain beneath BACKUP_DIR.
+  case "$destination" in
+    "$BACKUP_DIR"/*|"$BACKUP_DIR") ;;
+    *) fail "Stage $label: destination '$destination' is outside BACKUP_DIR '$BACKUP_DIR'. Refusing to write." ;;
+  esac
+
+  # ── Create complete destination directory hierarchy ───────────────
+  # This is the fix for the production failure:
+  #   rsync: [Receiver] mkdir ".../current/etc/nixos" failed: No such file or directory
+  # mkdir -p creates all intermediate parents (e.g. current/etc/) before rsync runs.
+  mkdir -p -- "$destination" || \
+    fail "Stage $label: failed to create destination directory '$destination' (source: '$source')."
 
   local rsync_err_tmp
   rsync_err_tmp="$(mktemp /tmp/sovran-rsync-err.XXXXXX)"
@@ -244,7 +281,7 @@ run_rsync() {
     --numeric-ids \
     --one-file-system \
     --partial \
-    "$@" 2>"$rsync_err_tmp" || rc=$?
+    "$@" "$source" "$destination" 2>"$rsync_err_tmp" || rc=$?
 
   if [[ -s "$rsync_err_tmp" ]]; then
     while IFS= read -r rline; do
@@ -330,7 +367,11 @@ validate_target_mount "$TARGET"
 # Subsequent runs update the same mirror, transferring only new or changed files.
 
 BACKUP_DIR="${TARGET}/${BACKUP_SUBPATH}"
-mkdir -p "$BACKUP_DIR"
+mkdir -p -- "$BACKUP_DIR"
+
+# Remove any stale BACKUP_COMPLETE left by a previous successful run.
+# The new run will re-earn it only after all stages succeed.
+rm -f "$BACKUP_DIR/BACKUP_COMPLETE"
 
 # Write an INCOMPLETE marker immediately; replaced by BACKUP_COMPLETE only
 # after all rsync stages and manifest write succeed. Failed or interrupted
@@ -382,7 +423,7 @@ log "Free space on drive: ${FREE_GB} GB"
 log ""
 log "── Stage 1/4: NixOS configuration (/etc/nixos) ──────────────"
 if [[ -d /etc/nixos ]]; then
-  run_rsync "/etc/nixos" no /etc/nixos/ "$BACKUP_DIR/etc/nixos/"
+  sync_tree "/etc/nixos" no /etc/nixos/ "$BACKUP_DIR/etc/nixos/"
   log "Stage 1 complete."
 else
   log "WARNING: /etc/nixos not found — skipping."
@@ -395,7 +436,7 @@ log "── Stage 2/4: Secrets (/etc/nix-bitcoin-secrets) ───────�
 if [[ "$ROLE" == "desktop" ]]; then
   log "Skipping /etc/nix-bitcoin-secrets — not applicable for Desktop Only role."
 elif [[ -e /etc/nix-bitcoin-secrets ]]; then
-  run_rsync "/etc/nix-bitcoin-secrets" no /etc/nix-bitcoin-secrets/ "$BACKUP_DIR/etc/nix-bitcoin-secrets/"
+  sync_tree "/etc/nix-bitcoin-secrets" no /etc/nix-bitcoin-secrets/ "$BACKUP_DIR/etc/nix-bitcoin-secrets/"
 else
   log "(not found: /etc/nix-bitcoin-secrets — skipping)"
 fi
@@ -409,7 +450,7 @@ log "Stage 2 complete."
 log ""
 log "── Stage 3/4: Home directory (/home) ───────────────────────"
 if [[ -d /home ]]; then
-  run_rsync "/home" yes \
+  sync_tree "/home" yes /home/ "$BACKUP_DIR/home/" \
     --exclude='.cache/' \
     --exclude='.local/share/Trash/' \
     --exclude='Trash/' \
@@ -425,8 +466,7 @@ if [[ -d /home ]]; then
     --exclude='.local/share/baloo/' \
     --exclude='.thumbnails/' \
     --exclude='.xsession-errors' \
-    --exclude='.xsession-errors.old' \
-    /home/ "$BACKUP_DIR/home/"
+    --exclude='.xsession-errors.old'
   log "Stage 3 complete."
 else
   log "WARNING: /home not found — skipping."
@@ -440,7 +480,7 @@ fi
 log ""
 log "── Stage 4/4: System data (/var/lib) ───────────────────────"
 if [[ -d /var/lib ]]; then
-  run_rsync "/var/lib" no \
+  sync_tree "/var/lib" no /var/lib/ "$BACKUP_DIR/var/lib/" \
     --exclude='postgresql/' \
     --exclude='mysql/' \
     --exclude='mariadb/' \
@@ -449,8 +489,7 @@ if [[ -d /var/lib ]]; then
     --exclude='*/log/' \
     --exclude='*/logs/' \
     --exclude='*/cache/' \
-    --exclude='*/tmp/' \
-    /var/lib/ "$BACKUP_DIR/var/lib/"
+    --exclude='*/tmp/'
   log "Stage 4 complete."
 else
   log "WARNING: /var/lib not found — skipping."
@@ -544,7 +583,7 @@ log "Please eject the drive safely before removing it from your Sovran Pro."
 # Remove incomplete marker and write completion marker only after all work succeeds.
 # A later successful run will update the same mirror and replace any INCOMPLETE state.
 rm -f "$BACKUP_DIR/INCOMPLETE"
-echo "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" > "$BACKUP_DIR/BACKUP_COMPLETE"
+date -u '+%Y-%m-%dT%H:%M:%SZ' > "$BACKUP_DIR/BACKUP_COMPLETE"
 
 BACKUP_COMPLETE=1
 set_status "SUCCESS"
