@@ -884,8 +884,8 @@ echo "SUCCESS"
 
             with open(os.path.join(src_etc_nixos, "configuration.nix"), "w") as f:
                 f.write("{ }: {}\n")
-            with open(os.path.join(src_secrets, "secret.key"), "w") as f:
-                f.write("secret\n")
+            with open(os.path.join(src_secrets, "bitcoin-key.txt"), "w") as f:
+                f.write("test-key-data\n")
             with open(os.path.join(src_home, "user.txt"), "w") as f:
                 f.write("home\n")
             with open(os.path.join(src_varlib, "app.db"), "w") as f:
@@ -938,7 +938,7 @@ echo "ALL_STAGES_OK"
                 f"stdout: {result.stdout}\nstderr: {result.stderr}")
             self.assertIn("ALL_STAGES_OK", result.stdout)
             self.assertTrue(os.path.exists(os.path.join(dest_nixos,   "configuration.nix")))
-            self.assertTrue(os.path.exists(os.path.join(dest_secrets, "secret.key")))
+            self.assertTrue(os.path.exists(os.path.join(dest_secrets, "bitcoin-key.txt")))
             self.assertTrue(os.path.exists(os.path.join(dest_home,    "user.txt")))
             self.assertTrue(os.path.exists(os.path.join(dest_varlib,  "app.db")))
 
