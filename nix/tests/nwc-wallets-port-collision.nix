@@ -118,8 +118,8 @@ pkgs.testers.runNixOSTest {
     machine.succeed("ss -ltn '( sport = :18080 )' | grep -F '127.0.0.1:18080'")
     machine.succeed("ss -ltn '( sport = :8181 )' | grep -F '127.0.0.1:8181'")
 
-    machine.fail("ss -ltn '( sport = :18080 )' | grep -E '0\\\\.0\\\\.0\\\\.0:18080|\\[::\\]:18080'")
-    machine.fail("ss -ltn '( sport = :8181 )' | grep -E '0\\\\.0\\\\.0\\\\.0:8181|\\[::\\]:8181'")
+    machine.fail("ss -ltn '( sport = :18080 )' | grep -E '0\\.0\\.0\\.0:18080|\\[::\\]:18080'")
+    machine.fail("ss -ltn '( sport = :8181 )' | grep -E '0\\.0\\.0\\.0:8181|\\[::\\]:8181'")
 
     machine.succeed("${pkgs.curl}/bin/curl --fail --silent http://127.0.0.1:18080/api/info | ${pkgs.gnugrep}/bin/grep -q 'setupCompleted'")
 
