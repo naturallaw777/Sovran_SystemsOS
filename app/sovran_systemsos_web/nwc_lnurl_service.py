@@ -186,8 +186,20 @@ def _make_handler(manager: "AlbyHubManager") -> type:
             m = re.fullmatch(r"/lnurlp/([^/]+)/callback", path)
             if m:
                 alias = urllib.parse.unquote(m.group(1))
-                amount_list = qs.get("amount")
-                amount_str = amount_list[0] if amount_list else None
+                amount_values = qs.get("amount")
+                if not amount_values:
+                    amount_str = None
+                elif len(amount_values) != 1:
+                    self._send_json(
+                        400,
+                        {
+                            "status": "ERROR",
+                            "reason": "Exactly one amount parameter is required",
+                        },
+                    )
+                    return
+                else:
+                    amount_str = amount_values[0]
                 payload, code = _lnurl_callback(alias, amount_str, self._manager)
                 self._send_json(code, payload)
                 return
