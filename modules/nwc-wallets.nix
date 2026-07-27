@@ -1,10 +1,13 @@
 { config, pkgs, lib, ... }:
 
 let
+  albyHubPort = 18080;
+  albyHubApiBase = "http://127.0.0.1:${toString albyHubPort}";
   patchedAlbyHub = pkgs.albyhub.overrideAttrs (old: {
     patches = (old.patches or []) ++ [
       ../packages/albyhub/0001-private-route-hints.patch
       ../packages/albyhub/0002-isolated-invoice-app-id.patch
+      ../packages/albyhub/0003-loopback-bind-host.patch
     ];
   });
 
@@ -32,6 +35,18 @@ lib.mkIf config.sovran_systemsOS.features."nwc-wallets" {
     {
       assertion = !(lib.attrByPath [ "nix-bitcoin" "netns-isolation" "enable" ] false config);
       message = "Wallet Connections requires nix-bitcoin.netns-isolation.enable = false.";
+    }
+    {
+      assertion = albyHubPort != config.services.lnd.restPort;
+      message = "Alby Hub and LND REST must use different ports.";
+    }
+    {
+      assertion = albyHubPort != 8181;
+      message = "Alby Hub and the public LNURL service must use different ports.";
+    }
+    {
+      assertion = !(lib.elem albyHubPort config.networking.firewall.allowedTCPPorts);
+      message = "Alby Hub management port must not be opened on the public TCP firewall.";
     }
   ];
 
@@ -79,7 +94,7 @@ lib.mkIf config.sovran_systemsOS.features."nwc-wallets" {
       LND_MACAROON_FILE = "/run/lnd/albyhub.macaroon";
       WORK_DIR = "/var/lib/albyhub";
       DATABASE_URI = "/var/lib/albyhub/nwc.db";
-      PORT = "8080";
+      PORT = toString albyHubPort;
       RELAY = "wss://relay.getalby.com,wss://relay2.getalby.com";
       AUTO_LINK_ALBY_ACCOUNT = "false";
       SEND_EVENTS_TO_ALBY = "false";
@@ -110,6 +125,7 @@ lib.mkIf config.sovran_systemsOS.features."nwc-wallets" {
     wantedBy = [ "multi-user.target" ];
     after = [ "albyhub.service" "sovran-hub-web.service" ];
     wants = [ "albyhub.service" ];
+    environment.NWC_ALBY_HUB_API_BASE = albyHubApiBase;
 
     serviceConfig = {
       Type = "simple";
@@ -131,6 +147,7 @@ lib.mkIf config.sovran_systemsOS.features."nwc-wallets" {
   };
 
   systemd.services.sovran-hub-web.environment = {
+    NWC_ALBY_HUB_API_BASE = albyHubApiBase;
     NWC_LND_ADDRESS = "${lndRpcAddress}:${lndRpcPort}";
     NWC_LND_CERT_FILE = lndCertPath;
     NWC_LND_MACAROON_FILE = "/run/lnd/albyhub.macaroon";

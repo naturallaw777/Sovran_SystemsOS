@@ -57,5 +57,14 @@
 				];
 			};
 		};
+
+		nixosTests.nwc-wallets-port-collision =
+			import ./nix/tests/nwc-wallets-port-collision.nix {
+				inherit nixpkgs;
+				system = "x86_64-linux";
+			};
+
+		checks.x86_64-linux.nwc-wallets-port-collision =
+			self.nixosTests.nwc-wallets-port-collision;
 	};
 }

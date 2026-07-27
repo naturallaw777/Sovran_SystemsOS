@@ -36,7 +36,7 @@ Guardrails:
 
 ```
 Authenticated Hub management API
-  -> local Alby Hub (port 8080, loopback only)
+  -> local Alby Hub (port 18080, loopback only)
   -> local LND
 
 Public Lightning Address
@@ -48,7 +48,7 @@ Public Lightning Address
 
 Security invariants:
 
-- Alby Hub management port (8080) is never opened to the public firewall.
+- Alby Hub management port (18080) is never opened to the public firewall.
 - Dedicated LNURL service port (8181) is never opened to the public firewall.
 - LNURL callback and discovery are exposed only through Caddy on 80/443.
 - Management APIs are authenticated and remain under `/api/nwc/`.
@@ -68,10 +68,11 @@ Security invariants:
 
 ## Alby Hub package and patches
 
-Wallet Connections uses `pkgs.albyhub` from the repository's pinned `nixpkgs` input and applies two conventional patches via `overrideAttrs`:
+Wallet Connections uses `pkgs.albyhub` from the repository's pinned `nixpkgs` input and applies three conventional patches via `overrideAttrs`:
 
 1. **Private route hints** (`packages/albyhub/0001-private-route-hints.patch`): changes regular LND invoice creation from `Private: !hasPublicChannels` to `Private: true` and leaves hold-invoice logic unchanged.
 2. **Invoice app attribution** (`packages/albyhub/0002-isolated-invoice-app-id.patch`): updates `api/models.go`, `api/transactions.go`, `http/http_service.go`, and `wails/wails_handlers.go` so invoice creation accepts and forwards optional `appId`.
+3. **Loopback bind host** (`packages/albyhub/0003-loopback-bind-host.patch`): adds `HOST` to config and binds Echo to `HOST:PORT` instead of `:PORT`.
 
 No placeholder source/vendor hashes are used in the Wallet Connections module.
 
