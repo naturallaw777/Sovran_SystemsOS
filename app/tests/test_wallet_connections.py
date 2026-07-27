@@ -144,6 +144,7 @@ class WalletConnectionsBehaviorTests(unittest.IsolatedAsyncioTestCase):
                 patch.object(server, "NWC_STATE_FILE", str(state_file)),
                 patch.object(server, "NWC_DOMAIN_FILE", str(domain_file)),
                 patch.object(server, "_nwc_test_address", return_value={"ok": False, "error": "public_endpoint_unreachable"}),
+                patch.object(server, "_generate_qr_base64", return_value="data:image/png;base64,abc"),
             ):
                 req = types.SimpleNamespace(
                     name="My Wallet",
@@ -154,10 +155,12 @@ class WalletConnectionsBehaviorTests(unittest.IsolatedAsyncioTestCase):
                 create_resp = await server.api_nwc_create_wallet(req)
                 create_body = json.loads(create_resp.body.decode("utf-8"))
                 self.assertIn("pairing_uri", create_body)
+                self.assertEqual(create_body.get("pairing_qrcode"), "data:image/png;base64,abc")
 
                 list_resp = await server.api_nwc_wallets()
                 self.assertEqual(len(list_resp["wallets"]), 1)
                 self.assertNotIn("pairing_uri", list_resp["wallets"][0])
+                self.assertNotIn("pairing_qrcode", list_resp["wallets"][0])
 
     async def test_create_reports_public_verification_success(self):
         with tempfile.TemporaryDirectory() as td:
