@@ -12,6 +12,7 @@ let
     || config.sovran_systemsOS.services.nextcloud
     || config.sovran_systemsOS.services.vaultwarden
     || config.sovran_systemsOS.features.haven
+    || config.sovran_systemsOS.features."nwc-wallets"
     || config.sovran_systemsOS.features.element-calling;
 in
 {
@@ -70,6 +71,7 @@ in
       BTCPAY=$(read_domain btcpayserver)
       VAULTWARDEN=$(read_domain vaultwarden)
       HAVEN=$(read_domain haven)
+      LIGHTNING=$(read_domain lightning)
       ACME_EMAIL=$(read_domain sslemail)
 
       # Start with global config — use ACME only when domain-based services are active
@@ -182,6 +184,18 @@ $HAVEN {
   request_body {
     max_size 100MB
   }
+}
+EOF
+      fi
+
+      # ── Wallet Connections LNURL ──────────────────────
+      if [ -n "$LIGHTNING" ]; then
+        cat >> /run/caddy/Caddyfile <<EOF
+
+$LIGHTNING {
+  # LNURL endpoints are served by the local Sovran Hub backend on 8937.
+  reverse_proxy /.well-known/lnurlp/* http://127.0.0.1:8937
+  reverse_proxy /lnurlp/* http://127.0.0.1:8937
 }
 EOF
       fi

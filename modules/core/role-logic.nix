@@ -34,6 +34,7 @@
         mempool = lib.mkForce false;
         element-calling = lib.mkForce false;
         bitcoin-core = lib.mkForce false;
+        "nwc-wallets" = lib.mkForce false;
       };
 
       sovran_systemsOS.web.btcpayserver = lib.mkForce false;
