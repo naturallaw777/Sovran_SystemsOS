@@ -4091,15 +4091,96 @@ def _validate_safe_name(name: str) -> bool:
     return bool(name) and _SAFE_NAME_RE.match(name) is not None
 
 
+# Hostname characters: letters, digits, hyphens only within labels; dots separate labels.
+# Each label must start and end with a letter or digit; no consecutive dots.
+_HOSTNAME_RE = re.compile(
+    r'^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$'
+)
+
+# Managed domain keys that produce Caddy virtual-host blocks (excluding sslemail)
+_MANAGED_DOMAIN_KEYS: frozenset[str] = frozenset([
+    "matrix", "haven", "element-calling", "vaultwarden",
+    "btcpayserver", "nextcloud", "wordpress", "lightning",
+])
+
+# Any save involving lightning must be unique across all managed service domains.
+_LIGHTNING_DOMAIN_KEY = "lightning"
+
+
+def _normalize_hostname(raw: str) -> str:
+    """Trim, lowercase, and remove exactly one trailing dot."""
+    h = raw.strip().lower()
+    if h.endswith("."):
+        h = h[:-1]
+    return h
+
+
+def _validate_hostname(hostname: str) -> bool:
+    """Return True if hostname is a valid safe FQDN-style value."""
+    return bool(hostname) and _HOSTNAME_RE.match(hostname) is not None
+
+
+def _read_managed_domain(key: str) -> str | None:
+    """Read the stored hostname for a managed domain key, or None if absent/empty."""
+    try:
+        with open(os.path.join(DOMAINS_DIR, key), "r") as fh:
+            val = fh.read().strip()
+        return _normalize_hostname(val) if val else None
+    except OSError:
+        return None
+
+
+def _check_domain_conflict(domain_name: str, new_hostname: str) -> str | None:
+    """Return the conflicting managed key if new_hostname is already used by another key.
+
+    The uniqueness rule is applied symmetrically: if either the target key or the
+    conflicting candidate key is 'lightning', the check is enforced.
+    """
+    for key in _MANAGED_DOMAIN_KEYS:
+        if key == domain_name:
+            continue  # skip self; re-saving the same hostname is allowed
+        existing = _read_managed_domain(key)
+        if existing is None:
+            continue
+        if existing == new_hostname:
+            # Enforce when lightning is involved (either side)
+            if domain_name == _LIGHTNING_DOMAIN_KEY or key == _LIGHTNING_DOMAIN_KEY:
+                return key
+    return None
+
+
 @app.post("/api/domains/set")
 async def api_domains_set(req: DomainSetRequest):
     """Save a domain and optionally register a DDNS URL."""
     if not _validate_safe_name(req.domain_name):
         raise HTTPException(status_code=400, detail="Invalid domain_name")
+
+    # Normalize and validate the submitted hostname before any mutation.
+    normalized = _normalize_hostname(req.domain)
+    if not _validate_hostname(normalized):
+        raise HTTPException(status_code=400, detail="Invalid hostname value")
+
+    # Reject duplicate managed-domain hostnames when lightning is involved.
+    if req.domain_name in _MANAGED_DOMAIN_KEYS:
+        conflicting_key = _check_domain_conflict(req.domain_name, normalized)
+        if conflicting_key is not None:
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "error": "domain_conflict",
+                    "conflicting_domain_key": conflicting_key,
+                    "message": (
+                        "Wallet Connections requires its own unique hostname. "
+                        "Choose a new subdomain such as lightning.yourdomain.com. "
+                        f"This hostname is already assigned to: {conflicting_key}."
+                    ),
+                },
+            )
+
     _ensure_domains_dir()
     domain_path = os.path.join(DOMAINS_DIR, req.domain_name)
     with open(domain_path, "w") as f:
-        f.write(req.domain.strip())
+        f.write(normalized)
     _chown_to_caddy(domain_path)
 
     if req.ddns_url:
