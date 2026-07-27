@@ -366,6 +366,16 @@ sys.exit(main())
 LAUNCHER
       chmod +x $out/bin/nwc-wallet
 
+      cat > $out/bin/nwc-lnurl <<LAUNCHER
+#!${pkgs.python3}/bin/python3
+import os, sys
+base = os.path.join("$out", "lib", "sovran-hub-web")
+sys.path.insert(0, base)
+from sovran_systemsos_web.nwc_lnurl_service import main
+main()
+LAUNCHER
+      chmod +x $out/bin/nwc-lnurl
+
       runHook postInstall
     '';
 
@@ -377,6 +387,12 @@ LAUNCHER
 
 in
 {
+  options.services.sovranHub.webPackage = lib.mkOption {
+    type        = lib.types.package;
+    default     = sovran-hub-web;
+    description = "The sovran-hub-web Python application package. Other modules use this to reference Hub-installed scripts without duplicating the Python path setup.";
+  };
+
   config = {
     systemd.services.sovran-hub-web = {
       description = "Sovran_SystemsOS Hub Web Interface";

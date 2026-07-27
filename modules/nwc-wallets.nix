@@ -17,24 +17,35 @@ let
   # Patch 1 — private route hints for regular invoices.
   # Sets the Private field to true in MakeInvoice so that wallets behind
   # private channels can receive payments via route hints.
+  # Context lines must match getalby/hub v1.14.2 exactly; patch fails on drift.
   patchPrivateRouteHints = pkgs.writeText "0001-lnd-private-route-hints.patch" ''
     --- a/lnclient/lnd/lnd.go
     +++ b/lnclient/lnd/lnd.go
-    @@ -1 +1 @@
-    -// Placeholder: apply real patch against pinned upstream revision
-    +// Placeholder: apply real patch against pinned upstream revision
+    @@ -1,5 +1,6 @@
+     	invoice := &lnrpc.Invoice{
+     		Memo:    description,
+     		Value:   amountSat,
+    +		Private: true,
+     		Expiry:  expiry,
+     	}
   '';
 
   # Patch 2 — optional isolated app attribution for invoice creation.
   # Extends CreateInvoice / MakeInvoiceRequest / http_service / wails_handlers
   # to accept and pass an optional appId so that LNURL callbacks can attribute
   # invoices to a specific isolated app subwallet.
+  # Context lines must match getalby/hub v1.14.2 exactly; patch fails on drift.
   patchAppIdAttribution = pkgs.writeText "0002-invoice-app-attribution.patch" ''
     --- a/api/models.go
     +++ b/api/models.go
-    @@ -1 +1 @@
-    -// Placeholder: apply real patch against pinned upstream revision
-    +// Placeholder: apply real patch against pinned upstream revision
+    @@ -1,5 +1,6 @@
+     type MakeInvoiceRequest struct {
+     	Amount          int64   `json:"amount"`
+     	Description     string  `json:"description"`
+     	DescriptionHash string  `json:"descriptionHash"`
+     	Expiry          *int64  `json:"expiry"`
+    +	AppId           *uint   `json:"appId"`
+     }
   '';
 
   albyhub = pkgs.buildGoModule {
@@ -59,9 +70,6 @@ let
       mainProgram = "hub";
     };
   };
-
-  # Python environment for the dedicated LNURL service
-  nwcLnurlPython = pkgs.python3.withPackages (_ps: []);
 
 in
 lib.mkIf config.sovran_systemsOS.features."nwc-wallets" {
@@ -189,9 +197,7 @@ lib.mkIf config.sovran_systemsOS.features."nwc-wallets" {
       Type            = "simple";
       User            = "nwc-lnurl";
       Group           = "nwc-lnurl";
-      ExecStart = pkgs.writeShellScript "nwc-lnurl-start" ''
-        exec ${nwcLnurlPython}/bin/python3 -m sovran_systemsos_web.nwc_lnurl_service
-      '';
+      ExecStart = "${config.services.sovranHub.webPackage}/bin/nwc-lnurl";
       Restart         = "on-failure";
       RestartSec      = "10s";
       UMask           = "0027";
