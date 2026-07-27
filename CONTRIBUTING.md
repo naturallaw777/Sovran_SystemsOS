@@ -4,7 +4,11 @@ First off, thank you for considering contributing to Sovran_SystemsOS! 🎉
 
 ## This Github Repo
 
-This repo is for the development of Sovran_SystemsOS and to connect into the Github ecosystem. The main repo for Sovran_SystemsOS is on https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS/src/branch/stable. All activity in this Github repo is tested and eventually mirrored to the main repo on Gitea, as Sovran_SystemsOS is ethos is Self-Sovereignty.
+This repo is for the development of Sovran_SystemsOS and serves as its connection to the GitHub ecosystem. The main repo for Sovran_SystemsOS is hosted at https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS/src/branch/stable. All activity in this GitHub repo is tested and eventually mirrored to the main repo on Gitea, as the ethos of Sovran_SystemsOS is self-sovereignty.
+
+Please note: this repo may contain new features and code not yet in the stable branch on Gitea, and this code is not fully tested.
+
+Moreover, Sovran_SystemsOS has been improved with the help of AI. We have used Copilot to work through significant coding challenges and troubleshooting hurdles. We will continue to use AI to help keep Sovran_SystemsOS stable and maintained.
 
 ## How Can I Contribute?
 
