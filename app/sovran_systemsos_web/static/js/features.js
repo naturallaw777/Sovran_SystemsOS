@@ -59,6 +59,8 @@ function openDomainSetupModal(feat, onSaved) {
   if (!$domainSetupModal) return;
   if ($domainSetupTitle) $domainSetupTitle.textContent = "🌐 Domain Setup — " + feat.name;
 
+  var isWalletConnections = (feat.id === "nwc-wallets" || feat.domain_name === "lightning");
+
   var npubField = "";
   if (feat.id === "haven") {
     var currentNpub = "";
@@ -72,6 +74,17 @@ function openDomainSetupModal(feat, onSaved) {
     }
     npubField = '<div class="domain-field-group"><label class="domain-field-label" for="domain-npub-input">Nostr Public Key (npub1...):</label><input class="domain-field-input" type="text" id="domain-npub-input" placeholder="npub1..." value="' + escHtml(currentNpub) + '" /></div>';
   }
+
+  var nwcWarning = isWalletConnections
+    ? '<div class="domain-nwc-warning">' +
+      '<strong>⚠ Wallet Connections requires its own unique hostname.</strong> ' +
+      'Use a new subdomain such as <code>lightning.yourdomain.com</code>, or a separate domain. ' +
+      'Do not reuse a domain already assigned to Matrix, Nextcloud, WordPress, BTCPay Server, Vaultwarden, Haven, or another Caddy site.' +
+      '</div>'
+    : '';
+
+  var domainPlaceholder = isWalletConnections ? "lightning.yourdomain.com" : "myservice.example.com";
+  var domainLabelExample = isWalletConnections ? "lightning.yourdomain.com" : "call.yourdomain.com";
 
   var introHtml;
   if (_currentRole === "node") {
@@ -89,6 +102,7 @@ function openDomainSetupModal(feat, onSaved) {
 
   $domainSetupBody.innerHTML =
     '<div class="domain-setup-intro">' +
+    nwcWarning +
     introHtml +
     '<details style="margin-top:10px;">' +
     '<summary style="cursor:pointer;font-weight:600;">Option A — Free subdomain (recommended)</summary>' +
@@ -96,11 +110,11 @@ function openDomainSetupModal(feat, onSaved) {
     '<li>In Njal.la, open a domain you own and click &quot;Add record&quot;.</li>' +
     '<li>Set record type to <strong>Dynamic</strong>.</li>' +
     '<li>In the <strong>Name</strong> field, type ONLY the host part — the word before your domain.<br>' +
-    '(Example only, your choice — for &quot;call.yourdomain.com&quot; you&apos;d type just: &nbsp;<code>call</code>)<br>' +
+    '(Example only, your choice — for &quot;' + domainLabelExample + '&quot; you&apos;d type just: &nbsp;<code>' + (isWalletConnections ? 'lightning' : 'call') + '</code>)<br>' +
     '&#9888; Do NOT type the full domain here — Njal.la adds it automatically.</li>' +
     '<li>A Dynamic record has NO IP field — the IP auto-fills after the rebuild/reboot.</li>' +
     '<li>Copy the curl command Njal.la gives you, e.g.:<br>' +
-    '<code style="font-size:0.8em;">curl &quot;https://njal.la/update/?h=call.yourdomain.com&amp;k=abc123&amp;auto&quot;</code></li>' +
+    '<code style="font-size:0.8em;">curl &quot;https://njal.la/update/?h=' + domainLabelExample + '&amp;k=abc123&amp;auto&quot;</code></li>' +
     '</ol>' +
     '</details>' +
     '<details style="margin-top:6px;">' +
@@ -111,10 +125,10 @@ function openDomainSetupModal(feat, onSaved) {
     '<li>Copy the curl command Njal.la gives you.</li>' +
     '</ol>' +
     '</details>' +
-    '<p style="margin-top:10px;">Below, enter the full domain for this service — a subdomain (e.g. call.yourdomain.com) or a separate domain (e.g. call.com) — and paste its curl command.</p>' +
+    '<p style="margin-top:10px;">Below, enter the full domain for this service — a subdomain (e.g. ' + domainLabelExample + ') or a separate domain — and paste its curl command.</p>' +
     '</div>' +
-    '<div class="domain-field-group"><label class="domain-field-label" for="domain-subdomain-input">Service domain (e.g. call.yourdomain.com):</label><input class="domain-field-input" type="text" id="domain-subdomain-input" placeholder="myservice.example.com" /></div>' +
-    '<div class="domain-field-group"><label class="domain-field-label" for="domain-ddns-input">Njal.la Dynamic DNS Update Command:</label><input class="domain-field-input" type="text" id="domain-ddns-input" placeholder="curl &quot;https://njal.la/update/?h=myservice.example.com&amp;k=abc123&amp;auto&quot;" /><p class="domain-field-hint">ℹ Paste the full curl command from your Njal.la dashboard\'s Dynamic record</p></div>' +
+    '<div class="domain-field-group"><label class="domain-field-label" for="domain-subdomain-input">Service domain (e.g. ' + domainLabelExample + '):</label><input class="domain-field-input" type="text" id="domain-subdomain-input" placeholder="' + domainPlaceholder + '" /></div>' +
+    '<div class="domain-field-group"><label class="domain-field-label" for="domain-ddns-input">Njal.la Dynamic DNS Update Command:</label><input class="domain-field-input" type="text" id="domain-ddns-input" placeholder="curl &quot;https://njal.la/update/?h=' + domainPlaceholder + '&amp;k=abc123&amp;auto&quot;" /><p class="domain-field-hint">ℹ Paste the full curl command from your Njal.la dashboard\'s Dynamic record</p></div>' +
     npubField +
     '<div class="domain-field-actions"><button class="btn btn-close-modal" id="domain-setup-cancel-btn">Cancel</button><button class="btn btn-primary" id="domain-setup-save-btn">Save &amp; Enable</button></div>';
 
@@ -150,7 +164,8 @@ function openDomainSetupModal(feat, onSaved) {
     } catch (err) {
       saveBtn.disabled = false;
       saveBtn.textContent = "Save & Enable";
-      alert("Failed to save domain. Please try again.");
+      var msg = (err && err.message) ? err.message : "Failed to save domain. Please try again.";
+      alert(msg);
     }
   });
 
@@ -160,6 +175,8 @@ function openDomainSetupModal(feat, onSaved) {
 function openDomainReconfigureModal(feat, existingDomain, onSaved) {
   if (!$domainSetupModal) return;
   if ($domainSetupTitle) $domainSetupTitle.textContent = "🔄 Reconfigure Domain — " + feat.name;
+
+  var isWalletConnections = (feat.id === "nwc-wallets" || feat.domain_name === "lightning");
 
   var npubField = "";
   if (feat.id === "haven") {
@@ -175,11 +192,23 @@ function openDomainReconfigureModal(feat, existingDomain, onSaved) {
     npubField = '<div class="domain-field-group"><label class="domain-field-label" for="domain-npub-input">Nostr Public Key (npub1...):</label><input class="domain-field-input" type="text" id="domain-npub-input" placeholder="npub1..." value="' + escHtml(currentNpub) + '" /></div>';
   }
 
+  var nwcWarning = isWalletConnections
+    ? '<div class="domain-nwc-warning">' +
+      '<strong>⚠ Wallet Connections requires its own unique hostname.</strong> ' +
+      'Use a new subdomain such as <code>lightning.yourdomain.com</code>, or a separate domain. ' +
+      'Do not reuse a domain already assigned to Matrix, Nextcloud, WordPress, BTCPay Server, Vaultwarden, Haven, or another Caddy site.' +
+      '</div>'
+    : '';
+
+  var domainPlaceholder = isWalletConnections ? "lightning.yourdomain.com" : "myservice.example.com";
+  var domainLabelExample = isWalletConnections ? "lightning.yourdomain.com" : "call.yourdomain.com";
+
   var externalIp = _cachedExternalIp || "your external IP";
   var currentDomain = existingDomain || "";
 
   $domainSetupBody.innerHTML =
     '<div class="domain-setup-intro">' +
+    nwcWarning +
     '<p>Your domain <strong>' + escHtml(currentDomain || "this domain") + '</strong> is configured but isn\'t resolving correctly.</p>' +
     '<p><strong>Troubleshooting steps:</strong></p>' +
     '<ol>' +
@@ -191,8 +220,8 @@ function openDomainReconfigureModal(feat, existingDomain, onSaved) {
     '<li>If you changed the DDNS curl command, paste the updated one below</li>' +
     '</ol>' +
     '</div>' +
-    '<div class="domain-field-group"><label class="domain-field-label" for="domain-subdomain-input">Service domain (e.g. call.yourdomain.com):</label><input class="domain-field-input" type="text" id="domain-subdomain-input" placeholder="myservice.example.com" value="' + escHtml(currentDomain) + '" /></div>' +
-    '<div class="domain-field-group"><label class="domain-field-label" for="domain-ddns-input">Njal.la Dynamic DNS Update Command:</label><input class="domain-field-input" type="text" id="domain-ddns-input" placeholder="curl &quot;https://njal.la/update/?h=myservice.example.com&amp;k=abc123&amp;auto&quot;" /><p class="domain-field-hint">ℹ Paste the full curl command from your Njal.la dashboard\'s Dynamic record</p></div>' +
+    '<div class="domain-field-group"><label class="domain-field-label" for="domain-subdomain-input">Service domain (e.g. ' + domainLabelExample + '):</label><input class="domain-field-input" type="text" id="domain-subdomain-input" placeholder="' + domainPlaceholder + '" value="' + escHtml(currentDomain) + '" /></div>' +
+    '<div class="domain-field-group"><label class="domain-field-label" for="domain-ddns-input">Njal.la Dynamic DNS Update Command:</label><input class="domain-field-input" type="text" id="domain-ddns-input" placeholder="curl &quot;https://njal.la/update/?h=' + domainPlaceholder + '&amp;k=abc123&amp;auto&quot;" /><p class="domain-field-hint">ℹ Paste the full curl command from your Njal.la dashboard\'s Dynamic record</p></div>' +
     npubField +
     '<div class="domain-field-actions"><button class="btn btn-close-modal" id="domain-setup-cancel-btn">Cancel</button><button class="btn btn-primary" id="domain-setup-save-btn">Save &amp; Update</button></div>';
 
@@ -228,7 +257,8 @@ function openDomainReconfigureModal(feat, existingDomain, onSaved) {
     } catch (err) {
       saveBtn.disabled = false;
       saveBtn.textContent = "Save & Update";
-      alert("Failed to save domain. Please try again.");
+      var msg = (err && err.message) ? err.message : "Failed to save domain. Please try again.";
+      alert(msg);
     }
   });
 
