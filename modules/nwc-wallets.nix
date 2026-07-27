@@ -13,7 +13,7 @@ let
 
   lndRpcAddress = lib.attrByPath [ "services" "lnd" "rpcAddress" ] "127.0.0.1" config;
   lndRpcPort = toString (lib.attrByPath [ "services" "lnd" "rpcPort" ] 10009 config);
-  lndCertPath = lib.attrByPath [ "services" "lnd" "certPath" ] "/var/lib/lnd/tls.cert" config;
+  lndCertPath = config.services.lnd.certPath;
 
   albyhubWrapper = pkgs.writeShellScript "albyhub-wrapper" ''
     set -euo pipefail
