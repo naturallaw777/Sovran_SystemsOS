@@ -206,7 +206,7 @@ class AlbyHubManager:
             time.sleep(2)
         raise AlbyHubError(
             "dependency_unavailable",
-            f"Timed out waiting for required file",
+            f"Timed out waiting for required file: {path}",
         )
 
     def _wait_for_hub_api(self, timeout: int = 120) -> None:
@@ -531,10 +531,33 @@ class AlbyHubManager:
         return int(budget.get("usedBudget", 0) or 0)
 
     def _get_app_pending_txs(self, app_id: int) -> list[dict]:
-        txs = self._paginate(
-            f"/api/apps/{app_id}/transactions?limit={{limit}}&offset={{offset}}"
-        )
-        return [t for t in txs if t.get("state", "").lower() in ("pending",)]
+        """Return pending transactions for the app.
+
+        Paginates only as far as needed: stops after finding the first
+        pending transaction since the caller rejects *any* pending tx.
+        """
+        path_tmpl = f"/api/apps/{app_id}/transactions?limit={{limit}}&offset={{offset}}"
+        page_size = 100
+        token = self.ensure_ready()
+        offset = 0
+        pending: list[dict] = []
+        while True:
+            path = path_tmpl.format(limit=page_size, offset=offset)
+            page = self._request("GET", path, token=token)
+            if isinstance(page, list):
+                items = page
+            elif isinstance(page, dict):
+                items = page.get("transactions") or []
+            else:
+                items = []
+            for t in items:
+                if t.get("state", "").lower() == "pending":
+                    pending.append(t)
+                    return pending  # early exit: one is enough to block
+            if len(items) < page_size:
+                break
+            offset += page_size
+        return pending
 
     def drain_wallet(self, identifier: str) -> dict:
         """Drain all whole-satoshi funds from an isolated app to the primary wallet.
@@ -689,7 +712,7 @@ class AlbyHubManager:
             raise AlbyHubError("invoice_creation_failed", "Hub returned empty invoice.")
 
         # Require a valid BOLT11 prefix (mainnet, testnet, signet, regtest)
-        if not re.match(r"^ln[a-z]{2,6}[0-9]", invoice, re.IGNORECASE):
+        if not re.match(r"^ln(bc|tb|bcrt|tbs)[0-9]", invoice, re.IGNORECASE):
             raise AlbyHubError(
                 "invalid_invoice", "Hub returned a non-BOLT11 invoice string."
             )

@@ -414,6 +414,11 @@ class ManagerCreateTests(unittest.TestCase):
         m._request = MagicMock(side_effect=_request)
         return m
 
+    @staticmethod
+    def _call_body(call):
+        """Return the ``body`` kwarg from a MagicMock call_args."""
+        return call.kwargs.get("body") or {}
+
     def test_create_returns_pairing_uri_once(self):
         m = self._mgr()
         result = m.create_wallet("New Wallet", "new", "receive_only", None)
@@ -425,9 +430,9 @@ class ManagerCreateTests(unittest.TestCase):
         m.create_wallet("W", "w", "receive_only", None)
         create_call = next(
             c for c in m._request.call_args_list
-            if c[0][0] == "POST" and c[0][1] == "/api/apps"
+            if c.args[0] == "POST" and c.args[1] == "/api/apps"
         )
-        body = create_call[1].get("body") or create_call[0][2] if len(create_call[0]) > 2 else create_call.kwargs.get("body")
+        body = self._call_body(create_call)
         self.assertTrue(body.get("isolated"))
 
     def test_create_receive_only_scopes(self):
@@ -435,9 +440,9 @@ class ManagerCreateTests(unittest.TestCase):
         m.create_wallet("W", "w", "receive_only", None)
         create_call = next(
             c for c in m._request.call_args_list
-            if c[0][0] == "POST" and "/api/apps" in c[0][1]
+            if c.args[0] == "POST" and "/api/apps" in c.args[1]
         )
-        body = create_call.kwargs.get("body") or (create_call[0][2] if len(create_call[0]) > 2 else {})
+        body = self._call_body(create_call)
         self.assertNotIn("pay_invoice", body.get("scopes", []))
         for scope in mgr.RECEIVE_ONLY_SCOPES:
             self.assertIn(scope, body.get("scopes", []))
@@ -447,9 +452,9 @@ class ManagerCreateTests(unittest.TestCase):
         m.create_wallet("W", "w", "send_receive_limited", 5000)
         create_call = next(
             c for c in m._request.call_args_list
-            if c[0][0] == "POST" and "/api/apps" in c[0][1]
+            if c.args[0] == "POST" and "/api/apps" in c.args[1]
         )
-        body = create_call.kwargs.get("body") or (create_call[0][2] if len(create_call[0]) > 2 else {})
+        body = self._call_body(create_call)
         self.assertIn("pay_invoice", body.get("scopes", []))
 
     def test_create_includes_managed_metadata(self):
@@ -457,9 +462,9 @@ class ManagerCreateTests(unittest.TestCase):
         m.create_wallet("W", "w", "receive_only", None)
         create_call = next(
             c for c in m._request.call_args_list
-            if c[0][0] == "POST" and "/api/apps" in c[0][1]
+            if c.args[0] == "POST" and "/api/apps" in c.args[1]
         )
-        body = create_call.kwargs.get("body") or (create_call[0][2] if len(create_call[0]) > 2 else {})
+        body = self._call_body(create_call)
         meta = body.get("metadata", {})
         self.assertEqual(meta.get("app_store_app_id"), "uncle-jim")
         self.assertEqual(meta.get("lnurl_alias"), "w")

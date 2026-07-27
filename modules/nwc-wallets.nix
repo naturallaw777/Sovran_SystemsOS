@@ -61,7 +61,7 @@ let
     # Run gofmt on modified Go sources after patching
     postPatch = ''
       gofmt -w lnclient/lnd/lnd.go api/models.go api/transactions.go \
-             http/http_service.go wails/wails_handlers.go 2>/dev/null || true
+             http/http_service.go wails/wails_handlers.go
     '';
 
     meta = {
