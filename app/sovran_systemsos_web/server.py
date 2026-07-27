@@ -4094,7 +4094,7 @@ def _validate_safe_name(name: str) -> bool:
 # Hostname characters: letters, digits, hyphens only within labels; dots separate labels.
 # Each label must start and end with a letter or digit; no consecutive dots.
 _HOSTNAME_RE = re.compile(
-    r'^[a-z0-9]([a-z0-9\-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9\-]*[a-z0-9])?)*$'
+    r'^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$'
 )
 
 # Managed domain keys that produce Caddy virtual-host blocks (excluding sslemail)
