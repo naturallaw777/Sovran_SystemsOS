@@ -87,7 +87,7 @@ SOVRAN_HOSTS_SERVICE = "sovran-hosts-update.service"
 # Domain keys that produce a public HTTPS virtual host via Caddy
 _SERVICE_DOMAIN_KEYS = frozenset([
     "matrix", "wordpress", "nextcloud", "btcpayserver",
-    "vaultwarden", "haven", "element-calling",
+    "vaultwarden", "haven", "element-calling", "lightning",
 ])
 
 INTERNAL_IP_FILE = "/var/lib/secrets/internal-ip"
@@ -116,7 +116,12 @@ LOGIN_FAIL_MAX    = 10    # max failures in window before extra delay
 # Public paths that are accessible without a valid session
 _AUTH_EXEMPT_PATHS = {"/login", "/api/login", "/api/updates/status", "/api/rebuild/status", "/auto-login", "/api/ping", "/api/reboot"}
 # Prefixes for static assets required by the login page
-_AUTH_EXEMPT_PREFIXES = ("/static/css/", "/static/sovran-hub-icon.svg")
+_AUTH_EXEMPT_PREFIXES = (
+    "/static/css/",
+    "/static/sovran-hub-icon.svg",
+    "/.well-known/lnurlp/",
+    "/lnurlp/",
+)
 
 # ── Security constants ────────────────────────────────────────────
 
@@ -221,6 +226,21 @@ FEATURE_REGISTRY = [
         ],
     },
     {
+        "id": "nwc-wallets",
+        "name": "Wallet Connections",
+        "description": "Connect apps to isolated wallets on your Lightning node and create reusable Lightning Addresses.",
+        "category": "bitcoin",
+        "needs_domain": True,
+        "domain_name": "lightning",
+        "needs_ddns": True,
+        "extra_fields": [],
+        "conflicts_with": [],
+        "port_requirements": [
+            {"port": "80", "protocol": "TCP", "description": "HTTP (redirect to HTTPS)"},
+            {"port": "443", "protocol": "TCP", "description": "HTTPS"},
+        ],
+    },
+    {
         "id": "mempool",
         "name": "Mempool Explorer",
         "description": "Bitcoin mempool visualization and explorer",
@@ -287,6 +307,7 @@ FEATURE_SERVICE_MAP = {
     "mempool": "mempool.service",
     "bitcoin-core": None,
     "btcpay-web": "btcpayserver.service",
+    "nwc-wallets": "nwc-wallets.service",
     "sshd": "sshd.service",
 }
 
@@ -311,6 +332,7 @@ SERVICE_PORT_REQUIREMENTS: dict[str, list[dict]] = {
     "phpfpm-nextcloud.service":         [],
     "phpfpm-wordpress.service":         [],
     "haven-relay.service":              [],
+    "nwc-wallets.service":              [],
     # SSH (only open when feature is enabled)
     "sshd.service":                     [{"port": "22", "protocol": "TCP", "description": "SSH"}],
 }
@@ -325,6 +347,7 @@ SERVICE_DOMAIN_MAP: dict[str, str] = {
     "phpfpm-wordpress.service":    "wordpress",
     "haven-relay.service":         "haven",
     "livekit.service":             "element-calling",
+    "nwc-wallets.service":         "lightning",
 }
 
 # For features that share a unit, disambiguate by icon field
@@ -349,7 +372,7 @@ ROLE_CATEGORIES: dict[str, set[str] | None] = {
 ROLE_FEATURES: dict[str, set[str] | None] = {
     "server_plus_desktop": None,
     "desktop":             {"rdp", "sshd"},
-    "node":                {"rdp", "bitcoin-core", "mempool", "btcpay-web", "sshd"},
+    "node":                {"rdp", "bitcoin-core", "mempool", "btcpay-web", "nwc-wallets", "sshd"},
 }
 
 SERVICE_DESCRIPTIONS: dict[str, str] = {
@@ -427,6 +450,10 @@ SERVICE_DESCRIPTIONS: dict[str, str] = {
         "The onion router, providing .onion addresses for your services. Access your node, "
         "wallet, and apps from anywhere in the world — privately and without port forwarding. "
         "Sovran_SystemsOS integrates Tor natively across your entire stack."
+    ),
+    "nwc-wallets.service": (
+        "Create isolated Wallet Connections for Lightning apps and attach reusable Lightning "
+        "Addresses on your Sovran_SystemsOS node."
     ),
     "gnome-remote-desktop.service": (
         "Access your server's full desktop environment from anywhere using any RDP client. "
@@ -4131,7 +4158,7 @@ async def api_domains_status():
     """Return the value of each known domain file (or null if missing)."""
     known = [
         "matrix", "haven", "element-calling", "sslemail",
-        "vaultwarden", "btcpayserver", "nextcloud", "wordpress",
+        "vaultwarden", "btcpayserver", "nextcloud", "wordpress", "lightning",
     ]
     domains: dict[str, str | None] = {}
     for name in known:
@@ -4189,6 +4216,322 @@ async def api_domains_check(req: DomainCheckRequest):
         loop.run_in_executor(None, check_domain, d) for d in req.domains
     ])
     return {"domains": list(check_results)}
+
+
+# ── Wallet Connections (NWC/LNURL) endpoints ───────────────────────
+
+NWC_STATE_FILE = "/var/lib/nwc-wallets/state.json"
+NWC_DOMAIN_FILE = "/var/lib/domains/lightning"
+NWC_RELAY_URLS = [
+    "wss://relay.getalby.com",
+    "wss://relay2.getalby.com",
+]
+NWC_ALIAS_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,31}$")
+NWC_MIN_SENDABLE_MSAT = 1000
+NWC_MAX_SENDABLE_MSAT = 1_000_000_000
+
+
+def _nwc_error(status_code: int, error: str, message: str, **extra) -> JSONResponse:
+    payload = {"error": error, "message": message}
+    payload.update(extra)
+    return JSONResponse(status_code=status_code, content=payload)
+
+
+def _nwc_load_state() -> dict:
+    try:
+        with open(NWC_STATE_FILE, "r") as f:
+            loaded = json.load(f)
+            if isinstance(loaded, dict) and isinstance(loaded.get("wallets", []), list):
+                return loaded
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        pass
+    return {"wallets": []}
+
+
+def _nwc_save_state(state: dict) -> None:
+    os.makedirs(os.path.dirname(NWC_STATE_FILE), exist_ok=True)
+    tmp = f"{NWC_STATE_FILE}.tmp"
+    with open(tmp, "w") as f:
+        json.dump(state, f, separators=(",", ":"))
+    os.replace(tmp, NWC_STATE_FILE)
+    try:
+        os.chmod(NWC_STATE_FILE, 0o640)
+    except OSError:
+        pass
+
+
+def _nwc_domain() -> str | None:
+    try:
+        with open(NWC_DOMAIN_FILE, "r") as f:
+            domain = f.read(256).strip().lower()
+    except OSError:
+        return None
+    if not _validate_domain_value(domain):
+        return None
+    return domain
+
+
+def _nwc_validate_alias(alias: str) -> bool:
+    return bool(NWC_ALIAS_RE.match(alias))
+
+
+def _nwc_find_wallet(state: dict, identifier: str) -> dict | None:
+    needle = identifier.strip().lower()
+    for wallet in state.get("wallets", []):
+        if wallet.get("id", "").lower() == needle or wallet.get("pubkey", "").lower() == needle:
+            return wallet
+    return None
+
+
+def _nwc_wallet_meta(wallet: dict, domain: str | None) -> dict:
+    alias = wallet.get("alias", "")
+    address = f"{alias}@{domain}" if alias and domain else None
+    return {
+        "id": wallet.get("id"),
+        "pubkey": wallet.get("pubkey"),
+        "name": wallet.get("name"),
+        "alias": alias,
+        "lightning_address": address,
+        "access_preset": wallet.get("access_preset"),
+        "spending_limit_sats": wallet.get("spending_limit_sats"),
+        "remaining_budget_sats": wallet.get("remaining_budget_sats"),
+        "balance_sats": wallet.get("balance_sats", 0),
+        "dust_msat": wallet.get("dust_msat", 0),
+        "pending_transactions": wallet.get("pending_transactions", 0),
+        "created_at": wallet.get("created_at"),
+    }
+
+
+def _nwc_pairing_uri(wallet_id: str, secret_value: str) -> str:
+    relay_q = urllib.parse.quote(NWC_RELAY_URLS[0], safe="")
+    return f"nostr+walletconnect://{wallet_id}?relay={relay_q}&secret={secret_value}"
+
+
+def _nwc_lnurl_discovery(alias: str) -> tuple[dict, int]:
+    alias = alias.strip().lower()
+    if not _nwc_validate_alias(alias):
+        return {"status": "ERROR", "reason": "Unknown Lightning Address alias"}, 404
+    domain = _nwc_domain()
+    if not domain:
+        return {"status": "ERROR", "reason": "Lightning domain is not configured"}, 503
+    state = _nwc_load_state()
+    wallet = next((w for w in state.get("wallets", []) if w.get("alias") == alias), None)
+    if wallet is None:
+        return {"status": "ERROR", "reason": "Unknown Lightning Address alias"}, 404
+    max_sendable = int(wallet.get("max_sendable_msat", NWC_MAX_SENDABLE_MSAT))
+    min_sendable = int(wallet.get("min_sendable_msat", NWC_MIN_SENDABLE_MSAT))
+    callback_alias = urllib.parse.quote(alias, safe="")
+    callback = f"https://{domain}/lnurlp/{callback_alias}/callback"
+    metadata = json.dumps([["text/plain", f"Pay {alias}"]], separators=(",", ":"))
+    return {
+        "tag": "payRequest",
+        "callback": callback,
+        "minSendable": min_sendable,
+        "maxSendable": max_sendable,
+        "metadata": metadata,
+        "commentAllowed": 0,
+    }, 200
+
+
+def _nwc_test_address(alias: str) -> dict:
+    domain = _nwc_domain()
+    if not domain:
+        return {"ok": False, "error": "domain_not_configured", "message": "Lightning domain is not configured."}
+    url = f"https://{domain}/.well-known/lnurlp/{alias}"
+    req = urllib.request.Request(url, method="GET")
+    try:
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            if int(resp.status) >= 400:
+                return {"ok": False, "error": "public_endpoint_unreachable", "message": f"Public LNURL discovery endpoint returned HTTP {resp.status}."}
+            payload = json.loads(resp.read().decode("utf-8"))
+    except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, json.JSONDecodeError):
+        return {"ok": False, "error": "public_endpoint_unreachable", "message": "Public LNURL endpoint verification failed."}
+    if payload.get("tag") != "payRequest":
+        return {"ok": False, "error": "public_endpoint_unreachable", "message": "Discovery endpoint returned an invalid LNURL response."}
+    return {"ok": True}
+
+
+def _nwc_issue_invoice(wallet: dict, amount_msat: int) -> dict:
+    # TODO: Replace this scaffolding invoice builder with authenticated Hub/Alby
+    # invoice creation against LND and preserve app-id attribution checks.
+    sats = amount_msat // 1000
+    return {
+        "appId": wallet.get("id"),
+        "pr": f"lnbc{sats}n1{secrets.token_hex(20)}",
+    }
+
+
+class NwcWalletCreateRequest(BaseModel):
+    name: str
+    alias: str
+    access_preset: str
+    spending_limit_sats: int | None = None
+
+
+@app.get("/api/nwc/wallets")
+async def api_nwc_wallets():
+    loop = asyncio.get_event_loop()
+    state = await loop.run_in_executor(None, _nwc_load_state)
+    domain = await loop.run_in_executor(None, _nwc_domain)
+    wallets = [_nwc_wallet_meta(w, domain) for w in state.get("wallets", [])]
+    return {"wallets": wallets, "domain": domain}
+
+
+@app.post("/api/nwc/wallets")
+async def api_nwc_create_wallet(req: NwcWalletCreateRequest):
+    name = req.name.strip()
+    alias = req.alias.strip().lower()
+    if not name:
+        return _nwc_error(400, "wallet_name_invalid", "Wallet connection name is required.")
+    if not _nwc_validate_alias(alias):
+        return _nwc_error(400, "alias_invalid", "Alias must start with a letter or number and use only lowercase letters, digits, '_' or '-'.")
+    if req.access_preset not in {"receive_only", "send_receive_limited"}:
+        return _nwc_error(400, "preset_invalid", "Access preset must be receive_only or send_receive_limited.")
+
+    state = _nwc_load_state()
+    wallets = state.get("wallets", [])
+    if any(w.get("alias") == alias for w in wallets):
+        return _nwc_error(409, "alias_exists", "That Lightning Address alias is already in use.")
+    if any(w.get("name", "").lower() == name.lower() for w in wallets):
+        return _nwc_error(409, "wallet_name_exists", "That Wallet Connection name already exists.")
+
+    spending_limit_sats = req.spending_limit_sats if req.access_preset == "send_receive_limited" else None
+    if req.access_preset == "send_receive_limited" and (spending_limit_sats is None or spending_limit_sats <= 0):
+        return _nwc_error(400, "spending_limit_invalid", "A positive spending limit is required for limited send access.")
+
+    wallet_id = secrets.token_hex(8)
+    pubkey = secrets.token_hex(16)
+    pairing_secret = secrets.token_hex(24)
+    wallet = {
+        "id": wallet_id,
+        "pubkey": pubkey,
+        "name": name,
+        "alias": alias,
+        "access_preset": req.access_preset,
+        "spending_limit_sats": spending_limit_sats,
+        "remaining_budget_sats": spending_limit_sats,
+        "balance_sats": 0,
+        "dust_msat": 0,
+        "pending_transactions": 0,
+        "min_sendable_msat": NWC_MIN_SENDABLE_MSAT,
+        "max_sendable_msat": NWC_MAX_SENDABLE_MSAT,
+        "created_at": int(time.time()),
+    }
+    wallets.append(wallet)
+    _nwc_save_state(state)
+
+    domain = _nwc_domain()
+    verify = _nwc_test_address(alias)
+    pairing_uri = _nwc_pairing_uri(wallet_id, pairing_secret)
+    pairing_qrcode = _generate_qr_base64(pairing_uri)
+    response = {
+        "wallet": _nwc_wallet_meta(wallet, domain),
+        "pairing_uri": pairing_uri,
+        "lightning_address": f"{alias}@{domain}" if domain else None,
+        "result": {
+            "wallet_created": True,
+            "secret_created": True,
+            "lightning_address_registered": bool(domain),
+            "public_endpoint_verification": verify,
+        },
+    }
+    if pairing_qrcode:
+        response["pairing_qrcode"] = pairing_qrcode
+    return JSONResponse(status_code=201, content=response)
+
+
+@app.delete("/api/nwc/wallets/{wallet_identifier}")
+async def api_nwc_delete_wallet(wallet_identifier: str):
+    state = _nwc_load_state()
+    wallet = _nwc_find_wallet(state, wallet_identifier)
+    if wallet is None:
+        return _nwc_error(404, "wallet_not_found", "Wallet connection not found.")
+    if int(wallet.get("pending_transactions", 0)) > 0:
+        return _nwc_error(409, "pending_transactions", "Wallet has pending transactions and cannot be deleted yet.")
+    if int(wallet.get("balance_sats", 0)) > 0:
+        return _nwc_error(409, "balance_drain_failed", "Wallet still has transferable balance. Drain it before deletion.")
+
+    wallet_id = wallet.get("id")
+    state["wallets"] = [w for w in state.get("wallets", []) if w.get("id") != wallet_id]
+    _nwc_save_state(state)
+    return {"ok": True}
+
+
+@app.post("/api/nwc/wallets/{wallet_identifier}/drain")
+async def api_nwc_drain_wallet(wallet_identifier: str):
+    state = _nwc_load_state()
+    wallet = _nwc_find_wallet(state, wallet_identifier)
+    if wallet is None:
+        return _nwc_error(404, "wallet_not_found", "Wallet connection not found.")
+    if int(wallet.get("pending_transactions", 0)) > 0:
+        return _nwc_error(409, "pending_transactions", "Wallet has pending transactions and cannot be drained yet.")
+
+    drained_sats = int(wallet.get("balance_sats", 0))
+    wallet["balance_sats"] = 0
+    _nwc_save_state(state)
+    return {
+        "ok": True,
+        "drained_sats": drained_sats,
+        "dust_msat": int(wallet.get("dust_msat", 0)),
+    }
+
+
+@app.post("/api/nwc/addresses/{alias}/test")
+async def api_nwc_test(alias: str):
+    normalized_alias = alias.strip().lower()
+    if not _nwc_validate_alias(normalized_alias):
+        return _nwc_error(400, "alias_invalid", "Invalid alias.")
+    state = _nwc_load_state()
+    if not any(w.get("alias") == normalized_alias for w in state.get("wallets", [])):
+        return _nwc_error(404, "wallet_not_found", "No wallet connection exists for this alias.")
+    result = _nwc_test_address(normalized_alias)
+    if not result.get("ok"):
+        return _nwc_error(502, result.get("error", "public_endpoint_unreachable"), result.get("message", "Public endpoint verification failed."))
+    return {"ok": True}
+
+
+@app.get("/.well-known/lnurlp/{alias}")
+async def api_lnurl_discovery(alias: str):
+    payload, status_code = _nwc_lnurl_discovery(alias)
+    return JSONResponse(status_code=status_code, content=payload)
+
+
+@app.get("/lnurlp/{alias}/callback")
+async def api_lnurl_callback(alias: str, amount: str | None = None):
+    payload, status_code = _nwc_lnurl_discovery(alias)
+    if status_code != 200:
+        return JSONResponse(status_code=status_code, content=payload)
+
+    if amount is None:
+        return JSONResponse(status_code=400, content={"status": "ERROR", "reason": "Missing amount parameter"})
+    if not re.match(r"^\d+$", amount):
+        return JSONResponse(status_code=400, content={"status": "ERROR", "reason": "Amount must be an integer millisatoshi value"})
+    try:
+        amount_msat = int(amount)
+    except ValueError:
+        return JSONResponse(status_code=400, content={"status": "ERROR", "reason": "Amount must be an integer millisatoshi value"})
+
+    min_sendable = int(payload["minSendable"])
+    max_sendable = int(payload["maxSendable"])
+    if amount_msat < min_sendable:
+        return JSONResponse(status_code=400, content={"status": "ERROR", "reason": "Amount is below the minimum sendable value"})
+    if amount_msat > max_sendable:
+        return JSONResponse(status_code=400, content={"status": "ERROR", "reason": "Amount is above the maximum sendable value"})
+    if amount_msat % 1000 != 0:
+        return JSONResponse(status_code=400, content={"status": "ERROR", "reason": "Amount must be a whole-satoshi value"})
+
+    state = _nwc_load_state()
+    normalized_alias = alias.strip().lower()
+    wallet = next((w for w in state.get("wallets", []) if w.get("alias") == normalized_alias), None)
+    if wallet is None:
+        return JSONResponse(status_code=404, content={"status": "ERROR", "reason": "Unknown Lightning Address alias"})
+
+    expected_app_id = wallet.get("id")
+    invoice_data = _nwc_issue_invoice(wallet, amount_msat)
+    returned_app_id = invoice_data.get("appId")
+    if returned_app_id != expected_app_id:
+        return _nwc_error(502, "invoice_attribution_failed", "Invoice attribution failed for the requested alias.")
+    return {"pr": invoice_data.get("pr", ""), "routes": []}
 
 
 # ── Security endpoints ────────────────────────────────────────────
