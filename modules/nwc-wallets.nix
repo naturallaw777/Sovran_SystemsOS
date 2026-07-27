@@ -14,6 +14,19 @@ let
   lndRpcAddress = lib.attrByPath [ "services" "lnd" "rpcAddress" ] "127.0.0.1" config;
   lndRpcPort = toString (lib.attrByPath [ "services" "lnd" "rpcPort" ] 10009 config);
   lndCertPath = config.services.lnd.certPath;
+  pythonManagerEnvironment = {
+    NWC_ALBY_HUB_API_BASE = albyHubApiBase;
+    NWC_LND_ADDRESS = "${lndRpcAddress}:${lndRpcPort}";
+    NWC_LND_CERT_FILE = lndCertPath;
+    NWC_LND_MACAROON_FILE = "/run/lnd/albyhub.macaroon";
+  };
+  wrappedNwcWallet = lib.hiPrio (pkgs.writeShellScriptBin "nwc-wallet" ''
+    export NWC_ALBY_HUB_API_BASE='${pythonManagerEnvironment.NWC_ALBY_HUB_API_BASE}'
+    export NWC_LND_ADDRESS='${pythonManagerEnvironment.NWC_LND_ADDRESS}'
+    export NWC_LND_CERT_FILE='${pythonManagerEnvironment.NWC_LND_CERT_FILE}'
+    export NWC_LND_MACAROON_FILE='${pythonManagerEnvironment.NWC_LND_MACAROON_FILE}'
+    exec ${config.services.sovranHub.webPackage}/bin/nwc-wallet "$@"
+  '');
 
   albyhubWrapper = pkgs.writeShellScript "albyhub-wrapper" ''
     set -euo pipefail
@@ -125,7 +138,7 @@ lib.mkIf config.sovran_systemsOS.features."nwc-wallets" {
     wantedBy = [ "multi-user.target" ];
     after = [ "albyhub.service" "sovran-hub-web.service" ];
     wants = [ "albyhub.service" ];
-    environment.NWC_ALBY_HUB_API_BASE = albyHubApiBase;
+    environment = pythonManagerEnvironment;
 
     serviceConfig = {
       Type = "simple";
@@ -146,12 +159,9 @@ lib.mkIf config.sovran_systemsOS.features."nwc-wallets" {
     };
   };
 
-  systemd.services.sovran-hub-web.environment = {
-    NWC_ALBY_HUB_API_BASE = albyHubApiBase;
-    NWC_LND_ADDRESS = "${lndRpcAddress}:${lndRpcPort}";
-    NWC_LND_CERT_FILE = lndCertPath;
-    NWC_LND_MACAROON_FILE = "/run/lnd/albyhub.macaroon";
-  };
+  systemd.services.nwc-lnurl.environment.NWC_ALBY_HUB_API_BASE = albyHubApiBase;
+  systemd.services.sovran-hub-web.environment = pythonManagerEnvironment;
+  environment.systemPackages = lib.mkBefore [ wrappedNwcWallet ];
 
   sovran_systemsOS.domainRequirements = [
     {
