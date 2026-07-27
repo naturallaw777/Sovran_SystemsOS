@@ -4,7 +4,8 @@ import argparse
 import json
 import sys
 
-from . import server
+from . import nwc_hub_manager as _mgr_mod
+from .server import _nwc_domain, _nwc_validate_alias, _nwc_test_address
 
 
 def _print(data) -> None:
@@ -38,85 +39,71 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("health")
 
     args = parser.parse_args(argv)
-    state = server._nwc_load_state()
-    domain = server._nwc_domain()
+    manager = _mgr_mod.get_manager()
+    domain = _nwc_domain()
 
     if args.cmd == "list":
-        _print({"wallets": [server._nwc_wallet_meta(w, domain) for w in state.get("wallets", [])]})
+        try:
+            wallets = manager.list_wallets(domain)
+        except _mgr_mod.AlbyHubError as exc:
+            print(f"Error: {exc.code} - {exc}", file=sys.stderr)
+            return 1
+        _print({"wallets": wallets})
         return 0
 
     if args.cmd == "health":
-        _print({"ok": True, "domain": domain, "wallet_count": len(state.get("wallets", []))})
-        return 0
+        result = manager.health()
+        _print(result)
+        return 0 if result.get("ok") else 1
 
     if args.cmd == "address" and args.address_cmd == "show":
-        test = server._nwc_test_address(args.alias.strip().lower())
+        alias = args.alias.strip().lower()
+        test = _nwc_test_address(alias)
         _print(test)
         return 0 if test.get("ok") else 1
 
-    wallet = server._nwc_find_wallet(state, getattr(args, "wallet", ""))
-    if args.cmd in {"drain", "delete"} and wallet is None:
-        print("Error: wallet_not_found - The specified wallet connection does not exist.", file=sys.stderr)
-        return 1
-
     if args.cmd == "drain":
-        if int(wallet.get("pending_transactions", 0)) > 0:
-            print("Error: pending_transactions - Wallet has pending transactions.", file=sys.stderr)
+        try:
+            result = manager.drain_wallet(args.wallet)
+        except _mgr_mod.AlbyHubError as exc:
+            print(f"Error: {exc.code} - {exc}", file=sys.stderr)
             return 1
-        drained = int(wallet.get("balance_sats", 0))
-        wallet["balance_sats"] = 0
-        server._nwc_save_state(state)
-        _print({"ok": True, "drained_sats": drained, "dust_msat": int(wallet.get("dust_msat", 0))})
+        _print(result)
         return 0
 
     if args.cmd == "delete":
-        if int(wallet.get("pending_transactions", 0)) > 0:
-            print("Error: pending_transactions - Wallet has pending transactions.", file=sys.stderr)
+        try:
+            result = manager.delete_wallet(args.wallet)
+        except _mgr_mod.AlbyHubError as exc:
+            print(f"Error: {exc.code} - {exc}", file=sys.stderr)
             return 1
-        if int(wallet.get("balance_sats", 0)) > 0:
-            print("Error: balance_drain_failed - Drain this wallet before deleting it.", file=sys.stderr)
-            return 1
-        wallet_id = wallet.get("id")
-        state["wallets"] = [w for w in state.get("wallets", []) if w.get("id") != wallet_id]
-        server._nwc_save_state(state)
-        _print({"ok": True})
+        _print(result)
         return 0
 
     if args.cmd == "create":
         alias = args.alias.strip().lower()
-        if not server._nwc_validate_alias(alias):
+        if not _nwc_validate_alias(alias):
             print("Error: alias_invalid - Alias must be lowercase letters, digits, '_' or '-'.", file=sys.stderr)
             return 1
-        if any(w.get("alias") == alias for w in state.get("wallets", [])):
-            print("Error: alias_exists - This alias already exists.", file=sys.stderr)
-            return 1
-        if any(w.get("name", "").lower() == args.name.strip().lower() for w in state.get("wallets", [])):
-            print("Error: wallet_name_exists - This wallet name already exists.", file=sys.stderr)
-            return 1
         access_preset = "send_receive_limited" if args.limit_sats is not None else "receive_only"
-        wallet = {
-            "id": server.secrets.token_hex(8),
-            "pubkey": server.secrets.token_hex(16),
-            "name": args.name.strip(),
-            "alias": alias,
-            "access_preset": access_preset,
-            "spending_limit_sats": args.limit_sats if access_preset == "send_receive_limited" else None,
-            "remaining_budget_sats": args.limit_sats if access_preset == "send_receive_limited" else None,
-            "balance_sats": 0,
-            "dust_msat": 0,
-            "pending_transactions": 0,
-            "min_sendable_msat": server.NWC_MIN_SENDABLE_MSAT,
-            "max_sendable_msat": server.NWC_MAX_SENDABLE_MSAT,
-            "created_at": int(server.time.time()),
-        }
-        state.setdefault("wallets", []).append(wallet)
-        server._nwc_save_state(state)
+        try:
+            result = manager.create_wallet(
+                args.name.strip(),
+                alias,
+                access_preset,
+                args.limit_sats if access_preset == "send_receive_limited" else None,
+                domain,
+            )
+        except _mgr_mod.AlbyHubError as exc:
+            print(f"Error: {exc.code} - {exc}", file=sys.stderr)
+            return 1
+        # Print the pairing URI once — this is the only time it is shown
         _print(
             {
-                "wallet": server._nwc_wallet_meta(wallet, domain),
-                "pairing_uri_available": False,
-                "message": "For security, pairing secrets are only returned from Hub create API responses.",
-                "verification": server._nwc_test_address(alias),
+                "wallet": result["wallet"],
+                "pairing_uri": result.get("pairing_uri", ""),
+                "message": "Keep the NWC connection secret private. It cannot be displayed again.",
+                "result": result.get("result", {}),
             }
         )
         return 0

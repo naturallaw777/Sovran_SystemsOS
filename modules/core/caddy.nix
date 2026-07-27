@@ -193,9 +193,11 @@ EOF
         cat >> /run/caddy/Caddyfile <<EOF
 
 $LIGHTNING {
-  # LNURL endpoints are served by the local Sovran Hub backend on 8937.
-  reverse_proxy /.well-known/lnurlp/* http://127.0.0.1:8937
-  reverse_proxy /lnurlp/* http://127.0.0.1:8937
+  # LNURL discovery and callback are served by the dedicated
+  # nwc-lnurl service on loopback port 8181.  Only these paths
+  # are proxied; the Alby Hub management port (8080) is never exposed.
+  reverse_proxy /.well-known/lnurlp/* http://127.0.0.1:8181
+  reverse_proxy /lnurlp/* http://127.0.0.1:8181
 }
 EOF
       fi
