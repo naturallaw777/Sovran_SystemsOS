@@ -1046,7 +1046,7 @@ class LnurlHandlerAmountTests(unittest.TestCase):
         code, body = sent[0]
         self.assertEqual(code, 400)
         self.assertEqual(body["status"], "ERROR")
-        self.assertIn("Exactly one", body["reason"])
+        self.assertIn("single amount", body["reason"])
 
     def test_three_amount_values_returns_400(self):
         sent = self._run_handler("/lnurlp/alice/callback?amount=1000&amount=2000&amount=3000")

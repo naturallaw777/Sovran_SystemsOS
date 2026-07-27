@@ -125,7 +125,7 @@ lib.mkIf config.sovran_systemsOS.features."nwc-wallets" {
       ProtectSystem = "strict";
       ReadOnlyPaths = [
         "/var/lib/domains/lightning"
-        "/var/lib/albyhub"
+        "/var/lib/albyhub/unlock-password"
       ];
     };
   };
