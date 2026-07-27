@@ -165,7 +165,10 @@ class ValidateHostnameTests(unittest.TestCase):
         self.assertFalse(server._validate_hostname(""))
 
     def test_invalid_trailing_dot(self):
-        # After normalization a trailing dot should have been removed.
+        # The hostname validator rejects trailing dots directly.
+        # In the API flow, normalization removes exactly one trailing dot before
+        # this validator is called, so a single trailing dot in user input is
+        # handled before reaching validation.
         self.assertFalse(server._validate_hostname("foo.example.com."))
 
     def test_invalid_with_underscore(self):

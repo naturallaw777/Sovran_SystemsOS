@@ -76,7 +76,7 @@ function openDomainSetupModal(feat, onSaved) {
   }
 
   var nwcWarning = isWalletConnections
-    ? '<div style="margin-bottom:14px;padding:10px 14px;background:rgba(255,180,0,0.10);border:1px solid var(--warning-color,#f59e0b);border-radius:8px;font-size:0.88rem;line-height:1.6;">' +
+    ? '<div class="domain-nwc-warning">' +
       '<strong>⚠ Wallet Connections requires its own unique hostname.</strong> ' +
       'Use a new subdomain such as <code>lightning.yourdomain.com</code>, or a separate domain. ' +
       'Do not reuse a domain already assigned to Matrix, Nextcloud, WordPress, BTCPay Server, Vaultwarden, Haven, or another Caddy site.' +
@@ -193,7 +193,7 @@ function openDomainReconfigureModal(feat, existingDomain, onSaved) {
   }
 
   var nwcWarning = isWalletConnections
-    ? '<div style="margin-bottom:14px;padding:10px 14px;background:rgba(255,180,0,0.10);border:1px solid var(--warning-color,#f59e0b);border-radius:8px;font-size:0.88rem;line-height:1.6;">' +
+    ? '<div class="domain-nwc-warning">' +
       '<strong>⚠ Wallet Connections requires its own unique hostname.</strong> ' +
       'Use a new subdomain such as <code>lightning.yourdomain.com</code>, or a separate domain. ' +
       'Do not reuse a domain already assigned to Matrix, Nextcloud, WordPress, BTCPay Server, Vaultwarden, Haven, or another Caddy site.' +
