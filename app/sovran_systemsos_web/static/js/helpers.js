@@ -55,7 +55,16 @@ async function apiFetch(path, options) {
   const res = await fetch(path, options || {});
   if (!res.ok) {
     let detail = res.status + " " + res.statusText;
-    try { const body = await res.json(); if (body && body.detail) detail = body.detail; } catch (e) {}
+    try {
+      const body = await res.json();
+      if (body && body.detail) {
+        if (typeof body.detail === "string") {
+          detail = body.detail;
+        } else if (body.detail && typeof body.detail.message === "string") {
+          detail = body.detail.message;
+        }
+      }
+    } catch (e) {}
     throw new Error(detail);
   }
   return res.json();
