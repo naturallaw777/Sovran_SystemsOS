@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 # ── Configuration ─────────────────────────────────────────────────
 
 LNURL_BIND_HOST = "127.0.0.1"
-LNURL_PORT = 8181
+LNURL_PORT = int(os.environ.get("NWC_LNURL_PORT", "8181"))
 DOMAIN_FILE = "/var/lib/domains/lightning"
 
 NWC_ALIAS_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,31}$")
