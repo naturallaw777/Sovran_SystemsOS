@@ -80,8 +80,19 @@ No placeholder source/vendor hashes are used in the Wallet Connections module.
 | Service | User | Description |
 |---|---|---|
 | `albyhub.service` | `albyhub` | Headless Alby Hub NWC wallet server |
-| `nwc-lnurl.service` | `nwc-lnurl` | Dedicated LNURL discovery and callback service |
+| `nwc-lnurl.service` | `albyhub` | Dedicated LNURL discovery and callback service |
 | `albyhub-init.service` | `root` (oneshot) | Generates `unlock-password` once on first boot |
+
+`nwc-lnurl.service` runs as `albyhub` so it can traverse `/var/lib/albyhub` (0700) and read `/var/lib/albyhub/unlock-password` (0600) without weakening permissions.
+
+## Wallet Connections icon asset
+
+- Hub service icon identifier: `nwc` (feature name remains **Wallet Connections**)
+- Asset path in this repository: `app/icons/nwc.svg`
+- Official source: `https://raw.githubusercontent.com/getAlby/nostr-wallet-connect/5fb6831739c7e6b089cd7205e11910ef542432ad/public/images/nwc-logo.svg`
+- Upstream repository: `https://github.com/getAlby/nostr-wallet-connect`
+- Upstream license: Apache-2.0 (`https://github.com/getAlby/nostr-wallet-connect/blob/5fb6831739c7e6b089cd7205e11910ef542432ad/LICENSE`)
+- Attribution/redistribution note: Apache-2.0 permits redistribution; preserve upstream license notices in distributions.
 
 ## API
 

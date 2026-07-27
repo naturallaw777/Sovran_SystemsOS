@@ -20,7 +20,7 @@ let
       ${pkgs.openssl}/bin/openssl rand -hex 32 > "$password_file"
     fi
     export AUTO_UNLOCK_PASSWORD="$(cat "$password_file")"
-    exec ${patchedAlbyHub}/bin/hub
+    exec ${lib.getExe patchedAlbyHub}
   '';
 in
 lib.mkIf config.sovran_systemsOS.features."nwc-wallets" {

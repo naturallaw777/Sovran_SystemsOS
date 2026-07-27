@@ -26,6 +26,8 @@ Tests cover:
 
 import json
 import re
+import shutil
+import subprocess
 import sys
 import tempfile
 import types
@@ -185,6 +187,13 @@ class FeatureRegistryTests(unittest.TestCase):
         ports = [(p["port"], p["protocol"]) for p in feat["port_requirements"]]
         self.assertIn(("80", "TCP"), ports)
         self.assertIn(("443", "TCP"), ports)
+
+    def test_wallet_connections_tile_icon_is_nwc(self):
+        repo_root = Path(__file__).resolve().parents[2]
+        hub_module = repo_root / "modules" / "core" / "sovran-hub.nix"
+        text = hub_module.read_text()
+        self.assertIn('{ name = "Wallet Connections"; unit = "albyhub.service"; type = "system"; icon = "nwc";', text)
+        self.assertIn('{ name = "Zeus Connect";       unit = "zeus-connect-setup.service"; type = "system"; icon = "zeus";', text)
 
     def test_service_map_points_to_albyhub(self):
         self.assertEqual(server.FEATURE_SERVICE_MAP["nwc-wallets"], "albyhub.service")
@@ -1096,6 +1105,18 @@ class LnurlHandlerAmountTests(unittest.TestCase):
 
 
 class NixPatchContractTests(unittest.TestCase):
+    @staticmethod
+    def _patched_albyhub_nix_expr(result_expr: str) -> str:
+        return (
+            "let flake = builtins.getFlake (toString ./.); "
+            "pkgs = import flake.inputs.nixpkgs { system = builtins.currentSystem; }; "
+            "patchedAlbyHub = pkgs.albyhub.overrideAttrs (old: { patches = (old.patches or []) ++ [ "
+            "./packages/albyhub/0001-private-route-hints.patch "
+            "./packages/albyhub/0002-isolated-invoice-app-id.patch "
+            "]; }); "
+            f"in {result_expr}"
+        )
+
     def test_nwc_module_uses_non_placeholder_albyhub_strategy(self):
         repo_root = Path(__file__).resolve().parents[2]
         module_path = repo_root / "modules" / "nwc-wallets.nix"
@@ -1107,6 +1128,61 @@ class NixPatchContractTests(unittest.TestCase):
         self.assertNotIn("lib.fakeHash", text)
         self.assertIn("AUTO_UNLOCK_PASSWORD", text)
         self.assertNotIn("AUTO_UNLOCK_PASSWORD_FILE", text)
+
+    def test_nwc_module_uses_lib_getexe_for_albyhub_binary(self):
+        repo_root = Path(__file__).resolve().parents[2]
+        module_path = repo_root / "modules" / "nwc-wallets.nix"
+        text = module_path.read_text()
+        self.assertIn("exec ${lib.getExe patchedAlbyHub}", text)
+        self.assertNotIn("${patchedAlbyHub}/bin/hub", text)
+
+    def test_official_nwc_icon_asset_is_committed(self):
+        repo_root = Path(__file__).resolve().parents[2]
+        icon_path = repo_root / "app" / "icons" / "nwc.svg"
+        self.assertTrue(icon_path.exists())
+        text = icon_path.read_text()
+        self.assertIn("linearGradient", text)
+        self.assertIn("#F7931A", text)
+
+    def test_albyhub_main_program_via_nix_eval(self):
+        if shutil.which("nix") is None:
+            self.skipTest("nix not installed in this environment")
+        repo_root = Path(__file__).resolve().parents[2]
+        get_exe_expr = self._patched_albyhub_nix_expr("pkgs.lib.getExe patchedAlbyHub")
+        get_exe_result = subprocess.run(
+            [
+                "nix",
+                "eval",
+                "--raw",
+                "--impure",
+                "--expr",
+                get_exe_expr,
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+            cwd=repo_root,
+        )
+        exe_path = get_exe_result.stdout.strip()
+        self.assertIn("/nix/store/", exe_path)
+        self.assertTrue(exe_path.endswith("/bin/albyhub"))
+        self.assertNotIn("/bin/hub", exe_path)
+
+        main_program_result = subprocess.run(
+            [
+                "nix",
+                "eval",
+                "--raw",
+                "--impure",
+                "--expr",
+                self._patched_albyhub_nix_expr("patchedAlbyHub.meta.mainProgram"),
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+            cwd=repo_root,
+        )
+        self.assertEqual(main_program_result.stdout.strip(), "albyhub")
 
     def test_private_route_hint_patch_exact_change(self):
         repo_root = Path(__file__).resolve().parents[2]
