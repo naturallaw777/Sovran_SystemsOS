@@ -66,14 +66,14 @@ Security invariants:
 - Alby Hub unlock password: `/var/lib/albyhub/unlock-password` (generated once, mode 0600)
 - LND macaroon for Alby Hub: `/run/lnd/albyhub.macaroon` (restricted permissions)
 
-## Alby Hub version pin and patches
+## Alby Hub package and patches
 
-Alby Hub is packaged in `modules/nwc-wallets.nix` with the following patches:
+Wallet Connections uses `pkgs.albyhub` from the repository's pinned `nixpkgs` input and applies two conventional patches via `overrideAttrs`:
 
-1. **Private route hints** (`0001-lnd-private-route-hints.patch`): sets `Private: true` in regular LND `MakeInvoice` requests so that wallets behind private channels can receive payments via route hints. Hold-invoice behavior is unchanged.
-2. **Invoice app attribution** (`0002-invoice-app-attribution.patch`): extends `CreateInvoice`, `MakeInvoiceRequest`, `http_service`, and `wails_handlers` to accept and pass an optional numeric `appId` so that LNURL callbacks can attribute invoices to a specific isolated subwallet. Desktop/Wails calls pass `nil` and continue using the primary wallet.
+1. **Private route hints** (`packages/albyhub/0001-private-route-hints.patch`): changes regular LND invoice creation from `Private: !hasPublicChannels` to `Private: true` and leaves hold-invoice logic unchanged.
+2. **Invoice app attribution** (`packages/albyhub/0002-isolated-invoice-app-id.patch`): updates `api/models.go`, `api/transactions.go`, `http/http_service.go`, and `wails/wails_handlers.go` so invoice creation accepts and forwards optional `appId`.
 
-The `vendorHash` and `sha256` fields in the derivation must be updated whenever the Alby Hub version changes.
+No placeholder source/vendor hashes are used in the Wallet Connections module.
 
 ## Services
 
@@ -92,6 +92,26 @@ Management (authenticated):
 - `DELETE /api/nwc/wallets/{id-or-pubkey}` — drain and delete
 - `POST /api/nwc/wallets/{id-or-pubkey}/drain` — transfer funds to primary wallet
 - `POST /api/nwc/addresses/{alias}/test` — verify public LNURL endpoint
+
+Exact Hub setup/auth flow used by the manager:
+
+- `GET /api/info`
+- If `setupCompleted == false`: `POST /api/setup` with `backendType`, `unlockPassword`, `lndAddress`, `lndCertFile`, `lndMacaroonFile`
+- `GET /api/info` again
+- If `running == false`: `POST /api/start` with `unlockPassword`
+- If `running == true`: `POST /api/unlock` with `unlockPassword` and `permission: "full"`
+- Poll authenticated `GET /api/node/status` until `isReady == true`
+- Cached bearer token is refreshed once on 401/403
+
+Exact app/transaction usage:
+
+- `GET /api/apps?limit=<N>&offset=<N>&order_by=created_at` (full pagination using `totalCount`)
+- `GET /api/v2/apps/{id}` for app-by-id fetches
+- `GET /api/transactions?appId={id}&limit=<N>&offset=<N>` (full pagination using `totalCount`)
+- Wallet metadata uses `appPubkey` and `balanceMsat` (`balance_sats = balanceMsat / 1000`, `dust_msat = balanceMsat % 1000`)
+- Limited-wallet initial funding uses `POST /api/transfers` with `toAppId`, `amountSat`, `description`
+- Drain uses `PATCH /api/apps/{appPubkey}`, transfer with `fromAppId` + `amountMsat`, and enforces final dust equality
+- Delete uses `DELETE /api/apps/{appPubkey}` after pending/drain checks
 
 Public LNURL (served by dedicated `nwc-lnurl` service via Caddy):
 
