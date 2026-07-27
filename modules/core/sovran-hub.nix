@@ -61,7 +61,7 @@ let
         { label = "Server"; value = "tcp://127.0.0.1:50001 (Electrs)"; }
         { label = "Status"; value = "Auto-configured on first boot"; }
       ]; }
-      { name = "Wallet Connections"; unit = "nwc-wallets.service"; type = "system"; icon = "zeus"; enabled = cfg.features."nwc-wallets"; category = "bitcoin-apps"; credentials = [
+      { name = "Wallet Connections"; unit = "albyhub.service"; type = "system"; icon = "zeus"; enabled = cfg.features."nwc-wallets"; category = "bitcoin-apps"; credentials = [
         { label = "Lightning Address Domain"; file = "/var/lib/domains/lightning"; }
       ]; }
       { name = "Mempool";            unit = "mempool.service";      type = "system"; icon = "mempool";      enabled = cfg.features.mempool;  category = "bitcoin-apps"; credentials = [
