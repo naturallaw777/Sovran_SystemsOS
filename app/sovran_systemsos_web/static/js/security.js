@@ -145,28 +145,25 @@ function openSecurityModal() {
           if (rebootBtn) {
             // Keep button disabled for 5 seconds to prevent accidental clicks
             var countdown = 5;
-            rebootBtn.textContent = "I have written down my new password \u2014 Reboot now (" + countdown + ")";
+            rebootBtn.textContent = "I have written down my new password \u2014 Restart Entire System (" + countdown + ")";
             var timer = setInterval(function() {
               countdown--;
               if (countdown <= 0) {
                 clearInterval(timer);
                 rebootBtn.disabled = false;
-                rebootBtn.textContent = "I have written down my new password \u2014 Reboot now";
+                rebootBtn.textContent = "I have written down my new password \u2014 Restart Entire System";
               } else {
-                rebootBtn.textContent = "I have written down my new password \u2014 Reboot now (" + countdown + ")";
+                rebootBtn.textContent = "I have written down my new password \u2014 Restart Entire System (" + countdown + ")";
               }
             }, 1000);
 
             rebootBtn.addEventListener("click", function() {
               rebootBtn.disabled = true;
-              rebootBtn.textContent = "Rebooting\u2026";
-              if ($rebootOverlay) $rebootOverlay.classList.add("visible");
-              _rebootStartTime = Date.now();
-              _serverWentDown = false;
-              setTimeout(waitForServerReboot, REBOOT_INITIAL_DELAY);
-              var rebootCtrl = new AbortController();
-              setTimeout(function() { rebootCtrl.abort(); }, REBOOT_REQUEST_TIMEOUT);
-              fetch("/api/reboot", { method: "POST", signal: rebootCtrl.signal }).catch(function() {});
+              rebootBtn.textContent = "Restarting\u2026";
+              // Hide the security reset overlay so the shared reboot overlay is visible
+              var $secResetOverlay2 = document.getElementById("security-reset-overlay");
+              if ($secResetOverlay2) $secResetOverlay2.classList.remove("visible");
+              doReboot();
             }, { once: true });
           }
         } catch (err) {

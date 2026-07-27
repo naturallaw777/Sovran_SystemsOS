@@ -49,6 +49,9 @@ const $btnSave        = document.getElementById("btn-save-report");
 const $btnCloseModal  = document.getElementById("btn-close-modal");
 
 const $rebootOverlay  = document.getElementById("reboot-overlay");
+const $rebootMainCard = document.getElementById("reboot-main-card");
+const $rebootErrorCard = document.getElementById("reboot-error-card");
+const $rebootSubmessage = document.getElementById("reboot-submessage");
 
 const $credsModal     = document.getElementById("creds-modal");
 const $credsTitle     = document.getElementById("creds-modal-title");
@@ -100,6 +103,15 @@ const $upgradeModal       = document.getElementById("upgrade-modal");
 const $upgradeConfirmBtn  = document.getElementById("upgrade-confirm-btn");
 const $upgradeCancelBtn   = document.getElementById("upgrade-cancel-btn");
 const $upgradeCloseBtn    = document.getElementById("upgrade-close-btn");
+
+// Restart confirm dialog
+const $restartConfirmModal  = document.getElementById("restart-confirm-modal");
+const $restartConfirmOk     = document.getElementById("restart-confirm-ok-btn");
+const $restartConfirmCancel = document.getElementById("restart-confirm-cancel-btn");
+const $restartConflictBox   = document.getElementById("restart-conflict-box");
+
+// Header reboot button
+const $headerRebootBtn = document.getElementById("btn-header-reboot");
 
 // System status banner
 // (removed — health is now shown per-tile via the composite health field)

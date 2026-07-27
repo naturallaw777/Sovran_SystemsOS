@@ -24,6 +24,7 @@
     <span class="title">Sovran_SystemsOS Hub</span>
     <div class="header-buttons">
       <span class="role-badge" id="role-badge">Loading…</span>
+      <button class="btn btn-header-reboot" id="btn-header-reboot" title="Restart the entire computer">Reboot</button>
       <button class="btn btn-logout" id="btn-logout" title="Sign out">Sign Out</button>
     </div>
   </header>
@@ -61,7 +62,7 @@
       <div class="modal-log" id="modal-log" aria-live="polite"></div>
       <div class="modal-footer">
         <button class="btn btn-save" id="btn-save-report" style="display:none">Save Error Report</button>
-        <button class="btn btn-reboot" id="btn-reboot" style="display:none">Reboot</button>
+        <button class="btn btn-reboot" id="btn-reboot" style="display:none">Restart Entire System</button>
         <button class="btn btn-close-modal" id="btn-close-modal" disabled>Close</button>
       </div>
     </div>
@@ -164,7 +165,7 @@
       <div class="modal-log" id="rebuild-log" aria-live="polite"></div>
       <div class="modal-footer">
         <button class="btn btn-save" id="rebuild-save-report" style="display:none">Save Error Report</button>
-        <button class="btn btn-reboot" id="rebuild-reboot-btn" style="display:none">Reboot</button>
+        <button class="btn btn-reboot" id="rebuild-reboot-btn" style="display:none">Restart Entire System</button>
         <button class="btn btn-close-modal" id="rebuild-close-btn" disabled>Close</button>
       </div>
     </div>
@@ -240,26 +241,61 @@
         You will need it to log in to your computer<br />and the Sovran Hub at <em>sovransystemsos.local</em>.
       </p>
       <button class="security-reset-reboot-btn" id="security-reset-reboot-btn" disabled>
-        I have written down my new password — Reboot now
+        I have written down my new password — Restart Entire System
       </button>
     </div>
   </div>
 
   <!-- Reboot overlay -->
   <div class="reboot-overlay" id="reboot-overlay">
-    <div class="reboot-card">
-      <div class="reboot-icon">↻</div>
-      <h2 class="reboot-title">System Rebooting</h2>
+    <!-- Normal restarting card -->
+    <div class="reboot-card" id="reboot-main-card">
+      <div class="reboot-icon" aria-hidden="true">↻</div>
+      <h2 class="reboot-title">Restarting Entire System</h2>
       <p class="reboot-message">
-        Sovran_SystemsOS is now restarting.<br />
-        This page will automatically reconnect once the system is back online.
+        The entire computer is restarting, including the desktop and all hosted services.<br />
+        This page will reconnect automatically when Sovran_SystemsOS is back online.
       </p>
-      <div class="reboot-dots">
+      <div class="reboot-dots" aria-hidden="true">
         <span class="reboot-dot"></span>
         <span class="reboot-dot"></span>
         <span class="reboot-dot"></span>
       </div>
-      <p class="reboot-submessage">Stay tuned…</p>
+      <p class="reboot-submessage" id="reboot-submessage" aria-live="polite">Sending restart request…</p>
+    </div>
+    <!-- Error card (shown if restart request fails definitively) -->
+    <div class="reboot-card" id="reboot-error-card" style="display:none">
+      <div class="reboot-icon" aria-hidden="true">⚠</div>
+      <h2 class="reboot-title">Restart could not be started</h2>
+      <p class="reboot-message">
+        The computer did not begin restarting. No services were intentionally stopped. Please try again.
+      </p>
+      <div class="reboot-error-actions">
+        <button class="btn btn-close-modal" id="reboot-error-close-btn">Close</button>
+        <button class="btn btn-restart-amber" id="reboot-error-retry-btn">Try Again</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Restart Confirm Dialog -->
+  <div class="modal-overlay" id="restart-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="restart-confirm-title">
+    <div class="creds-dialog domain-narrow-dialog">
+      <div class="creds-header">
+        <span class="creds-title" id="restart-confirm-title">Restart the entire computer?</span>
+      </div>
+      <div class="creds-body">
+        <div id="restart-conflict-box" class="restart-conflict-box" style="display:none">
+          <p class="restart-conflict-title">The system cannot restart right now.</p>
+          <p class="restart-conflict-desc">A system update, rebuild, backup, restore, or security operation is currently running. Wait for it to finish, then try again.</p>
+        </div>
+        <p class="support-desc"><strong>This will reboot the physical machine running Sovran_SystemsOS — not just the Hub.</strong></p>
+        <p class="support-desc">The desktop and all hosted services will stop temporarily and restart with the computer. Anyone currently using these services will be disconnected.</p>
+        <p class="support-desc">The system usually returns within 1–3 minutes. This page will reconnect automatically.</p>
+        <div class="domain-field-actions">
+          <button class="btn btn-close-modal" id="restart-confirm-cancel-btn">Cancel</button>
+          <button class="btn btn-restart-amber" id="restart-confirm-ok-btn">Restart Entire System</button>
+        </div>
+      </div>
     </div>
   </div>
 

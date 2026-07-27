@@ -8,6 +8,7 @@ import contextlib
 import glob
 import hashlib
 import hmac
+import ipaddress
 import json
 import logging
 import os
@@ -34,6 +35,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from .config import load_config
 from . import systemctl as sysctl
+from . import nwc_hub_manager as _nwc_mgr
 
 logger = logging.getLogger(__name__)
 
@@ -80,6 +82,15 @@ DOMAINS_DIR = "/var/lib/domains"
 NOSTR_NPUB_FILE   = "/var/lib/secrets/nostr_npub"
 NJALLA_SCRIPT     = "/var/lib/njalla/njalla.sh"
 
+# Systemd service that rewrites the Sovran-managed /etc/hosts loopback block
+SOVRAN_HOSTS_SERVICE = "sovran-hosts-update.service"
+
+# Domain keys that produce a public HTTPS virtual host via Caddy
+_SERVICE_DOMAIN_KEYS = frozenset([
+    "matrix", "wordpress", "nextcloud", "btcpayserver",
+    "vaultwarden", "haven", "element-calling", "lightning",
+])
+
 INTERNAL_IP_FILE = "/var/lib/secrets/internal-ip"
 ZEUS_CONNECT_FILE = "/var/lib/secrets/zeus-connect-url"
 
@@ -106,7 +117,10 @@ LOGIN_FAIL_MAX    = 10    # max failures in window before extra delay
 # Public paths that are accessible without a valid session
 _AUTH_EXEMPT_PATHS = {"/login", "/api/login", "/api/updates/status", "/api/rebuild/status", "/auto-login", "/api/ping", "/api/reboot"}
 # Prefixes for static assets required by the login page
-_AUTH_EXEMPT_PREFIXES = ("/static/css/", "/static/sovran-hub-icon.svg")
+_AUTH_EXEMPT_PREFIXES = (
+    "/static/css/",
+    "/static/sovran-hub-icon.svg",
+)
 
 # ── Security constants ────────────────────────────────────────────
 
@@ -211,6 +225,21 @@ FEATURE_REGISTRY = [
         ],
     },
     {
+        "id": "nwc-wallets",
+        "name": "Wallet Connections",
+        "description": "Connect apps to isolated wallets on your Lightning node and create reusable Lightning Addresses.",
+        "category": "bitcoin",
+        "needs_domain": True,
+        "domain_name": "lightning",
+        "needs_ddns": True,
+        "extra_fields": [],
+        "conflicts_with": [],
+        "port_requirements": [
+            {"port": "80", "protocol": "TCP", "description": "HTTP (redirect to HTTPS)"},
+            {"port": "443", "protocol": "TCP", "description": "HTTPS"},
+        ],
+    },
+    {
         "id": "mempool",
         "name": "Mempool Explorer",
         "description": "Bitcoin mempool visualization and explorer",
@@ -223,27 +252,15 @@ FEATURE_REGISTRY = [
         "port_requirements": [],
     },
     {
-        "id": "bip110",
-        "name": "Bitcoin Knots + BIP110",
-        "description": "Only one Bitcoin node implementation can be active at a time: Bitcoin Knots (default), Bitcoin Knots + BIP110, or Bitcoin Core. Enabling this option replaces the default Bitcoin Knots with Bitcoin Knots + BIP110 consensus changes. It will disable the currently active alternative.",
-        "category": "bitcoin",
-        "needs_domain": False,
-        "domain_name": None,
-        "needs_ddns": False,
-        "extra_fields": [],
-        "conflicts_with": ["bitcoin-core"],
-        "port_requirements": [],
-    },
-    {
         "id": "bitcoin-core",
         "name": "Bitcoin Core",
-        "description": "Only one Bitcoin node implementation can be active at a time: Bitcoin Knots (default), Bitcoin Knots + BIP110, or Bitcoin Core. Enabling this option replaces the default Bitcoin Knots with Bitcoin Core. It will disable the currently active alternative.",
+        "description": "Only one Bitcoin node implementation can be active: Bitcoin Knots + BIP110 (default) or Bitcoin Core. Enabling this replaces Knots + BIP110 with Bitcoin Core. Your timechain data is preserved.",
         "category": "bitcoin",
         "needs_domain": False,
         "domain_name": None,
         "needs_ddns": False,
         "extra_fields": [],
-        "conflicts_with": ["bip110"],
+        "conflicts_with": [],
         "port_requirements": [],
     },
     {
@@ -277,22 +294,23 @@ FEATURE_REGISTRY = [
     },
 ]
 
+# Feature ids that have been removed/deprecated. The Hub must never write these
+# back into custom.nix, and should strip any it finds (see startup migration).
+DEPRECATED_FEATURE_IDS: set[str] = {"bip110"}
+
 # Map feature IDs to their systemd units in config.json
 FEATURE_SERVICE_MAP = {
     "rdp": "gnome-remote-desktop.service",
     "haven": "haven-relay.service",
     "element-calling": "livekit.service",
     "mempool": "mempool.service",
-    "bip110": None,
     "bitcoin-core": None,
     "btcpay-web": "btcpayserver.service",
+    "nwc-wallets": "albyhub.service",
     "sshd": "sshd.service",
 }
 
 # Port requirements for service tiles (keyed by unit name or icon)
-_PORTS_MATRIX_FEDERATION = [
-    {"port": "8448", "protocol": "TCP", "description": "Matrix server-to-server federation"},
-]
 _PORTS_ELEMENT_CALLING = [
     {"port": "7881",        "protocol": "TCP",     "description": "LiveKit WebRTC signalling"},
     {"port": "7882",        "protocol": "UDP",     "description": "LiveKit media (UDP mux)"},
@@ -305,7 +323,7 @@ SERVICE_PORT_REQUIREMENTS: dict[str, list[dict]] = {
     # Infrastructure
     "caddy.service":                    [],
     # Communication
-    "matrix-synapse.service":           _PORTS_MATRIX_FEDERATION,
+    "matrix-synapse.service":           [],
     "livekit.service":                  _PORTS_ELEMENT_CALLING,
     # Domain-based apps (80/443 handled by end-to-end domain reachability checks)
     "btcpayserver.service":             [],
@@ -313,6 +331,8 @@ SERVICE_PORT_REQUIREMENTS: dict[str, list[dict]] = {
     "phpfpm-nextcloud.service":         [],
     "phpfpm-wordpress.service":         [],
     "haven-relay.service":              [],
+    "albyhub.service":                  [],
+    "nwc-lnurl.service":                [],
     # SSH (only open when feature is enabled)
     "sshd.service":                     [{"port": "22", "protocol": "TCP", "description": "SSH"}],
 }
@@ -327,11 +347,11 @@ SERVICE_DOMAIN_MAP: dict[str, str] = {
     "phpfpm-wordpress.service":    "wordpress",
     "haven-relay.service":         "haven",
     "livekit.service":             "element-calling",
+    "albyhub.service":             "lightning",
 }
 
 # For features that share a unit, disambiguate by icon field
 FEATURE_ICON_MAP = {
-    "bip110": "bip110",
     "bitcoin-core": "bitcoin-core",
 }
 
@@ -352,7 +372,7 @@ ROLE_CATEGORIES: dict[str, set[str] | None] = {
 ROLE_FEATURES: dict[str, set[str] | None] = {
     "server_plus_desktop": None,
     "desktop":             {"rdp", "sshd"},
-    "node":                {"rdp", "bip110", "bitcoin-core", "mempool", "btcpay-web", "sshd"},
+    "node":                {"rdp", "bitcoin-core", "mempool", "btcpay-web", "nwc-wallets", "sshd"},
 }
 
 SERVICE_DESCRIPTIONS: dict[str, str] = {
@@ -430,6 +450,10 @@ SERVICE_DESCRIPTIONS: dict[str, str] = {
         "The onion router, providing .onion addresses for your services. Access your node, "
         "wallet, and apps from anywhere in the world — privately and without port forwarding. "
         "Sovran_SystemsOS integrates Tor natively across your entire stack."
+    ),
+    "albyhub.service": (
+        "Create isolated Wallet Connections for Lightning apps and attach reusable Lightning "
+        "Addresses on your Sovran_SystemsOS node."
     ),
     "gnome-remote-desktop.service": (
         "Access your server's full desktop environment from anywhere using any RDP client. "
@@ -977,18 +1001,94 @@ def _check_port_status(
     return "closed"
 
 
+
+# Regex for validating domain values written into /etc/hosts.  Rejects anything
+# containing whitespace, newlines, or characters that could escape a hosts entry.
+# NOTE: The equivalent pattern in modules/core/local-domain-loopback.nix (shell
+# grep -E) must be kept in sync with this Python regex.
+_SAFE_DOMAIN_RE = re.compile(
+    r'^(?:[a-zA-Z0-9](?:[a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$'
+)
+
+
+def _validate_domain_value(domain: str) -> bool:
+    """Return True if *domain* is a valid hostname safe to write into /etc/hosts.
+
+    Rejects values containing whitespace, newlines, or other characters that
+    could inject additional entries or corrupt the hosts file.
+    """
+    if not domain or len(domain) > 253:
+        return False
+    # Guard against newline / whitespace injection before regex check.
+    if any(c in domain for c in ('\n', '\r', ' ', '\t', '#')):
+        return False
+    return bool(_SAFE_DOMAIN_RE.match(domain))
+
+
+def _is_loopback_address(ip: str) -> bool:
+    """Return True if *ip* is a loopback address (127.0.0.0/8 or ::1)."""
+    try:
+        return ipaddress.ip_address(ip).is_loopback
+    except ValueError:
+        return False
+
+
+def _resolve_all_addresses(domain: str) -> list[str]:
+    """Return all unique IP addresses that *domain* resolves to, or an empty list.
+
+    The first element is the address that the system resolver would normally
+    use for a connection.  All elements are checked when determining whether
+    any address matches the expected public IP or is a loopback address.
+    """
+    try:
+        results = socket.getaddrinfo(domain, None)
+        unique_addresses: list[str] = []
+        for r in results:
+            addr = r[4][0]
+            if addr not in unique_addresses:
+                unique_addresses.append(addr)
+        return unique_addresses
+    except Exception:
+        return []
+
+
+def _trigger_hosts_update() -> None:
+    """Start the sovran-hosts-update systemd service (best-effort, no-op if unavailable)."""
+    try:
+        subprocess.run(
+            ["systemctl", "start", SOVRAN_HOSTS_SERVICE],
+            timeout=30,
+            check=False,
+            capture_output=True,
+        )
+    except Exception:
+        pass
+
+
 def _check_domain_reachable(domain: str) -> dict:
-    """Curl the domain to verify end-to-end HTTPS reachability."""
+    """Check HTTPS reachability for *domain* via local Caddy (loopback).
+
+    Using ``--resolve`` ensures the request reaches Caddy on this computer
+    without depending on router NAT loopback or the public DNS result.
+    A successful local check is sufficient to confirm that Caddy and the
+    virtual-host configuration are working correctly.
+    """
     try:
         result = subprocess.run(
-            ["curl", "-sS", "-o", "/dev/null", "-w", "%{http_code}", "--max-time", "10", f"https://{domain}"],
+            [
+                "curl", "-sS", "-o", "/dev/null", "-w", "%{http_code}",
+                "--max-time", "10",
+                "--resolve", f"{domain}:443:127.0.0.1",
+                "--resolve", f"{domain}:80:127.0.0.1",
+                f"https://{domain}",
+            ],
             capture_output=True,
             text=True,
             timeout=15,
         )
         status_code = result.stdout.strip()
         if status_code and status_code.isdigit() and int(status_code) > 0:
-            return {"reachable": True, "status_code": int(status_code)}
+            return {"reachable": True, "status_code": int(status_code), "via_loopback": True}
         return {"reachable": False, "error": result.stderr.strip() or "No response"}
     except subprocess.TimeoutExpired:
         return {"reachable": False, "error": "timeout"}
@@ -997,25 +1097,28 @@ def _check_domain_reachable(domain: str) -> dict:
 
 
 def _check_domain_health_fast(domain: str | None, external_ip: str) -> bool:
-    """Fast domain issue check for tile health (no curl/subprocess calls)."""
+    """Fast domain issue check for tile health (no curl/subprocess calls).
+
+    Returns ``True`` when a domain issue is detected that warrants
+    ``needs_attention``, ``False`` otherwise.
+    Loopback resolution is treated as an intentional server-local override,
+    not a DNS mismatch.
+    """
     if not domain:
         return True
 
-    resolved_ip: str | None = None
-    try:
-        results = socket.getaddrinfo(domain, None)
-        if results:
-            resolved_ip = results[0][4][0]
-    except socket.gaierror:
-        resolved_ip = None
-    except Exception:
-        resolved_ip = None
-
-    if not resolved_ip:
+    addrs = _resolve_all_addresses(domain)
+    if not addrs:
         return True
+
+    # If every resolved address is loopback the intentional /etc/hosts
+    # override is in place — this is healthy, not a mismatch.
+    if all(_is_loopback_address(a) for a in addrs):
+        return False
+
     if external_ip == "unavailable":
         return False
-    return resolved_ip != external_ip
+    return not any(a == external_ip for a in addrs)
 
 
 def _is_domain_reachable_cached(domain: str) -> bool | None:
@@ -1083,15 +1186,8 @@ def _evaluate_domain_checklist(
         "detail": domain,
     })
 
-    resolved_ip: str | None = None
-    try:
-        results = socket.getaddrinfo(domain, None)
-        if results:
-            resolved_ip = results[0][4][0]
-    except socket.gaierror:
-        resolved_ip = None
-    except Exception:
-        resolved_ip = None
+    addrs = _resolve_all_addresses(domain)
+    resolved_ip: str | None = addrs[0] if addrs else None
 
     if not resolved_ip:
         domain_status = {
@@ -1118,7 +1214,31 @@ def _evaluate_domain_checklist(
             "has_issues": True,
         }
 
-    if external_ip == "unavailable":
+    # Detect intentional server-local loopback override from /etc/hosts.
+    # When all addresses are loopback the public DNS is not checked via the
+    # system resolver (which would always return the override).  We proceed
+    # to the reachability check so Caddy health can still be verified.
+    loopback_override = all(_is_loopback_address(a) for a in addrs)
+
+    if loopback_override:
+        domain_status = {
+            "status": "local_override",
+            "resolved_ip": resolved_ip,
+            "expected_ip": external_ip,
+        }
+        steps.append({
+            "step": 2,
+            "label": "DNS / Local Override",
+            "status": "ok",
+            "detail": (
+                "Server-local loopback override is active — this computer routes the domain "
+                "directly to Caddy without going through the router. "
+                "Public DNS cannot be verified from this computer while the override is in place. "
+                "To check your public DNS from outside, use a tool such as "
+                "https://dnschecker.org or run: dig @1.1.1.1 " + domain
+            ),
+        })
+    elif external_ip == "unavailable":
         domain_status = {
             "status": "error",
             "resolved_ip": resolved_ip,
@@ -1130,7 +1250,7 @@ def _evaluate_domain_checklist(
             "status": "warning",
             "detail": f"Resolves to {resolved_ip} (external IP unavailable for comparison)",
         })
-    elif resolved_ip != external_ip:
+    elif not any(a == external_ip for a in addrs):
         domain_status = {
             "status": "dns_mismatch",
             "resolved_ip": resolved_ip,
@@ -1232,7 +1352,7 @@ def _generate_qr_base64(data: str) -> str | None:
 # ── Update helpers (file-based, no systemctl) ────────────────────
 
 def _read_update_status() -> str:
-    """Read the status file. Returns RUNNING, SUCCESS, FAILED, or IDLE."""
+    """Read the status file. Returns RUNNING, SUCCESS, REBOOT_REQUIRED, FAILED, or IDLE."""
     try:
         with open(UPDATE_STATUS, "r") as f:
             return f.read().strip()
@@ -1358,6 +1478,12 @@ def _read_backup_status() -> str:
         return "IDLE"
 
 
+def _write_backup_status(value: str) -> None:
+    """Write backup status file."""
+    with open(BACKUP_STATUS, "w") as f:
+        f.write(value)
+
+
 def _read_backup_log(offset: int = 0) -> tuple[str, int]:
     """Read the backup log file from the given byte offset.
     Returns (new_text, new_offset)."""
@@ -1374,6 +1500,12 @@ def _read_backup_log(offset: int = 0) -> tuple[str, int]:
         return "", 0
 
 
+def _append_backup_log(line: str) -> None:
+    """Append one line to backup log."""
+    with open(BACKUP_LOG, "a") as f:
+        f.write(line.rstrip("\n") + "\n")
+
+
 _INTERNAL_LABELS  = {"BTCEcoandBackup", "sovran_systemsos"}
 _INTERNAL_MOUNTS  = {"/", "/boot/efi"}
 _INTERNAL_MOUNT_PREFIX = "/run/media/Second_Drive"
@@ -1388,6 +1520,16 @@ def _is_internal_mount(mnt: str) -> bool:
     return False
 
 
+def _is_supported_backup_fstype(path: str, fstype: str) -> bool:
+    """Return whether the target filesystem type is supported for manual backup.
+
+    Manual Backup requires ext4 for Linux metadata preservation (ACLs, xattrs,
+    hard links). exFAT, FAT32, NTFS, and other filesystems are not supported.
+    """
+    fstype = (fstype or "").lower()
+    return fstype == "ext4"
+
+
 def _detect_external_drives() -> list[dict]:
     """Scan for mounted external USB drives.
 
@@ -1397,7 +1539,8 @@ def _detect_external_drives() -> list[dict]:
     /run/media/ directly if lsblk is unavailable, applying the same
     label/path filters.
 
-    Returns a list of dicts with name, path, free_gb, total_gb.
+    Returns:
+        list[dict]: Each dict contains name, path, free_gb, total_gb, fstype.
     """
     import json as _json
     import subprocess as _subprocess
@@ -1408,7 +1551,7 @@ def _detect_external_drives() -> list[dict]:
     # ── Primary path: lsblk JSON ────────────────────────────────
     try:
         result = _subprocess.run(
-            ["lsblk", "-J", "-o", "NAME,LABEL,MOUNTPOINT,HOTPLUG,RM,TYPE"],
+            ["lsblk", "-J", "-o", "NAME,LABEL,FSTYPE,MOUNTPOINT,HOTPLUG,RM,TYPE"],
             capture_output=True, text=True, timeout=10
         )
         if result.returncode == 0:
@@ -1426,6 +1569,7 @@ def _detect_external_drives() -> list[dict]:
                 hotplug    = str(dev.get("hotplug", "0"))
                 rm         = str(dev.get("rm", "0"))
                 label      = dev.get("label") or ""
+                fstype     = (dev.get("fstype") or "").lower()
                 mountpoint = dev.get("mountpoint") or ""
 
                 if dev_type not in ("part", "disk"):
@@ -1451,6 +1595,7 @@ def _detect_external_drives() -> list[dict]:
                         "path":     mountpoint,
                         "free_gb":  free_gb,
                         "total_gb": total_gb,
+                        "fstype":   fstype,
                     })
                     seen_paths.add(mountpoint)
                 except OSError:
@@ -1484,11 +1629,20 @@ def _detect_external_drives() -> list[dict]:
                     st = os.statvfs(drive_path)
                     total_gb = round((st.f_blocks * st.f_frsize) / (1024 ** 3), 1)
                     free_gb  = round((st.f_bavail * st.f_frsize) / (1024 ** 3), 1)
+                    fstype = ""
+                    try:
+                        fstype = _subprocess.run(
+                            ["findmnt", "-n", "-o", "FSTYPE", "-T", drive_path],
+                            capture_output=True, text=True, timeout=5
+                        ).stdout.strip().lower()
+                    except Exception:
+                        fstype = ""
                     drives.append({
                         "name":     drive_name,
                         "path":     drive_path,
                         "free_gb":  free_gb,
                         "total_gb": total_gb,
+                        "fstype":   fstype,
                     })
                     seen_paths.add(drive_path)
                 except OSError:
@@ -1519,7 +1673,9 @@ def _read_hub_overrides() -> tuple[dict, str | None, str | None, str | None]:
             r'sovran_systemsOS\.features\.([a-zA-Z0-9_-]+)\s*=\s*(?:lib\.mkForce\s+)?(true|false)\s*;',
             section,
         ):
-            features[m.group(1)] = m.group(2) == "true"
+            feat_id = m.group(1)
+            if feat_id not in DEPRECATED_FEATURE_IDS:
+                features[feat_id] = m.group(2) == "true"
         for m in re.finditer(
             r'sovran_systemsOS\.web\.btcpayserver\s*=\s*(?:lib\.mkForce\s+)?(true|false)\s*;',
             section,
@@ -1552,6 +1708,8 @@ def _write_hub_overrides(features: dict, nostr_npub: str | None, timezone: str |
     """Write the Hub Managed section inside custom.nix."""
     lines = []
     for feat_id, enabled in features.items():
+        if feat_id in DEPRECATED_FEATURE_IDS:
+            continue
         val = "true" if enabled else "false"
         if feat_id == "btcpay-web":
             lines.append(f"  sovran_systemsOS.web.btcpayserver = lib.mkForce {val};")
@@ -1597,6 +1755,40 @@ def _write_hub_overrides(features: dict, nostr_npub: str | None, timezone: str |
         f.write(content)
 
 
+def _migrate_strip_deprecated_features() -> None:
+    """One-time migration: remove deprecated feature lines from the Hub Managed
+    section of custom.nix.  Any feature id in DEPRECATED_FEATURE_IDS is dropped
+    while all other Hub-managed settings (other features, nostr_npub, timezone,
+    locale) are preserved byte-for-byte in meaning.
+
+    This is a no-op (and never raises) if CUSTOM_NIX is missing, unreadable, or
+    contains no deprecated lines.
+    """
+    try:
+        with open(CUSTOM_NIX, "r") as f:
+            content = f.read()
+    except (FileNotFoundError, OSError):
+        return
+
+    # Quick-exit: if none of the deprecated ids appear, nothing to do.
+    hub_begin = content.find(HUB_BEGIN)
+    hub_end = content.find(HUB_END)
+    if hub_begin == -1 or hub_end == -1:
+        return
+    section = content[hub_begin:hub_end]
+    if not any(f"features.{dep_id}" in section for dep_id in DEPRECATED_FEATURE_IDS):
+        return
+
+    try:
+        features, nostr_npub, timezone, locale = _read_hub_overrides()
+        # _read_hub_overrides already excludes DEPRECATED_FEATURE_IDS, so
+        # calling _write_hub_overrides with its output drops the stale lines.
+        _write_hub_overrides(features, nostr_npub, timezone, locale)
+    except Exception:
+        # Never let a migration failure break startup.
+        logger.exception("_migrate_strip_deprecated_features: unexpected error (non-fatal)")
+
+
 # ── Feature status helpers ─────────────────────────────────────────
 
 def _is_feature_enabled_in_config(feature_id: str) -> bool | None:
@@ -1606,7 +1798,7 @@ def _is_feature_enabled_in_config(feature_id: str) -> bool | None:
         return False  # Default off in Node role; only on via explicit hub toggle
     unit = FEATURE_SERVICE_MAP.get(feature_id)
     if unit is None:
-        return None  # bip110, bitcoin-core — can't determine from config
+        return None  # bitcoin-core — can't determine from config
     cfg = load_config()
     for svc in cfg.get("services", []):
         if svc.get("unit") == unit:
@@ -1925,10 +2117,13 @@ def _verify_support_removed() -> bool:
 
 @app.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request):
-    return templates.TemplateResponse("login.html", {
-        "request": request,
-        "asset_version": ASSET_VERSION,
-    })
+    return templates.TemplateResponse(
+        request=request,
+        name="login.html",
+        context={
+            "asset_version": ASSET_VERSION,
+        },
+    )
 
 
 @app.get("/auto-login")
@@ -1993,20 +2188,26 @@ async def api_logout(request: Request):
 
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
-    return templates.TemplateResponse("index.html", {
-        "request": request,
-        "asset_version": ASSET_VERSION,
-    })
+    return templates.TemplateResponse(
+        request=request,
+        name="index.html",
+        context={
+            "asset_version": ASSET_VERSION,
+        },
+    )
 
 
 @app.get("/onboarding", response_class=HTMLResponse)
 async def onboarding(request: Request):
     _ensure_onboarding_reopened_for_migration()
-    return templates.TemplateResponse("onboarding.html", {
-        "request": request,
-        "asset_version": ASSET_VERSION,
-        "onboarding_js_hash": _ONBOARDING_JS_HASH,
-    })
+    return templates.TemplateResponse(
+        request=request,
+        name="onboarding.html",
+        context={
+            "asset_version": ASSET_VERSION,
+            "onboarding_js_hash": _ONBOARDING_JS_HASH,
+        },
+    )
 
 
 @app.get("/api/onboarding/status")
@@ -2225,6 +2426,16 @@ _BTC_VERSION_CACHE_TTL = 60  # seconds — version doesn't change at runtime
 # Cache for ``bitcoind --version`` output (available even before RPC is ready)
 _btcd_version_cache: tuple[float, str | None] = (0.0, None)
 
+# Cache for ``bitcoin-cli getdeploymentinfo`` output (BIP-110 live status)
+_btc_deployment_cache: tuple[float, dict | None] = (0.0, None)
+
+# Bitcoin Knots exposes BIP-110 as the `reduced_data` versionbits deployment
+# (RDTS, bit 4) in getdeploymentinfo. See Knots src/deploymentinfo.cpp,
+# src/kernel/chainparams.cpp, and doc/bips.md.
+BIP110_DEPLOYMENT_NAMES = {"reduced_data", "rdts", "bip110", "uasf-bip110"}
+BIP110_VERSIONBITS_BIT = 4
+BIP110_SUBVERSION_MARKERS = {"bip110", "uasf-bip110", "reduced_data", "rdts"}
+
 
 # ── Generic service version detection (NixOS store path) ─────────
 
@@ -2339,12 +2550,160 @@ def _get_bitcoin_version_info() -> dict | None:
         return None
 
 
+def _get_bitcoin_deployment_info() -> dict | None:
+    """Call bitcoin-cli getdeploymentinfo and return parsed JSON, or None on error.
+
+    Results are cached for _BTC_VERSION_CACHE_TTL seconds.  Never raises.
+    """
+    global _btc_deployment_cache
+    now = time.monotonic()
+    cached_at, cached_val = _btc_deployment_cache
+    if now - cached_at < _BTC_VERSION_CACHE_TTL:
+        return cached_val
+
+    try:
+        result = subprocess.run(
+            ["bitcoin-cli", f"-datadir={BITCOIN_DATADIR}", "getdeploymentinfo"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        if result.returncode != 0:
+            _btc_deployment_cache = (now, None)
+            return None
+        info = json.loads(result.stdout)
+        _btc_deployment_cache = (now, info)
+        return info
+    except Exception:
+        _btc_deployment_cache = (now, None)
+        return None
+
+
+def _get_bip110_status() -> dict:
+    """Return a dict describing the live BIP-110 deployment/signaling state.
+
+    The returned struct has four stable keys::
+
+        {
+          "supported": bool,   # node build is BIP-110-capable
+          "signaling": bool,   # node is actively signaling / locked-in / active
+          "state": str,        # "active" | "locked_in" | "signaling" |
+                               # "not_signaling" | "unsupported" | "unknown"
+          "source": str,       # "getdeploymentinfo" | "subversion" | "none"
+        }
+
+    Resolution order (authoritative → fallback → honest unknown):
+
+    1. ``getdeploymentinfo`` (authoritative) — scan ``deployments`` for BIP-110.
+       Bitcoin Knots currently exposes BIP-110 as ``reduced_data`` (RDTS, bit 4;
+       see Knots deploymentinfo.cpp / chainparams.cpp / doc/bips.md), so matching
+       first uses known deployment names, then falls back to versionbits bit 4.
+
+    2. Subversion fallback — if getdeploymentinfo is unavailable or yields no
+       recognisable BIP-110 entry, inspect the ``subversion`` field from
+       ``getnetworkinfo``.  A case-insensitive match for known BIP-110 markers
+       (including "bip110", "uasf-bip110", "reduced_data", "rdts") is treated as
+       "signaling".
+
+    3. Unknown — if the node is entirely unreachable or neither source is
+       conclusive, return state="unknown", signaling=False, source="none".
+    """
+    _unknown: dict = {"supported": False, "signaling": False, "state": "unknown", "source": "none"}
+
+    def _deployment_bit(entry: dict) -> int | None:
+        bip9 = entry.get("bip9", {}) or {}
+        bip8 = entry.get("bip8", {}) or {}
+        bit = bip9.get("bit")
+        if bit is None:
+            bit = bip8.get("bit")
+        if bit is None:
+            bit = entry.get("bit")
+        return bit
+
+    # ── 1. getdeploymentinfo (authoritative) ──────────────────────────
+    deploy_info = _get_bitcoin_deployment_info()
+    if deploy_info is not None:
+        deployments = deploy_info.get("deployments", {})
+        if isinstance(deployments, dict):
+            matched_entry: dict | None = None
+
+            # Primary match: known deployment names (case-insensitive exact match)
+            for key, entry in deployments.items():
+                if not isinstance(entry, dict):
+                    continue
+                key_lower = key.lower()
+                if key_lower not in BIP110_DEPLOYMENT_NAMES:
+                    continue
+                matched_entry = entry
+                break
+
+            # Secondary match: versionbits bit (fallback only)
+            if matched_entry is None:
+                for _, entry in deployments.items():
+                    if not isinstance(entry, dict):
+                        continue
+                    if _deployment_bit(entry) != BIP110_VERSIONBITS_BIT:
+                        continue
+                    matched_entry = entry
+                    break
+
+            if matched_entry is not None:
+                entry = matched_entry
+
+                # bip9 / bip8 status field
+                bip9 = entry.get("bip9", {}) or {}
+                bip8 = entry.get("bip8", {}) or {}
+                status = (
+                    bip9.get("status")
+                    or bip8.get("status")
+                    or entry.get("status")
+                    or ""
+                ).lower()
+                active = entry.get("active", False)
+
+                if active or status == "active":
+                    return {"supported": True, "signaling": True, "state": "active", "source": "getdeploymentinfo"}
+                if status == "locked_in":
+                    return {"supported": True, "signaling": True, "state": "locked_in", "source": "getdeploymentinfo"}
+                if status in ("started", "defined"):
+                    # Check whether deployment is currently signaling in this period.
+                    stats = bip9.get("statistics") or bip8.get("statistics") or {}
+                    # Some Knots outputs expose only ``count`` (not explicit signaling bool),
+                    # so treat count>0 as a conservative signaling indicator for this period.
+                    count = stats.get("count")
+                    signaling = bool(
+                        stats.get("signaling")
+                        or stats.get("signalling")
+                        or (isinstance(count, int) and count > 0)
+                    )
+                    if signaling:
+                        return {"supported": True, "signaling": True, "state": "signaling", "source": "getdeploymentinfo"}
+                    return {"supported": True, "signaling": False, "state": "not_signaling", "source": "getdeploymentinfo"}
+                if status == "failed":
+                    return {"supported": True, "signaling": False, "state": "not_signaling", "source": "getdeploymentinfo"}
+                # Entry found but status unrecognised — node supports BIP-110 but state unclear
+                return {"supported": True, "signaling": False, "state": "unknown", "source": "getdeploymentinfo"}
+
+    # ── 2. Subversion fallback ─────────────────────────────────────────
+    net_info = _get_bitcoin_version_info()
+    if net_info is not None:
+        subversion = net_info.get("subversion", "") or ""
+        sv_lower = subversion.lower()
+        if any(marker in sv_lower for marker in BIP110_SUBVERSION_MARKERS):
+            return {"supported": True, "signaling": True, "state": "signaling", "source": "subversion"}
+        # Node is reachable via RPC but no BIP-110 marker found anywhere
+        return {"supported": False, "signaling": False, "state": "unsupported", "source": "subversion"}
+
+    # ── 3. Node unreachable / RPC not ready ───────────────────────────
+    return _unknown
+
+
 def _get_bitcoind_version() -> str | None:
     """Run ``bitcoind --version`` and return the raw version string, or None on error.
 
     Parses the first output line to extract the token after "version ".
-    For example: "Bitcoin Knots daemon version v29.3.knots20260210+bip110-v0.4.1"
-    returns "v29.3.knots20260210+bip110-v0.4.1".
+    For example: "Bitcoin Knots daemon version v29.3.knots20260508"
+    returns "v29.3.knots20260508".
 
     Works regardless of whether the RPC server is ready (IBD, warmup, etc.).
     Results are cached for 60 seconds (_BTC_VERSION_CACHE_TTL).
@@ -2379,26 +2738,13 @@ def _get_bitcoind_version() -> str | None:
 def _format_bitcoin_version(raw_version: str, icon: str = "") -> str:
     """Format a raw version string from ``bitcoind --version`` for tile display.
 
-    Strips the ``+bip110-vX.Y.Z`` patch suffix so the base version is shown
-    cleanly (e.g. "v29.3.knots20260210+bip110-v0.4.1" → "v29.3.knots20260210").
-    For the BIP110 tile (icon == "bip110") a " (bip110 vX.Y.Z)" tag is appended
-    including the patch version.
+    For the BIP110 tile (icon == "bip110") a " (bip110)" tag is appended,
+    since mainline Bitcoin Knots (29.3.knots20260508+) now includes BIP-110
+    and no longer carries a separate ``+bip110-vX.Y.Z`` suffix.
     """
-    # Extract the BIP110 patch version before stripping the suffix
-    bip110_ver = ""
-    bip_match = re.search(r"\+bip110-v(\S+)", raw_version)
-    if bip_match:
-        bip110_ver = bip_match.group(1)
-
-    # Strip the +bip110... suffix for the base Knots version
-    display = re.sub(r"\+bip110\S*", "", raw_version)
-
-    # For BIP110 tile, append both the tag and the patch version
-    if icon == "bip110":
-        if bip110_ver:
-            display += f" (bip110 v{bip110_ver})"
-        elif "(bip110)" not in display.lower():
-            display += " (bip110)"
+    display = raw_version
+    if icon == "bip110" and "(bip110)" not in display.lower():
+        display += " (bip110)"
     return display
 
 
@@ -2464,6 +2810,19 @@ async def api_bitcoin_version():
         "version": _format_bitcoin_version(raw_ver),
         "raw_version": raw_ver,
     }
+
+
+@app.get("/api/bitcoin/bip110")
+async def api_bitcoin_bip110():
+    """Return live BIP-110 deployment/signaling status from bitcoin-cli.
+
+    Always returns HTTP 200.  When bitcoind is unreachable or the node is mid-IBD
+    the response will contain ``state = "unknown"`` so the UI can render a neutral
+    badge rather than an error toast.
+    """
+    loop = asyncio.get_event_loop()
+    status = await loop.run_in_executor(None, _get_bip110_status)
+    return status
 
 
 @app.get("/api/services")
@@ -2557,19 +2916,17 @@ async def api_services():
                     break
         has_domain_issues = False
         if needs_domain and domain and enabled:
+            addrs = _resolve_all_addresses(domain)
             dns_ok = True
-            try:
-                results = socket.getaddrinfo(domain, None)
-                if results:
-                    resolved_ip = results[0][4][0]
-                    if (
-                        _cached_external_ip != "unavailable"
-                        and resolved_ip != _cached_external_ip
-                    ):
-                        dns_ok = False
-                else:
-                    dns_ok = False
-            except (socket.gaierror, Exception):
+            if not addrs:
+                dns_ok = False
+            elif all(_is_loopback_address(a) for a in addrs):
+                # Intentional server-local /etc/hosts override — not a mismatch.
+                dns_ok = True
+            elif (
+                _cached_external_ip != "unavailable"
+                and not any(a == _cached_external_ip for a in addrs)
+            ):
                 dns_ok = False
 
             if not dns_ok:
@@ -2646,6 +3003,8 @@ async def api_services():
                 btc_ver = _format_bitcoin_version(raw_ver, icon=icon)
                 service_data["bitcoin_version"] = btc_ver  # backwards compat
                 service_data["version"] = btc_ver
+            if icon == "bip110":
+                service_data["bip110"] = await loop.run_in_executor(None, _get_bip110_status)
         return service_data
 
     results = await asyncio.gather(*[get_status(s) for s in services])
@@ -2795,36 +3154,28 @@ async def api_service_detail(unit: str, icon: str | None = None):
                 "status": ps,
                 "description": p.get("description", ""),
             })
-    extra_ports = port_statuses if unit in ("matrix-synapse.service", "livekit.service") else []
+    extra_ports = port_statuses if unit == "livekit.service" else []
 
-    if needs_domain and unit in ("matrix-synapse.service", "livekit.service"):
+    if needs_domain and unit == "livekit.service":
         if has_domain_issues:
             domain_check_steps.append({
                 "step": 4,
-                "label": "Federation Port" if unit == "matrix-synapse.service" else "Additional Ports Required",
+                "label": "Router Setup Needed",
                 "status": "skipped",
-                "detail": "Skipped until Steps 1-3 are complete",
+                "detail": "Finish the domain steps first, then forward the Element Call ports in your router.",
             })
-        elif unit == "matrix-synapse.service":
-            if extra_ports:
-                matrix_open = extra_ports[0]["status"] != "closed"
-                domain_check_steps.append({
-                    "step": 4,
-                    "label": "Federation Port",
-                    "status": "ok" if matrix_open else "error",
-                    "detail": (
-                        f"Matrix federation port 8448 (TCP) is {'open' if matrix_open else 'closed'}.\n"
-                        f"Matrix federation requires port 8448 (TCP) forwarded to {internal_ip}"
-                    ),
-                })
         else:
-            extra_open = all(p["status"] != "closed" for p in extra_ports)
+            # These checks are local-only (listening/firewall state on this computer),
+            # not an outside-in verification of router/NAT forwarding.
+            all_local_ready = all(p["status"] != "closed" for p in extra_ports)
             domain_check_steps.append({
                 "step": 4,
-                "label": "Additional Ports Required",
-                "status": "ok" if extra_open else "error",
+                "label": "Router Setup Needed" if all_local_ready else "Sovran_SystemsOS Port Setup Needed",
+                "status": "warning" if all_local_ready else "error",
                 "detail": (
-                    "Element-Call/LiveKit requires additional forwarded ports for WebRTC and TURN traffic."
+                    "Sovran_SystemsOS is ready to use these ports on this computer. Now forward them in your router so Element Call can work from outside your home network."
+                    if all_local_ready
+                    else "Sovran_SystemsOS is not ready to use all required Element Call ports on this computer yet. Fix the ports marked “Not ready yet” below, then forward them in your router."
                 ),
             })
 
@@ -2930,6 +3281,8 @@ async def api_service_detail(unit: str, icon: str | None = None):
             btc_ver = _format_bitcoin_version(raw_ver, icon=icon)
             service_detail["bitcoin_version"] = btc_ver  # backwards compat
             service_detail["version"] = btc_ver
+        if icon == "bip110":
+            service_detail["bip110"] = await loop.run_in_executor(None, _get_bip110_status)
     return service_detail
 
 
@@ -3390,6 +3743,37 @@ async def api_backup_drives():
     return {"drives": drives}
 
 
+async def _monitor_backup_subprocess(proc: asyncio.subprocess.Process) -> None:
+    """Drain stderr, then mark status FAILED if backup subprocess exits unexpectedly."""
+    stderr_chunks: list[bytes] = []
+
+    async def _drain_stderr() -> None:
+        if proc.stderr is not None:
+            async for line in proc.stderr:
+                stderr_chunks.append(line)
+
+    drain_task = asyncio.create_task(_drain_stderr())
+    rc = await proc.wait()
+    await drain_task
+
+    if rc == 0:
+        return
+
+    loop = asyncio.get_event_loop()
+    status = await loop.run_in_executor(None, _read_backup_status)
+    if status in {"SUCCESS", "FAILED"}:
+        return
+
+    detail = ""
+    if stderr_chunks:
+        stderr_text = b"".join(stderr_chunks).decode("utf-8", errors="replace").strip()
+        if stderr_text:
+            detail = f" — stderr: {stderr_text}"
+    msg = f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] ERROR: Backup subprocess exited unexpectedly (code {rc}).{detail}"
+    await loop.run_in_executor(None, _append_backup_log, msg)
+    await loop.run_in_executor(None, _write_backup_status, "FAILED")
+
+
 @app.post("/api/backup/run")
 async def api_backup_run(target: str = ""):
     """Start the backup script as a background subprocess.
@@ -3400,6 +3784,26 @@ async def api_backup_run(target: str = ""):
     if status == "RUNNING":
         return {"ok": True, "status": "already_running"}
 
+    drives = await loop.run_in_executor(None, _detect_external_drives)
+    if not drives:
+        raise HTTPException(status_code=400, detail="No external backup drive detected.")
+
+    drive_map = {d.get("path", ""): d for d in drives if d.get("path")}
+    if target:
+        if target not in drive_map:
+            raise HTTPException(status_code=400, detail="Selected backup target is not an available external drive.")
+        selected = drive_map[target]
+    else:
+        selected = drives[0]
+
+    selected_target = selected.get("path", "")
+    selected_fstype = (selected.get("fstype") or "").lower()
+    if selected_fstype and not _is_supported_backup_fstype(selected_target, selected_fstype):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Selected drive filesystem '{selected_fstype}' is not supported for manual backup. Manual Backup requires an ext4-formatted drive.",
+        )
+
     # Clear stale log before starting
     try:
         with open(BACKUP_LOG, "w") as f:
@@ -3407,21 +3811,48 @@ async def api_backup_run(target: str = ""):
     except OSError:
         pass
 
-    env = dict(os.environ)
-    if target:
-        env["BACKUP_TARGET"] = target
+    try:
+        await loop.run_in_executor(None, _write_backup_status, "RUNNING")
+    except OSError as exc:
+        raise HTTPException(status_code=500, detail=f"Could not set backup status: {exc}")
 
-    # Fire-and-forget: the script writes its own status/log files.
-    # Progress is read by the client via /api/backup/status (same pattern
-    # as /api/updates/run and the rebuild feature).
-    await asyncio.create_subprocess_exec(
-        "/usr/bin/env", "bash", BACKUP_SCRIPT,
-        stdout=asyncio.subprocess.DEVNULL,
-        stderr=asyncio.subprocess.DEVNULL,
-        env=env,
+    await loop.run_in_executor(
+        None,
+        _append_backup_log,
+        f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] Starting backup process…",
     )
 
-    return {"ok": True, "status": "started"}
+    env = dict(os.environ)
+    env["BACKUP_TARGET"] = selected_target
+
+    bash_path = shutil.which("bash")
+    if bash_path is None:
+        no_bash_msg = (
+            f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] ERROR: Cannot start backup:"
+            " interpreter 'bash' not found on PATH."
+            " Ensure pkgs.bash is in the sovran-hub-web service PATH."
+        )
+        await loop.run_in_executor(None, _append_backup_log, no_bash_msg)
+        await loop.run_in_executor(None, _write_backup_status, "FAILED")
+        raise HTTPException(
+            status_code=500,
+            detail="Backup interpreter (bash) not available. Check service PATH configuration.",
+        )
+
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            bash_path, BACKUP_SCRIPT,
+            stdout=asyncio.subprocess.DEVNULL,
+            stderr=asyncio.subprocess.PIPE,
+            env=env,
+        )
+    except Exception as exc:
+        await loop.run_in_executor(None, _append_backup_log, f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] ERROR: Failed to launch backup script: {exc}")
+        await loop.run_in_executor(None, _write_backup_status, "FAILED")
+        raise HTTPException(status_code=500, detail="Failed to launch backup process.")
+
+    asyncio.create_task(_monitor_backup_subprocess(proc))
+    return {"ok": True, "status": "started", "target": selected_target}
 
 
 # ── Feature Manager endpoints ─────────────────────────────────────
@@ -3660,15 +4091,96 @@ def _validate_safe_name(name: str) -> bool:
     return bool(name) and _SAFE_NAME_RE.match(name) is not None
 
 
+# Hostname characters: letters, digits, hyphens only within labels; dots separate labels.
+# Each label must start and end with a letter or digit; no consecutive dots.
+_HOSTNAME_RE = re.compile(
+    r'^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$'
+)
+
+# Managed domain keys that produce Caddy virtual-host blocks (excluding sslemail)
+_MANAGED_DOMAIN_KEYS: frozenset[str] = frozenset([
+    "matrix", "haven", "element-calling", "vaultwarden",
+    "btcpayserver", "nextcloud", "wordpress", "lightning",
+])
+
+# Any save involving lightning must be unique across all managed service domains.
+_LIGHTNING_DOMAIN_KEY = "lightning"
+
+
+def _normalize_hostname(raw: str) -> str:
+    """Trim, lowercase, and remove exactly one trailing dot."""
+    h = raw.strip().lower()
+    if h.endswith("."):
+        h = h[:-1]
+    return h
+
+
+def _validate_hostname(hostname: str) -> bool:
+    """Return True if hostname is a valid safe FQDN-style value."""
+    return bool(hostname) and _HOSTNAME_RE.match(hostname) is not None
+
+
+def _read_managed_domain(key: str) -> str | None:
+    """Read the stored hostname for a managed domain key, or None if absent/empty."""
+    try:
+        with open(os.path.join(DOMAINS_DIR, key), "r") as fh:
+            val = fh.read().strip()
+        return _normalize_hostname(val) if val else None
+    except OSError:
+        return None
+
+
+def _check_domain_conflict(domain_name: str, new_hostname: str) -> str | None:
+    """Return the conflicting managed key if new_hostname is already used by another key.
+
+    The uniqueness rule is applied symmetrically: if either the target key or the
+    conflicting candidate key is 'lightning', the check is enforced.
+    """
+    for key in _MANAGED_DOMAIN_KEYS:
+        if key == domain_name:
+            continue  # skip self; re-saving the same hostname is allowed
+        existing = _read_managed_domain(key)
+        if existing is None:
+            continue
+        if existing == new_hostname:
+            # Enforce when lightning is involved (either side)
+            if domain_name == _LIGHTNING_DOMAIN_KEY or key == _LIGHTNING_DOMAIN_KEY:
+                return key
+    return None
+
+
 @app.post("/api/domains/set")
 async def api_domains_set(req: DomainSetRequest):
     """Save a domain and optionally register a DDNS URL."""
     if not _validate_safe_name(req.domain_name):
         raise HTTPException(status_code=400, detail="Invalid domain_name")
+
+    # Normalize and validate the submitted hostname before any mutation.
+    normalized = _normalize_hostname(req.domain)
+    if not _validate_hostname(normalized):
+        raise HTTPException(status_code=400, detail="Invalid hostname value")
+
+    # Reject duplicate managed-domain hostnames when lightning is involved.
+    if req.domain_name in _MANAGED_DOMAIN_KEYS:
+        conflicting_key = _check_domain_conflict(req.domain_name, normalized)
+        if conflicting_key is not None:
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "error": "domain_conflict",
+                    "conflicting_domain_key": conflicting_key,
+                    "message": (
+                        "Wallet Connections requires its own unique hostname. "
+                        "Choose a new subdomain such as lightning.yourdomain.com. "
+                        f"This hostname is already assigned to: {conflicting_key}."
+                    ),
+                },
+            )
+
     _ensure_domains_dir()
     domain_path = os.path.join(DOMAINS_DIR, req.domain_name)
     with open(domain_path, "w") as f:
-        f.write(req.domain.strip())
+        f.write(normalized)
     _chown_to_caddy(domain_path)
 
     if req.ddns_url:
@@ -3698,6 +4210,12 @@ async def api_domains_set(req: DomainSetRequest):
         except Exception:
             pass
 
+    # Regenerate the server-local /etc/hosts loopback entries so the newly
+    # saved domain is immediately reachable on this computer without NAT
+    # loopback support on the router.
+    if req.domain_name in _SERVICE_DOMAIN_KEYS:
+        _trigger_hosts_update()
+
     return {"ok": True}
 
 
@@ -3721,7 +4239,7 @@ async def api_domains_status():
     """Return the value of each known domain file (or null if missing)."""
     known = [
         "matrix", "haven", "element-calling", "sslemail",
-        "vaultwarden", "btcpayserver", "nextcloud", "wordpress",
+        "vaultwarden", "btcpayserver", "nextcloud", "wordpress", "lightning",
     ]
     domains: dict[str, str | None] = {}
     for name in known:
@@ -3745,43 +4263,223 @@ async def api_domains_check(req: DomainCheckRequest):
     external_ip = _cached_external_ip
 
     def check_domain(domain: str) -> dict:
-        try:
-            results = socket.getaddrinfo(domain, None)
-            if not results:
-                return {
-                    "domain": domain, "status": "unresolvable",
-                    "resolved_ip": None, "expected_ip": external_ip,
-                }
-            resolved_ip = results[0][4][0]
-            if external_ip == "unavailable":
-                return {
-                    "domain": domain, "status": "error",
-                    "resolved_ip": resolved_ip, "expected_ip": external_ip,
-                }
-            if resolved_ip == external_ip:
-                return {
-                    "domain": domain, "status": "connected",
-                    "resolved_ip": resolved_ip, "expected_ip": external_ip,
-                }
-            return {
-                "domain": domain, "status": "dns_mismatch",
-                "resolved_ip": resolved_ip, "expected_ip": external_ip,
-            }
-        except socket.gaierror:
+        addrs = _resolve_all_addresses(domain)
+        if not addrs:
             return {
                 "domain": domain, "status": "unresolvable",
                 "resolved_ip": None, "expected_ip": external_ip,
             }
-        except Exception:
+        resolved_ip = addrs[0]
+        # Server-local /etc/hosts loopback override — report as such rather
+        # than as a DNS mismatch.  Public DNS cannot be verified from this
+        # computer when the override is active.
+        if all(_is_loopback_address(a) for a in addrs):
+            return {
+                "domain": domain, "status": "local_override",
+                "resolved_ip": resolved_ip, "expected_ip": external_ip,
+            }
+        if external_ip == "unavailable":
             return {
                 "domain": domain, "status": "error",
-                "resolved_ip": None, "expected_ip": external_ip,
+                "resolved_ip": resolved_ip, "expected_ip": external_ip,
             }
+        if any(a == external_ip for a in addrs):
+            return {
+                "domain": domain, "status": "connected",
+                "resolved_ip": resolved_ip, "expected_ip": external_ip,
+            }
+        return {
+            "domain": domain, "status": "dns_mismatch",
+            "resolved_ip": resolved_ip, "expected_ip": external_ip,
+        }
 
     check_results = await asyncio.gather(*[
         loop.run_in_executor(None, check_domain, d) for d in req.domains
     ])
     return {"domains": list(check_results)}
+
+
+# ── Wallet Connections (NWC) endpoints ────────────────────────────
+
+NWC_DOMAIN_FILE = "/var/lib/domains/lightning"
+NWC_ALIAS_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,31}$")
+NWC_MIN_SENDABLE_MSAT = _nwc_mgr.NWC_MIN_SENDABLE_MSAT
+NWC_MAX_SENDABLE_MSAT = _nwc_mgr.NWC_MAX_SENDABLE_MSAT
+
+
+def _nwc_error(status_code: int, error: str, message: str, **extra) -> JSONResponse:
+    payload = {"error": error, "message": message}
+    payload.update(extra)
+    return JSONResponse(status_code=status_code, content=payload)
+
+
+def _nwc_domain() -> str | None:
+    try:
+        with open(NWC_DOMAIN_FILE, "r") as f:
+            domain = f.read(256).strip().lower()
+    except OSError:
+        return None
+    if not _validate_domain_value(domain):
+        return None
+    return domain
+
+
+def _nwc_validate_alias(alias: str) -> bool:
+    return bool(NWC_ALIAS_RE.match(alias))
+
+
+def _nwc_test_address(alias: str) -> dict:
+    domain = _nwc_domain()
+    if not domain:
+        return {"ok": False, "error": "domain_not_configured", "message": "Lightning domain is not configured."}
+    url = f"https://{domain}/.well-known/lnurlp/{alias}"
+    req = urllib.request.Request(url, method="GET")
+    try:
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            if int(resp.status) >= 400:
+                return {"ok": False, "error": "public_endpoint_unreachable", "message": f"Public LNURL discovery endpoint returned HTTP {resp.status}."}
+            payload = json.loads(resp.read().decode("utf-8"))
+    except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, json.JSONDecodeError):
+        return {"ok": False, "error": "public_endpoint_unreachable", "message": "Public LNURL endpoint verification failed."}
+    if payload.get("tag") != "payRequest":
+        return {"ok": False, "error": "public_endpoint_unreachable", "message": "Discovery endpoint returned an invalid LNURL response."}
+    return {"ok": True}
+
+
+class NwcWalletCreateRequest(BaseModel):
+    name: str
+    alias: str
+    access_preset: str
+    spending_limit_sats: int | None = None
+
+
+@app.get("/api/nwc/wallets")
+async def api_nwc_wallets():
+    loop = asyncio.get_event_loop()
+    domain = await loop.run_in_executor(None, _nwc_domain)
+    try:
+        wallets = await loop.run_in_executor(
+            None, _nwc_mgr.get_manager().list_wallets, domain
+        )
+    except _nwc_mgr.AlbyHubError as exc:
+        return _nwc_error(503, exc.code, exc.args[0])
+    return {"wallets": wallets, "domain": domain}
+
+
+@app.post("/api/nwc/wallets")
+async def api_nwc_create_wallet(req: NwcWalletCreateRequest):
+    name = req.name.strip()
+    alias = req.alias.strip().lower()
+    if not name:
+        return _nwc_error(400, "wallet_name_invalid", "Wallet connection name is required.")
+    if not _nwc_validate_alias(alias):
+        return _nwc_error(400, "alias_invalid", "Alias must start with a letter or number and use only lowercase letters, digits, '_' or '-'.")
+    if req.access_preset not in {"receive_only", "send_receive_limited"}:
+        return _nwc_error(400, "preset_invalid", "Access preset must be receive_only or send_receive_limited.")
+
+    spending_limit_sats = req.spending_limit_sats if req.access_preset == "send_receive_limited" else None
+    if req.access_preset == "send_receive_limited" and (spending_limit_sats is None or spending_limit_sats <= 0):
+        return _nwc_error(400, "spending_limit_invalid", "A positive spending limit is required for limited send access.")
+
+    domain = _nwc_domain()
+    loop = asyncio.get_event_loop()
+    try:
+        result = await loop.run_in_executor(
+            None,
+            lambda: _nwc_mgr.get_manager().create_wallet(
+                name, alias, req.access_preset, spending_limit_sats, domain
+            ),
+        )
+    except _nwc_mgr.AlbyHubError as exc:
+        code_map = {
+            "alias_exists": 409,
+            "wallet_name_exists": 409,
+        }
+        status = code_map.get(exc.code, 502)
+        return _nwc_error(status, exc.code, exc.args[0])
+
+    pairing_uri: str = result.get("pairing_uri", "")
+    pairing_qrcode: str | None = None
+    if pairing_uri:
+        pairing_qrcode = _generate_qr_base64(pairing_uri)
+
+    verify = await loop.run_in_executor(None, _nwc_test_address, alias)
+
+    response: dict = {
+        "wallet": result["wallet"],
+        "pairing_uri": pairing_uri,
+        "lightning_address": f"{alias}@{domain}" if domain else None,
+        "result": {
+            **result.get("result", {}),
+            "public_endpoint_verification": verify,
+        },
+    }
+    if pairing_qrcode:
+        response["pairing_qrcode"] = pairing_qrcode
+    return JSONResponse(status_code=201, content=response)
+
+
+@app.delete("/api/nwc/wallets/{wallet_identifier}")
+async def api_nwc_delete_wallet(wallet_identifier: str):
+    loop = asyncio.get_event_loop()
+    try:
+        result = await loop.run_in_executor(
+            None,
+            _nwc_mgr.get_manager().delete_wallet,
+            wallet_identifier,
+        )
+    except _nwc_mgr.AlbyHubError as exc:
+        code_map = {
+            "wallet_not_found": 404,
+            "pending_transactions": 409,
+            "drain_incomplete": 409,
+        }
+        status = code_map.get(exc.code, 502)
+        return _nwc_error(status, exc.code, exc.args[0])
+    return result
+
+
+@app.post("/api/nwc/wallets/{wallet_identifier}/drain")
+async def api_nwc_drain_wallet(wallet_identifier: str):
+    loop = asyncio.get_event_loop()
+    try:
+        result = await loop.run_in_executor(
+            None,
+            _nwc_mgr.get_manager().drain_wallet,
+            wallet_identifier,
+        )
+    except _nwc_mgr.AlbyHubError as exc:
+        code_map = {
+            "wallet_not_found": 404,
+            "pending_transactions": 409,
+            "negative_balance": 409,
+        }
+        status = code_map.get(exc.code, 502)
+        return _nwc_error(status, exc.code, exc.args[0])
+    return result
+
+
+@app.post("/api/nwc/addresses/{alias}/test")
+async def api_nwc_test(alias: str):
+    normalized_alias = alias.strip().lower()
+    if not _nwc_validate_alias(normalized_alias):
+        return _nwc_error(400, "alias_invalid", "Invalid alias.")
+    loop = asyncio.get_event_loop()
+    try:
+        app = await loop.run_in_executor(
+            None,
+            _nwc_mgr.get_manager().find_app_by_alias,
+            normalized_alias,
+        )
+    except _nwc_mgr.AlbyHubError as exc:
+        return _nwc_error(503, exc.code, exc.args[0])
+    if app is None:
+        return _nwc_error(404, "wallet_not_found", "No wallet connection exists for this alias.")
+    result = await loop.run_in_executor(None, _nwc_test_address, normalized_alias)
+    if not result.get("ok"):
+        return _nwc_error(502, result.get("error", "public_endpoint_unreachable"), result.get("message", "Public endpoint verification failed."))
+    return {"ok": True}
+
 
 
 # ── Security endpoints ────────────────────────────────────────────
@@ -4567,17 +5265,21 @@ def _recover_stale_status(status_file: str, log_file: str, unit_name: str) -> bo
     except Exception:
         pass
 
-    new_status = "SUCCESS" if unit_result == "success" else "FAILED"
+    if unit_result == "success":
+        new_status = "REBOOT_REQUIRED" if unit_name == UPDATE_UNIT else "SUCCESS"
+    else:
+        new_status = "FAILED"
     try:
         with open(status_file, "w") as f:
             f.write(new_status)
     except OSError:
         pass
-    msg = (
-        "\n[Update completed successfully while the server was restarting.]\n"
-        if new_status == "SUCCESS"
-        else "\n[Update encountered an error. See log above for details.]\n"
-    )
+    if new_status == "REBOOT_REQUIRED":
+        msg = "\n[Update staged successfully while the server was restarting. Reboot required.]\n"
+    elif new_status == "SUCCESS":
+        msg = "\n[Update completed successfully while the server was restarting.]\n"
+    else:
+        msg = "\n[Update encountered an error. See log above for details.]\n"
     try:
         with open(log_file, "a") as f:
             f.write(msg)
@@ -4595,6 +5297,14 @@ async def _startup_recover_stale_status():
     if corrected:
         _update_recovery_happened = True
     await loop.run_in_executor(None, _recover_stale_status, REBUILD_STATUS, REBUILD_LOG, REBUILD_UNIT)
+
+
+@app.on_event("startup")
+async def _startup_migrate_deprecated_features():
+    """Strip deprecated feature lines (e.g. bip110) from the Hub Managed section
+    of custom.nix so they are never re-written and do not cause stale warnings."""
+    loop = asyncio.get_event_loop()
+    await loop.run_in_executor(None, _migrate_strip_deprecated_features)
 
 
 async def _background_domain_reachability_checker():

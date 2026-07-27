@@ -333,8 +333,6 @@ async function loadStep3() {
     return;
   }
 
-  var externalIp = (networkData && networkData.external_ip) || "Unknown (could not retrieve)";
-
   // Build set of enabled service units
   var enabledUnits = new Set();
   (_servicesData || []).forEach(function(svc) {
@@ -352,25 +350,31 @@ async function loadStep3() {
     html += '<p class="onboarding-body-text">No domain-based services are enabled for your role. You can skip this step.</p>';
   } else {
     html += '<div class="onboarding-port-warn" style="margin-bottom:16px;">'
-      + '<strong>Before you continue:</strong>'
+      + '<p style="margin:0 0 8px;"><strong>Sovran_SystemsOS uses Njal.la for domains and Dynamic DNS.</strong></p>'
       + '<ol style="margin:8px 0 0 16px; padding:0; line-height:1.7;">'
-      + '<li>Create an account at <a href="https://njal.la" target="_blank" style="color:var(--accent-color);">https://njal.la</a></li>'
-      + '<li>Purchase a new domain on Njal.la, or create a subdomain from a domain you already own. Tip: Subdomains are free to create — you only need to purchase one domain, and you can add as many subdomains as you need at no extra cost.</li>'
-      + '<li>In the Njal.la web interface, create a <strong>Dynamic</strong> record pointing to this machine\'s external IP address:<br>'
-      + '<span style="display:inline-block;margin-top:4px;padding:4px 12px;background:var(--card-color);border:1px solid var(--border-color);border-radius:6px;font-family:monospace;font-size:1.1em;font-weight:700;letter-spacing:0.03em;">' + escHtml(externalIp) + '</span></li>'
-      + '<li>Njal.la will give you a curl command like:<br>'
-      + '<code style="font-size:0.8em;">curl "https://njal.la/update/?h=sub.domain.com&amp;k=abc123&amp;auto"</code></li>'
-      + '<li>Enter the subdomain and paste that curl command below for each service</li>'
+      + '<li>Create an account at <a href="https://njal.la" target="_blank" style="color:var(--accent-color);">https://njal.la</a>.</li>'
+      + '<li>Buy at least one domain. Each service below needs its own domain — you can either give each service its own subdomain of a single domain you buy (subdomains are free, and one domain can have many), OR use a separate domain for each. Your choice.</li>'
+      + '<li>For each service, add a <strong>Dynamic</strong> record in Njal.la:'
+      + '<ul style="margin:4px 0 0 16px;padding:0;line-height:1.7;">'
+      + '<li>In the Njal.la <strong>Name</strong> field, type ONLY the host part — the word before your domain.<br>'
+      + '(Example only, your choice — for &quot;call.yourdomain.com&quot; you&apos;d type just: <code>call</code>.)<br>'
+      + 'If you bought a whole separate domain just for this service, leave Name blank or use <code>@</code>.<br>'
+      + '&#9888; Do NOT type the full domain in the Name field — Njal.la adds it automatically.</li>'
+      + '<li>A Dynamic record has NO IP field. You don&apos;t enter an IP anywhere — it auto-fills once Sovran_SystemsOS updates it (on save, and again after reboot).</li>'
+      + '</ul>'
+      + '</li>'
+      + '<li>Njal.la gives you a curl command like:<br>'
+      + '<code style="font-size:0.8em;">curl &quot;https://njal.la/update/?h=call.yourdomain.com&amp;k=abc123&amp;auto&quot;</code></li>'
       + '</ol>'
       + '</div>';
-    html += '<p class="onboarding-hint">Enter each fully-qualified subdomain (e.g. <code>matrix.yourdomain.com</code>) and its Njal.la DDNS curl command.</p>';
+    html += '<p class="onboarding-hint">Enter each service\'s full domain — a subdomain (e.g. <code>call.yourdomain.com</code>) or a separate domain (e.g. <code>call.com</code>) — and its Njal.la DDNS curl command.</p>';
     relevantDomains.forEach(function(d) {
       var currentVal = (_domainsData && _domainsData[d.name]) || "";
       html += '<div class="onboarding-domain-group">';
       html += '<label class="onboarding-domain-label">' + escHtml(d.label) + '</label>';
       html += '<input class="onboarding-domain-input domain-field-input" type="text" id="domain-input-' + escHtml(d.name) + '" data-domain="' + escHtml(d.name) + '" placeholder="e.g. ' + escHtml(d.name) + '.yourdomain.com" value="' + escHtml(currentVal) + '" />';
       html += '<label class="onboarding-domain-label onboarding-domain-label--sub">Njal.la DDNS Curl Command</label>';
-      html += '<input class="onboarding-domain-input domain-field-input" type="text" id="ddns-input-' + escHtml(d.name) + '" data-ddns="' + escHtml(d.name) + '" placeholder="curl &quot;https://njal.la/update/?h=' + escHtml(d.name) + '.yourdomain.com&amp;k=abc123&amp;auto&quot;" />';
+      html += '<input class="onboarding-domain-input domain-field-input" type="text" id="ddns-input-' + escHtml(d.name) + '" data-ddns="' + escHtml(d.name) + '" placeholder="curl &quot;https://njal.la/update/?h=...&amp;k=...&amp;auto&quot;" />';
       html += '<p class="onboarding-hint" style="margin-top:4px;">ℹ Paste the curl URL from your Njal.la dashboard\'s Dynamic record</p>';
       html += '<button type="button" class="btn btn-primary onboarding-domain-save-btn" data-save-domain="' + escHtml(d.name) + '" style="align-self:flex-start;margin-top:8px;font-size:0.82rem;padding:6px 16px;">Save</button>';
       html += '<span class="onboarding-domain-save-status" id="domain-save-status-' + escHtml(d.name) + '" style="font-size:0.82rem;min-height:1.2em;"></span>';
@@ -512,7 +516,7 @@ async function saveStep3() {
 async function loadStep4() {
   var body = document.getElementById("step-4-body");
   if (!body) return;
-  body.innerHTML = '<p class="onboarding-loading">Checking ports…</p>';
+  body.innerHTML = '<p class="onboarding-loading">Loading router setup…</p>';
 
   var networkData = null;
 
@@ -523,51 +527,59 @@ async function loadStep4() {
     return;
   }
 
-  var internalIp = (networkData && networkData.internal_ip) || "unknown";
-
-  var ip = escHtml(internalIp);
+  var trimmedInternalIp = (networkData && networkData.internal_ip) ? String(networkData.internal_ip).trim() : "";
+  var internalIp = trimmedInternalIp || "";
+  var hasInternalIp = !!internalIp;
+  var ip = escHtml(internalIp || "Could not detect");
+  var routerIpHelp = hasInternalIp
+    ? "Use this IP address as the destination/internal IP when creating each router forwarding rule."
+    : "Use this computer’s internal IP as the destination/internal IP when creating each router forwarding rule.";
+  var destinationInstruction = hasInternalIp
+    ? 'Set the destination/internal IP to <strong>' + ip + '</strong>'
+    : 'Use this computer’s internal IP as the destination/internal IP';
 
   var html = '<p class="onboarding-port-note" style="margin-bottom:14px;">'
     + '⚠ <strong>Each port only needs to be forwarded once — all services share the same ports.</strong>'
     + '</p>';
 
   html += '<div class="onboarding-port-ip">';
-  html += '  <span class="onboarding-port-ip-label">Forward ports to this machine\'s internal IP:</span>';
+  html += '  <span class="onboarding-port-ip-label">Forward router traffic to this Sovran_SystemsOS computer:</span>';
   html += '  <span class="port-req-internal-ip">' + ip + '</span>';
   html += '</div>';
+  html += '<div class="onboarding-port-note" style="margin:8px 0 16px;">' + routerIpHelp + '</div>';
 
   // Required ports table
   html += '<div class="onboarding-port-section" style="margin-bottom:20px;">';
-  html += '<div class="onboarding-port-section-title" style="font-weight:700;margin-bottom:8px;">Required Ports — open these on your router:</div>';
+  html += '<div class="onboarding-port-section-title" style="font-weight:700;margin-bottom:8px;">Required Router Rules</div>';
   html += '<table class="onboarding-port-table">';
-  html += '<thead><tr><th>Port</th><th>Protocol</th><th>Forward&nbsp;to</th><th>Purpose</th></tr></thead>';
+  html += '<thead><tr><th>Port</th><th>Protocol</th><th>Forward&nbsp;To</th><th>Used For</th></tr></thead>';
   html += '<tbody>';
-  html += '<tr><td class="port-req-port">80</td><td class="port-req-proto">TCP</td><td class="port-req-internal-ip">' + ip + '</td><td class="port-req-desc">HTTP</td></tr>';
+  html += '<tr><td class="port-req-port">80</td><td class="port-req-proto">TCP</td><td class="port-req-internal-ip">' + ip + '</td><td class="port-req-desc">HTTP / SSL setup</td></tr>';
   html += '<tr><td class="port-req-port">443</td><td class="port-req-proto">TCP</td><td class="port-req-internal-ip">' + ip + '</td><td class="port-req-desc">HTTPS</td></tr>';
-  html += '<tr><td class="port-req-port">22</td><td class="port-req-proto">TCP</td><td class="port-req-internal-ip">' + ip + '</td><td class="port-req-desc">SSH Remote Access</td></tr>';
-  html += '<tr><td class="port-req-port">8448</td><td class="port-req-proto">TCP</td><td class="port-req-internal-ip">' + ip + '</td><td class="port-req-desc">Matrix Federation</td></tr>';
+  html += '<tr><td class="port-req-port">22</td><td class="port-req-proto">TCP</td><td class="port-req-internal-ip">' + ip + '</td><td class="port-req-desc">Remote SSH access</td></tr>';
   html += '</tbody></table>';
   html += '</div>';
 
   // Optional ports table
   html += '<div class="onboarding-port-section" style="margin-bottom:20px;">';
-  html += '<div class="onboarding-port-section-title" style="font-weight:700;margin-bottom:4px;">Optional — Only needed if you enable Element Calling:</div>';
-  html += '<div style="font-size:0.88em;margin-bottom:8px;color:var(--color-text-muted,#888);">These 5 additional port openings are required on top of the 4 required ports above.</div>';
+  html += '<div class="onboarding-port-section-title" style="font-weight:700;margin-bottom:4px;">Element Call Router Rules</div>';
+  html += '<div style="font-size:0.88em;margin-bottom:8px;color:var(--color-text-muted,#888);">Only add these if you enable Element Call. These ports help video and audio calls connect reliably.</div>';
   html += '<table class="onboarding-port-table">';
-  html += '<thead><tr><th>Port</th><th>Protocol</th><th>Forward&nbsp;to</th><th>Purpose</th></tr></thead>';
+  html += '<thead><tr><th>Port</th><th>Protocol</th><th>Forward&nbsp;To</th><th>Used For</th></tr></thead>';
   html += '<tbody>';
   html += '<tr><td class="port-req-port">7881</td><td class="port-req-proto">TCP</td><td class="port-req-internal-ip">' + ip + '</td><td class="port-req-desc">LiveKit WebRTC signalling</td></tr>';
   html += '<tr><td class="port-req-port">7882</td><td class="port-req-proto">UDP</td><td class="port-req-internal-ip">' + ip + '</td><td class="port-req-desc">LiveKit media (UDP mux)</td></tr>';
   html += '<tr><td class="port-req-port">5349</td><td class="port-req-proto">TCP</td><td class="port-req-internal-ip">' + ip + '</td><td class="port-req-desc">TURN over TLS</td></tr>';
   html += '<tr><td class="port-req-port">3478</td><td class="port-req-proto">UDP</td><td class="port-req-internal-ip">' + ip + '</td><td class="port-req-desc">TURN (STUN/relay)</td></tr>';
-  html += '<tr><td class="port-req-port">30000–40000</td><td class="port-req-proto">TCP/UDP</td><td class="port-req-internal-ip">' + ip + '</td><td class="port-req-desc">TURN relay (WebRTC)</td></tr>';
+  html += '<tr><td class="port-req-port">30000-40000</td><td class="port-req-proto">TCP &amp; UDP</td><td class="port-req-internal-ip">' + ip + '</td><td class="port-req-desc">TURN relay (WebRTC)</td></tr>';
   html += '</tbody></table>';
+  html += '<div style="font-size:0.85em;margin-top:6px;color:var(--color-text-muted,#888);">ℹ The <strong>30000-40000</strong> range is a single forwarding rule — just set its protocol to <strong>both TCP and UDP</strong> (often shown as "Both" or "TCP/UDP" on your router).</div>';
   html += '</div>';
 
   // Totals
   html += '<div class="onboarding-port-totals">';
-  html += '<strong>Total port openings: 4</strong> (without Element Calling)<br>';
-  html += '<strong>Total port openings: 9</strong> (with Element Calling — 4 required + 5 optional)';
+  html += '<strong>Total port openings: 3</strong> (without Element Call)<br>';
+  html += '<strong>Total port openings: 8</strong> (with Element Call — 3 required + 5 optional)';
   html += '</div>';
 
   html += '<div class="onboarding-port-warn" style="margin-bottom:16px;">'
@@ -582,11 +594,15 @@ async function loadStep4() {
     + '<li>Open your router\'s admin panel — usually <code>http://192.168.1.1</code> or <code>http://192.168.0.1</code></li>'
     + '<li>Look for <strong>"Port Forwarding"</strong>, <strong>"NAT"</strong>, or <strong>"Virtual Server"</strong> in the settings</li>'
     + '<li>Create a new rule for each port listed above</li>'
-    + '<li>Set the destination/internal IP to <strong>' + ip + '</strong></li>'
+    + '<li>' + destinationInstruction + '</li>'
     + '<li>Set both internal and external port to the same number</li>'
     + '<li>Save and apply changes</li>'
     + '</ol>'
     + '</details>';
+
+  html += '<div class="onboarding-port-note" style="margin-top:12px;">'
+    + '<strong>Important:</strong> The Hub can show which ports Sovran_SystemsOS needs, but it cannot fully confirm router forwarding from inside your home network. Full public port verification requires an outside internet check.'
+    + '</div>';
 
   body.innerHTML = html;
 }
