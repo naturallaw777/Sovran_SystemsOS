@@ -26,9 +26,11 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_API_BASE = "http://127.0.0.1:8080"
 DEFAULT_UNLOCK_PASSWORD_FILE = "/var/lib/albyhub/unlock-password"
-DEFAULT_MACAROON_FILE = "/run/lnd/albyhub.macaroon"
-DEFAULT_LND_ADDRESS = "localhost"
-DEFAULT_LND_CERT_FILE = "/var/lib/lnd/tls.cert"
+DEFAULT_MACAROON_FILE = os.environ.get(
+    "NWC_LND_MACAROON_FILE", "/run/lnd/albyhub.macaroon"
+)
+DEFAULT_LND_ADDRESS = os.environ.get("NWC_LND_ADDRESS", "127.0.0.1:10009")
+DEFAULT_LND_CERT_FILE = os.environ.get("NWC_LND_CERT_FILE", "/var/lib/lnd/tls.cert")
 DEFAULT_LND_SOCKET = "/run/lnd/lnd.socket"
 
 LNURL_DESCRIPTION_DEFAULT = "Pay via Lightning"
@@ -172,16 +174,22 @@ class AlbyHubManager:
             path = path_template.format(limit=page_size, offset=offset)
             page = self._request("GET", path, token=token)
             # Alby Hub returns apps at the top level or under "apps"/"transactions"
+            total_count: int | None = None
             if isinstance(page, list):
                 items = page
             elif isinstance(page, dict):
                 items = page.get("apps") or page.get("transactions") or []
+                if page.get("totalCount") is not None:
+                    total_count = int(page.get("totalCount"))
             else:
                 items = []
             if not isinstance(items, list):
                 break
             results.extend(items)
-            if len(items) < page_size:
+            if total_count is not None:
+                if len(results) >= total_count:
+                    break
+            elif len(items) < page_size:
                 break
             offset += page_size
         return results
@@ -229,21 +237,12 @@ class AlbyHubManager:
         except AlbyHubError:
             pass
 
-        try:
-            with open(self.macaroon_file, "rb") as fh:
-                macaroon_hex = fh.read().hex()
-        except OSError:
-            raise AlbyHubError(
-                "macaroon_unavailable",
-                "Cannot read Alby Hub LND macaroon",
-            )
-
         setup_body = {
+            "backendType": "LND",
             "unlockPassword": password,
             "lndAddress": self.lnd_address,
             "lndCertFile": self.lnd_cert_file,
-            "lndMacaroon": macaroon_hex,
-            "backendType": "LND",
+            "lndMacaroonFile": self.macaroon_file,
         }
         try:
             self._request("POST", "/api/setup", body=setup_body, timeout=30)
@@ -252,26 +251,25 @@ class AlbyHubManager:
                 return  # already setup
             raise
 
-    def _hub_unlock(self, password: str) -> None:
-        try:
-            self._request(
+    def _obtain_token(self, password: str) -> str:
+        info = self._request("GET", "/api/info", timeout=10)
+        if info.get("running"):
+            resp = self._request(
                 "POST",
                 "/api/unlock",
+                body={
+                    "unlockPassword": password,
+                    "permission": "full",
+                },
+                timeout=30,
+            )
+        else:
+            resp = self._request(
+                "POST",
+                "/api/start",
                 body={"unlockPassword": password},
                 timeout=30,
             )
-        except AlbyHubHttpError as exc:
-            if exc.status_code == 409:
-                return  # already unlocked
-            raise
-
-    def _obtain_token(self, password: str) -> str:
-        resp = self._request(
-            "POST",
-            "/api/auth",
-            body={"password": password},
-            timeout=30,
-        )
         token = (
             resp.get("token")
             or resp.get("accessToken")
@@ -309,7 +307,6 @@ class AlbyHubManager:
             self._wait_for_file(self.macaroon_file, timeout=120)
             self._wait_for_hub_api(timeout=120)
             self._hub_setup(password)
-            self._hub_unlock(password)
             token = self._obtain_token(password)
             self._wait_for_node_ready(token, timeout=120)
             self._token = token
@@ -332,7 +329,11 @@ class AlbyHubManager:
 
     def _is_managed_app(self, app: dict) -> bool:
         meta = self._parse_metadata(app.get("metadata"))
-        return meta.get(_MANAGED_META_KEY) == _MANAGED_APP_STORE_ID
+        alias = str(meta.get("lnurl_alias", "")).strip().lower()
+        return (
+            meta.get(_MANAGED_META_KEY) == _MANAGED_APP_STORE_ID
+            and bool(alias)
+        )
 
     def _app_to_wallet_meta(self, app: dict, domain: str | None) -> dict:
         meta = self._parse_metadata(app.get("metadata"))
@@ -344,15 +345,9 @@ class AlbyHubManager:
             "send_receive_limited" if "pay_invoice" in scopes else "receive_only"
         )
 
-        balance_sats = 0
-        budget = app.get("budget") or {}
-        used_msat = int(budget.get("usedBudget", 0) or 0)
-        balance_sats = used_msat // 1000
-
-        remaining_sats: int | None = None
-        remaining_raw = budget.get("remainingBudget")
-        if remaining_raw is not None:
-            remaining_sats = int(remaining_raw) // 1000
+        balance_msat = int(app.get("balanceMsat", 0) or 0)
+        balance_sats = balance_msat // 1000
+        dust_msat = balance_msat % 1000
 
         spending_limit_sats: int | None = None
         max_amount = app.get("maxAmountSat") or 0
@@ -360,21 +355,18 @@ class AlbyHubManager:
             spending_limit_sats = int(max_amount)
 
         # Count pending transactions from the budget or transactions list
-        pending_txs = len(
-            [t for t in (app.get("pendingTransactions") or []) if t]
-        )
+        pending_txs = int(app.get("pendingTransactionsCount", 0) or 0)
 
         return {
             "id": str(app.get("id", "")),
-            "pubkey": app.get("nostrPubkey") or app.get("pubkey") or "",
+            "pubkey": app.get("appPubkey") or app.get("nostrPubkey") or app.get("pubkey") or "",
             "name": app.get("name", ""),
             "alias": alias,
             "lightning_address": address,
             "access_preset": access_preset,
             "spending_limit_sats": spending_limit_sats,
-            "remaining_budget_sats": remaining_sats,
             "balance_sats": balance_sats,
-            "dust_msat": 0,
+            "dust_msat": dust_msat,
             "pending_transactions": pending_txs,
             "created_at": app.get("createdAt") or app.get("created_at"),
             "min_sendable_msat": int(
@@ -386,7 +378,7 @@ class AlbyHubManager:
         }
 
     def _all_managed_apps(self) -> list[dict]:
-        apps = self._paginate("/api/apps?limit={limit}&offset={offset}")
+        apps = self._paginate("/api/apps?limit={limit}&offset={offset}&order_by=created_at")
         return [a for a in apps if a.get("isolated") and self._is_managed_app(a)]
 
     def _find_managed_app(self, identifier: str) -> dict | None:
@@ -395,7 +387,7 @@ class AlbyHubManager:
             if str(app.get("id", "")).lower() == needle:
                 return app
             pubkey = (
-                app.get("nostrPubkey") or app.get("pubkey") or ""
+                app.get("appPubkey") or app.get("nostrPubkey") or app.get("pubkey") or ""
             ).lower()
             if pubkey == needle:
                 return app
@@ -405,10 +397,12 @@ class AlbyHubManager:
 
     def list_wallets(self, domain: str | None = None) -> list[dict]:
         """Return all managed isolated app wallets (no secrets)."""
-        return [
-            self._app_to_wallet_meta(a, domain)
-            for a in self._all_managed_apps()
-        ]
+        wallets = []
+        for app in self._all_managed_apps():
+            app_copy = dict(app)
+            app_copy["pendingTransactionsCount"] = len(self._get_app_pending_txs(int(app["id"])))
+            wallets.append(self._app_to_wallet_meta(app_copy, domain))
+        return wallets
 
     def create_wallet(
         self,
@@ -474,7 +468,7 @@ class AlbyHubManager:
         if app_id is not None:
             try:
                 app_detail = self._authenticated_request(
-                    "GET", f"/api/apps/{app_id}"
+                    "GET", f"/api/v2/apps/{app_id}"
                 )
             except AlbyHubError:
                 pass
@@ -503,16 +497,17 @@ class AlbyHubManager:
                     "/api/transfers",
                     body={
                         "toAppId": int(app_id),
-                        "amountMsat": spending_limit_sats * 1000,
+                        "amountSat": spending_limit_sats,
+                        "description": f"Initial funding for {name}",
                     },
                 )
                 funding_result["success"] = True
             except AlbyHubError as exc:
                 funding_result["error"] = exc.code
                 funding_result["message"] = (
-                    "The wallet was created and the NWC connection secret is shown "
+                    "The wallet was created successfully and the NWC connection secret is shown "
                     "above, but initial funding failed. Save the NWC secret now. "
-                    "Do not create another wallet."
+                    "Do not recreate this wallet."
                 )
 
         return {
@@ -527,37 +522,15 @@ class AlbyHubManager:
         }
 
     def _get_app_balance_msat(self, app: dict) -> int:
-        budget = app.get("budget") or {}
-        return int(budget.get("usedBudget", 0) or 0)
+        return int(app.get("balanceMsat", 0) or 0)
 
     def _get_app_pending_txs(self, app_id: int) -> list[dict]:
-        """Return pending transactions for the app.
-
-        Paginates only as far as needed: stops after finding the first
-        pending transaction since the caller rejects *any* pending tx.
-        """
-        path_tmpl = f"/api/apps/{app_id}/transactions?limit={{limit}}&offset={{offset}}"
-        page_size = 100
-        token = self.ensure_ready()
-        offset = 0
-        pending: list[dict] = []
-        while True:
-            path = path_tmpl.format(limit=page_size, offset=offset)
-            page = self._request("GET", path, token=token)
-            if isinstance(page, list):
-                items = page
-            elif isinstance(page, dict):
-                items = page.get("transactions") or []
-            else:
-                items = []
-            for t in items:
-                if t.get("state", "").lower() == "pending":
-                    pending.append(t)
-                    return pending  # early exit: one is enough to block
-            if len(items) < page_size:
-                break
-            offset += page_size
-        return pending
+        txs = self._paginate(
+            f"/api/transactions?appId={app_id}&limit={{limit}}&offset={{offset}}"
+        )
+        return [
+            t for t in txs if str(t.get("state", "")).lower() == "pending"
+        ]
 
     def drain_wallet(self, identifier: str) -> dict:
         """Drain all whole-satoshi funds from an isolated app to the primary wallet.
@@ -582,11 +555,11 @@ class AlbyHubManager:
                 "Wallet has pending transactions and cannot be drained.",
             )
 
-        whole_sats = balance_msat // 1000
-        dust_msat = balance_msat % 1000
+        transferable_msat = (balance_msat // 1000) * 1000
+        expected_dust_msat = balance_msat - transferable_msat
 
-        if whole_sats == 0:
-            return {"ok": True, "drained_sats": 0, "dust_msat": dust_msat}
+        if transferable_msat == 0:
+            return {"ok": True, "drained_sats": 0, "dust_msat": expected_dust_msat}
 
         # Save original permissions
         original_scopes = list(app.get("scopes") or [])
@@ -594,12 +567,19 @@ class AlbyHubManager:
         original_renewal = app.get("budgetRenewal") or "never"
 
         # Temporarily grant pay_invoice scope with sufficient budget
+        app_pubkey = app.get("appPubkey") or app.get("nostrPubkey") or app.get("pubkey") or ""
+        if not app_pubkey:
+            raise AlbyHubError(
+                "app_pubkey_missing",
+                "Cannot drain app: app public key not available.",
+            )
+
         patch_body = {
             "scopes": sorted(set(original_scopes) | {"pay_invoice"}),
-            "maxAmountSat": whole_sats,
+            "maxAmountSat": 0,
             "budgetRenewal": "never",
         }
-        self._authenticated_request("PATCH", f"/api/apps/{app_id}", body=patch_body)
+        self._authenticated_request("PATCH", f"/api/apps/{app_pubkey}", body=patch_body)
 
         drain_error: AlbyHubError | None = None
         drained_sats = 0
@@ -607,9 +587,13 @@ class AlbyHubManager:
             self._authenticated_request(
                 "POST",
                 "/api/transfers",
-                body={"fromAppId": app_id, "amountMsat": whole_sats * 1000},
+                body={
+                    "fromAppId": app_id,
+                    "amountMsat": transferable_msat,
+                    "description": f"Drain isolated subwallet {app.get('name', '')}",
+                },
             )
-            drained_sats = whole_sats
+            drained_sats = transferable_msat // 1000
         except AlbyHubError as exc:
             drain_error = exc
         finally:
@@ -621,7 +605,7 @@ class AlbyHubManager:
             }
             try:
                 self._authenticated_request(
-                    "PATCH", f"/api/apps/{app_id}", body=restore_body
+                    "PATCH", f"/api/apps/{app_pubkey}", body=restore_body
                 )
             except AlbyHubError:
                 pass  # best-effort restore; don't mask the original error
@@ -630,13 +614,18 @@ class AlbyHubManager:
             raise drain_error
 
         # Verify remaining balance equals expected dust
-        refreshed = self._authenticated_request("GET", f"/api/apps/{app_id}")
+        refreshed = self._authenticated_request("GET", f"/api/v2/apps/{app_id}")
         remaining_msat = self._get_app_balance_msat(refreshed)
+        if remaining_msat != expected_dust_msat:
+            raise AlbyHubError(
+                "drain_incomplete",
+                "Drain verification failed: final balance does not match expected dust.",
+            )
 
         return {
             "ok": True,
             "drained_sats": drained_sats,
-            "dust_msat": dust_msat,
+            "dust_msat": expected_dust_msat,
             "remaining_msat": remaining_msat,
         }
 
@@ -661,16 +650,21 @@ class AlbyHubManager:
         drain_result = self.drain_wallet(identifier)
 
         # Verify no transferable balance remains
-        refreshed = self._authenticated_request("GET", f"/api/apps/{app_id}")
+        refreshed = self._authenticated_request("GET", f"/api/v2/apps/{app_id}")
         remaining_msat = self._get_app_balance_msat(refreshed)
+        if remaining_msat < 0:
+            raise AlbyHubError(
+                "negative_balance",
+                "Wallet has a negative final balance and cannot be deleted.",
+            )
         if remaining_msat >= 1000:
             raise AlbyHubError(
                 "drain_incomplete",
                 f"Drain verification failed: funds still remain.",
             )
 
-        # Delete by nostr pubkey
-        pubkey = app.get("nostrPubkey") or app.get("pubkey") or ""
+        # Delete by app pubkey
+        pubkey = app.get("appPubkey") or app.get("nostrPubkey") or app.get("pubkey") or ""
         if not pubkey:
             raise AlbyHubError(
                 "app_pubkey_missing",
@@ -681,7 +675,11 @@ class AlbyHubManager:
             f"/api/apps/{urllib.parse.quote(pubkey, safe='')}",
         )
 
-        return {"ok": True, "drained_sats": drain_result.get("drained_sats", 0)}
+        return {
+            "ok": True,
+            "drained_sats": drain_result.get("drained_sats", 0),
+            "dust_msat": remaining_msat,
+        }
 
     def issue_invoice(
         self, app_id: int, amount_msat: int, description: str = ""
@@ -700,24 +698,19 @@ class AlbyHubManager:
                 "appId": app_id,
             },
         )
-        invoice: str = (
-            resp.get("paymentRequest")
-            or resp.get("pr")
-            or resp.get("invoice")
-            or ""
-        )
+        invoice: str = resp.get("invoice") or ""
         returned_app_id = resp.get("appId")
 
         if not invoice:
             raise AlbyHubError("invoice_creation_failed", "Hub returned empty invoice.")
 
         # Require a valid BOLT11 prefix (mainnet, testnet, signet, regtest)
-        if not re.match(r"^ln(bc|tb|bcrt|tbs)[0-9]", invoice, re.IGNORECASE):
+        if not re.match(r"^ln", invoice, re.IGNORECASE):
             raise AlbyHubError(
                 "invalid_invoice", "Hub returned a non-BOLT11 invoice string."
             )
 
-        if returned_app_id is not None and int(returned_app_id) != app_id:
+        if returned_app_id is None or int(returned_app_id) != app_id:
             raise AlbyHubError(
                 "invoice_attribution_failed",
                 "Invoice attribution mismatch: returned appId does not match.",

@@ -26,6 +26,8 @@ Tests cover:
 
 import json
 import re
+import shutil
+import subprocess
 import sys
 import tempfile
 import types
@@ -139,12 +141,13 @@ def _make_app(
     return {
         "id": id_,
         "name": name,
+        "appPubkey": pubkey,
         "nostrPubkey": pubkey,
         "scopes": scopes,
         "isolated": True,
         "maxAmountSat": max_amount,
         "budgetRenewal": "never",
-        "budget": {"usedBudget": balance_msat, "remainingBudget": 0},
+        "balanceMsat": balance_msat,
         "pendingTransactions": pending or [],
         "metadata": {
             "app_store_app_id": "uncle-jim",
@@ -184,6 +187,13 @@ class FeatureRegistryTests(unittest.TestCase):
         ports = [(p["port"], p["protocol"]) for p in feat["port_requirements"]]
         self.assertIn(("80", "TCP"), ports)
         self.assertIn(("443", "TCP"), ports)
+
+    def test_wallet_connections_tile_icon_is_nwc(self):
+        repo_root = Path(__file__).resolve().parents[2]
+        hub_module = repo_root / "modules" / "core" / "sovran-hub.nix"
+        text = hub_module.read_text()
+        self.assertIn('{ name = "Wallet Connections"; unit = "albyhub.service"; type = "system"; icon = "nwc";', text)
+        self.assertIn('{ name = "Zeus Connect";       unit = "zeus-connect-setup.service"; type = "system"; icon = "zeus";', text)
 
     def test_service_map_points_to_albyhub(self):
         self.assertEqual(server.FEATURE_SERVICE_MAP["nwc-wallets"], "albyhub.service")
@@ -248,7 +258,6 @@ class ManagerEnsureReadyTests(unittest.TestCase):
     def test_setup_and_token_cached(self):
         m = self._manager_with_stubs()
         m._hub_setup = MagicMock()
-        m._hub_unlock = MagicMock()
         m._obtain_token = MagicMock(return_value="tok123")
         token = m.ensure_ready()
         self.assertEqual(token, "tok123")
@@ -260,7 +269,6 @@ class ManagerEnsureReadyTests(unittest.TestCase):
     def test_idempotent_setup_skipped_when_already_complete(self):
         m = self._manager_with_stubs()
         m._hub_setup = MagicMock()
-        m._hub_unlock = MagicMock()
         m._obtain_token = MagicMock(return_value="tok-setup")
         m.ensure_ready()
         m._hub_setup.assert_called_once()
@@ -268,7 +276,6 @@ class ManagerEnsureReadyTests(unittest.TestCase):
     def test_401_triggers_token_refresh(self):
         m = self._manager_with_stubs()
         m._hub_setup = MagicMock()
-        m._hub_unlock = MagicMock()
         tokens = iter(["first-token", "refreshed-token"])
         m._obtain_token = MagicMock(side_effect=tokens)
         m.ensure_ready()
@@ -292,7 +299,6 @@ class ManagerEnsureReadyTests(unittest.TestCase):
     def test_403_triggers_token_refresh(self):
         m = self._manager_with_stubs()
         m._hub_setup = MagicMock()
-        m._hub_unlock = MagicMock()
         tokens = iter(["first", "second", "third"])
         m._obtain_token = MagicMock(side_effect=tokens)
         m.ensure_ready()
@@ -310,12 +316,65 @@ class ManagerEnsureReadyTests(unittest.TestCase):
         result = m._authenticated_request("GET", "/api/apps")
         self.assertEqual(result, {})
 
+    def test_obtain_token_uses_start_when_not_running(self):
+        m = _fresh_manager()
+
+        def _request(method, path, **_kw):
+            if method == "GET" and path == "/api/info":
+                return {"running": False}
+            if method == "POST" and path == "/api/start":
+                return {"token": "start-token"}
+            self.fail(f"unexpected call: {method} {path}")
+
+        m._request = MagicMock(side_effect=_request)
+        token = m._obtain_token("pw")
+        self.assertEqual(token, "start-token")
+
+    def test_obtain_token_uses_unlock_when_running(self):
+        m = _fresh_manager()
+
+        calls = []
+
+        def _request(method, path, **kw):
+            calls.append((method, path, kw.get("body")))
+            if method == "GET" and path == "/api/info":
+                return {"running": True}
+            if method == "POST" and path == "/api/unlock":
+                return {"token": "unlock-token"}
+            self.fail(f"unexpected call: {method} {path}")
+
+        m._request = MagicMock(side_effect=_request)
+        token = m._obtain_token("pw")
+        self.assertEqual(token, "unlock-token")
+        unlock_call = [c for c in calls if c[0] == "POST" and c[1] == "/api/unlock"][0]
+        self.assertEqual(unlock_call[2]["permission"], "full")
+
+    def test_hub_setup_uses_lnd_macaroon_file(self):
+        m = _fresh_manager()
+        calls = []
+
+        def _request(method, path, **kw):
+            calls.append((method, path, kw.get("body")))
+            if method == "GET" and path == "/api/info":
+                return {"setupCompleted": False}
+            if method == "POST" and path == "/api/setup":
+                return {}
+            self.fail(f"unexpected call: {method} {path}")
+
+        m._request = MagicMock(side_effect=_request)
+        m._hub_setup("pw")
+        setup_call = [c for c in calls if c[0] == "POST" and c[1] == "/api/setup"][0]
+        body = setup_call[2]
+        self.assertEqual(body["backendType"], "LND")
+        self.assertEqual(body["lndMacaroonFile"], m.macaroon_file)
+        self.assertNotIn("lndMacaroon", body)
+
 
 class ManagerPaginationTests(unittest.TestCase):
-    def test_paginate_collects_all_pages(self):
+    def test_paginate_uses_total_count(self):
         m = _fresh_manager()
-        page1 = [{"id": i} for i in range(100)]
-        page2 = [{"id": i} for i in range(100, 150)]
+        page1 = {"apps": [{"id": i} for i in range(3)], "totalCount": 5}
+        page2 = {"apps": [{"id": 3}, {"id": 4}], "totalCount": 5}
 
         def _request(method, path, **_kw):
             if "offset=0" in path:
@@ -324,8 +383,8 @@ class ManagerPaginationTests(unittest.TestCase):
 
         m._token = "tok"
         m._request = MagicMock(side_effect=_request)
-        result = m._paginate("/api/apps?limit={limit}&offset={offset}")
-        self.assertEqual(len(result), 150)
+        result = m._paginate("/api/apps?limit={limit}&offset={offset}", page_size=3)
+        self.assertEqual(len(result), 5)
 
     def test_paginate_single_page_stops(self):
         m = _fresh_manager()
@@ -385,6 +444,14 @@ class ManagerListTests(unittest.TestCase):
         result = m.list_wallets(domain="pay.example.com")
         self.assertEqual(result[0]["lightning_address"], "bob@pay.example.com")
 
+    def test_list_uses_app_pubkey_and_balance_msat(self):
+        apps = [_make_app(pubkey="pubkey-1", balance_msat=12345)]
+        m = self._mgr_with_token(apps)
+        wallets = m.list_wallets()
+        self.assertEqual(wallets[0]["pubkey"], "pubkey-1")
+        self.assertEqual(wallets[0]["balance_sats"], 12)
+        self.assertEqual(wallets[0]["dust_msat"], 345)
+
 
 class ManagerCreateTests(unittest.TestCase):
     def _mgr(self, existing_apps=None, create_resp=None):
@@ -407,7 +474,7 @@ class ManagerCreateTests(unittest.TestCase):
                 return existing_apps
             if method == "POST" and path == "/api/apps":
                 return create_resp
-            if method == "GET" and path.startswith("/api/apps/99"):
+            if method == "GET" and path.startswith("/api/v2/apps/99"):
                 return _make_app(id_=99, alias="new")
             return {}
 
@@ -424,6 +491,15 @@ class ManagerCreateTests(unittest.TestCase):
         result = m.create_wallet("New Wallet", "new", "receive_only", None)
         self.assertIn("pairing_uri", result)
         self.assertTrue(result["pairing_uri"].startswith("nostr+walletconnect://"))
+
+    def test_create_uses_ordered_apps_list_and_v2_app_lookup(self):
+        m = self._mgr()
+        m.create_wallet("New Wallet", "new", "receive_only", None)
+        paths = [c.args[1] for c in m._request.call_args_list if len(c.args) > 1]
+        self.assertTrue(
+            any("/api/apps?limit=100&offset=0&order_by=created_at" in p for p in paths)
+        )
+        self.assertTrue(any(p.startswith("/api/v2/apps/99") for p in paths))
 
     def test_create_sends_isolated_true(self):
         m = self._mgr()
@@ -499,7 +575,8 @@ class ManagerCreateTests(unittest.TestCase):
         m.create_wallet("W", "w", "send_receive_limited", 5000)
         self.assertEqual(len(transfers), 1)
         self.assertEqual(transfers[0]["toAppId"], 99)
-        self.assertEqual(transfers[0]["amountMsat"], 5_000_000)
+        self.assertEqual(transfers[0]["amountSat"], 5000)
+        self.assertEqual(transfers[0]["description"], "Initial funding for W")
 
     def test_create_partial_failure_funding_returns_pairing_uri(self):
         """Even when initial funding fails, the real pairing URI must be returned."""
@@ -516,7 +593,7 @@ class ManagerCreateTests(unittest.TestCase):
                 }
             if method == "POST" and path == "/api/transfers":
                 raise mgr.AlbyHubError("transfer_failed", "Insufficient funds")
-            if method == "GET" and "/api/apps/99" in path:
+            if method == "GET" and "/api/v2/apps/99" in path:
                 return _make_app(id_=99, alias="new")
             return {}
 
@@ -529,6 +606,33 @@ class ManagerCreateTests(unittest.TestCase):
         self.assertFalse(result["result"]["funding"]["success"])
         self.assertIn("message", result["result"]["funding"])
 
+    def test_create_partial_failure_message_says_created_successfully(self):
+        """Partial-funding message must say 'was created successfully', not 'already exists'."""
+        m = self._mgr()
+
+        def _request(method, path, **kw):
+            if method == "GET" and path.startswith("/api/apps?"):
+                return []
+            if method == "POST" and path == "/api/apps":
+                return {
+                    "id": 99,
+                    "pairingUri": "nostr+walletconnect://pubkey?relay=r&secret=S",
+                    **_make_app(id_=99, alias="new"),
+                }
+            if method == "POST" and path == "/api/transfers":
+                raise mgr.AlbyHubError("transfer_failed", "Insufficient funds")
+            if method == "GET" and "/api/v2/apps/99" in path:
+                return _make_app(id_=99, alias="new")
+            return {}
+
+        m._request = MagicMock(side_effect=_request)
+        result = m.create_wallet("W", "new", "send_receive_limited", 5000)
+
+        message = result["result"]["funding"]["message"]
+        self.assertIn("was created successfully", message)
+        self.assertNotIn("already exists", message)
+        self.assertIn("Do not recreate", message)
+
 
 class ManagerDrainTests(unittest.TestCase):
     def _mgr(self, app, transfer_ok=True):
@@ -537,11 +641,11 @@ class ManagerDrainTests(unittest.TestCase):
 
         def _request(method, path, **kw):
             if method == "GET" and path.startswith("/api/apps?"):
-                return [app]
-            if method == "GET" and f"/api/apps/{app['id']}" in path and "transactions" not in path:
-                return app
-            if method == "GET" and "transactions" in path:
-                return []
+                return {"apps": [app], "totalCount": 1}
+            if method == "GET" and path.startswith(f"/api/v2/apps/{app['id']}"):
+                return {**app, "balanceMsat": app.get("balanceMsat", 0) % 1000}
+            if method == "GET" and path.startswith("/api/transactions?"):
+                return {"transactions": [], "totalCount": 0}
             if method == "PATCH":
                 return {}
             if method == "POST" and path == "/api/transfers":
@@ -559,6 +663,13 @@ class ManagerDrainTests(unittest.TestCase):
         result = m.drain_wallet("1")
         self.assertTrue(result["ok"])
         self.assertEqual(result["drained_sats"], 5000)
+        transfer_call = next(
+            c for c in m._request.call_args_list
+            if c.args[0] == "POST" and c.args[1] == "/api/transfers"
+        )
+        body = transfer_call.kwargs["body"]
+        self.assertEqual(body["fromAppId"], 1)
+        self.assertEqual(body["amountMsat"], 5_000_000)
 
     def test_drain_preserves_dust(self):
         app = _make_app(balance_msat=5_000_500)
@@ -571,11 +682,13 @@ class ManagerDrainTests(unittest.TestCase):
         app = _make_app(scopes=list(mgr.RECEIVE_ONLY_SCOPES), balance_msat=1_000_000)
         m = self._mgr(app)
         patches = []
+        patch_paths = []
 
         original = m._request.side_effect
 
         def _request(method, path, **kw):
             if method == "PATCH":
+                patch_paths.append(path)
                 patches.append(kw.get("body"))
                 return {}
             return original(method, path, **kw)
@@ -587,6 +700,7 @@ class ManagerDrainTests(unittest.TestCase):
         second_patch = patches[1]
         # First patch must add pay_invoice
         self.assertIn("pay_invoice", first_patch.get("scopes", []))
+        self.assertTrue(all("/api/apps/aabbcc" in p for p in patch_paths))
         # Second patch (restore) must match original scopes
         self.assertEqual(
             sorted(second_patch.get("scopes", [])),
@@ -600,9 +714,9 @@ class ManagerDrainTests(unittest.TestCase):
 
         def _request(method, path, **kw):
             if method == "GET" and path.startswith("/api/apps?"):
-                return [app]
-            if "transactions" in path:
-                return [{"state": "pending"}]
+                return {"apps": [app], "totalCount": 1}
+            if path.startswith("/api/transactions?"):
+                return {"transactions": [{"state": "pending"}], "totalCount": 1}
             return {}
 
         m._request = MagicMock(side_effect=_request)
@@ -630,6 +744,29 @@ class ManagerDrainTests(unittest.TestCase):
         restore = patches[-1]
         self.assertEqual(sorted(restore.get("scopes", [])), sorted(mgr.RECEIVE_ONLY_SCOPES))
 
+    def test_drain_fails_when_final_balance_not_expected_dust(self):
+        app = _make_app(balance_msat=2_000)
+        m = _fresh_manager()
+        m._token = "tok"
+
+        def _request(method, path, **kw):
+            if method == "GET" and path.startswith("/api/apps?"):
+                return {"apps": [app], "totalCount": 1}
+            if method == "GET" and path.startswith("/api/transactions?"):
+                return {"transactions": [], "totalCount": 0}
+            if method == "PATCH":
+                return {}
+            if method == "POST" and path == "/api/transfers":
+                return {}
+            if method == "GET" and path.startswith("/api/v2/apps/1"):
+                return {**app, "balanceMsat": 999}
+            return {}
+
+        m._request = MagicMock(side_effect=_request)
+        with self.assertRaises(mgr.AlbyHubError) as ctx:
+            m.drain_wallet("1")
+        self.assertEqual(ctx.exception.code, "drain_incomplete")
+
 
 class ManagerDeleteTests(unittest.TestCase):
     def _mgr(self, app, drain_ok=True):
@@ -639,13 +776,13 @@ class ManagerDeleteTests(unittest.TestCase):
 
         def _request(method, path, **kw):
             if method == "GET" and path.startswith("/api/apps?"):
-                return [app]
-            if method == "GET" and "transactions" in path:
-                return []
-            if method == "GET" and f"/api/apps/{app['id']}" in path:
+                return {"apps": [app], "totalCount": 1}
+            if method == "GET" and path.startswith("/api/transactions?"):
+                return {"transactions": [], "totalCount": 0}
+            if method == "GET" and path.startswith(f"/api/v2/apps/{app['id']}"):
                 # After drain the balance is zero
                 a = dict(app)
-                a["budget"] = {"usedBudget": 0}
+                a["balanceMsat"] = 0
                 return a
             if method == "PATCH":
                 return {}
@@ -683,9 +820,9 @@ class ManagerDeleteTests(unittest.TestCase):
 
         def _request(method, path, **kw):
             if method == "GET" and path.startswith("/api/apps?"):
-                return [app]
-            if "transactions" in path:
-                return [{"state": "pending"}]
+                return {"apps": [app], "totalCount": 1}
+            if path.startswith("/api/transactions?"):
+                return {"transactions": [{"state": "pending"}], "totalCount": 1}
             return {}
 
         m._request = MagicMock(side_effect=_request)
@@ -699,7 +836,7 @@ class ManagerInvoiceTests(unittest.TestCase):
         m = _fresh_manager()
         m._token = "tok"
         m._request = MagicMock(
-            return_value={"paymentRequest": invoice, "appId": app_id}
+            return_value={"invoice": invoice, "appId": app_id}
         )
         return m
 
@@ -712,7 +849,7 @@ class ManagerInvoiceTests(unittest.TestCase):
         m = self._mgr("lnbc5n1" + "z" * 40)
         # This starts with lnbc so is valid format - test the appId mismatch instead
         m._request = MagicMock(
-            return_value={"paymentRequest": "not_a_bolt11", "appId": 1}
+            return_value={"invoice": "not_a_bolt11", "appId": 1}
         )
         with self.assertRaises(mgr.AlbyHubError) as ctx:
             m.issue_invoice(1, 5_000_000)
@@ -722,8 +859,16 @@ class ManagerInvoiceTests(unittest.TestCase):
         m = _fresh_manager()
         m._token = "tok"
         m._request = MagicMock(
-            return_value={"paymentRequest": "lnbc1000n1test", "appId": 999}
+            return_value={"invoice": "lnbc1000n1test", "appId": 999}
         )
+        with self.assertRaises(mgr.AlbyHubError) as ctx:
+            m.issue_invoice(1, 1_000_000)
+        self.assertEqual(ctx.exception.code, "invoice_attribution_failed")
+
+    def test_invoice_requires_returned_appid(self):
+        m = _fresh_manager()
+        m._token = "tok"
+        m._request = MagicMock(return_value={"invoice": "lnbc1000n1test"})
         with self.assertRaises(mgr.AlbyHubError) as ctx:
             m.issue_invoice(1, 1_000_000)
         self.assertEqual(ctx.exception.code, "invoice_attribution_failed")
@@ -733,7 +878,7 @@ class ManagerInvoiceTests(unittest.TestCase):
         m = _fresh_manager()
         m._token = "tok"
         m._request = MagicMock(
-            return_value={"paymentRequest": "lnbc1000n1test", "appId": 42}
+            return_value={"invoice": "lnbc1000n1test", "appId": 42}
         )
         m.issue_invoice(42, 2_000_000)
         call_body = m._request.call_args.kwargs.get("body") or m._request.call_args[1].get("body")
@@ -791,10 +936,10 @@ class LnurlCallbackTests(unittest.TestCase):
 
         def _request(method, path, **kw):
             if path.startswith("/api/apps"):
-                return [app]
+                return {"apps": [app], "totalCount": 1}
             if path == "/api/invoices":
                 body = kw.get("body") or {}
-                return {"paymentRequest": invoice, "appId": body.get("appId")}
+                return {"invoice": invoice, "appId": body.get("appId")}
             return {}
 
         m._request = MagicMock(side_effect=_request)
@@ -848,10 +993,10 @@ class LnurlCallbackTests(unittest.TestCase):
 
         def _request(method, path, **kw):
             if path.startswith("/api/apps"):
-                return [app]
+                return {"apps": [app], "totalCount": 1}
             if path == "/api/invoices":
                 # Return wrong appId
-                return {"paymentRequest": "lnbc1000n1pfake", "appId": 999}
+                return {"invoice": "lnbc1000n1pfake", "appId": 999}
             return {}
 
         m._request = MagicMock(side_effect=_request)
@@ -866,15 +1011,216 @@ class LnurlCallbackTests(unittest.TestCase):
 
         def _request(method, path, **kw):
             if path.startswith("/api/apps"):
-                return [app]
+                return {"apps": [app], "totalCount": 1}
             if path == "/api/invoices":
-                return {"paymentRequest": "not_a_bolt11_string", "appId": 1}
+                return {"invoice": "not_a_bolt11_string", "appId": 1}
             return {}
 
         m._request = MagicMock(side_effect=_request)
         with patch("sovran_systemsos_web.nwc_lnurl_service._read_domain", return_value="pay.example.com"):
             payload, code = _lnurl_callback("heidi", "1000", m)
         self.assertEqual(code, 502)
+
+
+# ── LNURL HTTP handler tests ──────────────────────────────────────
+
+
+class LnurlHandlerAmountTests(unittest.TestCase):
+    """Tests the HTTP handler layer for amount parameter validation.
+
+    Uses the handler's do_GET directly with _send_json patched on the instance
+    so no real socket is needed.
+    """
+
+    def _run_handler(self, path: str, manager=None) -> list[tuple[int, dict]]:
+        """Invoke do_GET for *path* and return all (code, body) pairs sent."""
+        from sovran_systemsos_web.nwc_lnurl_service import _make_handler
+
+        if manager is None:
+            manager = _fresh_manager()
+        handler_class = _make_handler(manager)
+        sent: list[tuple[int, dict]] = []
+        handler = handler_class.__new__(handler_class)
+        handler._manager = manager
+        handler.path = path
+        # Intercept output without a real socket
+        handler._send_json = lambda code, body: sent.append((code, body))
+        handler.do_GET()
+        return sent
+
+    def test_duplicate_amount_returns_400_with_protocol_error(self):
+        """Two amount values must be rejected at the HTTP handler level."""
+        sent = self._run_handler("/lnurlp/alice/callback?amount=1000&amount=500000")
+        self.assertEqual(len(sent), 1)
+        code, body = sent[0]
+        self.assertEqual(code, 400)
+        self.assertEqual(body["status"], "ERROR")
+        self.assertIn("single amount", body["reason"])
+
+    def test_three_amount_values_returns_400(self):
+        sent = self._run_handler("/lnurlp/alice/callback?amount=1000&amount=2000&amount=3000")
+        self.assertEqual(len(sent), 1)
+        code, body = sent[0]
+        self.assertEqual(code, 400)
+        self.assertEqual(body["status"], "ERROR")
+
+    def test_single_amount_passes_to_callback(self):
+        """A single valid amount must reach the callback helper (not short-circuit)."""
+        app = _make_app(alias="alice")
+        m = _fresh_manager()
+        m._token = "tok"
+
+        def _request(method, path, **kw):
+            if path.startswith("/api/apps"):
+                return {"apps": [app], "totalCount": 1}
+            if path == "/api/invoices":
+                body = kw.get("body") or {}
+                return {"invoice": "lnbc1000n1pfake", "appId": body.get("appId")}
+            return {}
+
+        m._request = MagicMock(side_effect=_request)
+        with patch("sovran_systemsos_web.nwc_lnurl_service._read_domain", return_value="pay.example.com"):
+            sent = self._run_handler("/lnurlp/alice/callback?amount=1000", manager=m)
+        self.assertEqual(len(sent), 1)
+        code, _ = sent[0]
+        self.assertEqual(code, 200)
+
+    def test_missing_amount_returns_400_missing_reason(self):
+        """No amount parameter must produce a 'Missing amount' error."""
+        app = _make_app(alias="alice")
+        m = _fresh_manager()
+        m._token = "tok"
+        m._request = MagicMock(side_effect=lambda method, path, **kw: (
+            {"apps": [app], "totalCount": 1} if path.startswith("/api/apps") else {}
+        ))
+        with patch("sovran_systemsos_web.nwc_lnurl_service._read_domain", return_value="pay.example.com"):
+            sent = self._run_handler("/lnurlp/alice/callback", manager=m)
+        self.assertEqual(len(sent), 1)
+        code, body = sent[0]
+        self.assertEqual(code, 400)
+        self.assertIn("Missing", body["reason"])
+
+
+# ── Nix/Patch contract tests ───────────────────────────────────────
+
+
+class NixPatchContractTests(unittest.TestCase):
+    @staticmethod
+    def _patched_albyhub_nix_expr(result_expr: str) -> str:
+        return (
+            "let flake = builtins.getFlake (toString ./.); "
+            "pkgs = import flake.inputs.nixpkgs { system = builtins.currentSystem; }; "
+            "patchedAlbyHub = pkgs.albyhub.overrideAttrs (old: { patches = (old.patches or []) ++ [ "
+            "./packages/albyhub/0001-private-route-hints.patch "
+            "./packages/albyhub/0002-isolated-invoice-app-id.patch "
+            "]; }); "
+            f"in {result_expr}"
+        )
+
+    def test_nwc_module_uses_non_placeholder_albyhub_strategy(self):
+        repo_root = Path(__file__).resolve().parents[2]
+        module_path = repo_root / "modules" / "nwc-wallets.nix"
+        text = module_path.read_text()
+        self.assertIn("pkgs.albyhub.overrideAttrs", text)
+        self.assertIn("../packages/albyhub/0001-private-route-hints.patch", text)
+        self.assertIn("../packages/albyhub/0002-isolated-invoice-app-id.patch", text)
+        self.assertNotIn("sha256-AAAA", text)
+        self.assertNotIn("lib.fakeHash", text)
+        self.assertIn("AUTO_UNLOCK_PASSWORD", text)
+        self.assertNotIn("AUTO_UNLOCK_PASSWORD_FILE", text)
+
+    def test_nwc_module_uses_lib_getexe_for_albyhub_binary(self):
+        repo_root = Path(__file__).resolve().parents[2]
+        module_path = repo_root / "modules" / "nwc-wallets.nix"
+        text = module_path.read_text()
+        self.assertIn("exec ${lib.getExe patchedAlbyHub}", text)
+        self.assertNotIn("${patchedAlbyHub}/bin/hub", text)
+
+    def test_official_nwc_icon_asset_is_committed(self):
+        repo_root = Path(__file__).resolve().parents[2]
+        icon_path = repo_root / "app" / "icons" / "nwc.svg"
+        self.assertTrue(icon_path.exists())
+        text = icon_path.read_text()
+        self.assertIn("linearGradient", text)
+        self.assertIn("#F7931A", text)
+
+    def test_albyhub_main_program_via_nix_eval(self):
+        if shutil.which("nix") is None:
+            self.skipTest("nix not installed in this environment")
+        repo_root = Path(__file__).resolve().parents[2]
+        get_exe_expr = self._patched_albyhub_nix_expr("pkgs.lib.getExe patchedAlbyHub")
+        get_exe_result = subprocess.run(
+            [
+                "nix",
+                "eval",
+                "--raw",
+                "--impure",
+                "--expr",
+                get_exe_expr,
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+            cwd=repo_root,
+        )
+        exe_path = get_exe_result.stdout.strip()
+        self.assertIn("/nix/store/", exe_path)
+        self.assertTrue(exe_path.endswith("/bin/albyhub"))
+        self.assertNotIn("/bin/hub", exe_path)
+
+        main_program_result = subprocess.run(
+            [
+                "nix",
+                "eval",
+                "--raw",
+                "--impure",
+                "--expr",
+                self._patched_albyhub_nix_expr("patchedAlbyHub.meta.mainProgram"),
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+            cwd=repo_root,
+        )
+        self.assertEqual(main_program_result.stdout.strip(), "albyhub")
+
+    def test_private_route_hint_patch_exact_change(self):
+        repo_root = Path(__file__).resolve().parents[2]
+        patch_path = repo_root / "packages" / "albyhub" / "0001-private-route-hints.patch"
+        text = patch_path.read_text()
+        self.assertIn("Private:         !hasPublicChannels", text)
+        self.assertIn("Private:         true", text)
+
+    def test_isolated_invoice_appid_patch_contains_all_required_files(self):
+        repo_root = Path(__file__).resolve().parents[2]
+        patch_path = repo_root / "packages" / "albyhub" / "0002-isolated-invoice-app-id.patch"
+        text = patch_path.read_text()
+        self.assertIn("diff --git a/api/models.go b/api/models.go", text)
+        self.assertIn("diff --git a/api/transactions.go b/api/transactions.go", text)
+        self.assertIn("diff --git a/http/http_service.go b/http/http_service.go", text)
+        self.assertIn("diff --git a/wails/wails_handlers.go b/wails/wails_handlers.go", text)
+        self.assertIn("AppId       *uint  `json:\"appId\"`", text)
+        self.assertIn("CreateInvoice(ctx context.Context, amount uint64, description string, appId *uint)", text)
+
+    def test_nwc_lnurl_service_runs_as_albyhub(self):
+        """nwc-lnurl.service must run as albyhub to read /var/lib/albyhub/unlock-password."""
+        repo_root = Path(__file__).resolve().parents[2]
+        module_path = repo_root / "modules" / "nwc-wallets.nix"
+        text = module_path.read_text()
+        # Locate the nwc-lnurl service block
+        service_idx = text.find("systemd.services.nwc-lnurl")
+        self.assertNotEqual(service_idx, -1, "nwc-lnurl service declaration not found")
+        service_section = text[service_idx:]
+        self.assertIn('User = "albyhub"', service_section)
+        self.assertIn('Group = "albyhub"', service_section)
+
+    def test_nwc_module_no_separate_nwc_lnurl_user(self):
+        """No standalone nwc-lnurl user or group should exist; albyhub identity is reused."""
+        repo_root = Path(__file__).resolve().parents[2]
+        module_path = repo_root / "modules" / "nwc-wallets.nix"
+        text = module_path.read_text()
+        self.assertNotIn("users.users.nwc-lnurl", text)
+        self.assertNotIn("users.groups.nwc-lnurl", text)
 
 
 # ── Server API integration tests ─────────────────────────────────
