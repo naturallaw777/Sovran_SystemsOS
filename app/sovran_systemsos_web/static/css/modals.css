@@ -478,3 +478,46 @@ button.btn-reboot:hover:not(:disabled) {
   color: var(--text-secondary);
   font-style: italic;
 }
+
+.nwc-secret-warning {
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid #f59e0b;
+  background: rgba(245, 158, 11, 0.12);
+  color: #fbbf24;
+  font-size: 0.86rem;
+}
+
+.nwc-wallet-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.nwc-wallet-card {
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.nwc-wallet-card-title {
+  font-weight: 700;
+  margin-bottom: 8px;
+  color: var(--text-primary);
+}
+
+.nwc-wallet-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.nwc-wallet-actions .matrix-form-back,
+.nwc-wallet-actions .btn-close-modal {
+  padding: 8px 12px;
+  font-size: 0.82rem;
+}

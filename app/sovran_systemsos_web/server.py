@@ -4422,9 +4422,11 @@ async def api_nwc_create_wallet(req: NwcWalletCreateRequest):
 
     domain = _nwc_domain()
     verify = _nwc_test_address(alias)
+    pairing_uri = _nwc_pairing_uri(wallet_id, pairing_secret)
+    pairing_qrcode = _generate_qr_base64(pairing_uri)
     response = {
         "wallet": _nwc_wallet_meta(wallet, domain),
-        "pairing_uri": _nwc_pairing_uri(wallet_id, pairing_secret),
+        "pairing_uri": pairing_uri,
         "lightning_address": f"{alias}@{domain}" if domain else None,
         "result": {
             "wallet_created": True,
@@ -4433,6 +4435,8 @@ async def api_nwc_create_wallet(req: NwcWalletCreateRequest):
             "public_endpoint_verification": verify,
         },
     }
+    if pairing_qrcode:
+        response["pairing_qrcode"] = pairing_qrcode
     return JSONResponse(status_code=201, content=response)
 
 
