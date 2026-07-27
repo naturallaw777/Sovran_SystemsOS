@@ -88,7 +88,7 @@ let
       # NOTE: The hostname validation regex below must stay in sync with
       # _SAFE_DOMAIN_RE in app/sovran_systemsos_web/server.py.
       ENTRIES=""
-      for KEY in matrix wordpress nextcloud btcpayserver vaultwarden haven element-calling; do
+      for KEY in matrix wordpress nextcloud btcpayserver vaultwarden haven element-calling lightning; do
         FILE="$DOMAINS_DIR/$KEY"
         [ -f "$FILE" ] || continue
         # Read the domain value (strip all whitespace, limit to 253 chars)

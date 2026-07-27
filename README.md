@@ -786,6 +786,7 @@ sudo nixos-rebuild switch --rollback
 | `modules/` | Core modules, Bitcoin services, self-hosted services, and optional features |
 | `modules/core/` | Roles, Hub integration, Caddy, desktop, support, and other core behavior |
 | `app/` | Sovran Hub backend, templates, static assets, scripts, and web interface |
+| `docs/wallet-connections.md` | Wallet Connections architecture, API, CLI, and security/operations notes |
 | `iso/` | Installer configuration, installer code, and installer assets |
 | `assets/` | Repository documentation images |
 | `custom.template.nix` | Template for local features and service overrides |

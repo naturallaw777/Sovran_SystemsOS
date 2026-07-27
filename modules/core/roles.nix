@@ -46,6 +46,7 @@
       mempool = lib.mkEnableOption "Bitcoin Mempool Explorer";
       element-calling = lib.mkEnableOption "Element Video and Audio Calling";
       bitcoin-core = lib.mkEnableOption "Bitcoin Core";
+      "nwc-wallets" = lib.mkEnableOption "Wallet Connections";
       rdp = lib.mkEnableOption "Gnome Remote Desktop";
       sshd = lib.mkEnableOption "SSH remote access";
 
