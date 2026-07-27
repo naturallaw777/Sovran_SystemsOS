@@ -119,7 +119,7 @@ class AlbyHubManager:
             "Accept": "application/json",
         }
         if token:
-            headers["Authorization"] = f"******"
+            headers["Authorization"] = "Bearer " + token
         req = urllib.request.Request(url, data=data, headers=headers, method=method)
         try:
             with urllib.request.urlopen(req, timeout=timeout) as resp:

@@ -4281,7 +4281,7 @@ async def api_nwc_wallets():
             None, _nwc_mgr.get_manager().list_wallets, domain
         )
     except _nwc_mgr.AlbyHubError as exc:
-        return _nwc_error(503, exc.code, str(exc))
+        return _nwc_error(503, exc.code, exc.args[0])
     return {"wallets": wallets, "domain": domain}
 
 
@@ -4315,7 +4315,7 @@ async def api_nwc_create_wallet(req: NwcWalletCreateRequest):
             "wallet_name_exists": 409,
         }
         status = code_map.get(exc.code, 502)
-        return _nwc_error(status, exc.code, str(exc))
+        return _nwc_error(status, exc.code, exc.args[0])
 
     pairing_uri: str = result.get("pairing_uri", "")
     pairing_qrcode: str | None = None
@@ -4354,7 +4354,7 @@ async def api_nwc_delete_wallet(wallet_identifier: str):
             "drain_incomplete": 409,
         }
         status = code_map.get(exc.code, 502)
-        return _nwc_error(status, exc.code, str(exc))
+        return _nwc_error(status, exc.code, exc.args[0])
     return result
 
 
@@ -4374,7 +4374,7 @@ async def api_nwc_drain_wallet(wallet_identifier: str):
             "negative_balance": 409,
         }
         status = code_map.get(exc.code, 502)
-        return _nwc_error(status, exc.code, str(exc))
+        return _nwc_error(status, exc.code, exc.args[0])
     return result
 
 
@@ -4391,7 +4391,7 @@ async def api_nwc_test(alias: str):
             normalized_alias,
         )
     except _nwc_mgr.AlbyHubError as exc:
-        return _nwc_error(503, exc.code, str(exc))
+        return _nwc_error(503, exc.code, exc.args[0])
     if app is None:
         return _nwc_error(404, "wallet_not_found", "No wallet connection exists for this alias.")
     result = await loop.run_in_executor(None, _nwc_test_address, normalized_alias)
