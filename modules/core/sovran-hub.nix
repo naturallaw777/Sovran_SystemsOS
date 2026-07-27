@@ -61,7 +61,7 @@ let
         { label = "Server"; value = "tcp://127.0.0.1:50001 (Electrs)"; }
         { label = "Status"; value = "Auto-configured on first boot"; }
       ]; }
-      { name = "Wallet Connections"; unit = "nwc-wallets.service"; type = "system"; icon = "zeus"; enabled = cfg.features."nwc-wallets"; category = "bitcoin-apps"; credentials = [
+      { name = "Wallet Connections"; unit = "albyhub.service"; type = "system"; icon = "zeus"; enabled = cfg.features."nwc-wallets"; category = "bitcoin-apps"; credentials = [
         { label = "Lightning Address Domain"; file = "/var/lib/domains/lightning"; }
       ]; }
       { name = "Mempool";            unit = "mempool.service";      type = "system"; icon = "mempool";      enabled = cfg.features.mempool;  category = "bitcoin-apps"; credentials = [
@@ -366,6 +366,16 @@ sys.exit(main())
 LAUNCHER
       chmod +x $out/bin/nwc-wallet
 
+      cat > $out/bin/nwc-lnurl <<LAUNCHER
+#!${pkgs.python3}/bin/python3
+import os, sys
+base = os.path.join("$out", "lib", "sovran-hub-web")
+sys.path.insert(0, base)
+from sovran_systemsos_web.nwc_lnurl_service import main
+main()
+LAUNCHER
+      chmod +x $out/bin/nwc-lnurl
+
       runHook postInstall
     '';
 
@@ -377,6 +387,12 @@ LAUNCHER
 
 in
 {
+  options.services.sovranHub.webPackage = lib.mkOption {
+    type        = lib.types.package;
+    default     = sovran-hub-web;
+    description = "The sovran-hub-web Python application package. Other modules use this to reference Hub-installed scripts without duplicating the Python path setup.";
+  };
+
   config = {
     systemd.services.sovran-hub-web = {
       description = "Sovran_SystemsOS Hub Web Interface";
