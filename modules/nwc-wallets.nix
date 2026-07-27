@@ -44,18 +44,8 @@ lib.mkIf config.sovran_systemsOS.features."nwc-wallets" {
     extraGroups = [ ];
   };
 
-  users.groups.nwc-lnurl = { };
-  users.users.nwc-lnurl = {
-    isSystemUser = true;
-    group = "nwc-lnurl";
-    home = "/var/lib/nwc-lnurl";
-    createHome = false;
-    extraGroups = [ "albyhub" ];
-  };
-
   systemd.tmpfiles.rules = [
     "d /var/lib/albyhub       0700 albyhub albyhub -"
-    "d /var/lib/nwc-lnurl     0750 nwc-lnurl nwc-lnurl -"
   ];
 
   services.lnd.macaroons.albyhub = {
@@ -123,8 +113,8 @@ lib.mkIf config.sovran_systemsOS.features."nwc-wallets" {
 
     serviceConfig = {
       Type = "simple";
-      User = "nwc-lnurl";
-      Group = "nwc-lnurl";
+      User = "albyhub";
+      Group = "albyhub";
       ExecStart = "${config.services.sovranHub.webPackage}/bin/nwc-lnurl";
       Restart = "on-failure";
       RestartSec = "10s";
@@ -135,7 +125,7 @@ lib.mkIf config.sovran_systemsOS.features."nwc-wallets" {
       ProtectSystem = "strict";
       ReadOnlyPaths = [
         "/var/lib/domains/lightning"
-        "/var/lib/albyhub/unlock-password"
+        "/var/lib/albyhub"
       ];
     };
   };

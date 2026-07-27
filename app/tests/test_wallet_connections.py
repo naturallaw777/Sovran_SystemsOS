@@ -597,6 +597,33 @@ class ManagerCreateTests(unittest.TestCase):
         self.assertFalse(result["result"]["funding"]["success"])
         self.assertIn("message", result["result"]["funding"])
 
+    def test_create_partial_failure_message_says_created_successfully(self):
+        """Partial-funding message must say 'was created successfully', not 'already exists'."""
+        m = self._mgr()
+
+        def _request(method, path, **kw):
+            if method == "GET" and path.startswith("/api/apps?"):
+                return []
+            if method == "POST" and path == "/api/apps":
+                return {
+                    "id": 99,
+                    "pairingUri": "nostr+walletconnect://pubkey?relay=r&secret=S",
+                    **_make_app(id_=99, alias="new"),
+                }
+            if method == "POST" and path == "/api/transfers":
+                raise mgr.AlbyHubError("transfer_failed", "Insufficient funds")
+            if method == "GET" and "/api/v2/apps/99" in path:
+                return _make_app(id_=99, alias="new")
+            return {}
+
+        m._request = MagicMock(side_effect=_request)
+        result = m.create_wallet("W", "new", "send_receive_limited", 5000)
+
+        message = result["result"]["funding"]["message"]
+        self.assertIn("was created successfully", message)
+        self.assertNotIn("already exists", message)
+        self.assertIn("Do not recreate", message)
+
 
 class ManagerDrainTests(unittest.TestCase):
     def _mgr(self, app, transfer_ok=True):
@@ -986,6 +1013,85 @@ class LnurlCallbackTests(unittest.TestCase):
         self.assertEqual(code, 502)
 
 
+# ── LNURL HTTP handler tests ──────────────────────────────────────
+
+
+class LnurlHandlerAmountTests(unittest.TestCase):
+    """Tests the HTTP handler layer for amount parameter validation.
+
+    Uses the handler's do_GET directly with _send_json patched on the instance
+    so no real socket is needed.
+    """
+
+    def _run_handler(self, path: str, manager=None) -> list[tuple[int, dict]]:
+        """Invoke do_GET for *path* and return all (code, body) pairs sent."""
+        from sovran_systemsos_web.nwc_lnurl_service import _make_handler
+
+        if manager is None:
+            manager = _fresh_manager()
+        handler_class = _make_handler(manager)
+        sent: list[tuple[int, dict]] = []
+        handler = handler_class.__new__(handler_class)
+        handler._manager = manager
+        handler.path = path
+        # Intercept output without a real socket
+        handler._send_json = lambda code, body: sent.append((code, body))
+        handler.do_GET()
+        return sent
+
+    def test_duplicate_amount_returns_400_with_protocol_error(self):
+        """Two amount values must be rejected at the HTTP handler level."""
+        sent = self._run_handler("/lnurlp/alice/callback?amount=1000&amount=500000")
+        self.assertEqual(len(sent), 1)
+        code, body = sent[0]
+        self.assertEqual(code, 400)
+        self.assertEqual(body["status"], "ERROR")
+        self.assertIn("Exactly one", body["reason"])
+
+    def test_three_amount_values_returns_400(self):
+        sent = self._run_handler("/lnurlp/alice/callback?amount=1000&amount=2000&amount=3000")
+        self.assertEqual(len(sent), 1)
+        code, body = sent[0]
+        self.assertEqual(code, 400)
+        self.assertEqual(body["status"], "ERROR")
+
+    def test_single_amount_passes_to_callback(self):
+        """A single valid amount must reach the callback helper (not short-circuit)."""
+        app = _make_app(alias="alice")
+        m = _fresh_manager()
+        m._token = "tok"
+
+        def _request(method, path, **kw):
+            if path.startswith("/api/apps"):
+                return {"apps": [app], "totalCount": 1}
+            if path == "/api/invoices":
+                body = kw.get("body") or {}
+                return {"invoice": "lnbc1000n1pfake", "appId": body.get("appId")}
+            return {}
+
+        m._request = MagicMock(side_effect=_request)
+        with patch("sovran_systemsos_web.nwc_lnurl_service._read_domain", return_value="pay.example.com"):
+            sent = self._run_handler("/lnurlp/alice/callback?amount=1000", manager=m)
+        self.assertEqual(len(sent), 1)
+        code, _ = sent[0]
+        self.assertEqual(code, 200)
+
+    def test_missing_amount_returns_400_missing_reason(self):
+        """No amount parameter must produce a 'Missing amount' error."""
+        app = _make_app(alias="alice")
+        m = _fresh_manager()
+        m._token = "tok"
+        m._request = MagicMock(side_effect=lambda method, path, **kw: (
+            {"apps": [app], "totalCount": 1} if path.startswith("/api/apps") else {}
+        ))
+        with patch("sovran_systemsos_web.nwc_lnurl_service._read_domain", return_value="pay.example.com"):
+            sent = self._run_handler("/lnurlp/alice/callback", manager=m)
+        self.assertEqual(len(sent), 1)
+        code, body = sent[0]
+        self.assertEqual(code, 400)
+        self.assertIn("Missing", body["reason"])
+
+
 # ── Nix/Patch contract tests ───────────────────────────────────────
 
 
@@ -1019,6 +1125,26 @@ class NixPatchContractTests(unittest.TestCase):
         self.assertIn("diff --git a/wails/wails_handlers.go b/wails/wails_handlers.go", text)
         self.assertIn("AppId       *uint  `json:\"appId\"`", text)
         self.assertIn("CreateInvoice(ctx context.Context, amount uint64, description string, appId *uint)", text)
+
+    def test_nwc_lnurl_service_runs_as_albyhub(self):
+        """nwc-lnurl.service must run as albyhub to read /var/lib/albyhub/unlock-password."""
+        repo_root = Path(__file__).resolve().parents[2]
+        module_path = repo_root / "modules" / "nwc-wallets.nix"
+        text = module_path.read_text()
+        # Locate the nwc-lnurl service block
+        service_idx = text.find("systemd.services.nwc-lnurl")
+        self.assertNotEqual(service_idx, -1, "nwc-lnurl service declaration not found")
+        service_section = text[service_idx:]
+        self.assertIn('User = "albyhub"', service_section)
+        self.assertIn('Group = "albyhub"', service_section)
+
+    def test_nwc_module_no_separate_nwc_lnurl_user(self):
+        """No standalone nwc-lnurl user or group should exist; albyhub identity is reused."""
+        repo_root = Path(__file__).resolve().parents[2]
+        module_path = repo_root / "modules" / "nwc-wallets.nix"
+        text = module_path.read_text()
+        self.assertNotIn("users.users.nwc-lnurl", text)
+        self.assertNotIn("users.groups.nwc-lnurl", text)
 
 
 # ── Server API integration tests ─────────────────────────────────

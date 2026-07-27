@@ -505,7 +505,7 @@ class AlbyHubManager:
             except AlbyHubError as exc:
                 funding_result["error"] = exc.code
                 funding_result["message"] = (
-                    "The wallet already exists and the NWC connection secret is shown "
+                    "The wallet was created successfully and the NWC connection secret is shown "
                     "above, but initial funding failed. Save the NWC secret now. "
                     "Do not recreate this wallet."
                 )
