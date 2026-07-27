@@ -1,7 +1,8 @@
 """
 Alby Hub manager — shared backend for Wallet Connections API and recovery CLI.
 
-Interfaces with the local Alby Hub instance at http://127.0.0.1:8080.
+Interfaces with the local Alby Hub instance at
+http://127.0.0.1:18080 by default (override with NWC_ALBY_HUB_API_BASE).
 All sensitive values (passwords, bearer tokens, pairing URIs, macaroon
 contents, Nostr private keys) are redacted from any exception messages
 or log output.
@@ -24,7 +25,10 @@ logger = logging.getLogger(__name__)
 
 # ── Constants ──────────────────────────────────────────────────────
 
-DEFAULT_API_BASE = "http://127.0.0.1:8080"
+DEFAULT_API_BASE = os.environ.get(
+    "NWC_ALBY_HUB_API_BASE",
+    "http://127.0.0.1:18080",
+)
 DEFAULT_UNLOCK_PASSWORD_FILE = "/var/lib/albyhub/unlock-password"
 DEFAULT_MACAROON_FILE = os.environ.get(
     "NWC_LND_MACAROON_FILE", "/run/lnd/albyhub.macaroon"

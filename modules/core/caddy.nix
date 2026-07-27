@@ -195,7 +195,7 @@ EOF
 $LIGHTNING {
   # LNURL discovery and callback are served by the dedicated
   # nwc-lnurl service on loopback port 8181.  Only these paths
-  # are proxied; the Alby Hub management port (8080) is never exposed.
+  # are proxied; the Alby Hub management port (18080) is never exposed.
   reverse_proxy /.well-known/lnurlp/* http://127.0.0.1:8181
   reverse_proxy /lnurlp/* http://127.0.0.1:8181
 }
