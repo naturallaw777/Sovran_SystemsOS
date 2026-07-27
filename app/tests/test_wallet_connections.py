@@ -25,6 +25,8 @@ Tests cover:
 """
 
 import json
+import importlib
+import os
 import re
 import shutil
 import subprocess
@@ -167,6 +169,28 @@ def _fresh_manager() -> mgr.AlbyHubManager:
         unlock_password_file="/nonexistent/unlock-password",
         macaroon_file="/nonexistent/albyhub.macaroon",
     )
+
+
+class ManagerApiBaseConfigurationTests(unittest.TestCase):
+    def setUp(self):
+        self._original_api_base = os.environ.get("NWC_ALBY_HUB_API_BASE")
+
+    def tearDown(self):
+        if self._original_api_base is None:
+            os.environ.pop("NWC_ALBY_HUB_API_BASE", None)
+        else:
+            os.environ["NWC_ALBY_HUB_API_BASE"] = self._original_api_base
+        importlib.reload(mgr)
+
+    def test_default_api_base_falls_back_to_18080(self):
+        os.environ.pop("NWC_ALBY_HUB_API_BASE", None)
+        reloaded_mgr = importlib.reload(mgr)
+        self.assertEqual(reloaded_mgr.DEFAULT_API_BASE, "http://127.0.0.1:18080")
+
+    def test_env_api_base_overrides_default(self):
+        os.environ["NWC_ALBY_HUB_API_BASE"] = "http://127.0.0.1:19999"
+        reloaded_mgr = importlib.reload(mgr)
+        self.assertEqual(reloaded_mgr.DEFAULT_API_BASE, "http://127.0.0.1:19999")
 
 
 # ── Feature registry tests ────────────────────────────────────────
@@ -1113,6 +1137,7 @@ class NixPatchContractTests(unittest.TestCase):
             "patchedAlbyHub = pkgs.albyhub.overrideAttrs (old: { patches = (old.patches or []) ++ [ "
             "./packages/albyhub/0001-private-route-hints.patch "
             "./packages/albyhub/0002-isolated-invoice-app-id.patch "
+            "./packages/albyhub/0003-loopback-bind-host.patch "
             "]; }); "
             f"in {result_expr}"
         )
@@ -1124,10 +1149,13 @@ class NixPatchContractTests(unittest.TestCase):
         self.assertIn("pkgs.albyhub.overrideAttrs", text)
         self.assertIn("../packages/albyhub/0001-private-route-hints.patch", text)
         self.assertIn("../packages/albyhub/0002-isolated-invoice-app-id.patch", text)
+        self.assertIn("../packages/albyhub/0003-loopback-bind-host.patch", text)
         self.assertNotIn("sha256-AAAA", text)
         self.assertNotIn("lib.fakeHash", text)
         self.assertIn("AUTO_UNLOCK_PASSWORD", text)
         self.assertNotIn("AUTO_UNLOCK_PASSWORD_FILE", text)
+        self.assertIn("albyHubPort = 18080;", text)
+        self.assertIn('albyHubApiBase = "http://127.0.0.1:${toString albyHubPort}";', text)
 
     def test_nwc_module_uses_lib_getexe_for_albyhub_binary(self):
         repo_root = Path(__file__).resolve().parents[2]
@@ -1214,6 +1242,43 @@ class NixPatchContractTests(unittest.TestCase):
         # MakeInvoice call must pass appId as 8th positional argument (not nil)
         self.assertIn("MakeInvoice(ctx, amountMsat, description,", text)
         self.assertIn(", appId, nil, nil)", text)
+
+    def test_loopback_bind_host_patch_contains_required_changes(self):
+        repo_root = Path(__file__).resolve().parents[2]
+        patch_path = repo_root / "packages" / "albyhub" / "0003-loopback-bind-host.patch"
+        text = patch_path.read_text()
+        self.assertIn("diff --git a/cmd/http/main.go b/cmd/http/main.go", text)
+        self.assertIn("diff --git a/config/models.go b/config/models.go", text)
+        self.assertIn('Host                               string `envconfig:"HOST" default:"127.0.0.1"`', text)
+        self.assertIn("bindAddress := net.JoinHostPort", text)
+        self.assertIn("if err := e.Start(bindAddress);", text)
+
+    def test_nwc_services_share_authoritative_alby_hub_api_base(self):
+        repo_root = Path(__file__).resolve().parents[2]
+        module_path = repo_root / "modules" / "nwc-wallets.nix"
+        text = module_path.read_text()
+        self.assertIn("environment.NWC_ALBY_HUB_API_BASE = albyHubApiBase;", text)
+        self.assertIn("NWC_ALBY_HUB_API_BASE = albyHubApiBase;", text)
+
+    def test_albyhub_port_contract_and_assertions(self):
+        repo_root = Path(__file__).resolve().parents[2]
+        module_path = repo_root / "modules" / "nwc-wallets.nix"
+        text = module_path.read_text()
+        self.assertIn("PORT = toString albyHubPort;", text)
+        self.assertNotIn('PORT = "8080";', text)
+        self.assertIn("assertion = albyHubPort != config.services.lnd.restPort;", text)
+        self.assertIn("assertion = albyHubPort != 8181;", text)
+        self.assertIn("assertion = !(lib.elem albyHubPort config.networking.firewall.allowedTCPPorts);", text)
+
+    def test_recovery_cli_uses_manager_default_endpoint(self):
+        repo_root = Path(__file__).resolve().parents[2]
+        cli_path = repo_root / "app" / "sovran_systemsos_web" / "nwc_wallet_cli.py"
+        manager_path = repo_root / "app" / "sovran_systemsos_web" / "nwc_hub_manager.py"
+        cli_text = cli_path.read_text()
+        manager_text = manager_path.read_text()
+        self.assertIn("get_manager()", cli_text)
+        self.assertNotIn("127.0.0.1:8080", cli_text)
+        self.assertIn('"http://127.0.0.1:18080"', manager_text)
 
     def test_nwc_lnurl_service_runs_as_albyhub(self):
         """nwc-lnurl.service must run as albyhub to read /var/lib/albyhub/unlock-password."""
