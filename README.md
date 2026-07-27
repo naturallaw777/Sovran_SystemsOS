@@ -924,80 +924,63 @@ backup on the same computer that holds the wallet.
 
 ## Acknowledgements
 
-Sovran_SystemsOS stands on the work of exceptional free and open-source
-projects and contributors.
+Sovran_SystemsOS stands on the work of exceptional free and open-source projects and contributors.
 
 ### NixOS
 
-Deep gratitude goes to the **NixOS team, the Nixpkgs maintainers, and the
-broader Nix community**.
+Deep gratitude goes to the [NixOS](https://nixos.org) team, the [Nixpkgs](https://github.com/NixOS/nixpkgs) maintainers, and the broader [Nix community](https://github.com/nix-community).
 
-NixOS provides the reproducible, declarative foundation that makes
-Sovran_SystemsOS possible. Its module system, package ecosystem, flakes, and
-generation-based system management allow an entire Bitcoin operating system
-to be described, audited, rebuilt, upgraded, and rolled back from source.
+NixOS provides the reproducible, declarative foundation that makes Sovran_SystemsOS possible. Its module system, package ecosystem, [flakes](https://nixos.wiki/wiki/Flakes), and generation-based system management allow an entire Bitcoin operating system to be described, audited, rebuilt, upgraded, and rolled back from source.
 
-Sovran_SystemsOS would not have the same reliability, transparency, or
-reproducibility without their years of work.
+Sovran_SystemsOS would not have the same reliability, transparency, or reproducibility without their years of work.
 
 ### nix-bitcoin
 
-Special thanks go to the **nix-bitcoin project and its contributors**.
+Special thanks go to the [nix-bitcoin](https://github.com/fort-nix/nix-bitcoin) project and its [contributors](https://github.com/fort-nix/nix-bitcoin/graphs/contributors).
 
-nix-bitcoin provides the declarative foundation for building and operating
-Bitcoin and Lightning services on NixOS. Its work makes it possible to
-configure complex Bitcoin infrastructure—including nodes, Electrs, Lightning,
-Tor integration, and related services—in a reproducible and auditable way.
+nix-bitcoin provides the declarative foundation for building and operating Bitcoin and Lightning services on NixOS. Its work makes it possible to configure complex Bitcoin infrastructure—including nodes, Electrs, Lightning, Tor integration, and related services—in a reproducible and auditable way.
 
-Sovran_SystemsOS builds upon that foundation to make this infrastructure
-approachable through an integrated desktop, installer, and Sovran Hub.
+Sovran_SystemsOS builds upon that foundation to make this infrastructure approachable through an integrated desktop, installer, and Sovran Hub.
 
 ### Emmanuel Rosa and btc-clients-nix
 
-Special thanks go to **Emmanuel Rosa** for
-[`btc-clients-nix`](https://github.com/emmanuelrosa/btc-clients-nix).
+Special thanks go to [Emmanuel Rosa](https://github.com/emmanuelrosa) for [btc-clients-nix](https://github.com/emmanuelrosa/btc-clients-nix).
 
-The project provides Nix packages for the Bitcoin desktop software central to
-the Sovran_SystemsOS experience:
+The project provides Nix packages for the Bitcoin desktop software central to the Sovran_SystemsOS experience:
 
-- Sparrow Wallet
-- Bisq
-- Bisq 2
+- [Sparrow Wallet](https://github.com/sparrowwallet/sparrow)
+- [Bisq](https://github.com/bisq-network/bisq)
+- [Bisq 2](https://github.com/bisq-network/bisq2)
 
-This work helps make it possible for Sovran_SystemsOS to deliver self-custody
-and peer-to-peer Bitcoin tools as part of every installation.
+This work helps make it possible for Sovran_SystemsOS to deliver self-custody and peer-to-peer Bitcoin tools as part of every installation.
 
 ### The upstream Bitcoin ecosystem
 
-Sovran_SystemsOS also depends on the work of the developers and communities
-behind:
+Sovran_SystemsOS also depends on the work of the developers and communities behind:
 
-- Bitcoin Knots
-- Bitcoin Core
-- Sparrow Wallet
-- Bisq
-- Bisq 2
-- Electrs
-- LND
-- Ride The Lightning
-- BTCPay Server
-- Tor
-- NixOS
-- GNOME
-- Caddy
-- Nextcloud
-- Matrix Synapse
-- Element
-- Vaultwarden
-- WordPress
+- [Bitcoin Knots](https://github.com/bitcoinknots/bitcoin)
+- [Bitcoin Core](https://github.com/bitcoin/bitcoin)
+- [Sparrow Wallet](https://github.com/sparrowwallet/sparrow)
+- [Bisq](https://github.com/bisq-network/bisq)
+- [Bisq 2](https://github.com/bisq-network/bisq2)
+- [Electrs](https://github.com/romanz/electrs)
+- [LND](https://github.com/lightningnetwork/lnd)
+- [Ride The Lightning](https://github.com/Ride-The-Lightning/RTL)
+- [BTCPay Server](https://github.com/btcpayserver/btcpayserver)
+- [Tor](https://www.torproject.org)
+- [NixOS](https://github.com/NixOS/nixpkgs)
+- [GNOME](https://gitlab.gnome.org/GNOME)
+- [Caddy](https://github.com/caddyserver/caddy)
+- [Nextcloud](https://github.com/nextcloud/server)
+- [Matrix Synapse](https://github.com/element-hq/synapse)
+- [Element](https://github.com/element-hq/element-web)
+- [Vaultwarden](https://github.com/dani-garcia/vaultwarden)
+- [WordPress](https://github.com/WordPress/WordPress)
 - Every other upstream project included in the system
 
-Sovran Systems did not create these foundations. Our work is to bring them
-together into a cohesive operating system that helps more people use Bitcoin
-privately, independently, and with confidence.
+Sovran Systems did not create these foundations. Our work is to bring them together into a cohesive operating system that helps more people use Bitcoin privately, independently, and with confidence.
 
-Thank you to every developer, maintainer, reviewer, tester, documentarian, and
-user who keeps this ecosystem alive.
+Thank you to every developer, maintainer, reviewer, tester, documentarian, and user who keeps this ecosystem alive.
 
 ---
 
