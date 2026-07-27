@@ -159,7 +159,6 @@ lib.mkIf config.sovran_systemsOS.features."nwc-wallets" {
     };
   };
 
-  systemd.services.nwc-lnurl.environment.NWC_ALBY_HUB_API_BASE = albyHubApiBase;
   systemd.services.sovran-hub-web.environment = pythonManagerEnvironment;
   environment.systemPackages = lib.mkBefore [ wrappedNwcWallet ];
 
