@@ -69,7 +69,7 @@ function onRebuildDone(result) {
     // Auto-reload the page after a short delay so tiles and toggles reflect the new state
     setTimeout(function() { window.location.reload(); }, 1200);
   } else if (result === "reboot_required") {
-    if ($rebuildStatus) $rebuildStatus.textContent = "✓ Done — reboot required";
+    if ($rebuildStatus) $rebuildStatus.textContent = "✓ Done — restart required";
     if ($rebuildReboot) $rebuildReboot.style.display = "inline-flex";
   } else {
     if ($rebuildStatus) $rebuildStatus.textContent = "✗ Something went wrong";

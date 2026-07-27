@@ -171,3 +171,15 @@ domain-field-actions {
 .port-req-status {
   font-weight: 600;
 }
+
+/* ── Wallet Connections unique-hostname warning ───────────────────── */
+
+.domain-nwc-warning {
+  margin-bottom: 14px;
+  padding: 10px 14px;
+  background: rgba(255, 180, 0, 0.10);
+  border: 1px solid var(--warning-color, #f59e0b);
+  border-radius: 8px;
+  font-size: 0.88rem;
+  line-height: 1.6;
+}

@@ -12,11 +12,15 @@ let
     || config.sovran_systemsOS.services.nextcloud
     || config.sovran_systemsOS.services.vaultwarden
     || config.sovran_systemsOS.features.haven
+    || config.sovran_systemsOS.features."nwc-wallets"
     || config.sovran_systemsOS.features.element-calling;
 in
 {
   services.caddy = {
-    enable = true;
+    # Only enable Caddy when at least one domain-based service needs it or
+    # the operator has defined custom vhosts.  This prevents Caddy from
+    # running on Desktop Only installs that have no web services configured.
+    enable = needsHttpsPorts || extraVhosts != "";
     user = "caddy";
     group = "root";
   };
@@ -67,6 +71,7 @@ in
       BTCPAY=$(read_domain btcpayserver)
       VAULTWARDEN=$(read_domain vaultwarden)
       HAVEN=$(read_domain haven)
+      LIGHTNING=$(read_domain lightning)
       ACME_EMAIL=$(read_domain sslemail)
 
       # Start with global config — use ACME only when domain-based services are active
@@ -94,10 +99,10 @@ EOF
 $MATRIX {
   reverse_proxy /_matrix/* http://localhost:8008
   reverse_proxy /_synapse/client/* http://localhost:8008
-}
-
-$MATRIX:8448 {
-  reverse_proxy http://localhost:8008
+  handle /.well-known/matrix/server {
+    header Content-Type application/json
+    respond \`{"m.server":"$MATRIX:443"}\` 200
+  }
 }
 EOF
         fi
@@ -179,6 +184,20 @@ $HAVEN {
   request_body {
     max_size 100MB
   }
+}
+EOF
+      fi
+
+      # ── Wallet Connections LNURL ──────────────────────
+      if [ -n "$LIGHTNING" ]; then
+        cat >> /run/caddy/Caddyfile <<EOF
+
+$LIGHTNING {
+  # LNURL discovery and callback are served by the dedicated
+  # nwc-lnurl service on loopback port 8181.  Only these paths
+  # are proxied; the Alby Hub management port (18080) is never exposed.
+  reverse_proxy /.well-known/lnurlp/* http://127.0.0.1:8181
+  reverse_proxy /lnurlp/* http://127.0.0.1:8181
 }
 EOF
       fi

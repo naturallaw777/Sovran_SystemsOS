@@ -29,10 +29,7 @@ let
     ]
     # ── Bitcoin Base (node implementations) ────────────────────
     ++ lib.optionals cfg.services.bitcoin [
-      { name = "Bitcoin Knots + BIP110"; unit = "bitcoind.service"; type = "system"; icon = "bip110";        enabled = cfg.features.bip110;        category = "bitcoin-base"; credentials = [
-        { label = "Tor Address — Access from anywhere via Tor Browser"; file = "/var/lib/tor/onion/bitcoind/hostname"; prefix = "http://"; }
-      ]; }
-      { name = "Bitcoin Knots";          unit = "bitcoind.service"; type = "system"; icon = "bitcoind";      enabled = cfg.services.bitcoin && !cfg.features.bitcoin-core && !cfg.features.bip110; category = "bitcoin-base"; credentials = [
+      { name = "Bitcoin Knots + BIP110"; unit = "bitcoind.service"; type = "system"; icon = "bip110";        enabled = cfg.services.bitcoin && !cfg.features.bitcoin-core; category = "bitcoin-base"; credentials = [
         { label = "Tor Address — Access from anywhere via Tor Browser"; file = "/var/lib/tor/onion/bitcoind/hostname"; prefix = "http://"; }
       ]; }
       { name = "Bitcoin Core";           unit = "bitcoind.service"; type = "system"; icon = "bitcoin-core";  enabled = cfg.features.bitcoin-core;  category = "bitcoin-base"; credentials = [
@@ -63,6 +60,9 @@ let
       { name = "Sparrow Auto-Link"; unit = "sparrow-autoconnect.service"; type = "system"; icon = "sparrow"; enabled = cfg.services.bitcoin; category = "bitcoin-apps"; credentials = [
         { label = "Server"; value = "tcp://127.0.0.1:50001 (Electrs)"; }
         { label = "Status"; value = "Auto-configured on first boot"; }
+      ]; }
+      { name = "Wallet Connections"; unit = "albyhub.service"; type = "system"; icon = "nwc"; enabled = cfg.features."nwc-wallets"; category = "bitcoin-apps"; credentials = [
+        { label = "Lightning Address Domain"; file = "/var/lib/domains/lightning"; }
       ]; }
       { name = "Mempool";            unit = "mempool.service";      type = "system"; icon = "mempool";      enabled = cfg.features.mempool;  category = "bitcoin-apps"; credentials = [
         { label = "Tor Address — Access from anywhere via Tor Browser"; file = "/var/lib/tor/onion/mempool-frontend/hostname"; prefix = "http://"; }
@@ -149,33 +149,16 @@ let
     echo ""
 
     if [ "$RC" -eq 0 ]; then
-      echo "── Step 2/3: nixos-rebuild ──────────────────────────"
-      SWITCH_OUT=$(nixos-rebuild switch --flake /etc/nixos --print-build-logs \
+      echo "── Step 2/3: nixos-rebuild boot (stage next reboot) ──"
+      BOOT_OUT=$(nixos-rebuild boot --flake /etc/nixos --print-build-logs \
         --option connect-timeout 10 \
         --option stalled-download-timeout 90 \
         --option download-attempts 7 \
         --option fallback true 2>&1)
-      SWITCH_RC=$?
-      echo "$SWITCH_OUT"
-      if [ "$SWITCH_RC" -eq 0 ]; then
-        echo "[OK] switch succeeded"
-      elif echo "$SWITCH_OUT" | grep -q "switchInhibitors\|Pre-switch checks failed"; then
-        echo ""
-        echo "  ✓ Build succeeded — a reboot is required to apply this update"
-        echo "  (Critical system components changed; running nixos-rebuild boot instead)"
-        if nixos-rebuild boot --flake /etc/nixos --print-build-logs \
-             --option connect-timeout 10 \
-             --option stalled-download-timeout 90 \
-             --option download-attempts 7 \
-             --option fallback true 2>&1; then
-          echo "REBOOT_REQUIRED" > "$STATUS"
-          exit 0
-        else
-          echo "[ERROR] nixos-rebuild boot also failed"
-          RC=1
-        fi
-      else
-        echo "[ERROR] nixos-rebuild switch failed"
+      BOOT_RC=$?
+      echo "$BOOT_OUT"
+      if [ "$BOOT_RC" -ne 0 ]; then
+        echo "[ERROR] nixos-rebuild boot failed"
         RC=1
       fi
       echo ""
@@ -191,9 +174,10 @@ let
 
     if [ "$RC" -eq 0 ]; then
       echo "══════════════════════════════════════════════════"
-      echo "  ✓ Update completed successfully"
+      echo "  ✓ Update staged successfully"
+      echo "  Reboot required to activate the new system"
       echo "══════════════════════════════════════════════════"
-      echo "SUCCESS" > "$STATUS"
+      echo "REBOOT_REQUIRED" > "$STATUS"
     else
       echo "══════════════════════════════════════════════════"
       echo "  ✗ Update failed — see errors above"
@@ -372,6 +356,26 @@ uvicorn.run(
 LAUNCHER
       chmod +x $out/bin/sovran-hub-web
 
+      cat > $out/bin/nwc-wallet <<LAUNCHER
+#!${pkgs.python3}/bin/python3
+import os, sys
+base = os.path.join("$out", "lib", "sovran-hub-web")
+sys.path.insert(0, base)
+from sovran_systemsos_web.nwc_wallet_cli import main
+sys.exit(main())
+LAUNCHER
+      chmod +x $out/bin/nwc-wallet
+
+      cat > $out/bin/nwc-lnurl <<LAUNCHER
+#!${pkgs.python3}/bin/python3
+import os, sys
+base = os.path.join("$out", "lib", "sovran-hub-web")
+sys.path.insert(0, base)
+from sovran_systemsos_web.nwc_lnurl_service import main
+main()
+LAUNCHER
+      chmod +x $out/bin/nwc-lnurl
+
       runHook postInstall
     '';
 
@@ -383,6 +387,12 @@ LAUNCHER
 
 in
 {
+  options.services.sovranHub.webPackage = lib.mkOption {
+    type        = lib.types.package;
+    default     = sovran-hub-web;
+    description = "The sovran-hub-web Python application package. Other modules use this to reference Hub-installed scripts without duplicating the Python path setup.";
+  };
+
   config = {
     systemd.services.sovran-hub-web = {
       description = "Sovran_SystemsOS Hub Web Interface";
@@ -401,13 +411,25 @@ in
       };
 
       path = [
+        pkgs.bash
+        pkgs.gawk
         pkgs.qrencode
         pkgs.curl
         pkgs.iproute2
         pkgs.nftables
         pkgs.iptables
         pkgs.hostname
-      ] ++ lib.optional cfg.services.bitcoin config.services.bitcoind.package;
+        pkgs.coreutils
+        pkgs.findutils
+        pkgs.gnugrep
+        pkgs.rsync
+        pkgs.acl
+        pkgs.util-linux
+      ]
+      ++ lib.optional cfg.services.bitcoin config.services.bitcoind.package
+      ++ lib.optionals cfg.services.bitcoin [ pkgs.lnd ]
+      ++ lib.optionals (cfg.services.nextcloud || cfg.services.synapse) [ config.services.postgresql.package ]
+      ++ lib.optionals config.services.mysql.enable [ config.services.mysql.package ];
     };
 
     systemd.services.sovran-hub-update = {

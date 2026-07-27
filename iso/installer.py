@@ -1169,7 +1169,7 @@ class InstallerWindow(Adw.ApplicationWindow):
         btn_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
         btn_box.set_halign(Gtk.Align.CENTER)
         btn_box.set_margin_bottom(32)
-        reboot_btn = Gtk.Button(label="I Have Written Down My Password — Reboot Now")
+        reboot_btn = Gtk.Button(label="I Have Written Down My Password — Restart Entire System")
         reboot_btn.add_css_class("suggested-action")
         reboot_btn.add_css_class("pill")
         reboot_btn.connect("clicked", lambda b: subprocess.run(["sudo", "reboot"]))

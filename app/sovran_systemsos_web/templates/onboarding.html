@@ -128,9 +128,8 @@
           <h2 class="onboarding-step-title">Domain Configuration</h2>
           <p class="onboarding-step-desc">
             Sovran_SystemsOS uses <strong><a href="https://njal.la" target="_blank" style="color: var(--accent-color);">Njal.la</a></strong> for domains and Dynamic DNS.
-            First, create an account at <strong>Njal.la</strong> and purchase a new domain, or create a subdomain from a domain you already own. Tip: Subdomains are free to create — you only need to purchase one domain, and you can add as many subdomains as you need at no extra cost.
-            Then, in the Njal.la web interface, create a <strong>Dynamic</strong> record pointing to this machine's external IP address (shown below).
-            Finally, paste the DDNS curl command from your Njal.la dashboard for each service below.
+            Create an account at Njal.la, then for each service below, add a <strong>Dynamic</strong> record — no IP needed, it auto-populates once the DDNS curl command runs.
+            Paste the curl command from your Njal.la dashboard for each service.
           </p>
         </div>
         <div class="onboarding-card" id="step-3-body">
@@ -149,14 +148,14 @@
       <div class="onboarding-panel" id="step-4" style="display:none">
         <div class="onboarding-step-header">
           <span class="onboarding-step-icon">🔌</span>
-          <h2 class="onboarding-step-title">Port Forwarding Check</h2>
+          <h2 class="onboarding-step-title">Router Setup</h2>
           <p class="onboarding-step-desc">
-            Forward these ports on your router to this machine. Each port only needs to be opened once — they are shared across all your services.
-            <strong>Ports 80 and 443 must be open for SSL certificates to work.</strong>
+            Forward these ports in your router to this Sovran_SystemsOS computer. These rules let people reach your services from outside your home network.
+            <strong>Ports 80 and 443 are required for HTTPS and SSL certificates.</strong>
           </p>
         </div>
         <div class="onboarding-card" id="step-4-body">
-          <p class="onboarding-loading">Checking ports…</p>
+          <p class="onboarding-loading">Loading router setup…</p>
         </div>
         <div class="onboarding-footer">
           <button class="btn btn-close-modal onboarding-btn-back" data-prev="3">← Back</button>

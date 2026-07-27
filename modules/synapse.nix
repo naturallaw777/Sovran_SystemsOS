@@ -250,9 +250,6 @@ CREDS
     '';
   };
 
-  networking.firewall.allowedTCPPorts = [ 8448 ];
-  networking.firewall.allowedUDPPorts = [ 8448 ];
-
   sovran_systemsOS.domainRequirements = [
     { name = "matrix"; label = "Matrix Synapse"; example = "matrix.yourdomain.com"; }
   ];

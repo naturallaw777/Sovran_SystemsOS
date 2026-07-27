@@ -154,7 +154,7 @@ function onUpdateDone(result) {
     if ($modalStatus) $modalStatus.textContent = "✓ Update complete";
     if ($btnReboot) $btnReboot.style.display = "inline-flex";
   } else if (result === "reboot_required") {
-    if ($modalStatus) $modalStatus.textContent = "✓ Update complete — reboot required";
+    if ($modalStatus) $modalStatus.textContent = "✓ Update complete — restart required";
     if ($btnReboot) $btnReboot.style.display = "inline-flex";
   } else {
     if ($modalStatus) $modalStatus.textContent = "✗ Update failed";
@@ -179,23 +179,50 @@ function saveErrorReport() {
 
 var _rebootStartTime = 0;
 var _serverWentDown = false;
+var _rebootFailed = false;
+
+function _setRebootStatus(msg) {
+  if ($rebootSubmessage) $rebootSubmessage.textContent = msg;
+}
 
 function doReboot() {
   if ($modal) $modal.classList.remove("open");
   if ($rebuildModal) $rebuildModal.classList.remove("open");
   stopUpdatePoll();
   stopRebuildPoll();
+  // Reset overlay to main card
+  if ($rebootMainCard) $rebootMainCard.style.display = "";
+  if ($rebootErrorCard) $rebootErrorCard.style.display = "none";
+  _setRebootStatus("Sending restart request\u2026");
   if ($rebootOverlay) $rebootOverlay.classList.add("visible");
   _rebootStartTime = Date.now();
   _serverWentDown = false;
+  _rebootFailed = false;
   var rebootCtrl = new AbortController();
   setTimeout(function() { rebootCtrl.abort(); }, REBOOT_REQUEST_TIMEOUT);
-  fetch("/api/reboot", { method: "POST", signal: rebootCtrl.signal }).catch(function() {});
+  fetch("/api/reboot", { method: "POST", signal: rebootCtrl.signal })
+    .then(function(res) {
+      if (!res.ok) {
+        // Definitive HTTP error — server rejected the request before going down
+        _rebootFailed = true;
+        if ($rebootMainCard) $rebootMainCard.style.display = "none";
+        if ($rebootErrorCard) $rebootErrorCard.style.display = "";
+        // Leave overlay visible so the error card is shown
+      }
+      // HTTP 2xx: request accepted, proceed with polling
+    })
+    .catch(function() {
+      // Connection dropped or request aborted — the server is likely already going
+      // down as part of the restart. Treat as success and continue polling.
+    });
   // Wait before the first check — NixOS shutdown after an update can take 20-40s
   setTimeout(waitForServerReboot, REBOOT_INITIAL_DELAY);
 }
 
 function waitForServerReboot() {
+  if (_rebootFailed) return;
+  // Update status on first check (server hasn't gone down yet)
+  if (!_serverWentDown) _setRebootStatus("Waiting for the computer to shut down\u2026");
   var controller = new AbortController();
   var timeoutId = setTimeout(function() { controller.abort(); }, REBOOT_FETCH_TIMEOUT);
 
@@ -205,18 +232,23 @@ function waitForServerReboot() {
       if (_serverWentDown) {
         // Server is responding after having been down — reboot is complete.
         // Any response (even 401/500) means the server process is back.
+        _setRebootStatus("System is back online. Reconnecting\u2026");
         window.location.reload();
       } else if ((Date.now() - _rebootStartTime) < 90000) {
         // Server still responding but hasn't gone down yet — keep waiting
         setTimeout(waitForServerReboot, REBOOT_CHECK_INTERVAL);
       } else {
         // Been over 90 seconds and server is responding — just reload
+        _setRebootStatus("System is back online. Reconnecting\u2026");
         window.location.reload();
       }
     })
     .catch(function() {
       clearTimeout(timeoutId);
-      _serverWentDown = true;
+      if (!_serverWentDown) {
+        _serverWentDown = true;
+        _setRebootStatus("The computer is restarting\u2026");
+      }
       setTimeout(waitForServerReboot, REBOOT_CHECK_INTERVAL);
     });
 }

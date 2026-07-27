@@ -34,8 +34,8 @@ lib.mkIf config.sovran_systemsOS.features.element-calling {
   };
 
   ####### ENSURE SERVICES START AFTER KEY EXISTS #######
-  systemd.services.livekit.after = [ "livekit-key-setup.service" ];
-  systemd.services.livekit.wants = [ "livekit-key-setup.service" ];
+  systemd.services.livekit.after = [ "livekit-key-setup.service" "livekit-turn-setup.service" ];
+  systemd.services.livekit.wants = [ "livekit-key-setup.service" "livekit-turn-setup.service" ];
   systemd.services.lk-jwt-service.after = [ "livekit-key-setup.service" ];
   systemd.services.lk-jwt-service.wants = [ "livekit-key-setup.service" ];
 
@@ -68,35 +68,54 @@ $MATRIX {
   header /.well-known/matrix/* Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
   header /.well-known/matrix/* Access-Control-Allow-Headers "X-Requested-With, Content-Type, Authorization"
   respond /.well-known/matrix/client \`{ "m.homeserver": {"base_url": "https://$MATRIX" }, "org.matrix.msc4143.rtc_foci": [{ "type":"livekit", "livekit_service_url":"https://$ELEMENT_CALLING/livekit/jwt" }] }\`
-}
-
-$MATRIX:8448 {
-  reverse_proxy http://localhost:8008
+  respond /.well-known/matrix/server \`{"m.server":"$MATRIX:443"}\`
 }
 
 $ELEMENT_CALLING {
-  handle /livekit/jwt/sfu/get {
+  # Route all current lk-jwt-service authorization endpoints to port 8073,
+  # stripping the /livekit/jwt prefix that Caddy adds on the public URL.
+  @lk_jwt path /livekit/jwt/sfu/get* /livekit/jwt/get_token* /livekit/jwt/healthz* /livekit/jwt/sfu_webhook* /livekit/jwt/delegate_delayed_leave*
+  handle @lk_jwt {
     uri strip_prefix /livekit/jwt
     reverse_proxy [::1]:8073 {
       header_up Host {host}
       header_up X-Forwarded-Server {host}
       header_up X-Real-IP {remote_host}
       header_up X-Forwarded-For {remote_host}
+      header_up X-Forwarded-Proto {scheme}
     }
   }
   handle {
-    reverse_proxy localhost:7880
+    reverse_proxy localhost:7880 {
+      header_up Host {host}
+      header_up X-Forwarded-Proto {scheme}
+      header_up X-Forwarded-For {remote_host}
+      header_up X-Real-IP {remote_host}
+      transport http {
+        read_timeout 300s
+        write_timeout 300s
+      }
+    }
   }
 }
 EOF
     '';
   };
 
-  ####### LIVEKIT RUNTIME CONFIG #######
-  systemd.services.livekit-runtime-config = {
-    description = "Generate LiveKit runtime config from domain files";
+  ####### LIVEKIT TURN SETUP (runtime cert + config) #######
+  # Replaces the old dead livekit-runtime-config.service. At runtime this:
+  #   * reads the matrix domain from /var/lib/domains/matrix (never hardcoded)
+  #   * copies Caddy's already-issued matrix cert/key into /var/lib/livekit
+  #     so LoadCredential can stage them for the (DynamicUser) livekit unit
+  #   * detects the primary network interface from the IPv4 default route so
+  #     LiveKit only advertises real ICE candidates — not VPN/container/private
+  #     addresses from interfaces like Tailscale or Docker bridges
+  #   * writes a complete LiveKit config (with turn.domain and interface
+  #     substituted) that the overridden ExecStart loads.
+  systemd.services.livekit-turn-setup = {
+    description = "Stage TURN cert and generate LiveKit runtime config from domain files";
+    after = [ "caddy.service" "livekit-key-setup.service" ];
     before = [ "livekit.service" ];
-    after = [ "livekit-key-setup.service" ];
     requiredBy = [ "livekit.service" ];
     wantedBy = [ "multi-user.target" ];
     serviceConfig = {
@@ -106,20 +125,63 @@ EOF
     unitConfig = {
       ConditionPathExists = "/var/lib/domains/element-calling";
     };
-    path = [ pkgs.coreutils ];
+    path = [ pkgs.coreutils pkgs.findutils pkgs.iproute2 pkgs.gawk ];
     script = ''
       MATRIX=$(cat /var/lib/domains/matrix)
 
       mkdir -p /run/livekit
 
-      cat > /run/livekit/runtime-config.yaml <<EOF
+      # Copy Caddy's already-issued matrix cert/key into LiveKit's state dir.
+      # The ACME CA hostname directory can vary, so glob for the domain dir.
+      CRT=$(find /var/lib/caddy -path "*/$MATRIX/$MATRIX.crt" | head -n1)
+      KEY=$(find /var/lib/caddy -path "*/$MATRIX/$MATRIX.key" | head -n1)
+      cp "$CRT" /var/lib/livekit/turn.crt
+      cp "$KEY" /var/lib/livekit/turn.key
+      chmod 640 /var/lib/livekit/turn.crt /var/lib/livekit/turn.key
+
+      # Detect the primary network interface from the IPv4 default route.
+      # Restricting LiveKit to this single interface prevents it from
+      # advertising VPN/container/private ICE candidates (e.g. Tailscale,
+      # Docker bridges) that remote peers cannot reach, which causes all
+      # ICE negotiation attempts to fail with responsesReceived: 0.
+      IFACE=$(ip -4 route show default | awk '/^default/ { for(i=1;i<=NF;i++) if($i=="dev" && (i+1)<=NF) { print $(i+1); exit } }')
+      if [ -z "$IFACE" ]; then
+        echo "ERROR: Could not detect a default-route network interface from 'ip -4 route show default'." >&2
+        echo "ERROR: Cannot generate a valid LiveKit config without a real interface to bind ICE candidates to." >&2
+        echo "ERROR: Ensure a default IPv4 route is configured, e.g.: ip route add default via <gateway> dev <interface>" >&2
+        echo "ERROR: Inspect the current routing table with: ip -4 route show" >&2
+        exit 1
+      fi
+      echo "Detected primary network interface: $IFACE"
+
+      # Generate the full LiveKit config the daemon will load. turn.domain and
+      # rtc.interfaces.includes are only known at runtime, so they are
+      # substituted here. The cert/key paths point at the LoadCredential-staged
+      # copies under /run/credentials.
+      cat > /run/livekit/livekit.yaml <<EOF
+port: 7880
+rtc:
+  use_external_ip: true
+  skip_external_ip_validation: true
+  tcp_port: 7881
+  udp_port: 7882
+  port_range_start: 30000
+  port_range_end: 40000
+  interfaces:
+    includes:
+      - $IFACE
+room:
+  auto_create: false
 turn:
+  enabled: true
   domain: $MATRIX
-  cert_file: /var/lib/livekit/$MATRIX.crt
-  key_file: /var/lib/livekit/$MATRIX.key
+  tls_port: 5349
+  udp_port: 3478
+  cert_file: /run/credentials/livekit.service/turn-cert
+  key_file: /run/credentials/livekit.service/turn-key
 EOF
 
-      chmod 640 /run/livekit/runtime-config.yaml
+      chmod 644 /run/livekit/livekit.yaml
     '';
   };
 
@@ -130,7 +192,11 @@ EOF
     keyFile = livekitKeyFile;
     settings = {
       rtc.use_external_ip = true;
+      rtc.skip_external_ip_validation = true;
+      rtc.tcp_port = 7881;
       rtc.udp_port = 7882;
+      rtc.port_range_start = 30000;
+      rtc.port_range_end = 40000;
       room.auto_create = false;
       turn = {
         enabled = true;
@@ -140,15 +206,29 @@ EOF
     };
   };
 
+  # Override ExecStart to load the runtime-generated config (which carries the
+  # runtime-only turn.domain), mirroring the Caddy ExecStart override pattern in
+  # modules/core/caddy.nix. Deliver the TURN cert/key via LoadCredential so they
+  # are readable under the upstream unit's DynamicUser=true sandbox without
+  # weakening it. Everything else about the standard unit is left intact.
+  systemd.services.livekit.serviceConfig.ExecStart = lib.mkForce [
+    ""
+    "${pkgs.livekit}/bin/livekit-server --config /run/credentials/livekit.service/livekit-config --key-file /run/credentials/livekit.service/livekit-secrets"
+  ];
+
+  systemd.services.livekit.serviceConfig.LoadCredential = [
+    "livekit-config:/run/livekit/livekit.yaml"
+    "livekit-secrets:${livekitKeyFile}"
+    "turn-cert:/var/lib/livekit/turn.crt"
+    "turn-key:/var/lib/livekit/turn.key"
+  ];
+
   networking.firewall.allowedTCPPorts = [ 5349 7881 ];
   networking.firewall.allowedUDPPorts = [ 3478 7882 ];
   networking.firewall.allowedUDPPortRanges = [
-    { from = 30000; to = 40000; }
+    { from = 30000; to = 40000; } # LiveKit internal TURN relay range
   ];
-  networking.firewall.allowedTCPPortRanges = [
-    { from = 30000; to = 40000; }
-  ];
-  
+
   ####### JWT SERVICE RUNTIME CONFIG #######
   systemd.services.lk-jwt-service-runtime-config = {
     description = "Generate lk-jwt-service runtime config from domain files";
@@ -166,11 +246,13 @@ EOF
     path = [ pkgs.coreutils ];
     script = ''
       ELEMENT_CALLING=$(cat /var/lib/domains/element-calling)
+      MATRIX=$(cat /var/lib/domains/matrix)
 
       mkdir -p /run/lk-jwt-service
 
       cat > /run/lk-jwt-service/env <<EOF
 LIVEKIT_URL=wss://$ELEMENT_CALLING
+LIVEKIT_FULL_ACCESS_HOMESERVERS=$MATRIX
 EOF
 
       chmod 640 /run/lk-jwt-service/env

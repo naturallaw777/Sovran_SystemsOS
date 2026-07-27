@@ -6,11 +6,10 @@
 		nix-bitcoin.url = "github:fort-nix/nix-bitcoin/release";
 		nixvim.url = "github:nix-community/nixvim";
 		btc-clients.url = "github:emmanuelrosa/btc-clients-nix";
-		nixpkgs-stable.url = "github:nixos/nixpkgs/nixos-24.11";
-		bip110.url = "github:emmanuelrosa/bitcoin-knots-bip-110-nix";
+		nixpkgs-stable.url = "github:nixos/nixpkgs/nixos-26.05";
 	};
 
-	outputs = { self, nixpkgs, nix-bitcoin, nixvim, btc-clients, nixpkgs-stable, bip110, ... }:
+	outputs = { self, nixpkgs, nix-bitcoin, nixvim, btc-clients, nixpkgs-stable, ... }:
 
 	let
 		overlay-stable = final: prev: {
@@ -56,8 +55,16 @@
 					btc-clients.packages.${pkgs.system}.bisq2
 					btc-clients.packages.${pkgs.system}.sparrow
 				];
-				sovran_systemsOS.packages.bip110 = bip110.packages.${pkgs.system}.bitcoind-knots-bip-110;
 			};
 		};
+
+		nixosTests.nwc-wallets-port-collision =
+			import ./nix/tests/nwc-wallets-port-collision.nix {
+				inherit nixpkgs;
+				system = "x86_64-linux";
+			};
+
+		checks.x86_64-linux.nwc-wallets-port-collision =
+			self.nixosTests.nwc-wallets-port-collision;
 	};
 }

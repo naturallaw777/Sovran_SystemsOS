@@ -58,6 +58,359 @@ function _attachCopyHandlers(container) {
   });
 }
 
+var _nwcModalState = null;
+
+function _nwcStateMessageHtml() {
+  if (!_nwcModalState || !_nwcModalState.message) return "";
+  var msgClass = _nwcModalState.messageKind === "success" ? "success" : "error";
+  return '<div class="matrix-form-result ' + msgClass + '">' + escHtml(_nwcModalState.message) + '</div>';
+}
+
+function _nwcSetMessage(kind, text) {
+  if (!_nwcModalState) return;
+  _nwcModalState.messageKind = kind || "error";
+  _nwcModalState.message = text || "";
+}
+
+function _nwcClearMessage() {
+  if (!_nwcModalState) return;
+  _nwcModalState.messageKind = "";
+  _nwcModalState.message = "";
+}
+
+function _nwcWalletSectionEl() {
+  return document.getElementById("nwc-wallets-body");
+}
+
+function _nwcRenderWalletState() {
+  var host = _nwcWalletSectionEl();
+  if (!host || !_nwcModalState) return;
+  var state = _nwcModalState;
+  var html = "";
+  html += _nwcStateMessageHtml();
+
+  if (state.view === "create") {
+    var selectedLimited = state.createForm.access_preset === "send_receive_limited";
+    html +=
+      '<p class="svc-detail-desc">Create a new isolated wallet connection for your app.</p>' +
+      '<div class="matrix-form-group"><label class="matrix-form-label" for="nwc-wallet-name">Wallet Connection Name</label>' +
+        '<input class="matrix-form-input" id="nwc-wallet-name" type="text" placeholder="My Wallet" value="' + escHtml(state.createForm.name || "") + '" autocomplete="off"></div>' +
+      '<div class="matrix-form-group"><label class="matrix-form-label" for="nwc-wallet-alias">Lightning Address Alias</label>' +
+        '<input class="matrix-form-input" id="nwc-wallet-alias" type="text" placeholder="my-wallet" value="' + escHtml(state.createForm.alias || "") + '" autocomplete="off">' +
+        '<div class="creds-qr-hint">Lowercase letters, numbers, "_" and "-" only.</div></div>' +
+      '<div class="matrix-form-group"><label class="matrix-form-label" for="nwc-wallet-preset">Access Preset</label>' +
+        '<select class="matrix-form-input" id="nwc-wallet-preset">' +
+          '<option value="receive_only"' + (state.createForm.access_preset === "receive_only" ? " selected" : "") + '>Receive only</option>' +
+          '<option value="send_receive_limited"' + (selectedLimited ? " selected" : "") + '>Send + receive (limited)</option>' +
+        '</select></div>' +
+      '<div class="matrix-form-group"><label class="matrix-form-label" for="nwc-wallet-limit">Spending Limit (sats)</label>' +
+        '<input class="matrix-form-input" id="nwc-wallet-limit" type="number" min="1" step="1" placeholder="50000" value="' + escHtml(state.createForm.spending_limit_sats || "") + '"' + (selectedLimited ? "" : " disabled") + "></div>" +
+      '<div class="matrix-form-actions">' +
+        '<button class="matrix-form-back" id="nwc-create-cancel-btn"' + (state.busy ? " disabled" : "") + '>← Back</button>' +
+        '<button class="matrix-form-submit" id="nwc-create-submit-btn"' + (state.busy ? " disabled" : "") + '>' + (state.busy ? "Creating…" : "Create Wallet") + '</button>' +
+      '</div>';
+    host.innerHTML = html;
+    var presetSel = document.getElementById("nwc-wallet-preset");
+    if (presetSel) {
+      presetSel.addEventListener("change", function() {
+        state.createForm.access_preset = presetSel.value;
+        _nwcRenderWalletState();
+      });
+    }
+    var cancelBtn = document.getElementById("nwc-create-cancel-btn");
+    if (cancelBtn) {
+      cancelBtn.addEventListener("click", function() {
+        if (state.busy) return;
+        state.view = state.wallets.length > 0 ? "list" : "empty";
+        _nwcClearMessage();
+        _nwcRenderWalletState();
+      });
+    }
+    var submitBtn = document.getElementById("nwc-create-submit-btn");
+    if (submitBtn) submitBtn.addEventListener("click", _nwcCreateWallet);
+    return;
+  }
+
+  if (state.view === "created" && state.lastCreated) {
+    var created = state.lastCreated;
+    var pairId = "nwc-pairing-uri-" + Math.random().toString(36).substring(2, 8);
+    html += '<div class="nwc-secret-warning">⚠ One-time pairing secret. Save it now — it will not be shown again.</div>';
+    if (created.pairing_qrcode) {
+      html += '<div class="creds-qr-wrap"><img class="creds-qr-img" src="' + created.pairing_qrcode + '" alt="QR code for Wallet Connections pairing secret"><div class="creds-qr-hint">Scan now in Zeus or copy the URI below.</div></div>';
+    }
+    html += '<div class="creds-row"><div class="creds-label">Pairing URI</div>' +
+      '<div class="creds-value-wrap"><div class="creds-value" id="' + pairId + '">' + escHtml(created.pairing_uri || "Unavailable") + '</div><button class="creds-copy-btn" data-target="' + pairId + '">Copy</button></div></div>';
+    if (created.wallet && created.wallet.lightning_address) {
+      html += '<div class="creds-row"><div class="creds-label">Lightning Address</div>' +
+        '<div class="creds-value-wrap"><div class="creds-value">' + escHtml(created.wallet.lightning_address) + '</div></div></div>';
+    }
+    html += '<div class="matrix-form-actions">' +
+      '<button class="matrix-form-back" id="nwc-created-another-btn"' + (state.busy ? " disabled" : "") + '>Create Another Wallet</button>' +
+      '<button class="matrix-form-submit" id="nwc-created-continue-btn"' + (state.busy ? " disabled" : "") + '>I Saved This Secret</button>' +
+    '</div>';
+    host.innerHTML = html;
+    _attachCopyHandlers(host);
+    var continueBtn = document.getElementById("nwc-created-continue-btn");
+    if (continueBtn) {
+      continueBtn.addEventListener("click", async function() {
+        if (state.busy) return;
+        state.lastCreated = null;
+        state.view = "list";
+        await _nwcRefreshWallets();
+      });
+    }
+    var anotherBtn = document.getElementById("nwc-created-another-btn");
+    if (anotherBtn) {
+      anotherBtn.addEventListener("click", function() {
+        if (state.busy) return;
+        state.view = "create";
+        _nwcClearMessage();
+        _nwcRenderWalletState();
+      });
+    }
+    return;
+  }
+
+  html += '<div class="matrix-actions-row">' +
+    '<button class="matrix-action-btn" id="nwc-open-create-btn"' + (state.busy ? " disabled" : "") + '>➕ Create Wallet Connection</button>' +
+    '<button class="matrix-form-back" id="nwc-refresh-btn"' + (state.busy ? " disabled" : "") + '>Refresh</button>' +
+  '</div>';
+  if (state.domain) {
+    html += '<p class="svc-detail-desc">Lightning Address domain: <strong>' + escHtml(state.domain) + '</strong></p>';
+  } else {
+    html += '<p class="svc-detail-desc">Lightning Address domain is not configured yet. Configure your domain first, then create wallet connections.</p>';
+  }
+
+  if (!state.wallets || state.wallets.length === 0) {
+    html += '<p class="creds-empty">No wallet connections yet. Create your first wallet connection to generate a one-time pairing secret.</p>';
+    host.innerHTML = html;
+    var openCreateBtn = document.getElementById("nwc-open-create-btn");
+    if (openCreateBtn) {
+      openCreateBtn.addEventListener("click", function() {
+        if (state.busy) return;
+        _nwcClearMessage();
+        state.view = "create";
+        _nwcRenderWalletState();
+      });
+    }
+    var refreshBtnEmpty = document.getElementById("nwc-refresh-btn");
+    if (refreshBtnEmpty) refreshBtnEmpty.addEventListener("click", _nwcRefreshWallets);
+    return;
+  }
+
+  html += '<div class="nwc-wallet-list">';
+  state.wallets.forEach(function(wallet) {
+    var id = wallet.id || wallet.pubkey || "";
+    var addressId = "nwc-wallet-addr-" + Math.random().toString(36).substring(2, 8);
+    html += '<div class="nwc-wallet-card">' +
+      '<div class="nwc-wallet-card-title">' + escHtml(wallet.name || "Wallet") + '</div>' +
+      '<div class="creds-row"><div class="creds-label">Alias</div><div class="creds-value-wrap"><div class="creds-value">' + escHtml(wallet.alias || "") + '</div></div></div>' +
+      (wallet.lightning_address
+        ? '<div class="creds-row"><div class="creds-label">Lightning Address</div><div class="creds-value-wrap"><div class="creds-value" id="' + addressId + '">' + escHtml(wallet.lightning_address) + '</div><button class="creds-copy-btn" data-target="' + addressId + '">Copy</button></div></div>'
+        : "") +
+      '<div class="creds-row"><div class="creds-label">Balance</div><div class="creds-value-wrap"><div class="creds-value">' + escHtml(String(wallet.balance_sats || 0)) + ' sats</div></div></div>' +
+      '<div class="creds-row"><div class="creds-label">Pending TX</div><div class="creds-value-wrap"><div class="creds-value">' + escHtml(String(wallet.pending_transactions || 0)) + '</div></div></div>' +
+      '<div class="nwc-wallet-actions">' +
+        '<button class="matrix-form-back nwc-wallet-action-btn" data-action="test" data-wallet-alias="' + escHtml(wallet.alias || "") + '"' + (state.busy ? " disabled" : "") + '>Verify Address</button>' +
+        '<button class="matrix-form-back nwc-wallet-action-btn" data-action="drain" data-wallet-id="' + escHtml(id) + '"' + (state.busy ? " disabled" : "") + '>Drain</button>' +
+        '<button class="btn btn-close-modal nwc-wallet-action-btn" data-action="delete" data-wallet-id="' + escHtml(id) + '"' + (state.busy ? " disabled" : "") + '>Delete</button>' +
+      '</div>' +
+    '</div>';
+  });
+  html += "</div>";
+  host.innerHTML = html;
+  _attachCopyHandlers(host);
+
+  var createBtn = document.getElementById("nwc-open-create-btn");
+  if (createBtn) {
+    createBtn.addEventListener("click", function() {
+      if (state.busy) return;
+      _nwcClearMessage();
+      state.view = "create";
+      _nwcRenderWalletState();
+    });
+  }
+
+  var refreshBtn = document.getElementById("nwc-refresh-btn");
+  if (refreshBtn) refreshBtn.addEventListener("click", _nwcRefreshWallets);
+
+  host.querySelectorAll(".nwc-wallet-action-btn").forEach(function(btn) {
+    btn.addEventListener("click", function() {
+      var action = btn.getAttribute("data-action");
+      if (action === "test") _nwcVerifyWallet(btn.getAttribute("data-wallet-alias"));
+      else if (action === "drain") _nwcDrainWallet(btn.getAttribute("data-wallet-id"));
+      else if (action === "delete") _nwcDeleteWallet(btn.getAttribute("data-wallet-id"));
+    });
+  });
+}
+
+async function _nwcRefreshWallets() {
+  if (!_nwcModalState) return;
+  var host = _nwcWalletSectionEl();
+  if (host) host.innerHTML = '<p class="creds-loading">Loading wallet connections…</p>';
+  try {
+    var payload = await apiFetch("/api/nwc/wallets");
+    _nwcModalState.wallets = Array.isArray(payload.wallets) ? payload.wallets : [];
+    _nwcModalState.domain = payload.domain || null;
+    if (_nwcModalState.view !== "create" && _nwcModalState.view !== "created") {
+      _nwcModalState.view = _nwcModalState.wallets.length > 0 ? "list" : "empty";
+    }
+    _nwcRenderWalletState();
+  } catch (err) {
+    _nwcSetMessage("error", (err && err.message) ? err.message : "Could not load wallet connections.");
+    _nwcRenderWalletState();
+  }
+}
+
+function _nwcBusy(on) {
+  if (!_nwcModalState) return;
+  _nwcModalState.busy = !!on;
+}
+
+async function _nwcCreateWallet() {
+  if (!_nwcModalState || _nwcModalState.busy) return;
+  var nameEl = document.getElementById("nwc-wallet-name");
+  var aliasEl = document.getElementById("nwc-wallet-alias");
+  var presetEl = document.getElementById("nwc-wallet-preset");
+  var limitEl = document.getElementById("nwc-wallet-limit");
+  if (!nameEl || !aliasEl || !presetEl || !limitEl) return;
+
+  var name = (nameEl.value || "").trim();
+  var alias = (aliasEl.value || "").trim().toLowerCase();
+  var preset = presetEl.value || "receive_only";
+  var limitRaw = (limitEl.value || "").trim();
+  var limit = null;
+
+  _nwcModalState.createForm = {
+    name: name,
+    alias: alias,
+    access_preset: preset,
+    spending_limit_sats: limitRaw
+  };
+
+  if (!name) {
+    _nwcSetMessage("error", "Wallet Connection name is required.");
+    _nwcRenderWalletState();
+    return;
+  }
+  if (!/^[a-z0-9][a-z0-9_-]{0,31}$/.test(alias)) {
+    _nwcSetMessage("error", 'Alias must start with a letter or number and use only lowercase letters, numbers, "_" or "-".');
+    _nwcRenderWalletState();
+    return;
+  }
+  if (preset === "send_receive_limited") {
+    limit = parseInt(limitRaw, 10);
+    if (!Number.isFinite(limit) || limit <= 0) {
+      _nwcSetMessage("error", "A positive spending limit is required for limited send access.");
+      _nwcRenderWalletState();
+      return;
+    }
+  }
+
+  _nwcBusy(true);
+  _nwcClearMessage();
+  _nwcRenderWalletState();
+  try {
+    var payload = await apiFetch("/api/nwc/wallets", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: name,
+        alias: alias,
+        access_preset: preset,
+        spending_limit_sats: preset === "send_receive_limited" ? limit : null
+      })
+    });
+    _nwcModalState.lastCreated = {
+      wallet: payload.wallet || null,
+      pairing_uri: payload.pairing_uri || "",
+      pairing_qrcode: payload.pairing_qrcode || "",
+      lightning_address: payload.lightning_address || null
+    };
+    _nwcModalState.view = "created";
+    _nwcSetMessage("success", "Wallet created. Save the one-time secret before you continue.");
+    _nwcBusy(false);
+    _nwcRenderWalletState();
+  } catch (err) {
+    _nwcBusy(false);
+    _nwcSetMessage("error", (err && err.message) ? err.message : "Failed to create wallet connection.");
+    _nwcRenderWalletState();
+  }
+}
+
+async function _nwcVerifyWallet(alias) {
+  if (!_nwcModalState || _nwcModalState.busy || !alias) return;
+  _nwcBusy(true);
+  _nwcClearMessage();
+  _nwcRenderWalletState();
+  try {
+    await apiFetch("/api/nwc/addresses/" + encodeURIComponent(alias) + "/test", { method: "POST" });
+    _nwcSetMessage("success", "Lightning Address verification succeeded for " + alias + ".");
+  } catch (err) {
+    _nwcSetMessage("error", (err && err.message) ? err.message : "Lightning Address verification failed.");
+  }
+  _nwcBusy(false);
+  _nwcRenderWalletState();
+}
+
+async function _nwcDrainWallet(walletId) {
+  if (!_nwcModalState || _nwcModalState.busy || !walletId) return;
+  if (!window.confirm("Drain this wallet connection now? This cannot be undone.")) return;
+  _nwcBusy(true);
+  _nwcClearMessage();
+  _nwcRenderWalletState();
+  try {
+    var resp = await apiFetch("/api/nwc/wallets/" + encodeURIComponent(walletId) + "/drain", { method: "POST" });
+    _nwcSetMessage("success", "Wallet drained (" + String(resp.drained_sats || 0) + " sats).");
+    _nwcBusy(false);
+    await _nwcRefreshWallets();
+  } catch (err) {
+    _nwcBusy(false);
+    _nwcSetMessage("error", (err && err.message) ? err.message : "Failed to drain wallet.");
+    _nwcRenderWalletState();
+  }
+}
+
+async function _nwcDeleteWallet(walletId) {
+  if (!_nwcModalState || _nwcModalState.busy || !walletId) return;
+  if (!window.confirm("Delete this wallet connection? This removes the wallet alias from Wallet Connections.")) return;
+  _nwcBusy(true);
+  _nwcClearMessage();
+  _nwcRenderWalletState();
+  try {
+    await apiFetch("/api/nwc/wallets/" + encodeURIComponent(walletId), { method: "DELETE" });
+    _nwcSetMessage("success", "Wallet connection deleted.");
+    _nwcBusy(false);
+    await _nwcRefreshWallets();
+  } catch (err) {
+    _nwcBusy(false);
+    _nwcSetMessage("error", (err && err.message) ? err.message : "Failed to delete wallet connection.");
+    _nwcRenderWalletState();
+  }
+}
+
+async function _nwcInitWalletFlow(unit, name, icon) {
+  _nwcModalState = {
+    unit: unit,
+    name: name,
+    icon: icon,
+    view: "empty",
+    wallets: [],
+    domain: null,
+    busy: false,
+    message: "",
+    messageKind: "",
+    lastCreated: null,
+    createForm: {
+      name: "",
+      alias: "",
+      access_preset: "receive_only",
+      spending_limit_sats: ""
+    }
+  };
+  await _nwcRefreshWallets();
+}
+
 async function openServiceDetailModal(unit, name, icon) {
   if (!$credsModal) return;
   if ($credsTitle) {
@@ -107,6 +460,21 @@ async function openServiceDetailModal(unit, name, icon) {
       '</div>' +
       '</div>';
 
+    // Section B2: BIP-110 live status (bip110 tile only)
+    if (icon === 'bip110' && data.bip110) {
+      var bip110 = data.bip110;
+      var bip110State = bip110.state || 'unknown';
+      var bip110Cfg = BIP110_BADGE_CONFIG[bip110State] || BIP110_BADGE_CONFIG.unknown;
+      var bip110Source = bip110.source ? ' <span class="bip110-source-label">(source: ' + escHtml(bip110.source) + ')</span>' : '';
+      html += '<div class="svc-detail-section">' +
+        '<div class="svc-detail-section-title">BIP-110 Deployment Status</div>' +
+        '<div class="bip110-status-row">' +
+          '<span class="tile-bip110-badge ' + bip110Cfg.cls + '" title="' + escHtml(bip110Cfg.title) + '">' + escHtml(bip110Cfg.label) + '</span>' +
+          bip110Source +
+        '</div>' +
+        '</div>';
+    }
+
     // Section C: Domain diagnostics (domain services)
     if (data.needs_domain) {
       var steps = data.domain_check_steps || [];
@@ -139,20 +507,36 @@ async function openServiceDetailModal(unit, name, icon) {
         '</div>';
 
       if (unit === "livekit.service" && data.extra_ports && data.extra_ports.length > 0) {
+        var trimmedInternalIp = data.internal_ip ? String(data.internal_ip).trim() : "";
+        var internalIp = trimmedInternalIp || "";
+        var internalIpHtml = internalIp ? escHtml(internalIp) : "Could not detect";
+        var routerIpHelp = internalIp
+          ? "Use this IP address as the destination/internal IP when creating each router forwarding rule."
+          : "Use this computer’s internal IP as the destination/internal IP when creating each router forwarding rule.";
+        var routerNextStep = internalIp
+          ? 'Next step: Log in to your router and create forwarding rules for the ports above. Set the destination/internal IP to <strong>' + internalIpHtml + '</strong>.'
+          : 'Next step: Log in to your router and create forwarding rules for the ports above. Use this computer’s internal IP as the destination/internal IP.';
+        var domainConfigured = !!(data.domain && String(data.domain).trim());
         var extraRows = "";
         data.extra_ports.forEach(function(p) {
           var statusIcon, statusClass2;
-          if (p.status === "listening") {
-            statusIcon = "✅ Open";
+          if (!effectiveEnabled) {
+            statusIcon = "⚠ Configure Element Call first";
+            statusClass2 = "port-status-open";
+          } else if (!domainConfigured) {
+            statusIcon = "⚠ Configure domain first";
+            statusClass2 = "port-status-open";
+          } else if (p.status === "listening") {
+            statusIcon = "✅ Ready";
             statusClass2 = "port-status-listening";
           } else if (p.status === "firewall_open") {
-            statusIcon = "🟡 Firewall open";
+            statusIcon = "✅ Ready";
             statusClass2 = "port-status-open";
           } else if (p.status === "closed") {
-            statusIcon = "❌ Closed";
+            statusIcon = "❌ Not ready yet";
             statusClass2 = "port-status-closed";
           } else {
-            statusIcon = "— Unknown";
+            statusIcon = "— Could not check";
             statusClass2 = "port-status-unknown";
           }
           extraRows += '<tr>' +
@@ -163,11 +547,16 @@ async function openServiceDetailModal(unit, name, icon) {
             '</tr>';
         });
         html += '<div class="svc-detail-section">' +
-          '<div class="svc-detail-section-title">Step 4: Additional Ports</div>' +
+          '<div class="svc-detail-section-title">Ports to Forward in Your Router</div>' +
+          '<div class="svc-detail-port-note">Forward these ports in your router to this Sovran_SystemsOS computer.</div>' +
+          '<div class="svc-detail-port-note"><strong>Router Forward-To IP:</strong> ' + internalIpHtml + '</div>' +
+          '<div class="svc-detail-port-note">' + routerIpHelp + '</div>' +
           '<table class="svc-detail-port-table">' +
-            '<thead><tr><th>Port</th><th>Protocol</th><th>Description</th><th>Status</th></tr></thead>' +
+            '<thead><tr><th>Port</th><th>Protocol</th><th>Used For</th><th>Sovran_SystemsOS Status</th></tr></thead>' +
             '<tbody>' + extraRows + '</tbody>' +
           '</table>' +
+          '<div class="svc-detail-port-note">The Hub can check whether Sovran_SystemsOS is ready on this computer, but full public port verification requires an outside internet check.</div>' +
+          '<div class="svc-detail-port-note">' + routerNextStep + '</div>' +
           '</div>';
       }
     } else if (data.port_statuses && data.port_statuses.length > 0) {
@@ -176,16 +565,16 @@ async function openServiceDetailModal(unit, name, icon) {
       data.port_statuses.forEach(function(p) {
         var statusIcon, statusClass2;
         if (p.status === "listening") {
-          statusIcon = "✅ Open";
+          statusIcon = "✅ Ready";
           statusClass2 = "port-status-listening";
         } else if (p.status === "firewall_open") {
-          statusIcon = "🟡 Firewall open";
+          statusIcon = "✅ Ready";
           statusClass2 = "port-status-open";
         } else if (p.status === "closed") {
-          statusIcon = "🔴 Closed";
+          statusIcon = "❌ Not ready";
           statusClass2 = "port-status-closed";
         } else {
-          statusIcon = "— Unknown";
+          statusIcon = "— Could not check";
           statusClass2 = "port-status-unknown";
         }
         portTableRows += '<tr>' +
@@ -196,16 +585,22 @@ async function openServiceDetailModal(unit, name, icon) {
           '</tr>';
       });
       html += '<div class="svc-detail-section">' +
-        '<div class="svc-detail-section-title">Port Status</div>' +
+        '<div class="svc-detail-section-title">Port Requirements</div>' +
+        '<div class="svc-detail-port-note">This shows whether Sovran_SystemsOS is ready to use this port on this computer. If you need access from outside your home network, forward this port in your router.</div>' +
         '<table class="svc-detail-port-table">' +
-          '<thead><tr><th>Port</th><th>Protocol</th><th>Description</th><th>Status</th></tr></thead>' +
+          '<thead><tr><th>Port</th><th>Protocol</th><th>Used For</th><th>Sovran_SystemsOS Status</th></tr></thead>' +
           '<tbody>' + portTableRows + '</tbody>' +
         '</table>' +
         '</div>';
     }
 
     // Section E: Credentials & Links
-    if (data.has_credentials && data.credentials && data.credentials.length > 0) {
+    if (unit === "nwc-wallets.service") {
+      html += '<div class="svc-detail-section">' +
+        '<div class="svc-detail-section-title">Wallet Connections</div>' +
+        '<div id="nwc-wallets-body"><p class="creds-loading">Loading wallet connections…</p></div>' +
+        '</div>';
+    } else if (data.has_credentials && data.credentials && data.credentials.length > 0) {
       html += '<div class="svc-detail-section">' +
         '<div class="svc-detail-section-title">Credentials &amp; Access</div>' +
         _renderCredsHtml(data.credentials, unit) +
@@ -242,7 +637,7 @@ async function openServiceDetailModal(unit, name, icon) {
       var addonBtnCls      = feat.enabled ? "btn btn-close-modal" : "btn btn-primary";
 
       // Section title: use a more specific label for mutually-exclusive Bitcoin node features
-      var addonSectionTitle = (feat.id === "bip110" || feat.id === "bitcoin-core")
+      var addonSectionTitle = (feat.id === "bitcoin-core")
         ? "\u20BF Bitcoin Node Selection"
         : "\uD83D\uDD27 Addon Feature";
 
@@ -286,6 +681,9 @@ async function openServiceDetailModal(unit, name, icon) {
 
     $credsBody.innerHTML = html;
     _attachCopyHandlers($credsBody);
+    if (unit === "nwc-wallets.service") {
+      await _nwcInitWalletFlow(unit, name, icon);
+    }
 
     if (unit === "matrix-synapse.service") {
       var addBtn = document.getElementById("matrix-add-user-btn");

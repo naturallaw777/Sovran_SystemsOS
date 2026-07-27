@@ -16,6 +16,7 @@
     ./core/remote-deploy.nix
     ./core/no-sleep.nix
     ./core/cpu-performance.nix
+    ./core/local-domain-loopback.nix
 
     # ── Always on (no flag) ───────────────────────────────────
     ./php.nix
@@ -31,7 +32,7 @@
 
     # ── Features (default OFF — enable in custom.nix) ─────────
     ./haven.nix
-    ./bip110.nix
+    ./nwc-wallets.nix
     ./element-calling.nix
     ./mempool.nix
     ./bitcoin-core.nix
