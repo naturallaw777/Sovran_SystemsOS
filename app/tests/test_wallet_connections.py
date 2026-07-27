@@ -1188,6 +1188,10 @@ class NixPatchContractTests(unittest.TestCase):
         repo_root = Path(__file__).resolve().parents[2]
         patch_path = repo_root / "packages" / "albyhub" / "0001-private-route-hints.patch"
         text = patch_path.read_text()
+        # v1.23.0 source has RouteHints field between Expiry and Private; the
+        # patch must include it as context or the hunk will fail to apply.
+        self.assertIn("RouteHints:      hints,", text)
+        # Old value (context / removed line) and new value (added line).
         self.assertIn("Private:         !hasPublicChannels", text)
         self.assertIn("Private:         true", text)
 
@@ -1199,8 +1203,17 @@ class NixPatchContractTests(unittest.TestCase):
         self.assertIn("diff --git a/api/transactions.go b/api/transactions.go", text)
         self.assertIn("diff --git a/http/http_service.go b/http/http_service.go", text)
         self.assertIn("diff --git a/wails/wails_handlers.go b/wails/wails_handlers.go", text)
-        self.assertIn("AppId       *uint  `json:\"appId\"`", text)
-        self.assertIn("CreateInvoice(ctx context.Context, amount uint64, description string, appId *uint)", text)
+        # v1.23.0 AppId field in MakeInvoiceRequest
+        self.assertIn("AppId       *uint", text)
+        self.assertIn('json:"appId"', text)
+        # v1.23.0 uses amountMsat (not amount) in the CreateInvoice signature
+        self.assertIn(
+            "CreateInvoice(ctx context.Context, amountMsat uint64, description string, appId *uint)",
+            text,
+        )
+        # MakeInvoice call must pass appId as 8th positional argument (not nil)
+        self.assertIn("MakeInvoice(ctx, amountMsat, description,", text)
+        self.assertIn(", appId, nil, nil)", text)
 
     def test_nwc_lnurl_service_runs_as_albyhub(self):
         """nwc-lnurl.service must run as albyhub to read /var/lib/albyhub/unlock-password."""

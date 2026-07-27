@@ -1,58 +1,55 @@
 diff --git a/api/models.go b/api/models.go
-index 27bc0c6..3986c0f 100644
+index 28bd117..dceb79a 100644
 --- a/api/models.go
 +++ b/api/models.go
-@@ -43,7 +43,7 @@ type API interface {
- 	GetBalances(ctx context.Context) (*BalancesResponse, error)
+@@ -46,7 +46,7 @@ type API interface {
  	ListTransactions(ctx context.Context, appId *uint, limit uint64, offset uint64) (*ListTransactionsResponse, error)
- 	SendPayment(ctx context.Context, invoice string, amountMsat *uint64) (*SendPaymentResponse, error)
--	CreateInvoice(ctx context.Context, amount uint64, description string) (*MakeInvoiceResponse, error)
-+	CreateInvoice(ctx context.Context, amount uint64, description string, appId *uint) (*MakeInvoiceResponse, error)
+ 	ListOnchainTransactions(ctx context.Context) ([]OnchainTransaction, error)
+ 	SendPayment(ctx context.Context, invoice string, amountMsat *uint64, metadata map[string]interface{}, fromAppId *uint) (*SendPaymentResponse, error)
+-	CreateInvoice(ctx context.Context, amountMsat uint64, description string) (*MakeInvoiceResponse, error)
++	CreateInvoice(ctx context.Context, amountMsat uint64, description string, appId *uint) (*MakeInvoiceResponse, error)
  	LookupInvoice(ctx context.Context, paymentHash string) (*LookupInvoiceResponse, error)
- 	RequestMempoolApi(endpoint string) (interface{}, error)
- 	GetInfo(ctx context.Context) (*InfoResponse, error)
-@@ -308,8 +308,9 @@ type PayInvoiceRequest struct {
- }
- 
- type MakeInvoiceRequest struct {
--	Amount      uint64 `json:"amount"`
--	Description string `json:"description"`
-+	Amount      uint64 `json:"amount"`
-+	Description string `json:"description"`
-+	AppId       *uint  `json:"appId"`
+ 	SetTransactionUserLabels(ctx context.Context, id uint, labels map[string]string) error
+ 	RequestMempoolApi(ctx context.Context, endpoint string) (interface{}, error)
+@@ -586,6 +586,7 @@ type MakeInvoiceRequest struct {
+ 	AmountSat   *uint64 `json:"amountSat"`
+ 	AmountMsat  *uint64 `json:"amountMsat"`
+ 	Description string  `json:"description"`
++	AppId       *uint   `json:"appId"`
  }
  
  type ResetRouterRequest struct {
 diff --git a/api/transactions.go b/api/transactions.go
-index 8a10267..ce8e080 100644
+index aaf9380..3f9850a 100644
 --- a/api/transactions.go
 +++ b/api/transactions.go
-@@ -13,11 +13,11 @@ import (
+@@ -12,12 +12,12 @@ import (
  	"github.com/sirupsen/logrus"
  )
  
--func (api *api) CreateInvoice(ctx context.Context, amount uint64, description string) (*MakeInvoiceResponse, error) {
-+func (api *api) CreateInvoice(ctx context.Context, amount uint64, description string, appId *uint) (*MakeInvoiceResponse, error) {
- 	if api.svc.GetLNClient() == nil {
- 		return nil, errors.New("LNClient not started")
+-func (api *api) CreateInvoice(ctx context.Context, amountMsat uint64, description string) (*MakeInvoiceResponse, error) {
++func (api *api) CreateInvoice(ctx context.Context, amountMsat uint64, description string, appId *uint) (*MakeInvoiceResponse, error) {
+ 	lnClient := api.svc.GetLNClient()
+ 	if lnClient == nil {
+ 		return nil, ErrLNClientNotStarted
  	}
--	transaction, err := api.svc.GetTransactionsService().MakeInvoice(ctx, amount, description, "", 0, nil, api.svc.GetLNClient(), nil, nil)
-+	transaction, err := api.svc.GetTransactionsService().MakeInvoice(ctx, amount, description, "", 0, nil, api.svc.GetLNClient(), appId, nil)
+-	transaction, err := api.svc.GetTransactionsService().MakeInvoice(ctx, amountMsat, description, "", 0, nil, lnClient, nil, nil, nil)
++	transaction, err := api.svc.GetTransactionsService().MakeInvoice(ctx, amountMsat, description, "", 0, nil, lnClient, appId, nil, nil)
  	if err != nil {
  		return nil, err
  	}
 diff --git a/http/http_service.go b/http/http_service.go
-index 1ec1de6..84a2650 100644
+index bf650b9..cf61250 100644
 --- a/http/http_service.go
 +++ b/http/http_service.go
-@@ -518,7 +518,12 @@ func (httpSvc *HttpService) makeInvoiceHandler(c echo.Context) error {
- 		})
+@@ -687,7 +687,12 @@ func (httpSvc *HttpService) makeInvoiceHandler(c echo.Context) error {
+ 		amountMsat = *resolvedAmountMsat
  	}
  
--	invoice, err := httpSvc.api.CreateInvoice(c.Request().Context(), makeInvoiceRequest.Amount, makeInvoiceRequest.Description)
+-	invoice, err := httpSvc.api.CreateInvoice(c.Request().Context(), amountMsat, makeInvoiceRequest.Description)
 +	invoice, err := httpSvc.api.CreateInvoice(
 +		c.Request().Context(),
-+		makeInvoiceRequest.Amount,
++		amountMsat,
 +		makeInvoiceRequest.Description,
 +		makeInvoiceRequest.AppId,
 +	)
@@ -60,15 +57,15 @@ index 1ec1de6..84a2650 100644
  	if err != nil {
  		return c.JSON(http.StatusInternalServerError, ErrorResponse{
 diff --git a/wails/wails_handlers.go b/wails/wails_handlers.go
-index 1ca87f2..8b91f68 100644
+index d25259b..c9fe4e8 100644
 --- a/wails/wails_handlers.go
 +++ b/wails/wails_handlers.go
-@@ -634,7 +634,7 @@ func (app *WailsApp) WailsRequestRouter(route string, method string, body strin
- 				return WailsRequestRouterResponse{Body: nil, Error: err.Error()}
- 			}
+@@ -600,7 +600,7 @@ func (app *WailsApp) WailsRequestRouter(route string, method string, body string
+ 		if resolvedAmountMsat != nil {
+ 			amountMsat = *resolvedAmountMsat
  		}
--		invoice, err := app.api.CreateInvoice(ctx, makeInvoiceRequest.Amount, makeInvoiceRequest.Description)
-+		invoice, err := app.api.CreateInvoice(ctx, makeInvoiceRequest.Amount, makeInvoiceRequest.Description, nil)
+-		invoice, err := app.api.CreateInvoice(ctx, amountMsat, makeInvoiceRequest.Description)
++		invoice, err := app.api.CreateInvoice(ctx, amountMsat, makeInvoiceRequest.Description, nil)
  		if err != nil {
  			return WailsRequestRouterResponse{Body: nil, Error: err.Error()}
  		}

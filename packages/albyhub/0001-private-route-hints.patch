@@ -1,12 +1,11 @@
 diff --git a/lnclient/lnd/lnd.go b/lnclient/lnd/lnd.go
-index 35c2e40..f6f4996 100644
+index bad532f..ba35b7b 100644
 --- a/lnclient/lnd/lnd.go
 +++ b/lnclient/lnd/lnd.go
-@@ -373,7 +373,7 @@ func (svc *LNDService) MakeInvoice(ctx context.Context, amount int64, descripti
- 		ValueMsat:       amount,
- 		Memo:            description,
+@@ -708,7 +708,7 @@ func (svc *LNDService) MakeInvoice(ctx context.Context, amountMsat int64, descri
  		DescriptionHash: descriptionHashBytes,
  		Expiry:          expiry,
+ 		RouteHints:      hints,
 -		Private:         !hasPublicChannels, // use private channel hints in the invoice
 +		Private:         true, // always include private channel hints in the invoice
  	}
