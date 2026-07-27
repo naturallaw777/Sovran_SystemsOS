@@ -194,7 +194,7 @@ def _make_handler(manager: "AlbyHubManager") -> type:
                         400,
                         {
                             "status": "ERROR",
-                            "reason": "Exactly one amount parameter is required",
+                            "reason": "A single amount parameter is required",
                         },
                     )
                     return
