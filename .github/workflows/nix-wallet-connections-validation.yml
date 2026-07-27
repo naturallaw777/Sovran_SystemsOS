@@ -1,0 +1,73 @@
+name: Wallet Connections Nix Validation
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@v16
+
+      - name: Targeted Wallet Connections tests
+        run: python3 -m unittest app/tests/test_wallet_connections.py
+
+      - name: Full Python tests
+        run: python3 -m unittest discover -s app/tests -p 'test_*.py'
+
+      - name: JavaScript syntax checks
+        run: |
+          set -euo pipefail
+          for f in app/sovran_systemsos_web/static/js/*.js; do
+            node --check "$f"
+          done
+
+      - name: Verify Alby Hub patches apply to v1.23.0
+        run: |
+          set -euo pipefail
+          tmpdir="$(mktemp -d)"
+          curl -fsSL https://github.com/getAlby/hub/archive/refs/tags/v1.23.0.tar.gz | tar -xz -C "$tmpdir"
+          srcdir="$(find "$tmpdir" -maxdepth 1 -type d -name 'hub-*' | head -n1)"
+          test -n "$srcdir"
+          cd "$srcdir"
+          git init -q
+          git add -A
+          git commit -q -m "snapshot"
+          git apply --check "$GITHUB_WORKSPACE/packages/albyhub/0001-private-route-hints.patch"
+          git apply --check "$GITHUB_WORKSPACE/packages/albyhub/0002-isolated-invoice-app-id.patch"
+          git apply --check "$GITHUB_WORKSPACE/packages/albyhub/0003-loopback-bind-host.patch"
+
+      - name: Build patched Alby Hub
+        run: |
+          nix --extra-experimental-features 'nix-command flakes' build \
+            --no-link --print-build-logs --impure --expr \
+            'let
+              flake = builtins.getFlake (toString ./.);
+              pkgs = import flake.inputs.nixpkgs { system = "x86_64-linux"; };
+              patchedAlbyHub = pkgs.albyhub.overrideAttrs (old: {
+                patches = (old.patches or []) ++ [
+                  ./packages/albyhub/0001-private-route-hints.patch
+                  ./packages/albyhub/0002-isolated-invoice-app-id.patch
+                  ./packages/albyhub/0003-loopback-bind-host.patch
+                ];
+              });
+            in patchedAlbyHub'
+
+      - name: Run real NixOS listener test
+        run: |
+          nix --extra-experimental-features 'nix-command flakes' build \
+            '.#checks.x86_64-linux.nwc-wallets-port-collision' \
+            --no-link --print-build-logs
+
+      - name: Build full system closure
+        run: |
+          nix --extra-experimental-features 'nix-command flakes' build \
+            '.#nixosConfigurations.nixos.config.system.build.toplevel' \
+            --no-link --print-build-logs
