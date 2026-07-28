@@ -60,6 +60,13 @@ function _attachCopyHandlers(container) {
 
 var _nwcModalState = null;
 
+function _isNwcServiceUnit(unit) {
+  // The dashboard tile is backed by Alby Hub, while older drafts referred to
+  // the logical feature as nwc-wallets.service. Support both so the Wallet
+  // Connections manager appears from the actual tile and any legacy configs.
+  return unit === "albyhub.service" || unit === "nwc-wallets.service";
+}
+
 function _nwcStateMessageHtml() {
   if (!_nwcModalState || !_nwcModalState.message) return "";
   var msgClass = _nwcModalState.messageKind === "success" ? "success" : "error";
@@ -171,14 +178,15 @@ function _nwcRenderWalletState() {
     return;
   }
 
+  var canCreate = !!state.domain && !state.busy;
   html += '<div class="matrix-actions-row">' +
-    '<button class="matrix-action-btn" id="nwc-open-create-btn"' + (state.busy ? " disabled" : "") + '>➕ Create Wallet Connection</button>' +
+    '<button class="matrix-action-btn" id="nwc-open-create-btn"' + (canCreate ? "" : " disabled") + '>' + (state.domain ? '➕ Create Wallet Connection' : 'Configure Domain First') + '</button>' +
     '<button class="matrix-form-back" id="nwc-refresh-btn"' + (state.busy ? " disabled" : "") + '>Refresh</button>' +
   '</div>';
   if (state.domain) {
     html += '<p class="svc-detail-desc">Lightning Address domain: <strong>' + escHtml(state.domain) + '</strong></p>';
   } else {
-    html += '<p class="svc-detail-desc">Lightning Address domain is not configured yet. Configure your domain first, then create wallet connections.</p>';
+    html += '<div class="svc-detail-troubleshoot" style="margin-bottom:10px"><strong>Domain required</strong><div style="margin-top:6px">Configure the Lightning Address domain in the Domain Diagnostic Checklist above before creating Wallet Connections. Use a unique hostname such as <strong>lightning.yourdomain.com</strong>.</div></div>';
   }
 
   if (!state.wallets || state.wallets.length === 0) {
@@ -595,11 +603,16 @@ async function openServiceDetailModal(unit, name, icon) {
     }
 
     // Section E: Credentials & Links
-    if (unit === "nwc-wallets.service") {
+    if (_isNwcServiceUnit(unit)) {
       html += '<div class="svc-detail-section">' +
-        '<div class="svc-detail-section-title">Wallet Connections</div>' +
-        '<div id="nwc-wallets-body"><p class="creds-loading">Loading wallet connections…</p></div>' +
-        '</div>';
+        '<div class="svc-detail-section-title">Wallet Connections</div>';
+      if (effectiveEnabled || data.enabled) {
+        html += '<p class="svc-detail-desc">Create, verify, drain, and delete isolated NWC wallet connections without leaving the Hub.</p>' +
+          '<div id="nwc-wallets-body"><p class="creds-loading">Loading wallet connections…</p></div>';
+      } else {
+        html += '<p class="creds-empty">Wallet Connections is disabled. Enable this feature below, rebuild, then return here to create and manage NWC wallet connections.</p>';
+      }
+      html += '</div>';
     } else if (data.has_credentials && data.credentials && data.credentials.length > 0) {
       html += '<div class="svc-detail-section">' +
         '<div class="svc-detail-section-title">Credentials &amp; Access</div>' +
@@ -681,7 +694,7 @@ async function openServiceDetailModal(unit, name, icon) {
 
     $credsBody.innerHTML = html;
     _attachCopyHandlers($credsBody);
-    if (unit === "nwc-wallets.service") {
+    if (_isNwcServiceUnit(unit) && (effectiveEnabled || data.enabled)) {
       await _nwcInitWalletFlow(unit, name, icon);
     }
 

@@ -63,6 +63,10 @@ async function apiFetch(path, options) {
         } else if (body.detail && typeof body.detail.message === "string") {
           detail = body.detail.message;
         }
+      } else if (body && typeof body.message === "string") {
+        detail = body.message;
+      } else if (body && typeof body.error === "string") {
+        detail = body.error;
       }
     } catch (e) {}
     throw new Error(detail);
