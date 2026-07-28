@@ -1,16 +1,16 @@
 /* Sovran_SystemsOS Hub — First-Boot Onboarding Wizard
-   Drives the 5-step post-install setup flow. */
+   Drives the 4-step post-install setup flow. */
 "use strict";
 
 // ── Constants ─────────────────────────────────────────────────────
 
-const TOTAL_STEPS = 5;
+const TOTAL_STEPS = 4;
 
-// Steps to skip per role (steps 3 and 4 involve domain/port setup)
+// Steps to skip per role (step 3 involves domain setup)
 // Step 2 (timezone/locale) is NEVER skipped — all roles need it.
 const ROLE_SKIP_STEPS = {
-  "desktop": [3, 4],
-  "node":    [3, 4],
+  "desktop": [3],
+  "node":    [3],
 };
 
 // ── Role state (loaded at init) ───────────────────────────────────
@@ -66,7 +66,7 @@ function setStatus(elId, msg, type) {
   el.className = "onboarding-save-status" + (type ? " onboarding-save-status--" + type : "");
 }
 
-function updateStep5Checklist() {
+function updateCompleteChecklist() {
   var checklist = document.getElementById("onboarding-checklist");
   if (!checklist) return;
   var existing = document.getElementById("onboarding-migration-check");
@@ -135,8 +135,7 @@ function showStep(step) {
   // Lazy-load step content
   if (step === 2) loadStep2();
   if (step === 3) loadStep3();
-  if (step === 4) loadStep4();
-  // Step 5 (Complete) is static — no lazy-load needed
+  // Step 4 (Complete) is static — no lazy-load needed
 }
 
 // Return the next step number, skipping over role-excluded steps
@@ -319,19 +318,26 @@ async function loadStep3() {
   if (!body) return;
 
   try {
-    // Fetch services, domains, and network info in parallel
+    // Fetch services and domains in parallel (network info is best-effort below)
     var results = await Promise.all([
       apiFetch("/api/services"),
       apiFetch("/api/domains/status"),
-      apiFetch("/api/network"),
     ]);
     _servicesData = results[0];
     _domainsData  = results[1];
-    var networkData = results[2];
   } catch (err) {
     body.innerHTML = '<p class="onboarding-error">⚠ Could not load service data: ' + escHtml(err.message) + '</p>';
     return;
   }
+
+  // Best-effort internal IP for the router note — never blocks this step
+  var internalIp = "";
+  try {
+    var networkData = await apiFetch("/api/network");
+    if (networkData && networkData.internal_ip && networkData.internal_ip !== "unavailable") {
+      internalIp = String(networkData.internal_ip).trim();
+    }
+  } catch (_) {}
 
   // Build set of enabled service units
   var enabledUnits = new Set();
@@ -343,6 +349,8 @@ async function loadStep3() {
   var relevantDomains = DOMAIN_DEFS.filter(function(d) {
     return enabledUnits.has(d.unit);
   });
+
+  var domainValues = (_domainsData && _domainsData.domains) || {};
 
   var html = "";
 
@@ -368,8 +376,21 @@ async function loadStep3() {
       + '</ol>'
       + '</div>';
     html += '<p class="onboarding-hint">Enter each service\'s full domain — a subdomain (e.g. <code>call.yourdomain.com</code>) or a separate domain (e.g. <code>call.com</code>) — and its Njal.la DDNS curl command.</p>';
+
+    // Compact router note (full port guidance is shown when a feature is
+    // enabled, and lives on each service tile afterwards)
+    var routerIpPart = internalIp
+      ? ' to this computer&rsquo;s internal IP <strong>' + escHtml(internalIp) + '</strong>'
+      : ' to this computer&rsquo;s internal IP';
+    html += '<div class="onboarding-port-warn" style="margin-bottom:16px;">'
+      + '🔌 <strong>One router task:</strong> forward ports <strong>80</strong> and <strong>443</strong> (TCP)'
+      + routerIpPart + '. They are required for HTTPS and SSL certificates — without them your services cannot be reached from outside your home network. '
+      + 'Forward port <strong>22</strong> (TCP) too if you want remote SSH access. '
+      + 'Element Call needs a few extra ports, but you&rsquo;ll be shown those when you enable it.'
+      + '</div>';
+
     relevantDomains.forEach(function(d) {
-      var currentVal = (_domainsData && _domainsData[d.name]) || "";
+      var currentVal = domainValues[d.name] || "";
       html += '<div class="onboarding-domain-group">';
       html += '<label class="onboarding-domain-label">' + escHtml(d.label) + '</label>';
       html += '<input class="onboarding-domain-input domain-field-input" type="text" id="domain-input-' + escHtml(d.name) + '" data-domain="' + escHtml(d.name) + '" placeholder="e.g. ' + escHtml(d.name) + '.yourdomain.com" value="' + escHtml(currentVal) + '" />';
@@ -383,7 +404,7 @@ async function loadStep3() {
   }
 
   // SSL email section
-  var emailVal = (_domainsData && _domainsData["sslemail"]) || "";
+  var emailVal = domainValues["sslemail"] || "";
   html += '<div class="onboarding-domain-group onboarding-domain-group--email">';
   html += '<label class="onboarding-domain-label">📧 SSL Certificate Email</label>';
   html += '<p class="onboarding-hint onboarding-hint--inline">Let\'s Encrypt uses this for certificate expiry notifications.</p>';
@@ -511,106 +532,10 @@ async function saveStep3() {
   return true;
 }
 
-// ── Step 4: Port Forwarding ───────────────────────────────────────
-
-async function loadStep4() {
-  var body = document.getElementById("step-4-body");
-  if (!body) return;
-  body.innerHTML = '<p class="onboarding-loading">Loading router setup…</p>';
-
-  var networkData = null;
-
-  try {
-    networkData = await apiFetch("/api/network");
-  } catch (err) {
-    body.innerHTML = '<p class="onboarding-error">⚠ Could not load network data: ' + escHtml(err.message) + '</p>';
-    return;
-  }
-
-  var trimmedInternalIp = (networkData && networkData.internal_ip) ? String(networkData.internal_ip).trim() : "";
-  var internalIp = trimmedInternalIp || "";
-  var hasInternalIp = !!internalIp;
-  var ip = escHtml(internalIp || "Could not detect");
-  var routerIpHelp = hasInternalIp
-    ? "Use this IP address as the destination/internal IP when creating each router forwarding rule."
-    : "Use this computer’s internal IP as the destination/internal IP when creating each router forwarding rule.";
-  var destinationInstruction = hasInternalIp
-    ? 'Set the destination/internal IP to <strong>' + ip + '</strong>'
-    : 'Use this computer’s internal IP as the destination/internal IP';
-
-  var html = '<p class="onboarding-port-note" style="margin-bottom:14px;">'
-    + '⚠ <strong>Each port only needs to be forwarded once — all services share the same ports.</strong>'
-    + '</p>';
-
-  html += '<div class="onboarding-port-ip">';
-  html += '  <span class="onboarding-port-ip-label">Forward router traffic to this Sovran_SystemsOS computer:</span>';
-  html += '  <span class="port-req-internal-ip">' + ip + '</span>';
-  html += '</div>';
-  html += '<div class="onboarding-port-note" style="margin:8px 0 16px;">' + routerIpHelp + '</div>';
-
-  // Required ports table
-  html += '<div class="onboarding-port-section" style="margin-bottom:20px;">';
-  html += '<div class="onboarding-port-section-title" style="font-weight:700;margin-bottom:8px;">Required Router Rules</div>';
-  html += '<table class="onboarding-port-table">';
-  html += '<thead><tr><th>Port</th><th>Protocol</th><th>Forward&nbsp;To</th><th>Used For</th></tr></thead>';
-  html += '<tbody>';
-  html += '<tr><td class="port-req-port">80</td><td class="port-req-proto">TCP</td><td class="port-req-internal-ip">' + ip + '</td><td class="port-req-desc">HTTP / SSL setup</td></tr>';
-  html += '<tr><td class="port-req-port">443</td><td class="port-req-proto">TCP</td><td class="port-req-internal-ip">' + ip + '</td><td class="port-req-desc">HTTPS</td></tr>';
-  html += '<tr><td class="port-req-port">22</td><td class="port-req-proto">TCP</td><td class="port-req-internal-ip">' + ip + '</td><td class="port-req-desc">Remote SSH access</td></tr>';
-  html += '</tbody></table>';
-  html += '</div>';
-
-  // Optional ports table
-  html += '<div class="onboarding-port-section" style="margin-bottom:20px;">';
-  html += '<div class="onboarding-port-section-title" style="font-weight:700;margin-bottom:4px;">Element Call Router Rules</div>';
-  html += '<div style="font-size:0.88em;margin-bottom:8px;color:var(--color-text-muted,#888);">Only add these if you enable Element Call. These ports help video and audio calls connect reliably.</div>';
-  html += '<table class="onboarding-port-table">';
-  html += '<thead><tr><th>Port</th><th>Protocol</th><th>Forward&nbsp;To</th><th>Used For</th></tr></thead>';
-  html += '<tbody>';
-  html += '<tr><td class="port-req-port">7881</td><td class="port-req-proto">TCP</td><td class="port-req-internal-ip">' + ip + '</td><td class="port-req-desc">LiveKit WebRTC signalling</td></tr>';
-  html += '<tr><td class="port-req-port">7882</td><td class="port-req-proto">UDP</td><td class="port-req-internal-ip">' + ip + '</td><td class="port-req-desc">LiveKit media (UDP mux)</td></tr>';
-  html += '<tr><td class="port-req-port">5349</td><td class="port-req-proto">TCP</td><td class="port-req-internal-ip">' + ip + '</td><td class="port-req-desc">TURN over TLS</td></tr>';
-  html += '<tr><td class="port-req-port">3478</td><td class="port-req-proto">UDP</td><td class="port-req-internal-ip">' + ip + '</td><td class="port-req-desc">TURN (STUN/relay)</td></tr>';
-  html += '<tr><td class="port-req-port">30000-40000</td><td class="port-req-proto">TCP &amp; UDP</td><td class="port-req-internal-ip">' + ip + '</td><td class="port-req-desc">TURN relay (WebRTC)</td></tr>';
-  html += '</tbody></table>';
-  html += '<div style="font-size:0.85em;margin-top:6px;color:var(--color-text-muted,#888);">ℹ The <strong>30000-40000</strong> range is a single forwarding rule — just set its protocol to <strong>both TCP and UDP</strong> (often shown as "Both" or "TCP/UDP" on your router).</div>';
-  html += '</div>';
-
-  // Totals
-  html += '<div class="onboarding-port-totals">';
-  html += '<strong>Total port openings: 3</strong> (without Element Call)<br>';
-  html += '<strong>Total port openings: 8</strong> (with Element Call — 3 required + 5 optional)';
-  html += '</div>';
-
-  html += '<div class="onboarding-port-warn" style="margin-bottom:16px;">'
-    + '⚠ <strong>Ports 80 and 443 must be forwarded first.</strong> '
-    + 'Caddy uses these to obtain SSL certificates from Let\'s Encrypt. '
-    + 'If they are closed, HTTPS will not work and your services will be unreachable from outside your network.'
-    + '</div>';
-
-  html += '<details class="onboarding-port-details" style="margin-bottom:16px;">'
-    + '<summary class="onboarding-port-details-summary">How to set up port forwarding</summary>'
-    + '<ol style="margin:12px 0 0 16px; padding:0; line-height:1.8;">'
-    + '<li>Open your router\'s admin panel — usually <code>http://192.168.1.1</code> or <code>http://192.168.0.1</code></li>'
-    + '<li>Look for <strong>"Port Forwarding"</strong>, <strong>"NAT"</strong>, or <strong>"Virtual Server"</strong> in the settings</li>'
-    + '<li>Create a new rule for each port listed above</li>'
-    + '<li>' + destinationInstruction + '</li>'
-    + '<li>Set both internal and external port to the same number</li>'
-    + '<li>Save and apply changes</li>'
-    + '</ol>'
-    + '</details>';
-
-  html += '<div class="onboarding-port-note" style="margin-top:12px;">'
-    + '<strong>Important:</strong> The Hub can show which ports Sovran_SystemsOS needs, but it cannot fully confirm router forwarding from inside your home network. Full public port verification requires an outside internet check.'
-    + '</div>';
-
-  body.innerHTML = html;
-}
-
-// ── Step 5: Complete ──────────────────────────────────────────────
+// ── Step 4: Complete ──────────────────────────────────────────────
 
 async function completeOnboarding() {
-  var btn = document.getElementById("step-5-finish");
+  var btn = document.getElementById("step-4-finish");
   if (btn) { btn.disabled = true; btn.textContent = "Finishing…"; }
 
   try {
@@ -633,7 +558,7 @@ function wireNavButtons() {
     try {
       await apiFetch("/api/migration/password-acknowledge", { method: "POST" });
       _migrationOccurred = true;
-      updateStep5Checklist();
+      updateCompleteChecklist();
       showStep1FromMigration();
     } catch (err) {
       setStatus("migration-password-status", "⚠ " + err.message, "error");
@@ -669,13 +594,9 @@ function wireNavButtons() {
     showStep(nextStep(3));
   });
 
-  // Step 4 → 5 (port forwarding — no save needed)
-  var s4next = document.getElementById("step-4-next");
-  if (s4next) s4next.addEventListener("click", function() { showStep(nextStep(4)); });
-
-  // Step 5: finish
-  var s5finish = document.getElementById("step-5-finish");
-  if (s5finish) s5finish.addEventListener("click", completeOnboarding);
+  // Step 4: finish
+  var s4finish = document.getElementById("step-4-finish");
+  if (s4finish) s4finish.addEventListener("click", completeOnboarding);
 
   // Back buttons
   document.querySelectorAll(".onboarding-btn-back").forEach(function(btn) {
@@ -707,13 +628,13 @@ document.addEventListener("DOMContentLoaded", async function() {
   try {
     var migration = await apiFetch("/api/migration/password-status");
     if (migration && migration.pending) {
-      updateStep5Checklist();
+      updateCompleteChecklist();
       showMigrationStep(migration.password || "");
       return;
     }
   } catch (_) {}
 
-  updateStep5Checklist();
+  updateCompleteChecklist();
   showStep(1);
   loadStep1();
 });

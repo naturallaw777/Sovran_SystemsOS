@@ -34,8 +34,6 @@
       <span class="onboarding-step-dot" data-step="3">3</span>
       <span class="onboarding-step-connector"></span>
       <span class="onboarding-step-dot" data-step="4">4</span>
-      <span class="onboarding-step-connector"></span>
-      <span class="onboarding-step-dot" data-step="5">5</span>
     </div>
 
     <!-- Step panels -->
@@ -144,29 +142,8 @@
         </div>
       </div>
 
-      <!-- ── Step 4: Port Forwarding ── -->
+      <!-- ── Step 4: Complete ── -->
       <div class="onboarding-panel" id="step-4" style="display:none">
-        <div class="onboarding-step-header">
-          <span class="onboarding-step-icon">🔌</span>
-          <h2 class="onboarding-step-title">Router Setup</h2>
-          <p class="onboarding-step-desc">
-            Forward these ports in your router to this Sovran_SystemsOS computer. These rules let people reach your services from outside your home network.
-            <strong>Ports 80 and 443 are required for HTTPS and SSL certificates.</strong>
-          </p>
-        </div>
-        <div class="onboarding-card" id="step-4-body">
-          <p class="onboarding-loading">Loading router setup…</p>
-        </div>
-        <div class="onboarding-footer">
-          <button class="btn btn-close-modal onboarding-btn-back" data-prev="3">← Back</button>
-          <button class="btn btn-primary onboarding-btn-next" id="step-4-next">
-            Continue →
-          </button>
-        </div>
-      </div>
-
-      <!-- ── Step 5: Complete ── -->
-      <div class="onboarding-panel" id="step-5" style="display:none">
         <div class="onboarding-hero">
           <div class="onboarding-logo">✅</div>
           <h1 class="onboarding-title">Your Sovran_SystemsOS is Ready!</h1>
@@ -180,12 +157,11 @@
           <ul class="onboarding-checklist" id="onboarding-checklist">
             <li>✅ Timezone &amp; locale configured</li>
             <li>✅ Domain configuration saved</li>
-            <li>✅ Port forwarding reviewed</li>
           </ul>
         </div>
         <div class="onboarding-footer">
-          <button class="btn btn-close-modal onboarding-btn-back" data-prev="4">← Back</button>
-          <button class="btn btn-primary" id="step-5-finish">
+          <button class="btn btn-close-modal onboarding-btn-back" data-prev="3">← Back</button>
+          <button class="btn btn-primary" id="step-4-finish">
             Go to Dashboard →
           </button>
         </div>
