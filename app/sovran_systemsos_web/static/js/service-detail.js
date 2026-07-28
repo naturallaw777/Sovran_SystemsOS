@@ -178,6 +178,64 @@ function _nwcRenderWalletState() {
     return;
   }
 
+  if (state.view === "share" && state.shareWallet) {
+    var sw = state.shareWallet;
+    var swId = encodeURIComponent(String(sw.id || sw.pubkey || ""));
+    var swAddress = sw.lightning_address || ((sw.alias && state.domain) ? sw.alias + "@" + state.domain : "");
+    var pngUrl = "/api/nwc/wallets/" + swId + "/lnurl-qr.png";
+    var shareAddrId = "nwc-share-addr-" + Math.random().toString(36).substring(2, 8);
+    var shareLnurlId = "nwc-share-lnurl-" + Math.random().toString(36).substring(2, 8);
+    html += '<p class="svc-detail-desc">Share the Lightning Address for <strong>' + escHtml(sw.name || "Wallet") + '</strong>. This QR never expires — anyone can scan it with any Lightning wallet to send sats, as many times as they like.</p>' +
+      '<div class="creds-qr-wrap">' +
+        '<img class="creds-qr-img" src="' + pngUrl + '" alt="LNURL QR code for ' + escHtml(swAddress) + '">' +
+        '<div class="creds-qr-hint">Scan with any Lightning wallet to pay ' + escHtml(swAddress) + '</div>' +
+      '</div>' +
+      (swAddress
+        ? '<div class="creds-row"><div class="creds-label">Lightning Address</div><div class="creds-value-wrap"><div class="creds-value" id="' + shareAddrId + '">' + escHtml(swAddress) + '</div><button class="creds-copy-btn" data-target="' + shareAddrId + '">Copy</button></div></div>'
+        : "") +
+      '<div class="creds-row"><div class="creds-label">LNURL</div><div class="creds-value-wrap"><div class="creds-value nwc-lnurl-value" id="' + shareLnurlId + '">Loading…</div><button class="creds-copy-btn" data-target="' + shareLnurlId + '">Copy</button></div></div>' +
+      '<div class="nwc-share-actions">' +
+        '<button class="matrix-form-submit" id="nwc-share-dl-png-btn">⬇ Download PNG</button>' +
+        '<button class="matrix-form-back" id="nwc-share-dl-svg-btn">⬇ Download SVG</button>' +
+        '<button class="matrix-form-back" id="nwc-share-print-btn">🖨 Print…</button>' +
+        '<button class="matrix-form-back" id="nwc-share-back-btn">← Back</button>' +
+      '</div>' +
+      '<div class="creds-qr-hint nwc-share-formats-hint">PNG is ideal for websites and social posts. SVG stays sharp at any print size.</div>';
+    host.innerHTML = html;
+    _attachCopyHandlers(host);
+    apiFetch("/api/nwc/wallets/" + swId + "/lnurl").then(function(payload) {
+      var el = document.getElementById(shareLnurlId);
+      if (el) el.textContent = payload.lnurl || "Unavailable";
+    }).catch(function() {
+      var el = document.getElementById(shareLnurlId);
+      if (el) el.textContent = "Unavailable";
+    });
+    function _nwcShareDownload(url) {
+      var a = document.createElement("a");
+      a.href = url;
+      a.rel = "noopener";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }
+    var dlPngBtn = document.getElementById("nwc-share-dl-png-btn");
+    if (dlPngBtn) dlPngBtn.addEventListener("click", function() { _nwcShareDownload(pngUrl + "?download=1"); });
+    var dlSvgBtn = document.getElementById("nwc-share-dl-svg-btn");
+    if (dlSvgBtn) dlSvgBtn.addEventListener("click", function() { _nwcShareDownload("/api/nwc/wallets/" + swId + "/lnurl-qr.svg?download=1"); });
+    var printBtn = document.getElementById("nwc-share-print-btn");
+    if (printBtn) printBtn.addEventListener("click", function() { window.open("/api/nwc/wallets/" + swId + "/lnurl-qr/print", "_blank", "noopener"); });
+    var shareBackBtn = document.getElementById("nwc-share-back-btn");
+    if (shareBackBtn) {
+      shareBackBtn.addEventListener("click", function() {
+        state.view = "list";
+        state.shareWallet = null;
+        _nwcClearMessage();
+        _nwcRenderWalletState();
+      });
+    }
+    return;
+  }
+
   var canCreate = !!state.domain && !state.busy;
   html += '<div class="matrix-actions-row">' +
     '<button class="matrix-action-btn" id="nwc-open-create-btn"' + (canCreate ? "" : " disabled") + '>' + (state.domain ? '➕ Create Wallet Connection' : 'Configure Domain First') + '</button>' +
@@ -219,6 +277,7 @@ function _nwcRenderWalletState() {
       '<div class="creds-row"><div class="creds-label">Balance</div><div class="creds-value-wrap"><div class="creds-value">' + escHtml(String(wallet.balance_sats || 0)) + ' sats</div></div></div>' +
       '<div class="creds-row"><div class="creds-label">Pending TX</div><div class="creds-value-wrap"><div class="creds-value">' + escHtml(String(wallet.pending_transactions || 0)) + '</div></div></div>' +
       '<div class="nwc-wallet-actions">' +
+        '<button class="matrix-action-btn nwc-wallet-action-btn" data-action="share" data-wallet-id="' + escHtml(id) + '"' + ((state.busy || !wallet.lightning_address) ? " disabled" : "") + '>⚡ Share QR</button>' +
         '<button class="matrix-form-back nwc-wallet-action-btn" data-action="test" data-wallet-alias="' + escHtml(wallet.alias || "") + '"' + (state.busy ? " disabled" : "") + '>Verify Address</button>' +
         '<button class="matrix-form-back nwc-wallet-action-btn" data-action="drain" data-wallet-id="' + escHtml(id) + '"' + (state.busy ? " disabled" : "") + '>Drain</button>' +
         '<button class="btn btn-close-modal nwc-wallet-action-btn" data-action="delete" data-wallet-id="' + escHtml(id) + '"' + (state.busy ? " disabled" : "") + '>Delete</button>' +
@@ -245,11 +304,30 @@ function _nwcRenderWalletState() {
   host.querySelectorAll(".nwc-wallet-action-btn").forEach(function(btn) {
     btn.addEventListener("click", function() {
       var action = btn.getAttribute("data-action");
-      if (action === "test") _nwcVerifyWallet(btn.getAttribute("data-wallet-alias"));
+      if (action === "share") _nwcOpenShare(btn.getAttribute("data-wallet-id"));
+      else if (action === "test") _nwcVerifyWallet(btn.getAttribute("data-wallet-alias"));
       else if (action === "drain") _nwcDrainWallet(btn.getAttribute("data-wallet-id"));
       else if (action === "delete") _nwcDeleteWallet(btn.getAttribute("data-wallet-id"));
     });
   });
+}
+
+function _nwcOpenShare(walletId) {
+  if (!_nwcModalState || _nwcModalState.busy || !walletId) return;
+  var wallet = null;
+  for (var i = 0; i < _nwcModalState.wallets.length; i++) {
+    var w = _nwcModalState.wallets[i];
+    if (String(w.id || w.pubkey || "") === String(walletId)) { wallet = w; break; }
+  }
+  if (!wallet) {
+    _nwcSetMessage("error", "Wallet connection not found.");
+    _nwcRenderWalletState();
+    return;
+  }
+  _nwcClearMessage();
+  _nwcModalState.shareWallet = wallet;
+  _nwcModalState.view = "share";
+  _nwcRenderWalletState();
 }
 
 async function _nwcRefreshWallets() {
@@ -260,7 +338,7 @@ async function _nwcRefreshWallets() {
     var payload = await apiFetch("/api/nwc/wallets");
     _nwcModalState.wallets = Array.isArray(payload.wallets) ? payload.wallets : [];
     _nwcModalState.domain = payload.domain || null;
-    if (_nwcModalState.view !== "create" && _nwcModalState.view !== "created") {
+    if (_nwcModalState.view !== "create" && _nwcModalState.view !== "created" && _nwcModalState.view !== "share") {
       _nwcModalState.view = _nwcModalState.wallets.length > 0 ? "list" : "empty";
     }
     _nwcRenderWalletState();
@@ -409,6 +487,7 @@ async function _nwcInitWalletFlow(unit, name, icon) {
     message: "",
     messageKind: "",
     lastCreated: null,
+    shareWallet: null,
     createForm: {
       name: "",
       alias: "",
