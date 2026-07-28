@@ -319,6 +319,14 @@ _PORTS_ELEMENT_CALLING = [
     {"port": "30000-40000", "protocol": "TCP/UDP", "description": "TURN relay (WebRTC)"},
 ]
 
+# Units whose port requirements exist purely so the user can forward them in
+# their router.  Whether those ports actually work can only be judged from
+# OUTSIDE the network, so we never show a local "ready/not ready" verdict for
+# them and they never affect tile health — we just tell the user what to
+# forward.  (E.g. the LiveKit TURN relay range is bound on demand, so a local
+# `ss` check reports "closed" even on a perfectly working system.)
+ROUTER_FORWARD_ONLY_UNITS: set[str] = {"livekit.service"}
+
 SERVICE_PORT_REQUIREMENTS: dict[str, list[dict]] = {
     # Infrastructure
     "caddy.service":                    [],
@@ -2895,7 +2903,11 @@ async def api_services():
             else:
                 domain_reachability = "unreachable"
 
-        health_port_requirements = list(port_requirements)
+        # Router-forwarded ports can only be verified from outside the network,
+        # so they must not drive local health.
+        health_port_requirements = (
+            [] if unit in ROUTER_FORWARD_ONLY_UNITS else list(port_requirements)
+        )
         if needs_domain:
             health_port_requirements = [
                 {"port": "80", "protocol": "TCP"},
@@ -3136,10 +3148,17 @@ async def api_service_detail(unit: str, icon: str | None = None):
         domain_check_steps = domain_eval.get("domain_check_steps", [])
         has_domain_issues = bool(domain_eval.get("has_issues"))
 
-    # Port requirements and statuses
+    # Port requirements and statuses.
+    #
+    # For router-forward-only units we deliberately skip the local
+    # listening/firewall probe: those ports live on the *router*, and a local
+    # probe can neither prove nor disprove that forwarding works.  Reporting a
+    # local verdict there confused users more than it helped, so the UI just
+    # lists what to forward.
     port_requirements = SERVICE_PORT_REQUIREMENTS.get(unit, [])
+    router_forward_only = unit in ROUTER_FORWARD_ONLY_UNITS
     port_statuses: list[dict] = []
-    if port_requirements:
+    if port_requirements and not router_forward_only:
         listening, allowed = await asyncio.gather(
             loop.run_in_executor(None, _get_listening_ports),
             loop.run_in_executor(None, _get_firewall_allowed_ports),
@@ -3154,30 +3173,19 @@ async def api_service_detail(unit: str, icon: str | None = None):
                 "status": ps,
                 "description": p.get("description", ""),
             })
-    extra_ports = port_statuses if unit == "livekit.service" else []
-
-    if needs_domain and unit == "livekit.service":
-        if has_domain_issues:
-            domain_check_steps.append({
-                "step": 4,
-                "label": "Router Setup Needed",
-                "status": "skipped",
-                "detail": "Finish the domain steps first, then forward the Element Call ports in your router.",
-            })
-        else:
-            # These checks are local-only (listening/firewall state on this computer),
-            # not an outside-in verification of router/NAT forwarding.
-            all_local_ready = all(p["status"] != "closed" for p in extra_ports)
-            domain_check_steps.append({
-                "step": 4,
-                "label": "Router Setup Needed" if all_local_ready else "Sovran_SystemsOS Port Setup Needed",
-                "status": "warning" if all_local_ready else "error",
-                "detail": (
-                    "Sovran_SystemsOS is ready to use these ports on this computer. Now forward them in your router so Element Call can work from outside your home network."
-                    if all_local_ready
-                    else "Sovran_SystemsOS is not ready to use all required Element Call ports on this computer yet. Fix the ports marked “Not ready yet” below, then forward them in your router."
-                ),
-            })
+    # Ports the user must forward in their router (no local status — see above).
+    router_ports = (
+        [
+            {
+                "port": str(p.get("port", "")),
+                "protocol": str(p.get("protocol", "TCP")),
+                "description": p.get("description", ""),
+            }
+            for p in port_requirements
+        ]
+        if router_forward_only
+        else []
+    )
 
     # Compute composite health
     sync_progress: float | None = None
@@ -3264,7 +3272,7 @@ async def api_service_detail(unit: str, icon: str | None = None):
         "domain_check_steps": domain_check_steps,
         "port_requirements": port_requirements,
         "port_statuses": port_statuses,
-        "extra_ports": extra_ports,
+        "router_ports": router_ports,
         "external_ip": external_ip,
         "internal_ip": internal_ip,
         "feature": feature_entry,
@@ -3360,6 +3368,11 @@ async def api_ports_health():
             enabled = overrides[feat_id]
 
         if not enabled:
+            continue
+
+        # Router-forwarded ports are not locally verifiable — excluded from
+        # aggregate health so they can't raise a false alarm.
+        if unit in ROUTER_FORWARD_ONLY_UNITS:
             continue
 
         ports = SERVICE_PORT_REQUIREMENTS.get(unit, [])

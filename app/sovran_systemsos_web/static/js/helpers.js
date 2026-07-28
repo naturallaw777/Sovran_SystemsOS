@@ -40,6 +40,66 @@ function linkify(str) {
   return escHtml(str).replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer" class="creds-link">$1</a>');
 }
 
+// ── Router port-forwarding guide ──────────────────────────────────
+// Whether a port is truly reachable can only be judged from OUTSIDE the
+// network, so we never show a local "ready" verdict here. We only tell the
+// user exactly what to enter in their router.
+
+// Render the protocol cell so TCP / UDP / both is unmistakable.
+function portProtocolHtml(protocol) {
+  var p = String(protocol || "TCP").toUpperCase();
+  var isTcp = p.indexOf("TCP") !== -1;
+  var isUdp = p.indexOf("UDP") !== -1;
+  if (isTcp && isUdp) {
+    return '<span class="port-proto-badge port-proto-badge--both">TCP + UDP</span>' +
+      '<span class="port-proto-note">both required</span>';
+  }
+  if (isUdp) return '<span class="port-proto-badge port-proto-badge--udp">UDP</span>';
+  return '<span class="port-proto-badge port-proto-badge--tcp">TCP</span>';
+}
+
+// ports: [{ port, protocol, description }]
+// opts:  { internalIp, serviceName, tableClass, introClass, noteClass }
+function renderPortForwardGuideHtml(ports, opts) {
+  opts = opts || {};
+  var tableClass = opts.tableClass || "port-req-table";
+  var introClass = opts.introClass || "port-req-intro";
+  var noteClass  = opts.noteClass  || "port-req-hint";
+  var ipHtml = opts.internalIp
+    ? '<code class="port-req-internal-ip">' + escHtml(opts.internalIp) + '</code>'
+    : 'this computer&rsquo;s <strong>internal IP</strong> (shown as &ldquo;Internal IP&rdquo; at the top of the Hub dashboard)';
+
+  var rows = (ports || []).map(function(p) {
+    return '<tr>' +
+      '<td class="port-req-port">' + escHtml(p.port) + '</td>' +
+      '<td class="port-req-proto">' + portProtocolHtml(p.protocol) + '</td>' +
+      '<td class="port-req-desc">' + escHtml(p.description || "") + '</td>' +
+      '</tr>';
+  }).join("");
+
+  var forWhat = opts.serviceName
+    ? 'For <strong>' + escHtml(opts.serviceName) + '</strong> to be reachable from outside your home network, open'
+    : 'Open';
+
+  return '<p class="' + introClass + '">' +
+      forWhat + ' the ports below in your router&rsquo;s <strong>port forwarding</strong> settings ' +
+      'and point them at ' + ipHtml + '.' +
+    '</p>' +
+    '<ul class="port-req-steps">' +
+      '<li>Set the <strong>internal (private) port</strong> and the <strong>external (public) port</strong> to the <strong>same number</strong>.</li>' +
+      '<li>Match the <strong>protocol</strong> exactly — a rule set to TCP will not pass UDP traffic. Where the table says <strong>TCP + UDP</strong>, create both rules (or pick &ldquo;Both&rdquo;/&ldquo;TCP/UDP&rdquo; if your router offers it).</li>' +
+      '<li>For a range such as <strong>30000-40000</strong>, use your router&rsquo;s port-range fields — start 30000, end 40000 — rather than one rule per port.</li>' +
+    '</ul>' +
+    '<table class="' + tableClass + '">' +
+      '<thead><tr><th>Port(s)</th><th>Protocol</th><th>Used for</th></tr></thead>' +
+      '<tbody>' + rows + '</tbody>' +
+    '</table>' +
+    '<p class="' + noteClass + '">' +
+      '📱 <strong>How to confirm it worked:</strong> forwarding happens on your router, so it can only be verified from outside your network. ' +
+      'Turn Wi-Fi off on your phone and open the service over mobile data — if it loads, your ports are open.' +
+    '</p>';
+}
+
 function formatDuration(seconds) {
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);

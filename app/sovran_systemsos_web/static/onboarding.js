@@ -383,10 +383,12 @@ async function loadStep3() {
       ? ' to this computer&rsquo;s internal IP <strong>' + escHtml(internalIp) + '</strong>'
       : ' to this computer&rsquo;s internal IP';
     html += '<div class="onboarding-port-warn" style="margin-bottom:16px;">'
-      + '🔌 <strong>One router task:</strong> forward ports <strong>80</strong> and <strong>443</strong> (TCP)'
-      + routerIpPart + '. They are required for HTTPS and SSL certificates — without them your services cannot be reached from outside your home network. '
-      + 'Forward port <strong>22</strong> (TCP) too if you want remote SSH access. '
-      + 'Element Call needs a few extra ports, but you&rsquo;ll be shown those when you enable it.'
+      + '🔌 <strong>One router task:</strong> in your router&rsquo;s <strong>port forwarding</strong> settings, forward '
+      + 'port <strong>80 (TCP)</strong> and port <strong>443 (TCP)</strong>'
+      + routerIpPart + '. Use the <strong>same number for the internal and external port</strong>. '
+      + 'These are required for HTTPS and SSL certificates — without them your services cannot be reached from outside your home network. '
+      + 'Add port <strong>22 (TCP)</strong> as well if you want remote SSH access. '
+      + 'Element Call needs a few extra ports (some UDP), and you&rsquo;ll be shown exactly which when you enable it.'
       + '</div>';
 
     relevantDomains.forEach(function(d) {
