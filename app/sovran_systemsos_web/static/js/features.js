@@ -279,24 +279,12 @@ function openPortRequirementsModal(featureName, ports, onContinue) {
     : '';
 
   function renderPortRequirements(internalIp) {
-    var rows = ports.map(function(p) {
-      return '<tr><td class="port-req-port">' + escHtml(p.port) + '</td>' +
-        '<td class="port-req-proto">' + escHtml(p.protocol) + '</td>' +
-        '<td class="port-req-desc">' + escHtml(p.description) + '</td></tr>';
-    }).join("");
-    var ipPart = internalIp
-      ? ' to this computer&rsquo;s internal IP <code class="port-req-internal-ip">' + escHtml(internalIp) + '</code>'
-      : " to this computer's internal IP";
-
     $portReqBody.innerHTML =
-      '<p class="port-req-intro">For <strong>' + escHtml(featureName) + '</strong> to work for people outside your home network, ' +
-      'forward each port below' + ipPart + " in your router's port-forwarding settings. " +
-      'Set the internal and external port to the same number.</p>' +
-      '<table class="port-req-table">' +
-      '<thead><tr><th>Port(s)</th><th>Protocol</th><th>Purpose</th></tr></thead>' +
-      '<tbody>' + rows + '</tbody>' +
-      '</table>' +
-      '<p class="port-req-hint">💡 You can review these ports with live status any time on the <strong>' + escHtml(featureName) + '</strong> tile after enabling.</p>' +
+      renderPortForwardGuideHtml(ports, {
+        internalIp: internalIp,
+        serviceName: featureName,
+      }) +
+      '<p class="port-req-hint">💡 This list is always available again on the <strong>' + escHtml(featureName) + '</strong> tile.</p>' +
       '<div class="domain-field-actions">' +
       '<button class="btn btn-close-modal" id="port-req-dismiss-btn">Dismiss</button>' +
       continueBtn +
@@ -429,39 +417,10 @@ function handleFeatureToggle(feat, newEnabled) {
       return;
     }
 
-    // Check which ports are actually closed before showing the modal
-    fetch("/api/ports/status", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ports: ports }),
-    })
-      .then(function(r) {
-        if (!r.ok) throw new Error("Port status request failed: " + r.status);
-        return r.json();
-      })
-      .then(function(data) {
-        var portStatuses = {};
-        (data.ports || []).forEach(function(p) {
-          portStatuses[p.port + "/" + p.protocol] = p.status;
-        });
-
-        var closedPorts = ports.filter(function(p) {
-          var key = p.port + "/" + p.protocol;
-          var status = portStatuses[key] || "unknown";
-          return status !== "listening" && status !== "firewall_open";
-        });
-
-        if (closedPorts.length === 0) {
-          proceedAfterPortCheck();
-        } else {
-          openPortRequirementsModal(feat.name, closedPorts, proceedAfterPortCheck);
-        }
-      })
-      .catch(function(err) {
-        console.warn("Failed to fetch port status for feature enable flow:", err);
-        // Safe fallback if status check fails
-        openPortRequirementsModal(feat.name, ports, proceedAfterPortCheck);
-      });
+    // Always show the full list of ports to forward. Port forwarding happens on
+    // the router, which this computer cannot inspect — a local check would only
+    // hide ports the user still has to open.
+    openPortRequirementsModal(feat.name, ports, proceedAfterPortCheck);
   }
 
   if (feat.id === "bitcoin-core") {

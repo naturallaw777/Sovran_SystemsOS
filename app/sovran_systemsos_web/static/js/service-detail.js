@@ -514,85 +514,41 @@ async function openServiceDetailModal(unit, name, icon) {
         domainActionHtml +
         '</div>';
 
-      if (unit === "livekit.service" && data.extra_ports && data.extra_ports.length > 0) {
+      if (data.router_ports && data.router_ports.length > 0) {
         var trimmedInternalIp = data.internal_ip ? String(data.internal_ip).trim() : "";
-        var internalIp = trimmedInternalIp || "";
-        var internalIpHtml = internalIp ? escHtml(internalIp) : "Could not detect";
-        var forwardNote = internalIp
-          ? 'Forward each port below in your router to this computer&rsquo;s internal IP <code class="port-req-internal-ip">' + internalIpHtml + '</code>, using the same internal and external port.'
-          : 'Forward each port below in your router to this computer&rsquo;s internal IP, using the same internal and external port.';
-        var domainConfigured = !!(data.domain && String(data.domain).trim());
-        var extraRows = "";
-        data.extra_ports.forEach(function(p) {
-          var statusIcon, statusClass2;
-          if (!effectiveEnabled) {
-            statusIcon = "⚠ Configure Element Call first";
-            statusClass2 = "port-status-open";
-          } else if (!domainConfigured) {
-            statusIcon = "⚠ Configure domain first";
-            statusClass2 = "port-status-open";
-          } else if (p.status === "listening") {
-            statusIcon = "✅ Ready";
-            statusClass2 = "port-status-listening";
-          } else if (p.status === "firewall_open") {
-            statusIcon = "✅ Ready";
-            statusClass2 = "port-status-open";
-          } else if (p.status === "closed") {
-            statusIcon = "❌ Not ready yet";
-            statusClass2 = "port-status-closed";
-          } else {
-            statusIcon = "— Could not check";
-            statusClass2 = "port-status-unknown";
-          }
-          extraRows += '<tr>' +
-            '<td class="svc-detail-port-table-port">' + escHtml(p.port) + '</td>' +
-            '<td class="svc-detail-port-table-proto">' + escHtml(p.protocol) + '</td>' +
-            '<td class="svc-detail-port-table-desc">' + escHtml(p.description || "") + '</td>' +
-            '<td class="svc-detail-port-table-status ' + statusClass2 + '">' + statusIcon + '</td>' +
-            '</tr>';
-        });
         html += '<div class="svc-detail-section">' +
           '<div class="svc-detail-section-title">Ports to Forward in Your Router</div>' +
-          '<div class="svc-detail-port-note">' + forwardNote + '</div>' +
-          '<table class="svc-detail-port-table">' +
-            '<thead><tr><th>Port</th><th>Protocol</th><th>Used For</th><th>Sovran_SystemsOS Status</th></tr></thead>' +
-            '<tbody>' + extraRows + '</tbody>' +
-          '</table>' +
-          '<div class="svc-detail-port-note">✅ = Sovran_SystemsOS is ready on this computer. Router-side forwarding itself can only be verified from outside your network (e.g. a phone on mobile data).</div>' +
+          renderPortForwardGuideHtml(data.router_ports, {
+            internalIp: trimmedInternalIp || null,
+            tableClass: "svc-detail-port-table",
+            introClass: "svc-detail-port-note",
+            noteClass: "svc-detail-port-note",
+          }) +
           '</div>';
       }
     } else if (data.port_statuses && data.port_statuses.length > 0) {
-      // Non-domain services (SSH) keep local single-port checks.
-      var portTableRows = "";
-      data.port_statuses.forEach(function(p) {
-        var statusIcon, statusClass2;
-        if (p.status === "listening") {
-          statusIcon = "✅ Ready";
-          statusClass2 = "port-status-listening";
-        } else if (p.status === "firewall_open") {
-          statusIcon = "✅ Ready";
-          statusClass2 = "port-status-open";
-        } else if (p.status === "closed") {
-          statusIcon = "❌ Not ready";
-          statusClass2 = "port-status-closed";
-        } else {
-          statusIcon = "— Could not check";
-          statusClass2 = "port-status-unknown";
-        }
-        portTableRows += '<tr>' +
-          '<td class="svc-detail-port-table-port">' + escHtml(p.port) + '</td>' +
-          '<td class="svc-detail-port-table-proto">' + escHtml(p.protocol) + '</td>' +
-          '<td class="svc-detail-port-table-desc">' + escHtml(p.description || "") + '</td>' +
-          '<td class="svc-detail-port-table-status ' + statusClass2 + '">' + statusIcon + '</td>' +
-          '</tr>';
+      // Non-domain services (e.g. SSH): show what to forward, plus a short
+      // note if the service isn't actually listening on this computer yet.
+      var localInternalIp = data.internal_ip ? String(data.internal_ip).trim() : "";
+      var notListening = data.port_statuses.filter(function(p) {
+        return p.status === "closed";
       });
+      var localNote = notListening.length
+        ? '<div class="svc-detail-port-note port-status-closed">' +
+            '⚠ Port ' + escHtml(notListening.map(function(p) { return p.port; }).join(", ")) +
+            ' is not open on this computer yet — enable the service below first, then forward it in your router.' +
+          '</div>'
+        : "";
       html += '<div class="svc-detail-section">' +
-        '<div class="svc-detail-section-title">Port Requirements</div>' +
-        '<div class="svc-detail-port-note">This shows whether Sovran_SystemsOS is ready to use this port on this computer. If you need access from outside your home network, forward this port in your router.</div>' +
-        '<table class="svc-detail-port-table">' +
-          '<thead><tr><th>Port</th><th>Protocol</th><th>Used For</th><th>Sovran_SystemsOS Status</th></tr></thead>' +
-          '<tbody>' + portTableRows + '</tbody>' +
-        '</table>' +
+        '<div class="svc-detail-section-title">Ports to Forward in Your Router</div>' +
+        '<div class="svc-detail-port-note">Only needed if you want to reach this service from <strong>outside</strong> your home network. On your local network it already works without any router changes.</div>' +
+        renderPortForwardGuideHtml(data.port_statuses, {
+          internalIp: localInternalIp || null,
+          tableClass: "svc-detail-port-table",
+          introClass: "svc-detail-port-note",
+          noteClass: "svc-detail-port-note",
+        }) +
+        localNote +
         '</div>';
     }
 

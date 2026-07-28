@@ -172,6 +172,58 @@ domain-field-actions {
   font-weight: 600;
 }
 
+/* ── Port-forwarding instructions ─────────────────────────────────── */
+
+.port-req-steps {
+  margin: 4px 0 12px;
+  padding-left: 20px;
+  font-size: 0.84rem;
+  color: var(--text-secondary);
+  line-height: 1.65;
+}
+
+.port-req-steps li {
+  margin-bottom: 5px;
+}
+
+.port-proto-badge {
+  display: inline-block;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Source Code Pro', monospace;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 2px 7px;
+  border-radius: 5px;
+  white-space: nowrap;
+}
+
+.port-proto-badge--tcp {
+  color: #6dbf8b;
+  background: rgba(109, 191, 139, 0.12);
+  border: 1px solid rgba(109, 191, 139, 0.4);
+}
+
+.port-proto-badge--udp {
+  color: #6aa9e0;
+  background: rgba(106, 169, 224, 0.12);
+  border: 1px solid rgba(106, 169, 224, 0.4);
+}
+
+.port-proto-badge--both {
+  color: #e5a50a;
+  background: rgba(229, 165, 10, 0.12);
+  border: 1px solid rgba(229, 165, 10, 0.45);
+}
+
+.port-proto-note {
+  display: block;
+  margin-top: 3px;
+  font-size: 0.68rem;
+  color: var(--text-dim);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
 /* ── Wallet Connections unique-hostname warning ───────────────────── */
 
 .domain-nwc-warning {
