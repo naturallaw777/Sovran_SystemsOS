@@ -26,10 +26,11 @@ import urllib.request
 from threading import Lock
 
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.requests import Request
+from html import escape as _html_escape
 from pydantic import BaseModel
 from starlette.middleware.base import BaseHTTPMiddleware
 
@@ -1341,20 +1342,99 @@ def _evaluate_domain_checklist(
 
 # ── QR code helper ────────────────────────────────────────────────
 
-def _generate_qr_base64(data: str) -> str | None:
-    """Generate a QR code PNG and return it as a base64-encoded data URI.
+def _generate_qr_png_bytes(data: str, scale: int = 6, margin: int = 2) -> bytes | None:
+    """Generate a QR code PNG and return the raw bytes.
     Uses qrencode CLI (available on the system via credentials.nix)."""
     try:
         result = subprocess.run(
-            ["qrencode", "-o", "-", "-t", "PNG", "-s", "6", "-m", "2", "-l", "H", data],
+            ["qrencode", "-o", "-", "-t", "PNG", "-s", str(scale), "-m", str(margin), "-l", "H", data],
             capture_output=True, timeout=10,
         )
         if result.returncode == 0 and result.stdout:
-            b64 = base64.b64encode(result.stdout).decode("ascii")
-            return f"data:image/png;base64,{b64}"
+            return result.stdout
     except Exception:
         pass
     return None
+
+
+def _generate_qr_svg(data: str, scale: int = 10, margin: int = 4) -> str | None:
+    """Generate a QR code SVG document (resolution-independent, ideal if the
+    user wants to embed the QR in a website or print it at any size)."""
+    try:
+        result = subprocess.run(
+            ["qrencode", "-o", "-", "-t", "SVG", "-s", str(scale), "-m", str(margin), "-l", "H", data],
+            capture_output=True, timeout=10,
+        )
+        if result.returncode == 0 and result.stdout:
+            return result.stdout.decode("utf-8", errors="replace")
+    except Exception:
+        pass
+    return None
+
+
+def _generate_qr_base64(data: str) -> str | None:
+    """Generate a QR code PNG and return it as a base64-encoded data URI."""
+    png = _generate_qr_png_bytes(data, scale=6, margin=2)
+    if png:
+        b64 = base64.b64encode(png).decode("ascii")
+        return f"data:image/png;base64,{b64}"
+    return None
+
+
+# ── Bech32 encoding (BIP-173) — used for LNURL strings (LUD-01) ──
+
+_BECH32_CHARSET = "qpzry9x8gf2tvdw0s3jn54khce6mua7l"
+_BECH32_GENERATOR = (0x3B6A57B2, 0x26508E6D, 0x1EA119FA, 0x3D4233DD, 0x2A1462B3)
+
+
+def _bech32_polymod(values: list[int]) -> int:
+    chk = 1
+    for value in values:
+        top = chk >> 25
+        chk = ((chk & 0x1FFFFFF) << 5) ^ value
+        for i in range(5):
+            if (top >> i) & 1:
+                chk ^= _BECH32_GENERATOR[i]
+    return chk
+
+
+def _bech32_hrp_expand(hrp: str) -> list[int]:
+    return [ord(c) >> 5 for c in hrp] + [0] + [ord(c) & 31 for c in hrp]
+
+
+def _bech32_create_checksum(hrp: str, data: list[int]) -> list[int]:
+    values = _bech32_hrp_expand(hrp) + data
+    polymod = _bech32_polymod(values + [0, 0, 0, 0, 0, 0]) ^ 1
+    return [(polymod >> (5 * (5 - i))) & 31 for i in range(6)]
+
+
+def _bech32_convertbits(data: bytes, frombits: int, tobits: int) -> list[int]:
+    acc = 0
+    bits = 0
+    ret: list[int] = []
+    maxv = (1 << tobits) - 1
+    for value in data:
+        acc = (acc << frombits) | value
+        bits += frombits
+        while bits >= tobits:
+            bits -= tobits
+            ret.append((acc >> bits) & maxv)
+    if bits:
+        ret.append((acc << (tobits - bits)) & maxv)
+    return ret
+
+
+def _bech32_encode(hrp: str, payload: bytes) -> str:
+    """Encode payload bytes as a bech32 string with the given HRP (BIP-173)."""
+    data = _bech32_convertbits(payload, 8, 5)
+    combined = data + _bech32_create_checksum(hrp, data)
+    return hrp + "1" + "".join(_BECH32_CHARSET[d] for d in combined)
+
+
+def _nwc_lnurl_bech32(alias: str, domain: str) -> str:
+    """Return the LUD-01 bech32 LNURL for a wallet connection alias."""
+    url = f"https://{domain}/.well-known/lnurlp/{alias}"
+    return _bech32_encode("lnurl", url.encode("utf-8"))
 
 
 # ── Update helpers (file-based, no systemctl) ────────────────────
@@ -4548,6 +4628,159 @@ async def api_nwc_test(alias: str):
     if not result.get("ok"):
         return _nwc_error(502, result.get("error", "public_endpoint_unreachable"), result.get("message", "Public endpoint verification failed."))
     return {"ok": True}
+
+
+# ── LNURL QR sharing (download / print) ───────────────────────────
+
+
+def _nwc_lnurl_context(wallet_identifier: str) -> tuple[dict | None, str | None, JSONResponse | None]:
+    """Resolve a wallet connection + domain for the LNURL QR endpoints.
+
+    Returns ``(wallet, domain, error_response)``. On success the error is
+    ``None``; on failure the wallet is ``None`` and the error is a ready-made
+    ``JSONResponse``. Blocking — call via ``loop.run_in_executor``.
+    """
+    domain = _nwc_domain()
+    if not domain:
+        return None, None, _nwc_error(503, "domain_not_configured", "Lightning Address domain is not configured.")
+    needle = wallet_identifier.strip().lower()
+    try:
+        wallets = _nwc_mgr.get_manager().list_wallets(domain)
+    except _nwc_mgr.AlbyHubError as exc:
+        return None, domain, _nwc_error(503, exc.code, exc.args[0])
+    for wallet in wallets:
+        wid = str(wallet.get("id", "")).lower()
+        wpk = str(wallet.get("pubkey", "")).lower()
+        if needle and needle in (wid, wpk):
+            if not wallet.get("alias"):
+                return None, domain, _nwc_error(404, "wallet_not_found", "Wallet connection has no Lightning Address alias.")
+            return wallet, domain, None
+    return None, domain, _nwc_error(404, "wallet_not_found", "Wallet connection not found.")
+
+
+def _nwc_lnurl_error_png() -> JSONResponse:
+    return _nwc_error(500, "qr_unavailable", "QR code generation failed on this system.")
+
+
+@app.get("/api/nwc/wallets/{wallet_identifier}/lnurl")
+async def api_nwc_wallet_lnurl(wallet_identifier: str):
+    """Return the bech32 LNURL + Lightning Address for a wallet connection."""
+    loop = asyncio.get_event_loop()
+    wallet, domain, err = await loop.run_in_executor(None, _nwc_lnurl_context, wallet_identifier)
+    if err:
+        return err
+    return {
+        "alias": wallet["alias"],
+        "lightning_address": wallet.get("lightning_address"),
+        "lnurl": _nwc_lnurl_bech32(wallet["alias"], domain),
+    }
+
+
+@app.get("/api/nwc/wallets/{wallet_identifier}/lnurl-qr.png")
+async def api_nwc_wallet_lnurl_qr_png(wallet_identifier: str, download: bool = False, scale: int = 10):
+    """Serve the LNURL QR code as a PNG (uppercase LNURL for scannability).
+
+    ``?download=1`` switches Content-Disposition to attachment so the browser
+    saves it with a meaningful filename. ``scale`` (qrencode pixel size) may be
+    raised for high-resolution display, e.g. the print page.
+    """
+    loop = asyncio.get_event_loop()
+    wallet, domain, err = await loop.run_in_executor(None, _nwc_lnurl_context, wallet_identifier)
+    if err:
+        return err
+    scale = max(1, min(scale, 40))
+    lnurl_qr = _nwc_lnurl_bech32(wallet["alias"], domain).upper()
+    png = await loop.run_in_executor(None, lambda: _generate_qr_png_bytes(lnurl_qr, scale=scale, margin=4))
+    if png is None:
+        return _nwc_lnurl_error_png()
+    filename = f"lightning-{wallet['alias']}-{domain}.png"
+    disposition = "attachment" if download else "inline"
+    return Response(
+        content=png,
+        media_type="image/png",
+        headers={
+            "Content-Disposition": f'{disposition}; filename="{filename}"',
+            "Cache-Control": "no-store",
+        },
+    )
+
+
+@app.get("/api/nwc/wallets/{wallet_identifier}/lnurl-qr.svg")
+async def api_nwc_wallet_lnurl_qr_svg(wallet_identifier: str, download: bool = False):
+    """Serve the LNURL QR code as an SVG — resolution-independent, so it stays
+    perfectly sharp when printed at any size or embedded on a website."""
+    loop = asyncio.get_event_loop()
+    wallet, domain, err = await loop.run_in_executor(None, _nwc_lnurl_context, wallet_identifier)
+    if err:
+        return err
+    lnurl_qr = _nwc_lnurl_bech32(wallet["alias"], domain).upper()
+    svg = await loop.run_in_executor(None, lambda: _generate_qr_svg(lnurl_qr, margin=4))
+    if svg is None:
+        return _nwc_error(500, "qr_unavailable", "QR code generation failed on this system.")
+    filename = f"lightning-{wallet['alias']}-{domain}.svg"
+    disposition = "attachment" if download else "inline"
+    return Response(
+        content=svg.encode("utf-8"),
+        media_type="image/svg+xml",
+        headers={
+            "Content-Disposition": f'{disposition}; filename="{filename}"',
+            "Cache-Control": "no-store",
+        },
+    )
+
+
+@app.get("/api/nwc/wallets/{wallet_identifier}/lnurl-qr/print")
+async def api_nwc_wallet_lnurl_qr_print(wallet_identifier: str):
+    """Print-ready LNURL payment card — opens the browser print dialog."""
+    loop = asyncio.get_event_loop()
+    wallet, domain, err = await loop.run_in_executor(None, _nwc_lnurl_context, wallet_identifier)
+    if err:
+        return err
+    address = wallet.get("lightning_address") or f"{wallet['alias']}@{domain}"
+    name = _html_escape(str(wallet.get("name") or "Wallet"))
+    addr_html = _html_escape(address)
+    img_src = f"/api/nwc/wallets/{urllib.parse.quote(wallet_identifier, safe='')}/lnurl-qr.png?scale=24"
+    html_doc = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{addr_html}</title>
+<style>
+  body {{ font-family: system-ui, sans-serif; display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:95vh; margin:0; color:#111; }}
+  .card {{ text-align:center; padding:28px 36px; border:2px solid #111; border-radius:18px; max-width:90vw; }}
+  h1 {{ font-size:20px; margin:0 0 18px; font-weight:700; }}
+  img {{ width:64mm; max-width:70vw; image-rendering:pixelated; }}
+  .addr {{ font-family:ui-monospace, monospace; font-size:15px; margin-top:18px; word-break:break-all; }}
+  .hint {{ font-size:12px; color:#555; margin-top:10px; }}
+  .actions {{ margin-top:22px; display:flex; gap:12px; }}
+  .actions button {{ font:inherit; padding:10px 22px; border-radius:10px; border:1px solid #111; background:#111; color:#fff; cursor:pointer; }}
+  .actions button.secondary {{ background:#fff; color:#111; }}
+  @media print {{ .actions {{ display:none; }} body {{ min-height:auto; }} }}
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1>Pay {name} with Bitcoin ⚡</h1>
+    <img src="{img_src}" alt="LNURL QR code for {addr_html}">
+    <div class="addr">{addr_html}</div>
+    <div class="hint">Scan with any Lightning wallet — this QR never expires.</div>
+  </div>
+  <div class="actions">
+    <button onclick="window.print()">🖨 Print</button>
+    <button class="secondary" onclick="window.close()">Close</button>
+  </div>
+  <script>
+    window.addEventListener("load", function () {{
+      var img = document.querySelector("img");
+      function go() {{ setTimeout(function () {{ window.print(); }}, 250); }}
+      if (img && !img.complete) {{ img.addEventListener("load", go); img.addEventListener("error", go); }}
+      else {{ go(); }}
+    }});
+  </script>
+</body>
+</html>"""
+    return HTMLResponse(content=html_doc, headers={"Cache-Control": "no-store"})
 
 
 
