@@ -284,23 +284,19 @@ function openPortRequirementsModal(featureName, ports, onContinue) {
         '<td class="port-req-proto">' + escHtml(p.protocol) + '</td>' +
         '<td class="port-req-desc">' + escHtml(p.description) + '</td></tr>';
     }).join("");
-    var ipLine = internalIp
-      ? '<p class="port-req-intro">Forward each port below <strong>to this machine\'s internal IP: <code class="port-req-internal-ip">' + escHtml(internalIp) + '</code></strong></p>'
-      : "<p class=\"port-req-intro\">Forward each port below to this machine's internal LAN IP in your router's port forwarding settings.</p>";
+    var ipPart = internalIp
+      ? ' to this computer&rsquo;s internal IP <code class="port-req-internal-ip">' + escHtml(internalIp) + '</code>'
+      : " to this computer's internal IP";
 
     $portReqBody.innerHTML =
-      '<p class="port-req-intro"><strong>Port Forwarding Required</strong></p>' +
-      '<p class="port-req-intro">For <strong>' + escHtml(featureName) + "</strong> to work with clients outside your local network, " +
-      "you must configure <strong>port forwarding</strong> in your router's admin panel.</p>" +
-      ipLine +
+      '<p class="port-req-intro">For <strong>' + escHtml(featureName) + '</strong> to work for people outside your home network, ' +
+      'forward each port below' + ipPart + " in your router's port-forwarding settings. " +
+      'Set the internal and external port to the same number.</p>' +
       '<table class="port-req-table">' +
       '<thead><tr><th>Port(s)</th><th>Protocol</th><th>Purpose</th></tr></thead>' +
       '<tbody>' + rows + '</tbody>' +
       '</table>' +
-      "<p class=\"port-req-hint\"><strong>How to verify:</strong> Router-side forwarding cannot be checked from inside your network. " +
-      "To confirm ports are forwarded correctly, test from a device on a different network (e.g. a phone on mobile data) " +
-      "or check your router's port forwarding page.</p>" +
-      '<p class="port-req-hint">ℹ Search "<em>how to set up port forwarding on [your router model]</em>" for step-by-step instructions.</p>' +
+      '<p class="port-req-hint">💡 You can review these ports with live status any time on the <strong>' + escHtml(featureName) + '</strong> tile after enabling.</p>' +
       '<div class="domain-field-actions">' +
       '<button class="btn btn-close-modal" id="port-req-dismiss-btn">Dismiss</button>' +
       continueBtn +

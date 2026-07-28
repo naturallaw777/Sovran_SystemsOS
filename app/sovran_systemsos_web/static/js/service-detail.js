@@ -518,12 +518,9 @@ async function openServiceDetailModal(unit, name, icon) {
         var trimmedInternalIp = data.internal_ip ? String(data.internal_ip).trim() : "";
         var internalIp = trimmedInternalIp || "";
         var internalIpHtml = internalIp ? escHtml(internalIp) : "Could not detect";
-        var routerIpHelp = internalIp
-          ? "Use this IP address as the destination/internal IP when creating each router forwarding rule."
-          : "Use this computer’s internal IP as the destination/internal IP when creating each router forwarding rule.";
-        var routerNextStep = internalIp
-          ? 'Next step: Log in to your router and create forwarding rules for the ports above. Set the destination/internal IP to <strong>' + internalIpHtml + '</strong>.'
-          : 'Next step: Log in to your router and create forwarding rules for the ports above. Use this computer’s internal IP as the destination/internal IP.';
+        var forwardNote = internalIp
+          ? 'Forward each port below in your router to this computer&rsquo;s internal IP <code class="port-req-internal-ip">' + internalIpHtml + '</code>, using the same internal and external port.'
+          : 'Forward each port below in your router to this computer&rsquo;s internal IP, using the same internal and external port.';
         var domainConfigured = !!(data.domain && String(data.domain).trim());
         var extraRows = "";
         data.extra_ports.forEach(function(p) {
@@ -556,15 +553,12 @@ async function openServiceDetailModal(unit, name, icon) {
         });
         html += '<div class="svc-detail-section">' +
           '<div class="svc-detail-section-title">Ports to Forward in Your Router</div>' +
-          '<div class="svc-detail-port-note">Forward these ports in your router to this Sovran_SystemsOS computer.</div>' +
-          '<div class="svc-detail-port-note"><strong>Router Forward-To IP:</strong> ' + internalIpHtml + '</div>' +
-          '<div class="svc-detail-port-note">' + routerIpHelp + '</div>' +
+          '<div class="svc-detail-port-note">' + forwardNote + '</div>' +
           '<table class="svc-detail-port-table">' +
             '<thead><tr><th>Port</th><th>Protocol</th><th>Used For</th><th>Sovran_SystemsOS Status</th></tr></thead>' +
             '<tbody>' + extraRows + '</tbody>' +
           '</table>' +
-          '<div class="svc-detail-port-note">The Hub can check whether Sovran_SystemsOS is ready on this computer, but full public port verification requires an outside internet check.</div>' +
-          '<div class="svc-detail-port-note">' + routerNextStep + '</div>' +
+          '<div class="svc-detail-port-note">✅ = Sovran_SystemsOS is ready on this computer. Router-side forwarding itself can only be verified from outside your network (e.g. a phone on mobile data).</div>' +
           '</div>';
       }
     } else if (data.port_statuses && data.port_statuses.length > 0) {

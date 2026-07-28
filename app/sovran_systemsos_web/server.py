@@ -3995,6 +3995,14 @@ async def api_features_toggle(req: FeatureToggleRequest):
 
     await loop.run_in_executor(None, _write_hub_overrides, features, nostr_npub, cur_tz, cur_locale)
 
+    # When enabling a feature that relies on dynamic DNS, refresh the Njal.la
+    # records right away instead of waiting for the 15-minute cron tick.
+    # The newly enabled service needs DNS pointing at this machine as soon as
+    # the rebuild finishes (cert issuance, reachability).
+    if req.enabled and feat_meta.get("needs_ddns"):
+        await loop.run_in_executor(None, _ensure_njalla_script)
+        await loop.run_in_executor(None, _run_njalla_ddns)
+
     # Clear the old rebuild log so the frontend doesn't pick up stale results
     try:
         open(REBUILD_LOG, "w").close()
@@ -4089,6 +4097,58 @@ def _chown_to_caddy(path: str) -> None:
 def _validate_safe_name(name: str) -> bool:
     """Return True if name contains only safe path characters (no separators)."""
     return bool(name) and _SAFE_NAME_RE.match(name) is not None
+
+
+def _ensure_njalla_script() -> None:
+    """Create the base njalla.sh (shebang + public-IP lookup) if it is missing.
+
+    The Hub appends DDNS curl lines to this script, and those lines use ${IP}.
+    If the file exists only because of an append (e.g. the web app saved a
+    domain before the njalla-init systemd unit ran), it would lack the IP
+    lookup — ${IP} would expand empty during cron runs and the file couldn't
+    be executed directly. Keep in sync with modules/core/njalla.nix.
+    """
+    njalla_dir = os.path.dirname(NJALLA_SCRIPT)
+    if njalla_dir:
+        os.makedirs(njalla_dir, exist_ok=True)
+    existing = ""
+    try:
+        with open(NJALLA_SCRIPT, "r") as f:
+            existing = f.read()
+    except OSError:
+        pass
+    if "myip.opendns.com" in existing:
+        return  # base header already present
+    header = (
+        "#!/usr/bin/env bash\n"
+        "IP=$(dig @resolver4.opendns.com myip.opendns.com +short -4)\n\n"
+        "## Add DDNS entries below — one curl per line\n"
+        "## Managed via Sovran Hub web interface\n"
+    )
+    try:
+        with open(NJALLA_SCRIPT, "w") as f:
+            f.write(header + existing)
+        os.chmod(NJALLA_SCRIPT, 0o755)
+    except OSError:
+        pass
+
+
+def _run_njalla_ddns() -> None:
+    """Run the Njal.la DDNS script immediately (best-effort).
+
+    Called when a domain/DDNS entry is saved and when a DDNS-backed feature
+    is enabled, so DNS is refreshed right away instead of waiting for the
+    15-minute cron job (see configuration.nix).
+    """
+    if not os.path.isfile(NJALLA_SCRIPT):
+        return
+    try:
+        subprocess.run(
+            ["bash", NJALLA_SCRIPT], timeout=30, check=False,
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        )
+    except Exception:
+        pass
 
 
 # Hostname characters: letters, digits, hyphens only within labels; dots separate labels.
@@ -4194,10 +4254,9 @@ async def api_domains_set(req: DomainSetRequest):
         # Replace trailing &auto with &a=${IP}
         if ddns_url.endswith("&auto"):
             ddns_url = ddns_url[:-5] + "&a=${IP}"
-        # Append curl line to njalla.sh
-        njalla_dir = os.path.dirname(NJALLA_SCRIPT)
-        if njalla_dir:
-            os.makedirs(njalla_dir, exist_ok=True)
+        # Append curl line to njalla.sh, creating the base script first if
+        # needed so the shebang/IP lookup are present for this run and cron.
+        _ensure_njalla_script()
         with open(NJALLA_SCRIPT, "a") as f:
             f.write(f'curl "{ddns_url}"\n')
         try:
@@ -4205,10 +4264,7 @@ async def api_domains_set(req: DomainSetRequest):
         except OSError:
             pass
         # Run njalla.sh immediately to update DNS
-        try:
-            subprocess.run([NJALLA_SCRIPT], timeout=30, check=False)
-        except Exception:
-            pass
+        _run_njalla_ddns()
 
     # Regenerate the server-local /etc/hosts loopback entries so the newly
     # saved domain is immediately reachable on this computer without NAT
