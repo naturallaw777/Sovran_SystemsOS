@@ -108,7 +108,7 @@ presents and manages the features available on your system.
 
 - Bitcoin Knots, Electrs, and Tor integration
 - LND and Ride The Lightning, with [Alby Hub](https://albyhub.com) for Nostr
-  Wallet Connect
+  Wallet Connect (NWC) connections
 - BTCPay Server
 - Sparrow Wallet, Bisq, and Bisq 2, with automatic wallet-to-node connections
 - Optional: a self-hosted [Mempool](https://github.com/mempool/mempool)
@@ -120,7 +120,8 @@ Run your own Bitcoin infrastructure. Verify your own money. Trust no one.
 
 - The [Synapse](https://github.com/element-hq/synapse) homeserver (Matrix) and
   the [Element](https://element.io) client
-- Optional Matrix-native calling
+- Optional Matrix-native Element audio and video calling, powered by
+  [LiveKit](https://livekit.io)
 - Optional [Haven](https://github.com/bitvora/haven)
   [Nostr](https://github.com/nostr-protocol/nostr) relay
 
@@ -578,9 +579,9 @@ rebuilds the machine into the selected declarative state.
 | Bitcoin and Lightning stack | `modules/bitcoinecosystem.nix` |
 | Automatic wallet-to-node connections | `modules/wallet-autoconnect.nix` |
 | Optional Bitcoin Core in place of Knots | `modules/bitcoin-core.nix` |
-| Alby Hub and Nostr Wallet Connect on LND | `modules/nwc-wallets.nix`, `packages/albyhub/` |
+| Alby Hub and Nostr Wallet Connect (NWC) on LND | `modules/nwc-wallets.nix`, `packages/albyhub/` |
 | Matrix Synapse | `modules/synapse.nix` |
-| Optional Matrix calling | `modules/element-calling.nix` |
+| Optional Element audio and video calling via LiveKit | `modules/element-calling.nix` |
 | Optional Haven Nostr relay | `modules/haven.nix` |
 | Nextcloud, Vaultwarden, WordPress | `modules/nextcloud.nix`, `modules/vaultwarden.nix`, `modules/wordpress.nix`, `modules/php.nix` |
 | Optional Mempool explorer | `modules/mempool.nix` |
@@ -664,6 +665,8 @@ Sovran_SystemsOS also depends on the work of the developers and communities behi
 - [Electrs](https://github.com/romanz/electrs)
 - [LND](https://github.com/lightningnetwork/lnd)
 - [Ride The Lightning](https://github.com/Ride-The-Lightning/RTL)
+- [Alby Hub](https://github.com/getAlby/hub) for Nostr Wallet Connect (NWC)
+  connections
 - [BTCPay Server](https://github.com/btcpayserver/btcpayserver)
 - [Tor](https://www.torproject.org)
 - [NixOS](https://github.com/NixOS/nixpkgs)
@@ -672,6 +675,8 @@ Sovran_SystemsOS also depends on the work of the developers and communities behi
 - [Nextcloud](https://github.com/nextcloud/server)
 - [Matrix Synapse](https://github.com/element-hq/synapse)
 - [Element](https://github.com/element-hq/element-web)
+- [LiveKit](https://github.com/livekit/livekit) for Element audio and video
+  calling
 - [Vaultwarden](https://github.com/dani-garcia/vaultwarden)
 - [WordPress](https://github.com/WordPress/WordPress)
 - Every other upstream project included in the system
