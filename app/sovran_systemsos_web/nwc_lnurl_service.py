@@ -18,11 +18,14 @@ import json
 import logging
 import os
 import re
+import time
 import urllib.parse
+from collections import defaultdict
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import TYPE_CHECKING
 
 from . import nwc_hub_manager as _mgr_mod
+from . import nwc_audit as _audit_mod
 
 if TYPE_CHECKING:
     from .nwc_hub_manager import AlbyHubManager
@@ -37,6 +40,11 @@ DOMAIN_FILE = "/var/lib/domains/lightning"
 
 NWC_ALIAS_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,31}$")
 
+# Rate limiting configuration
+RATE_LIMIT_WINDOW_SEC = 60
+RATE_LIMIT_MAX_REQUESTS = 30
+_rate_limit_buckets: dict[str, list[float]] = defaultdict(list)
+
 # ── Helpers ───────────────────────────────────────────────────────
 
 
@@ -44,15 +52,34 @@ def _read_domain() -> str | None:
     try:
         with open(DOMAIN_FILE, "r") as fh:
             raw = fh.read(256).strip().lower()
-        # Basic validation: must look like a hostname
-        if re.match(r"^[a-z0-9][a-z0-9.\-]{1,253}$", raw):
-            return raw
+        # Strict FQDN validation: must be a valid hostname with at least one dot
+        # Reject localhost, IP addresses, and single-label names
+        if not re.match(r"^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$", raw):
+            return None
+        # Explicitly reject local/reserved names
+        if raw in {"localhost", "localhost.localdomain", "local"}:
+            return None
+        return raw
     except OSError:
         pass
     return None
 
 
-def _lnurl_discovery(alias: str, manager: "AlbyHubManager") -> tuple[dict, int]:
+def _check_rate_limit(client_ip: str) -> bool:
+    """Check and update rate limit bucket for client IP. Returns True if allowed."""
+    now = time.monotonic()
+    bucket = _rate_limit_buckets[client_ip]
+    # Prune old entries
+    cutoff = now - RATE_LIMIT_WINDOW_SEC
+    while bucket and bucket[0] < cutoff:
+        bucket.pop(0)
+    if len(bucket) >= RATE_LIMIT_MAX_REQUESTS:
+        return False
+    bucket.append(now)
+    return True
+
+
+def _lnurl_discovery(alias: str, manager: "AlbyHubManager", client_ip: str = "") -> tuple[dict, int]:
     alias = alias.strip().lower()
     if not NWC_ALIAS_RE.match(alias):
         return {"status": "ERROR", "reason": "Unknown Lightning Address alias"}, 404
@@ -82,6 +109,16 @@ def _lnurl_discovery(alias: str, manager: "AlbyHubManager") -> tuple[dict, int]:
     description = meta.get("lnurl_description") or f"Pay {alias}"
     metadata = json.dumps([["text/plain", description]], separators=(",", ":"))
 
+    # Audit log: LNURL discovery
+    _audit_mod.audit_log(
+        "lnurl_discovery",
+        alias=alias,
+        domain=domain,
+        client_ip=client_ip,
+        min_sendable_msat=min_sendable,
+        max_sendable_msat=max_sendable,
+    )
+
     return {
         "tag": "payRequest",
         "callback": callback,
@@ -93,9 +130,9 @@ def _lnurl_discovery(alias: str, manager: "AlbyHubManager") -> tuple[dict, int]:
 
 
 def _lnurl_callback(
-    alias: str, amount_str: str | None, manager: "AlbyHubManager"
+    alias: str, amount_str: str | None, manager: "AlbyHubManager", client_ip: str = ""
 ) -> tuple[dict, int]:
-    payload, status_code = _lnurl_discovery(alias, manager)
+    payload, status_code = _lnurl_discovery(alias, manager, client_ip)
     if status_code != 200:
         return payload, status_code
 
@@ -144,6 +181,16 @@ def _lnurl_callback(
     except _mgr_mod.AlbyHubError:
         return {"status": "ERROR", "reason": "Invoice creation failed"}, 502
 
+    # Audit log: Invoice generated via LNURL
+    _audit_mod.audit_log(
+        "lnurl_invoice_created",
+        alias=alias,
+        amount_msat=amount_msat,
+        amount_sat=amount_msat // 1000,
+        client_ip=client_ip,
+        invoice_prefix=invoice[:50] + "..." if len(invoice) > 50 else invoice,
+    )
+
     return {"pr": invoice, "routes": []}, 200
 
 
@@ -167,10 +214,38 @@ def _make_handler(manager: "AlbyHubManager") -> type:
             self.end_headers()
             self.wfile.write(raw)
 
+        def _get_client_ip(self) -> str:
+            # Check X-Forwarded-For header (set by Caddy)
+            forwarded = self.headers.get("X-Forwarded-For")
+            if forwarded:
+                # Take the first IP in the chain
+                return forwarded.split(",")[0].strip()
+            # Fallback to direct connection IP
+            return self.client_address[0]
+
+        def _check_rate_limit(self) -> bool:
+            client_ip = self._get_client_ip()
+            if not _check_rate_limit(client_ip):
+                self._send_json(429, {
+                    "status": "ERROR",
+                    "reason": "Rate limit exceeded. Please slow down."
+                })
+                _audit_mod.audit_log(
+                    "rate_limit_exceeded",
+                    client_ip=client_ip,
+                    path=self.path,
+                )
+                return False
+            return True
+
         def do_GET(self) -> None:  # noqa: N802
+            if not self._check_rate_limit():
+                return
+
             parsed = urllib.parse.urlparse(self.path)
             path = parsed.path
             qs = urllib.parse.parse_qs(parsed.query)
+            client_ip = self._get_client_ip()
 
             # /.well-known/lnurlp/{alias}
             m = re.fullmatch(
@@ -178,7 +253,7 @@ def _make_handler(manager: "AlbyHubManager") -> type:
             )
             if m:
                 alias = urllib.parse.unquote(m.group(1))
-                payload, code = _lnurl_discovery(alias, self._manager)
+                payload, code = _lnurl_discovery(alias, self._manager, client_ip)
                 self._send_json(code, payload)
                 return
 
@@ -200,7 +275,7 @@ def _make_handler(manager: "AlbyHubManager") -> type:
                     return
                 else:
                     amount_str = amount_values[0]
-                payload, code = _lnurl_callback(alias, amount_str, self._manager)
+                payload, code = _lnurl_callback(alias, amount_str, self._manager, client_ip)
                 self._send_json(code, payload)
                 return
 
