@@ -29,10 +29,30 @@ CYAN='\033[0;36m'
 NC='\033[0m'
 
 # Configuration
-GITEA_REMOTE="gitea"
-GITHUB_REMOTE="origin"
+GITEA_REMOTE_DEFAULT="gitea"
+GITHUB_REMOTE_DEFAULT="origin"
 GITEA_API_URL="https://git.sovransystems.com/api/v1"
 CHANGELOG_FILE="CHANGELOG.md"
+
+# Auto-detect remotes
+detect_remote() {
+    local preferred="$1"
+    local keyword="$2"
+    if git remote | grep -q -x "$preferred"; then
+        echo "$preferred"
+        return
+    fi
+    local found
+    found=$(git remote -v | grep -i "$keyword" | head -n 1 | awk '{print $1}')
+    if [[ -n "$found" ]]; then
+        echo "$found"
+        return
+    fi
+    echo "$preferred"
+}
+
+GITEA_REMOTE=$(detect_remote "$GITEA_REMOTE_DEFAULT" "sovransystems\|gitea")
+GITHUB_REMOTE=$(detect_remote "$GITHUB_REMOTE_DEFAULT" "github")
 
 echo -e "${BLUE}╔════════════════════════════════════════════════════════════╗${NC}"
 echo -e "${BLUE}║     Sovran_SystemsOS Automated Stable Release Script       ║${NC}"
@@ -139,7 +159,11 @@ fi
 # ─────────────────────────────────────────────────────────────────────────────
 echo
 echo -e "${BLUE}Step 1: Pushing main → stable on Gitea...${NC}"
-git push "${GITEA_REMOTE}" main:stable --force-with-lease
+if git remote | grep -q -x "${GITEA_REMOTE}"; then
+    git push "${GITEA_REMOTE}" main:stable --force-with-lease || echo -e "  ${YELLOW}⚠ Push to ${GITEA_REMOTE} failed.${NC}"
+else
+    echo -e "  ${YELLOW}⚠ Remote '${GITEA_REMOTE}' not found in git — skipping Gitea push.${NC}"
+fi
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Step 2: Create annotated tag
@@ -149,9 +173,13 @@ echo -e "${BLUE}Step 2: Creating annotated tag ${TAG}...${NC}"
 git tag -a "${TAG}" -m "${RELEASE_MESSAGE}
 
 - Stable release of Sovran_SystemsOS
-- See CHANGELOG.md for full details"
+- See CHANGELOG.md for full details" || true
 
-git push "${GITEA_REMOTE}" "${TAG}"
+if git remote | grep -q -x "${GITEA_REMOTE}"; then
+    git push "${GITEA_REMOTE}" "${TAG}" || echo -e "  ${YELLOW}⚠ Tag push to ${GITEA_REMOTE} failed.${NC}"
+else
+    echo -e "  ${YELLOW}⚠ Remote '${GITEA_REMOTE}' not found in git — skipping Gitea tag push.${NC}"
+fi
 
 # Update VERSION file for ISO builds
 echo "${VERSION}" > VERSION
@@ -199,6 +227,7 @@ if [ -f "$CHANGELOG_FILE" ]; then
         }
         { print }
     ' "$CHANGELOG_FILE" > "${CHANGELOG_FILE}.tmp" && mv "${CHANGELOG_FILE}.tmp" "$CHANGELOG_FILE"
+    rm -f "${CHANGELOG_FILE}.bak"
 
     echo -e "  ${GREEN}✓${NC} CHANGELOG.md updated with new section for ${TAG}"
 else
@@ -217,9 +246,16 @@ else
     echo
     read -rp "Push the changelog commit to GitHub now? (y/N): " push_confirm
     if [[ "$push_confirm" =~ ^[Yy]$ ]]; then
-        echo -e "${BLUE}Pushing changelog commit...${NC}"
-        git push "${GITHUB_REMOTE}" main
-        echo -e "  ${GREEN}✓${NC} Changelog pushed to GitHub"
+        if git remote | grep -q -x "${GITHUB_REMOTE}"; then
+            echo -e "${BLUE}Pushing changelog commit...${NC}"
+            if git push "${GITHUB_REMOTE}" main; then
+                echo -e "  ${GREEN}✓${NC} Changelog pushed to GitHub (${GITHUB_REMOTE})"
+            else
+                echo -e "  ${YELLOW}⚠ Push to GitHub failed — verify credentials or remote name.${NC}"
+            fi
+        else
+            echo -e "  ${YELLOW}⚠ Remote '${GITHUB_REMOTE}' not found — skipping push to GitHub.${NC}"
+        fi
     else
         echo "  (Changelog commit left local — remember to push later)"
     fi
