@@ -675,11 +675,14 @@ async function openServiceDetailModal(unit, name, icon) {
       ? 'This service does not expose a single package version'
       : (effectiveEnabled ? 'Version could not be detected' : 'Start the service to detect its version'));
     var versionBadge = serviceVersion ? 'Detected' : (versionNotApplicable ? 'Not applicable' : 'Not detected');
-    addSetup('<div class="svc-detail-version-card svc-detail-version-card--' + versionState + '">' +
-      '<div class="svc-detail-version-icon">⌁</div>' +
-      '<div class="svc-detail-version-copy"><div class="svc-detail-version-label">Installed version ' +
-        '<span class="svc-detail-version-state">' + versionBadge + '</span></div>' +
-      '<div class="svc-detail-version-value">' + escHtml(versionText) + '</div></div>' +
+    // Version is useful supporting information, but not the primary reason for
+    // opening this modal. Keep it as a quiet metadata row instead of a large
+    // callout so it does not compete with status and service actions.
+    addSetup('<div class="svc-detail-version-row svc-detail-version-row--' + versionState + '"' +
+      ' title="' + escHtml(versionText) + '">' +
+      '<span class="svc-detail-version-icon" aria-hidden="true">⌁</span>' +
+      '<span class="svc-detail-version-label">Version</span>' +
+      '<span class="svc-detail-version-value">' + escHtml(serviceVersion || versionBadge) + '</span>' +
       '</div>');
 
     // Section B2: BIP-110 live status (bip110 tile only)
