@@ -34,7 +34,7 @@ from html import escape as _html_escape
 from pydantic import BaseModel
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from .config import load_config
+from .config import load_config, load_versions
 from . import systemctl as sysctl
 from . import nwc_hub_manager as _nwc_mgr
 
@@ -2550,15 +2550,20 @@ _SVC_VERSION_CACHE_TTL = 300  # 5 minutes — versions only change on system upd
 
 
 def _get_service_version(unit: str) -> str | None:
-    """Extract the version of a service from its Nix store ExecStart path.
+    """Extract the version of a service.
 
-    Runs ``systemctl show <unit> --property=ExecStart --value`` and parses
-    the Nix store path embedded in the output to obtain the package version.
-
-    Results are cached for _SVC_VERSION_CACHE_TTL seconds so that repeated
-    /api/services polls don't spawn extra processes on every request.
-    Returns None if the version cannot be determined.
+    Checks the Nix-generated build-time versions reference file (loaded via load_versions()) first.
+    Falls back to running ``systemctl show <unit> --property=ExecStart --value`` and parsing
+    the Nix store path embedded in the output if the reference file is missing or incomplete.
     """
+    try:
+        versions_ref = load_versions()
+        ver = versions_ref.get(unit)
+        if ver and ver != "unknown":
+            return ver if ver.startswith("v") else f"v{ver}"
+    except Exception:
+        pass
+
     now = time.monotonic()
     cached = _svc_version_cache.get(unit)
     if cached is not None:

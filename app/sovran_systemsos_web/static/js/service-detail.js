@@ -623,6 +623,20 @@ async function openServiceDetailModal(unit, name, icon) {
     if (icon) url += "?icon=" + encodeURIComponent(icon);
     var data = await apiFetch(url);
 
+    // Append version badge next to title if version is detected
+    var serviceVersion = data.version || data.bitcoin_version || '';
+    if (serviceVersion && $credsTitle) {
+      var existingBadge = $credsTitle.querySelector(".creds-title-version-badge");
+      if (existingBadge) {
+        existingBadge.textContent = serviceVersion;
+      } else {
+        var badge = document.createElement("span");
+        badge.className = "creds-title-version-badge";
+        badge.textContent = serviceVersion;
+        $credsTitle.appendChild(badge);
+      }
+    }
+
     // Two content buckets. For most services everything lands in `html` and is
     // rendered as one column, exactly as before. For Lightning Wallet
     // Connections the day-to-day wallet manager (html) is split away from the
@@ -666,8 +680,6 @@ async function openServiceDetailModal(unit, name, icon) {
     // These services are wrappers, setup helpers, or application stacks rather
     // than a single versioned daemon represented by the tile's systemd unit.
     var versionNotApplicable = [
-      'phpfpm-wordpress.service', 'phpfpm-nextcloud.service',
-      'albyhub.service', 'nwc-wallets.service',
       'zeus-connect-setup.service', 'sparrow-autoconnect.service'
     ].indexOf(unit) !== -1;
     var versionState = serviceVersion ? 'detected' : (versionNotApplicable ? 'not-applicable' : 'unavailable');
