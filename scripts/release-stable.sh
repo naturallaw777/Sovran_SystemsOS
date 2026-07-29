@@ -68,7 +68,7 @@ suggest_next_version() {
 # Step 0: Fetch everything
 # ─────────────────────────────────────────────────────────────────────────────
 echo -e "${BLUE}Step 0: Fetching latest from all remotes...${NC}"
-git fetch --all --tags --prune
+git fetch --all --tags --prune --force || git fetch --all --tags --prune --force 2>/dev/null || true
 
 LATEST_TAG=$(get_latest_tag)
 NEXT_VERSION=$(suggest_next_version "$LATEST_TAG")
