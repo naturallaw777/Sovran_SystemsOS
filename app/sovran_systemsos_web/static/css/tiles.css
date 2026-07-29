@@ -256,44 +256,6 @@
   color: var(--text-primary);
 }
 
-/* Version is secondary metadata: keep it available without making it a focal point. */
-.svc-detail-version-row {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  margin: -2px 0 16px;
-  padding: 4px 0;
-  color: var(--text-dim);
-  font-size: 0.74rem;
-  opacity: 0.78;
-}
-
-.svc-detail-version-icon {
-  color: var(--text-dim);
-  font-size: 1rem;
-  line-height: 1;
-  opacity: 0.7;
-}
-
-.svc-detail-version-label {
-  font-weight: 600;
-}
-
-.svc-detail-version-value {
-  min-width: 0;
-  color: var(--text-secondary);
-  font-family: 'JetBrains Mono', 'Fira Code', monospace;
-  font-size: 0.74rem;
-  word-break: break-word;
-}
-
-.svc-detail-version-row--unavailable .svc-detail-version-value,
-.svc-detail-version-row--not-applicable .svc-detail-version-value {
-  color: var(--text-dim);
-  font-family: inherit;
-  font-style: italic;
-}
-
 /* ── Service detail: Domain ──────────────────────────────────────── */
 
 .svc-detail-domain-value {
