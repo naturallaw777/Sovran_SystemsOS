@@ -36,6 +36,9 @@ def main(argv: list[str] | None = None) -> int:
     addr_show = addr_sub.add_parser("show")
     addr_show.add_argument("alias")
 
+    rotate = sub.add_parser("rotate")
+    rotate.add_argument("wallet")
+
     sub.add_parser("health")
 
     args = parser.parse_args(argv)
@@ -78,6 +81,19 @@ def main(argv: list[str] | None = None) -> int:
             print(f"Error: {exc.code} - {exc}", file=sys.stderr)
             return 1
         _print(result)
+        return 0
+
+    if args.cmd == "rotate":
+        try:
+            result = manager.rotate_wallet_secret(args.wallet)
+        except _mgr_mod.AlbyHubError as exc:
+            print(f"Error: {exc.code} - {exc}", file=sys.stderr)
+            return 1
+        _print({
+            "wallet_id": result.get("wallet_id", ""),
+            "pairing_uri": result.get("pairing_uri", ""),
+            "message": result.get("message", "New NWC connection secret generated. Save it now — it will not be shown again."),
+        })
         return 0
 
     if args.cmd == "create":

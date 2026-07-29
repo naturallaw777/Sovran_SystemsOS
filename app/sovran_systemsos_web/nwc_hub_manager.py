@@ -14,12 +14,15 @@ import json
 import logging
 import os
 import re
+import secrets
 import threading
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
 from typing import Any
+
+from . import nwc_audit as _audit_mod
 
 logger = logging.getLogger(__name__)
 
@@ -197,6 +200,12 @@ class AlbyHubManager:
                 break
             offset += page_size
         return results
+
+    # ── Audit log helper ───────────────────────────────────────────
+
+    def _audit(self, event: str, **fields: Any) -> None:
+        """Emit structured audit log entry."""
+        _audit_mod.audit_log(event, **fields)
 
     # ── Startup / Auth ─────────────────────────────────────────────
 
@@ -514,6 +523,19 @@ class AlbyHubManager:
                     "Do not recreate this wallet."
                 )
 
+        # Audit log: wallet created
+        self._audit(
+            "wallet_created",
+            wallet_id=str(app_id) if app_id else "unknown",
+            name=name,
+            alias=alias,
+            access_preset=access_preset,
+            spending_limit_sats=spending_limit_sats,
+            lightning_address=wallet_meta.get("lightning_address"),
+            funding_attempted=funding_result["attempted"],
+            funding_success=funding_result["success"],
+        )
+
         return {
             "wallet": wallet_meta,
             "pairing_uri": pairing_uri,  # returned once on create only
@@ -626,6 +648,16 @@ class AlbyHubManager:
                 "Drain verification failed: final balance does not match expected dust.",
             )
 
+        # Audit log: wallet drained
+        self._audit(
+            "wallet_drained",
+            wallet_id=str(app_id),
+            name=app.get("name", ""),
+            alias=app.get("alias", ""),
+            drained_sats=drained_sats,
+            dust_msat=expected_dust_msat,
+        )
+
         return {
             "ok": True,
             "drained_sats": drained_sats,
@@ -679,6 +711,16 @@ class AlbyHubManager:
             f"/api/apps/{urllib.parse.quote(pubkey, safe='')}",
         )
 
+        # Audit log: wallet deleted
+        self._audit(
+            "wallet_deleted",
+            wallet_id=str(app_id),
+            name=app.get("name", ""),
+            alias=app.get("alias", ""),
+            drained_sats=drain_result.get("drained_sats", 0),
+            dust_msat=remaining_msat,
+        )
+
         return {
             "ok": True,
             "drained_sats": drain_result.get("drained_sats", 0),
@@ -720,6 +762,15 @@ class AlbyHubManager:
                 "Invoice attribution mismatch: returned appId does not match.",
             )
 
+        # Audit log: invoice issued via API
+        self._audit(
+            "invoice_issued",
+            app_id=app_id,
+            amount_msat=amount_msat,
+            amount_sat=amount_msat // 1000,
+            invoice_prefix=invoice[:50] + "..." if len(invoice) > 50 else invoice,
+        )
+
         return invoice
 
     def find_app_by_alias(self, alias: str) -> dict | None:
@@ -730,6 +781,72 @@ class AlbyHubManager:
             if meta.get("lnurl_alias", "").lower() == alias_lower:
                 return a
         return None
+
+    def rotate_wallet_secret(self, identifier: str) -> dict:
+        """Rotate the NWC pairing secret for a wallet connection.
+
+        Revokes the old Nostr key and generates a new pairing URI.
+        Returns the new pairing URI (shown ONCE).
+        """
+        app = self._find_managed_app(identifier)
+        if app is None:
+            raise AlbyHubError("wallet_not_found", "Wallet connection not found.")
+
+        app_id = int(app["id"])
+        app_pubkey = app.get("appPubkey") or app.get("nostrPubkey") or app.get("pubkey") or ""
+        if not app_pubkey:
+            raise AlbyHubError(
+                "app_pubkey_missing",
+                "Cannot rotate secret: app public key not available.",
+            )
+
+        # Call Alby Hub's rotate secret endpoint (if available)
+        # Alby Hub may not have this endpoint yet; fall back to re-creating the app
+        # For now, we'll delete and re-create with same metadata
+        # This is a safe operation since we drain first
+        name = app.get("name", "")
+        alias = app.get("alias", "")
+        scopes = app.get("scopes") or []
+        max_amount = app.get("maxAmountSat") or 0
+        metadata = app.get("metadata") or {}
+
+        # Drain first
+        self.drain_wallet(identifier)
+
+        # Delete old app
+        self._authenticated_request(
+            "DELETE",
+            f"/api/apps/{urllib.parse.quote(app_pubkey, safe='')}",
+        )
+
+        # Create new app with same parameters
+        create_body: dict = {
+            "name": name,
+            "scopes": scopes,
+            "isolated": True,
+            "budgetRenewal": "never",
+            "maxAmountSat": max_amount,
+            "metadata": metadata,
+        }
+
+        resp = self._authenticated_request("POST", "/api/apps", body=create_body)
+        new_pairing_uri: str = resp.get("pairingUri") or resp.get("pairing_uri") or ""
+        new_app_id = resp.get("id")
+
+        # Audit log: secret rotated
+        self._audit(
+            "wallet_secret_rotated",
+            old_wallet_id=str(app_id),
+            new_wallet_id=str(new_app_id) if new_app_id else "unknown",
+            name=name,
+            alias=alias,
+        )
+
+        return {
+            "wallet_id": str(new_app_id) if new_app_id else "",
+            "pairing_uri": new_pairing_uri,
+            "message": "New NWC connection secret generated. Save it now — it will not be shown again.",
+        }
 
     def health(self) -> dict:
         """Return a basic health summary."""

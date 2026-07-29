@@ -4608,6 +4608,44 @@ async def api_nwc_drain_wallet(wallet_identifier: str):
     return result
 
 
+@app.post("/api/nwc/wallets/{wallet_identifier}/rotate-secret")
+async def api_nwc_rotate_wallet_secret(wallet_identifier: str):
+    """Rotate the NWC pairing secret for a wallet connection.
+
+    Revokes the old Nostr key and generates a new pairing URI.
+    Returns the new pairing URI (shown ONCE).
+    """
+    loop = asyncio.get_event_loop()
+    try:
+        result = await loop.run_in_executor(
+            None,
+            _nwc_mgr.get_manager().rotate_wallet_secret,
+            wallet_identifier,
+        )
+    except _nwc_mgr.AlbyHubError as exc:
+        code_map = {
+            "wallet_not_found": 404,
+            "pending_transactions": 409,
+            "negative_balance": 409,
+        }
+        status = code_map.get(exc.code, 502)
+        return _nwc_error(status, exc.code, exc.args[0])
+
+    pairing_uri: str = result.get("pairing_uri", "")
+    pairing_qrcode: str | None = None
+    if pairing_uri:
+        pairing_qrcode = _generate_qr_base64(pairing_uri)
+
+    response: dict = {
+        "wallet_id": result.get("wallet_id", ""),
+        "pairing_uri": pairing_uri,
+        "message": result.get("message", "New NWC connection secret generated. Save it now — it will not be shown again."),
+    }
+    if pairing_qrcode:
+        response["pairing_qrcode"] = pairing_qrcode
+    return JSONResponse(status_code=200, content=response)
+
+
 @app.post("/api/nwc/addresses/{alias}/test")
 async def api_nwc_test(alias: str):
     normalized_alias = alias.strip().lower()
