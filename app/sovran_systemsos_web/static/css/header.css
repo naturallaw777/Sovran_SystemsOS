@@ -45,6 +45,44 @@
   letter-spacing: 0.03em;
 }
 
+/* ── OS Version Badge (polished) ───────────────────────────────── */
+.os-version-badge {
+  display: inline-flex;
+  align-items: center;
+  background: linear-gradient(145deg, #1a2a22, #0f1a15);
+  border: 1px solid rgba(74, 222, 128, 0.25);
+  border-radius: 9999px;
+  padding: 2px 14px 2px 10px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #4ade80;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  margin-left: 12px;
+  white-space: nowrap;
+}
+
+.os-version-badge:hover {
+  border-color: rgba(74, 222, 128, 0.45);
+  box-shadow: 0 4px 8px rgba(74, 222, 128, 0.15);
+  transform: translateY(-1px);
+}
+
+.os-version-badge .version-label {
+  font-size: 0.68rem;
+  font-weight: 500;
+  color: #4ade80;
+  opacity: 0.85;
+  margin-right: 2px;
+}
+
+.os-version-badge .version-number {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: #86efac;
+}
+
 /* ── IP bar ─────────────────────────────────────────────────────── */
 
 .ip-bar {

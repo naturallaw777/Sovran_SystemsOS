@@ -3,6 +3,14 @@
 let
   sovranSource = builtins.path { path = ../.; name = "sovran-systemsos"; };
 
+  # Read version from VERSION file if it exists, otherwise fall back to "dev"
+  versionFile = if builtins.pathExists ../VERSION
+                then builtins.readFile ../VERSION
+                else "dev";
+
+  # Clean version (remove 'v' prefix and newlines)
+  cleanVersion = builtins.replaceStrings ["v" "\n" "\r"] [""] versionFile;
+
   pythonEnv = pkgs.python3.withPackages (ps: [ ps.pygobject3 ps.pycairo ]);
 
   installerPy = pkgs.writeShellScriptBin "sovran-install" ''
@@ -18,7 +26,8 @@ in
     "${modulesPath}/installer/cd-dvd/installation-cd-graphical-gnome.nix"
   ];
 
-  image.baseName = lib.mkForce "Sovran_SystemsOS";
+  # Dynamic ISO filename with version
+  image.baseName = lib.mkForce "Sovran_SystemsOS-${cleanVersion}";
   isoImage.splashImage = ./assets/splash-logo.png;
 
   services.gnome.gnome-initial-setup.enable = false;
