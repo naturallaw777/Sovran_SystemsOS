@@ -1,5 +1,5 @@
 """
-Alby Hub manager — shared backend for Wallet Connections API and recovery CLI.
+Alby Hub manager — shared backend for Lightning Wallet Connections API and recovery CLI.
 
 Interfaces with the local Alby Hub instance at
 http://127.0.0.1:18080 by default (override with NWC_ALBY_HUB_API_BASE).

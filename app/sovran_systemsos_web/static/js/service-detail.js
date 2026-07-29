@@ -89,6 +89,80 @@ function _nwcWalletSectionEl() {
   return document.getElementById("nwc-wallets-body");
 }
 
+function _nwcFormatSats(value) {
+  var n = Number(value || 0);
+  if (!Number.isFinite(n)) n = 0;
+  return n.toLocaleString("en-US");
+}
+
+// "Go to Service & Setup" shortcut shown when no Lightning Address domain
+// is configured yet — jumps to the sibling tab instead of dead-ending.
+function _nwcWireDomainLink() {
+  var link = document.getElementById("nwc-domain-setup-link");
+  if (link) link.addEventListener("click", function() { _nwcActivateTab("setup"); });
+}
+
+// ── Lightning Wallet Connections: tabbed modal shell ──────────────
+// The wallet manager is a small app in its own right, so it gets the full
+// width of the dialog on a "Wallets" tab, while status / enable / domain /
+// ports / restart live on a "Service & Setup" tab.
+
+function _setCredsDialogWide(on) {
+  if (!$credsModal) return;
+  var dialog = $credsModal.querySelector(".creds-dialog");
+  if (dialog) dialog.classList.toggle("creds-dialog--wide", !!on);
+}
+
+function _nwcTabsShellHtml(opts) {
+  var domainChip = opts.domain
+    ? '<span class="nwc-header-chip nwc-header-chip--domain" title="Lightning Address domain">🌐 ' + escHtml(opts.domain) + '</span>'
+    : '<span class="nwc-header-chip nwc-header-chip--warn" title="No Lightning Address domain configured yet">🌐 Domain not set</span>';
+
+  return '<div class="nwc-tabs" data-active="' + escHtml(opts.activeTab) + '">' +
+    '<div class="nwc-tabs-bar" role="tablist" aria-label="Lightning Wallet Connections sections">' +
+      '<div class="nwc-tabs-btns">' +
+        '<button class="nwc-tab-btn" role="tab" data-tab="wallets" id="nwc-tab-btn-wallets" aria-controls="nwc-tab-wallets">⚡ Wallets</button>' +
+        '<button class="nwc-tab-btn" role="tab" data-tab="setup" id="nwc-tab-btn-setup" aria-controls="nwc-tab-setup">⚙ Service &amp; Setup</button>' +
+      '</div>' +
+      '<div class="nwc-header-chips">' +
+        '<span class="nwc-header-chip"><span class="status-dot ' + opts.statusDotClass + '"></span>' + escHtml(opts.statusLabel) + '</span>' +
+        domainChip +
+      '</div>' +
+    '</div>' +
+    '<div class="nwc-tab-panel" role="tabpanel" id="nwc-tab-wallets" aria-labelledby="nwc-tab-btn-wallets" data-tab="wallets">' + opts.walletsHtml + '</div>' +
+    '<div class="nwc-tab-panel" role="tabpanel" id="nwc-tab-setup" aria-labelledby="nwc-tab-btn-setup" data-tab="setup">' + opts.setupHtml + '</div>' +
+  '</div>';
+}
+
+function _nwcActivateTab(tab) {
+  var root = document.querySelector(".nwc-tabs");
+  if (!root) return;
+  root.setAttribute("data-active", tab);
+  root.querySelectorAll(".nwc-tab-btn").forEach(function(btn) {
+    var on = btn.getAttribute("data-tab") === tab;
+    btn.classList.toggle("active", on);
+    btn.setAttribute("aria-selected", on ? "true" : "false");
+  });
+  root.querySelectorAll(".nwc-tab-panel").forEach(function(panel) {
+    panel.classList.toggle("active", panel.getAttribute("data-tab") === tab);
+  });
+  var body = document.getElementById("creds-body");
+  if (body) body.scrollTop = 0;
+}
+
+function _nwcWireTabs() {
+  var root = document.querySelector(".nwc-tabs");
+  if (!root) return;
+  root.querySelectorAll(".nwc-tab-btn").forEach(function(btn) {
+    btn.addEventListener("click", function() {
+      _nwcActivateTab(btn.getAttribute("data-tab"));
+    });
+  });
+  _nwcActivateTab(root.getAttribute("data-active") || "wallets");
+  var gotoSetup = document.getElementById("nwc-goto-setup-btn");
+  if (gotoSetup) gotoSetup.addEventListener("click", function() { _nwcActivateTab("setup"); });
+}
+
 function _nwcRenderWalletState() {
   var host = _nwcWalletSectionEl();
   if (!host || !_nwcModalState) return;
@@ -99,8 +173,9 @@ function _nwcRenderWalletState() {
   if (state.view === "create") {
     var selectedLimited = state.createForm.access_preset === "send_receive_limited";
     html +=
-      '<p class="svc-detail-desc">Create a new isolated wallet connection for your app.</p>' +
-      '<div class="matrix-form-group"><label class="matrix-form-label" for="nwc-wallet-name">Wallet Connection Name</label>' +
+      '<div class="nwc-tab-intro-title">Create a Wallet</div>' +
+      '<p class="nwc-tab-intro-desc">An isolated wallet you pair to a single app, with its own Lightning Address.</p>' +
+      '<div class="matrix-form-group"><label class="matrix-form-label" for="nwc-wallet-name">Wallet Name</label>' +
         '<input class="matrix-form-input" id="nwc-wallet-name" type="text" placeholder="My Wallet" value="' + escHtml(state.createForm.name || "") + '" autocomplete="off"></div>' +
       '<div class="matrix-form-group"><label class="matrix-form-label" for="nwc-wallet-alias">Lightning Address Alias</label>' +
         '<input class="matrix-form-input" id="nwc-wallet-alias" type="text" placeholder="my-wallet" value="' + escHtml(state.createForm.alias || "") + '" autocomplete="off">' +
@@ -143,7 +218,7 @@ function _nwcRenderWalletState() {
     var pairId = "nwc-pairing-uri-" + Math.random().toString(36).substring(2, 8);
     html += '<div class="nwc-secret-warning">⚠ One-time pairing secret. Save it now — it will not be shown again.</div>';
     if (created.pairing_qrcode) {
-      html += '<div class="creds-qr-wrap"><img class="creds-qr-img" src="' + created.pairing_qrcode + '" alt="QR code for Wallet Connections pairing secret"><div class="creds-qr-hint">Scan now in Zeus or copy the URI below.</div></div>';
+      html += '<div class="creds-qr-wrap"><img class="creds-qr-img" src="' + created.pairing_qrcode + '" alt="QR code for Lightning Wallet Connections pairing secret"><div class="creds-qr-hint">Scan now in Zeus or copy the URI below.</div></div>';
     }
     html += '<div class="creds-row"><div class="creds-label">Pairing URI</div>' +
       '<div class="creds-value-wrap"><div class="creds-value" id="' + pairId + '">' + escHtml(created.pairing_uri || "Unavailable") + '</div><button class="creds-copy-btn" data-target="' + pairId + '">Copy</button></div></div>';
@@ -237,19 +312,30 @@ function _nwcRenderWalletState() {
   }
 
   var canCreate = !!state.domain && !state.busy;
-  html += '<div class="matrix-actions-row">' +
-    '<button class="matrix-action-btn" id="nwc-open-create-btn"' + (canCreate ? "" : " disabled") + '>' + (state.domain ? '➕ Create Wallet Connection' : 'Configure Domain First') + '</button>' +
-    '<button class="matrix-form-back" id="nwc-refresh-btn"' + (state.busy ? " disabled" : "") + '>Refresh</button>' +
+  var walletCount = (state.wallets || []).length;
+  html += '<div class="nwc-toolbar">' +
+    '<div class="nwc-toolbar-count">' + (walletCount === 1 ? '1 wallet' : walletCount + ' wallets') + '</div>' +
+    '<div class="nwc-toolbar-actions">' +
+      '<button class="matrix-form-back nwc-toolbar-refresh" id="nwc-refresh-btn"' + (state.busy ? " disabled" : "") + '>↻ Refresh</button>' +
+      '<button class="matrix-action-btn" id="nwc-open-create-btn"' + (canCreate ? "" : " disabled") + '>➕ New Wallet</button>' +
+    '</div>' +
   '</div>';
-  if (state.domain) {
-    html += '<p class="svc-detail-desc">Lightning Address domain: <strong>' + escHtml(state.domain) + '</strong></p>';
-  } else {
-    html += '<div class="svc-detail-troubleshoot" style="margin-bottom:10px"><strong>Domain required</strong><div style="margin-top:6px">Configure the Lightning Address domain in the Domain Diagnostic Checklist above before creating Wallet Connections. Use a unique hostname such as <strong>lightning.yourdomain.com</strong>.</div></div>';
+  if (!state.domain) {
+    html += '<div class="nwc-domain-required">' +
+      '<strong>⚠ Lightning Address domain required</strong>' +
+      '<div class="nwc-domain-required-body">Set up a unique hostname such as <strong>lightning.yourdomain.com</strong> before creating wallets.</div>' +
+      '<button class="btn btn-primary nwc-domain-required-btn" id="nwc-domain-setup-link">⚙ Go to Service &amp; Setup</button>' +
+    '</div>';
   }
 
   if (!state.wallets || state.wallets.length === 0) {
-    html += '<p class="creds-empty">No wallet connections yet. Create your first wallet connection to generate a one-time pairing secret.</p>';
+    html += '<div class="nwc-empty-state">' +
+      '<div class="nwc-empty-icon">👛</div>' +
+      '<div class="nwc-empty-title">No wallets yet</div>' +
+      '<p class="nwc-empty-desc">Create your first wallet to get a one-time pairing secret for an app, plus a reusable Lightning Address.</p>' +
+      '</div>';
     host.innerHTML = html;
+    _nwcWireDomainLink();
     var openCreateBtn = document.getElementById("nwc-open-create-btn");
     if (openCreateBtn) {
       openCreateBtn.addEventListener("click", function() {
@@ -268,25 +354,38 @@ function _nwcRenderWalletState() {
   state.wallets.forEach(function(wallet) {
     var id = wallet.id || wallet.pubkey || "";
     var addressId = "nwc-wallet-addr-" + Math.random().toString(36).substring(2, 8);
+    var pending = Number(wallet.pending_transactions || 0);
     html += '<div class="nwc-wallet-card">' +
-      '<div class="nwc-wallet-card-title">' + escHtml(wallet.name || "Wallet") + '</div>' +
-      '<div class="creds-row"><div class="creds-label">Alias</div><div class="creds-value-wrap"><div class="creds-value">' + escHtml(wallet.alias || "") + '</div></div></div>' +
+      '<div class="nwc-wallet-card-head">' +
+        '<div class="nwc-wallet-card-title">' + escHtml(wallet.name || "Wallet") + '</div>' +
+        '<div class="nwc-wallet-chips">' +
+          '<span class="nwc-wallet-chip nwc-wallet-chip--balance">' + escHtml(_nwcFormatSats(wallet.balance_sats)) + ' sats</span>' +
+          (pending > 0
+            ? '<span class="nwc-wallet-chip nwc-wallet-chip--pending" title="Pending transactions">⏳ ' + escHtml(String(pending)) + ' pending</span>'
+            : '') +
+        '</div>' +
+      '</div>' +
       (wallet.lightning_address
-        ? '<div class="creds-row"><div class="creds-label">Lightning Address</div><div class="creds-value-wrap"><div class="creds-value" id="' + addressId + '">' + escHtml(wallet.lightning_address) + '</div><button class="creds-copy-btn" data-target="' + addressId + '">Copy</button></div></div>'
-        : "") +
-      '<div class="creds-row"><div class="creds-label">Balance</div><div class="creds-value-wrap"><div class="creds-value">' + escHtml(String(wallet.balance_sats || 0)) + ' sats</div></div></div>' +
-      '<div class="creds-row"><div class="creds-label">Pending TX</div><div class="creds-value-wrap"><div class="creds-value">' + escHtml(String(wallet.pending_transactions || 0)) + '</div></div></div>' +
+        ? '<div class="nwc-wallet-address">' +
+            '<div class="creds-label">Lightning Address</div>' +
+            '<div class="creds-value-wrap"><div class="creds-value" id="' + addressId + '">' + escHtml(wallet.lightning_address) + '</div>' +
+            '<button class="creds-copy-btn" data-target="' + addressId + '">Copy</button></div>' +
+          '</div>'
+        : '<div class="nwc-wallet-address"><div class="creds-label">Alias</div>' +
+            '<div class="creds-value-wrap"><div class="creds-value">' + escHtml(wallet.alias || "") + '</div></div></div>') +
       '<div class="nwc-wallet-actions">' +
         '<button class="matrix-action-btn nwc-wallet-action-btn" data-action="share" data-wallet-id="' + escHtml(id) + '"' + ((state.busy || !wallet.lightning_address) ? " disabled" : "") + '>⚡ Share QR</button>' +
-        '<button class="matrix-form-back nwc-wallet-action-btn" data-action="test" data-wallet-alias="' + escHtml(wallet.alias || "") + '"' + (state.busy ? " disabled" : "") + '>Verify Address</button>' +
-        '<button class="matrix-form-back nwc-wallet-action-btn" data-action="drain" data-wallet-id="' + escHtml(id) + '"' + (state.busy ? " disabled" : "") + '>Drain</button>' +
-        '<button class="btn btn-close-modal nwc-wallet-action-btn" data-action="delete" data-wallet-id="' + escHtml(id) + '"' + (state.busy ? " disabled" : "") + '>Delete</button>' +
+        '<button class="matrix-form-back nwc-wallet-action-btn" data-action="test" data-wallet-alias="' + escHtml(wallet.alias || "") + '"' + (state.busy ? " disabled" : "") + '>Verify</button>' +
+        '<span class="nwc-wallet-actions-spacer"></span>' +
+        '<button class="matrix-form-back nwc-wallet-action-btn nwc-wallet-danger-btn" data-action="drain" data-wallet-id="' + escHtml(id) + '"' + (state.busy ? " disabled" : "") + '>Drain</button>' +
+        '<button class="matrix-form-back nwc-wallet-action-btn nwc-wallet-danger-btn" data-action="delete" data-wallet-id="' + escHtml(id) + '"' + (state.busy ? " disabled" : "") + '>Delete</button>' +
       '</div>' +
     '</div>';
   });
   html += "</div>";
   host.innerHTML = html;
   _attachCopyHandlers(host);
+  _nwcWireDomainLink();
 
   var createBtn = document.getElementById("nwc-open-create-btn");
   if (createBtn) {
@@ -375,7 +474,7 @@ async function _nwcCreateWallet() {
   };
 
   if (!name) {
-    _nwcSetMessage("error", "Wallet Connection name is required.");
+    _nwcSetMessage("error", "Wallet name is required.");
     _nwcRenderWalletState();
     return;
   }
@@ -459,7 +558,7 @@ async function _nwcDrainWallet(walletId) {
 
 async function _nwcDeleteWallet(walletId) {
   if (!_nwcModalState || _nwcModalState.busy || !walletId) return;
-  if (!window.confirm("Delete this wallet connection? This removes the wallet alias from Wallet Connections.")) return;
+  if (!window.confirm("Delete this wallet connection? This removes the wallet alias from Lightning Wallet Connections.")) return;
   _nwcBusy(true);
   _nwcClearMessage();
   _nwcRenderWalletState();
@@ -500,6 +599,8 @@ async function _nwcInitWalletFlow(unit, name, icon) {
 
 async function openServiceDetailModal(unit, name, icon) {
   if (!$credsModal) return;
+  var isNwc = _isNwcServiceUnit(unit);
+  _setCredsDialogWide(isNwc);
   if ($credsTitle) {
     $credsTitle.innerHTML = '';
     if (icon) {
@@ -521,13 +622,24 @@ async function openServiceDetailModal(unit, name, icon) {
     var url = "/api/service-detail/" + encodeURIComponent(unit);
     if (icon) url += "?icon=" + encodeURIComponent(icon);
     var data = await apiFetch(url);
+
+    // Two content buckets. For most services everything lands in `html` and is
+    // rendered as one column, exactly as before. For Lightning Wallet
+    // Connections the day-to-day wallet manager (html) is split away from the
+    // service plumbing — status, enable/disable, domain, ports, restart
+    // (setupHtml) — and the two are rendered as tabs so neither feels cramped.
     var html = "";
+    var setupHtml = "";
+    function addSetup(chunk) {
+      if (isNwc) setupHtml += chunk;
+      else html += chunk;
+    }
 
     // Section A: Description
     if (data.description) {
-      html += '<div class="svc-detail-section">' +
+      addSetup('<div class="svc-detail-section">' +
         '<p class="svc-detail-desc">' + escHtml(data.description) + '</p>' +
-        '</div>';
+        '</div>');
     }
 
     // Section B: Status
@@ -539,13 +651,13 @@ async function openServiceDetailModal(unit, name, icon) {
       : (data.health || data.status);
     var sc = statusClass(effectiveHealth);
     var st = statusText(effectiveHealth, effectiveEnabled);
-    html += '<div class="svc-detail-section">' +
+    addSetup('<div class="svc-detail-section">' +
       '<div class="svc-detail-section-title">Status</div>' +
       '<div class="svc-detail-status">' +
         '<span class="status-dot ' + sc + '"></span>' +
         '<span>' + escHtml(st) + '</span>' +
       '</div>' +
-      '</div>';
+      '</div>');
 
     // Section B2: BIP-110 live status (bip110 tile only)
     if (icon === 'bip110' && data.bip110) {
@@ -587,15 +699,15 @@ async function openServiceDetailModal(unit, name, icon) {
         domainActionHtml = '<button class="btn btn-primary svc-detail-domain-btn" id="svc-detail-reconfig-domain-btn">🔄 Reconfigure Domain</button>';
       }
 
-      html += '<div class="svc-detail-section">' +
+      addSetup('<div class="svc-detail-section">' +
         '<div class="svc-detail-section-title">Domain Diagnostic Checklist</div>' +
         stepsHtml +
         domainActionHtml +
-        '</div>';
+        '</div>');
 
       if (data.router_ports && data.router_ports.length > 0) {
         var trimmedInternalIp = data.internal_ip ? String(data.internal_ip).trim() : "";
-        html += '<div class="svc-detail-section">' +
+        addSetup('<div class="svc-detail-section">' +
           '<div class="svc-detail-section-title">Ports to Forward in Your Router</div>' +
           renderPortForwardGuideHtml(data.router_ports, {
             internalIp: trimmedInternalIp || null,
@@ -603,7 +715,7 @@ async function openServiceDetailModal(unit, name, icon) {
             introClass: "svc-detail-port-note",
             noteClass: "svc-detail-port-note",
           }) +
-          '</div>';
+          '</div>');
       }
     } else if (data.port_statuses && data.port_statuses.length > 0) {
       // Non-domain services (e.g. SSH): show what to forward, plus a short
@@ -632,48 +744,57 @@ async function openServiceDetailModal(unit, name, icon) {
     }
 
     // Section E: Credentials & Links
-    if (_isNwcServiceUnit(unit)) {
-      html += '<div class="svc-detail-section">' +
-        '<div class="svc-detail-section-title">Wallet Connections &amp; Node Liquidity</div>';
+    if (isNwc) {
       if (effectiveEnabled || data.enabled) {
-        html += '<div class="nwc-liquidity-guide-card">' +
-          '<div class="nwc-liquidity-header">' +
-            '<span class="nwc-liquidity-icon">⚡</span>' +
+        html += '<div class="nwc-tab-intro">' +
             '<div>' +
-              '<h4 style="margin:0 0 4px 0; font-size:15px; font-weight:600;">Lightning Channel &amp; Liquidity Guide</h4>' +
-              '<p class="nwc-liquidity-subtitle" style="margin:0; font-size:12px; color:var(--text-secondary);">How NWC &amp; Lightning Addresses work on new nodes</p>' +
+              '<div class="nwc-tab-intro-title">Your Lightning Wallets</div>' +
+              '<p class="nwc-tab-intro-desc">Each wallet is isolated: pair it to one app with a one-time secret, and share its Lightning Address to get paid.</p>' +
             '</div>' +
           '</div>' +
-          '<p style="font-size:13px; line-height:1.5; margin:0 0 12px 0;">' +
-            'Your Alby Hub, NWC pairing keys, and Lightning Address endpoints (like <code>name@yourdomain.com</code>) are set up and working instantly. However, sending and receiving actual Bitcoin payments requires an operational Lightning node with active channels.' +
-          '</p>' +
-          '<div class="nwc-liquidity-steps">' +
-            '<div class="nwc-liquidity-step">' +
-              '<div class="step-num">1</div>' +
-              '<div>' +
-                '<strong>Outbound Liquidity (Sending)</strong>' +
-                '<p style="margin:2px 0 0 0; color:var(--text-secondary); font-size:12px;">Required so apps connected via NWC can pay invoices and send funds.</p>' +
+          '<div id="nwc-wallets-body"><p class="creds-loading">Loading wallets…</p></div>' +
+          '<details class="nwc-liquidity-details">' +
+            '<summary class="nwc-liquidity-summary">' +
+              '<span class="nwc-liquidity-icon">⚡</span>' +
+              '<span>' +
+                '<strong>Lightning Channel &amp; Liquidity Guide</strong>' +
+                '<span class="nwc-liquidity-subtitle">Why a brand-new node can\'t send or receive yet</span>' +
+              '</span>' +
+            '</summary>' +
+            '<div class="nwc-liquidity-guide-card">' +
+              '<p class="nwc-liquidity-body">' +
+                'Your wallets, pairing keys, and Lightning Address endpoints (like <code>name@yourdomain.com</code>) work the moment you create them. Moving actual bitcoin, though, needs a Lightning node with open channels.' +
+              '</p>' +
+              '<div class="nwc-liquidity-steps">' +
+                '<div class="nwc-liquidity-step">' +
+                  '<div class="step-num">1</div>' +
+                  '<div>' +
+                    '<strong>Outbound Liquidity (Sending)</strong>' +
+                    '<p class="nwc-liquidity-step-desc">Required so connected apps can pay invoices and send funds.</p>' +
+                  '</div>' +
+                '</div>' +
+                '<div class="nwc-liquidity-step">' +
+                  '<div class="step-num">2</div>' +
+                  '<div>' +
+                    '<strong>Inbound Liquidity (Receiving)</strong>' +
+                    '<p class="nwc-liquidity-step-desc">Required so your Lightning Address can receive payments from anyone.</p>' +
+                  '</div>' +
+                '</div>' +
+              '</div>' +
+              '<div class="nwc-liquidity-action">' +
+                '<p class="nwc-liquidity-analogy">💧 <strong>The Plumbing Analogy:</strong> Channels are two-way water pipes. To pour water in (receive) or pump it out (send), you need open channels with liquidity on the right side.</p>' +
+                '<button class="matrix-action-btn nwc-rtl-btn" id="nwc-open-rtl-btn">🚀 Open Ride The Lightning (RTL) to Manage Channels</button>' +
               '</div>' +
             '</div>' +
-            '<div class="nwc-liquidity-step">' +
-              '<div class="step-num">2</div>' +
-              '<div>' +
-                '<strong>Inbound Liquidity (Receiving)</strong>' +
-                '<p style="margin:2px 0 0 0; color:var(--text-secondary); font-size:12px;">Required so your Lightning Address can receive incoming payments from anyone.</p>' +
-              '</div>' +
-            '</div>' +
-          '</div>' +
-          '<div class="nwc-liquidity-action">' +
-            '<p style="margin:0 0 10px 0; font-size:12.55px; line-height:1.4;">💧 <strong>The Plumbing Analogy:</strong> Think of channels like two-way water pipes. To pour water in (receive) or pump water out (send), you need open channels with liquidity on both sides.</p>' +
-            '<button class="matrix-action-btn secondary-btn" id="nwc-open-rtl-btn" style="display:inline-flex; align-items:center; gap:6px; background:var(--border-color); color:var(--text-primary); border:none; padding:8px 14px; border-radius:8px; font-size:12.55px; cursor:pointer;">🚀 Open Ride The Lightning (RTL) to Manage Channels</button>' +
-          '</div>' +
-        '</div>' +
-        '<p class="svc-detail-desc" style="margin-top:16px;">Create, verify, drain, and delete isolated NWC wallet connections without leaving the Hub.</p>' +
-          '<div id="nwc-wallets-body"><p class="creds-loading">Loading wallet connections…</p></div>';
+          '</details>';
       } else {
-        html += '<p class="creds-empty">Wallet Connections is disabled. Enable this feature below, rebuild, then return here to create and manage NWC wallet connections.</p>';
+        html += '<div class="nwc-disabled-state">' +
+          '<div class="nwc-disabled-icon">⚡</div>' +
+          '<div class="nwc-disabled-title">Lightning Wallet Connections is turned off</div>' +
+          '<p class="nwc-disabled-desc">Enable it on the <strong>Service &amp; Setup</strong> tab and rebuild, then come back here to create and manage wallets.</p>' +
+          '<button class="btn btn-primary" id="nwc-goto-setup-btn">⚙ Go to Service &amp; Setup</button>' +
+          '</div>';
       }
-      html += '</div>';
     } else if (data.has_credentials && data.credentials && data.credentials.length > 0) {
       html += '<div class="svc-detail-section">' +
         '<div class="svc-detail-section-title">Credentials &amp; Access</div>' +
@@ -733,7 +854,7 @@ async function openServiceDetailModal(unit, name, icon) {
         conflictsHtml = '<div class="feature-conflict-warning">\u26A0 Mutually exclusive with: ' + escHtml(conflictNames.join(", ")) + '</div>';
       }
 
-      html += '<div class="svc-detail-section">' +
+      addSetup('<div class="svc-detail-section">' +
         '<div class="svc-detail-section-title">' + addonSectionTitle + '</div>' +
         '<p class="svc-detail-desc">' + escHtml(addonDesc) + '</p>' +
         conflictsHtml +
@@ -741,19 +862,35 @@ async function openServiceDetailModal(unit, name, icon) {
           '<span class="svc-detail-addon-status ' + addonStatusCls + '">' + addonStatusLabel + '</span>' +
           '<button class="' + addonBtnCls + '" id="svc-detail-addon-btn">' + escHtml(addonBtnLabel) + '</button>' +
         '</div>' +
-        '</div>';
+        '</div>');
     }
 
     if ((effectiveEnabled || data.enabled) && unit !== "phpfpm-nextcloud.service" && unit !== "phpfpm-wordpress.service") {
-      html += '<div class="svc-detail-section svc-detail-restart-section">' +
+      addSetup('<div class="svc-detail-section svc-detail-restart-section">' +
         '<div class="svc-detail-section-title">Troubleshooting</div>' +
         '<p class="svc-detail-desc">If you\'re experiencing issues with this service, try restarting it.</p>' +
         '<button class="btn btn-warning svc-detail-restart-btn" id="svc-detail-restart-btn">🔄 Restart Service</button>' +
         '<div class="svc-detail-restart-result" id="svc-detail-restart-result"></div>' +
-        '</div>';
+        '</div>');
+    }
+
+    if (isNwc) {
+      // Land on Setup when the service is off or the domain still needs
+      // configuring — otherwise the Wallets tab is the useful default.
+      var domainReady = !!data.domain;
+      var startTab = (effectiveEnabled || data.enabled) && domainReady ? "wallets" : "setup";
+      html = _nwcTabsShellHtml({
+        walletsHtml: html,
+        setupHtml: setupHtml,
+        statusDotClass: sc,
+        statusLabel: st,
+        domain: data.domain || null,
+        activeTab: startTab
+      });
     }
 
     $credsBody.innerHTML = html;
+    if (isNwc) _nwcWireTabs();
     _attachCopyHandlers($credsBody);
     if (_isNwcServiceUnit(unit) && (effectiveEnabled || data.enabled)) {
       await _nwcInitWalletFlow(unit, name, icon);
@@ -849,6 +986,7 @@ async function openServiceDetailModal(unit, name, icon) {
 
 async function openCredsModal(unit, name, icon) {
   if (!$credsModal) return;
+  _setCredsDialogWide(false);
   if ($credsTitle) {
     $credsTitle.innerHTML = '';
     if (icon) {

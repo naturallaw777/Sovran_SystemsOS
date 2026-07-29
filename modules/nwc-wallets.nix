@@ -43,11 +43,11 @@ lib.mkIf config.sovran_systemsOS.features."nwc-wallets" {
   assertions = [
     {
       assertion = config.services.lnd.enable;
-      message = "Wallet Connections requires services.lnd.enable = true.";
+      message = "Lightning Wallet Connections requires services.lnd.enable = true.";
     }
     {
       assertion = !(lib.attrByPath [ "nix-bitcoin" "netns-isolation" "enable" ] false config);
-      message = "Wallet Connections requires nix-bitcoin.netns-isolation.enable = false.";
+      message = "Lightning Wallet Connections requires nix-bitcoin.netns-isolation.enable = false.";
     }
     {
       assertion = albyHubPort != config.services.lnd.restPort;
@@ -134,7 +134,7 @@ lib.mkIf config.sovran_systemsOS.features."nwc-wallets" {
   };
 
   systemd.services.nwc-lnurl = {
-    description = "Wallet Connections public LNURL service";
+    description = "Lightning Wallet Connections public LNURL service";
     wantedBy = [ "multi-user.target" ];
     after = [ "albyhub.service" "sovran-hub-web.service" ];
     wants = [ "albyhub.service" ];
