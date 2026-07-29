@@ -256,78 +256,42 @@
   color: var(--text-primary);
 }
 
-/* Version lives in the detail modal so compact tiles stay visually stable. */
-.svc-detail-version-card {
+/* Version is secondary metadata: keep it available without making it a focal point. */
+.svc-detail-version-row {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin: -6px 0 20px;
-  padding: 12px 14px;
-  border: 1px solid rgba(109, 191, 139, 0.28);
-  border-radius: 10px;
-  background: linear-gradient(135deg, rgba(109, 191, 139, 0.12), rgba(109, 191, 139, 0.04));
+  gap: 7px;
+  margin: -2px 0 16px;
+  padding: 4px 0;
+  color: var(--text-dim);
+  font-size: 0.74rem;
+  opacity: 0.78;
 }
 
 .svc-detail-version-icon {
-  display: grid;
-  place-items: center;
-  width: 30px;
-  height: 30px;
-  border-radius: 8px;
-  background: rgba(109, 191, 139, 0.18);
-  color: var(--accent-color);
-  font-size: 1.35rem;
-  font-weight: 700;
+  color: var(--text-dim);
+  font-size: 1rem;
+  line-height: 1;
+  opacity: 0.7;
 }
 
 .svc-detail-version-label {
-  color: var(--text-dim);
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.svc-detail-version-copy {
-  min-width: 0;
-}
-
-.svc-detail-version-state {
-  display: inline-block;
-  margin-left: 6px;
-  padding: 2px 6px;
-  border-radius: 999px;
-  color: var(--accent-color);
-  background: rgba(109, 191, 139, 0.14);
-  font-size: 0.62rem;
-  letter-spacing: 0.04em;
-}
-
-.svc-detail-version-card--unavailable,
-.svc-detail-version-card--not-applicable {
-  border-color: rgba(229, 165, 10, 0.3);
-  background: rgba(229, 165, 10, 0.07);
-}
-
-.svc-detail-version-card--unavailable .svc-detail-version-icon,
-.svc-detail-version-card--not-applicable .svc-detail-version-icon {
-  color: var(--yellow);
-  background: rgba(229, 165, 10, 0.14);
-}
-
-.svc-detail-version-card--unavailable .svc-detail-version-state,
-.svc-detail-version-card--not-applicable .svc-detail-version-state {
-  color: var(--yellow);
-  background: rgba(229, 165, 10, 0.14);
+  font-weight: 600;
 }
 
 .svc-detail-version-value {
-  margin-top: 2px;
-  color: var(--text-primary);
+  min-width: 0;
+  color: var(--text-secondary);
   font-family: 'JetBrains Mono', 'Fira Code', monospace;
-  font-size: 0.95rem;
-  font-weight: 700;
+  font-size: 0.74rem;
   word-break: break-word;
+}
+
+.svc-detail-version-row--unavailable .svc-detail-version-value,
+.svc-detail-version-row--not-applicable .svc-detail-version-value {
+  color: var(--text-dim);
+  font-family: inherit;
+  font-style: italic;
 }
 
 /* ── Service detail: Domain ──────────────────────────────────────── */
