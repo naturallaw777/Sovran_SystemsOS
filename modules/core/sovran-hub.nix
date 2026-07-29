@@ -3,6 +3,16 @@
 let
   cfg = config.sovran_systemsOS;
 
+  # Read the OS version from the repo-root VERSION file at eval time so the
+  # Hub always ships a real, baked-in version string instead of relying on
+  # a runtime file lookup (which returns "dev" when /etc/nixos/VERSION is
+  # missing, e.g. in a dev checkout — this is the "vdev" bug in the Hub UI).
+  versionFile = ../../VERSION;
+  sovranVersion =
+    if builtins.pathExists versionFile
+    then builtins.replaceStrings [ "v" "\n" "\r" ] [ "" "" "" ] (builtins.readFile versionFile)
+    else "1.0.0";
+
   monitoredServices =
     # ── Infrastructure — System Passwords (always present) ─────
     [
@@ -116,6 +126,7 @@ let
       role             = activeRole;
       services         = monitoredServices;
       feature_manager  = true;
+      sovran_version   = sovranVersion;
     });
 
   generatedVersions = pkgs.writeText "sovran-hub-versions.json" (builtins.toJSON {
@@ -331,6 +342,7 @@ let
 
       cp ${generatedConfig} $out/lib/sovran-hub-web/config.json
       cp ${generatedVersions} $out/lib/sovran-hub-web/versions.json
+      printf '%s' "${sovranVersion}" > $out/lib/sovran-hub-web/VERSION
 
       install -d $out/share/sovran-hub/icons
       cp icons/* $out/share/sovran-hub/icons/ 2>/dev/null || true
