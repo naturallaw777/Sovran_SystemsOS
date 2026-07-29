@@ -130,13 +130,98 @@ done
 
 if [[ -z "$RELEASE_MESSAGE" ]]; then
     echo
-    read -rp "Enter release message (or press Enter for default): " input_msg
+    read -rp "Enter release headline (or press Enter for default): " input_msg
     if [[ -n "$input_msg" ]]; then
         RELEASE_MESSAGE="$input_msg"
     else
         RELEASE_MESSAGE="Sovran_SystemsOS ${TAG} — Stable Release"
     fi
 fi
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Helper: Generate categorized release notes from commit history
+# Groups commits since the last tag into Keep-a-Changelog sections based on
+# conventional-commit prefixes (feat/fix/docs/security/etc.) and keywords.
+# ─────────────────────────────────────────────────────────────────────────────
+generate_release_notes() {
+    local range="$1"
+
+    local added="" changed="" fixed="" security="" docs=""
+
+    while IFS= read -r subject; do
+        # Skip noise commits
+        case "$subject" in
+            "Initial plan"|"initial plan") continue ;;
+            "Merge pull request"*|"Merge branch"*) continue ;;
+            "chore: bump VERSION"*|"docs: update CHANGELOG"*) continue ;;
+            "Address code review"*|"Address review"*|"Address validation"*) continue ;;
+        esac
+
+        # Strip conventional-commit prefix for display
+        local clean
+        clean="$(echo "$subject" | sed -E 's/^(feat|fix|docs|chore|refactor|test|security|perf|style|ci|build)(\([^)]*\))?!?:[[:space:]]*//')"
+        # Capitalize first letter
+        clean="$(echo "${clean:0:1}" | tr '[:lower:]' '[:upper:]')${clean:1}"
+
+        case "$subject" in
+            security:*|security\(*)         security+="- ${clean}"$'\n' ;;
+            feat:*|feat\(*)                 added+="- ${clean}"$'\n' ;;
+            fix:*|fix\(*|Fix\ *|fixed\ *)   fixed+="- ${clean}"$'\n' ;;
+            docs:*|docs\(*)                 docs+="- ${clean}"$'\n' ;;
+            refactor:*|refactor\(*|chore:*|chore\(*|removed\ *|Updated\ *|updated\ *) changed+="- ${clean}"$'\n' ;;
+            test:*|test\(*)                 continue ;;
+            *)                              added+="- ${clean}"$'\n' ;;
+        esac
+    done < <(git log --no-merges --format='%s' "$range" 2>/dev/null | awk '!seen[$0]++')
+
+    local notes=""
+    if [[ -n "$added" ]];    then notes+=$'### Added\n'"$added"$'\n'; fi
+    if [[ -n "$changed" ]];  then notes+=$'### Changed\n'"$changed"$'\n'; fi
+    if [[ -n "$fixed" ]];    then notes+=$'### Fixed\n'"$fixed"$'\n'; fi
+    if [[ -n "$security" ]]; then notes+=$'### Security\n'"$security"$'\n'; fi
+    if [[ -n "$docs" ]];     then notes+=$'### Documentation\n'"$docs"$'\n'; fi
+
+    if [[ -z "$notes" ]]; then
+        notes=$'### Changed\n- Incremental stable updates\n'
+    fi
+
+    printf '%s' "$notes"
+}
+
+# Build the notes from commits since the previous tag
+if [[ -n "$LATEST_TAG" ]] && git rev-parse -q --verify "$LATEST_TAG" >/dev/null; then
+    COMMIT_RANGE="${LATEST_TAG}..HEAD"
+else
+    COMMIT_RANGE="HEAD"
+fi
+
+echo
+echo -e "${BLUE}Generating draft release notes from ${COMMIT_RANGE}...${NC}"
+RELEASE_NOTES="$(generate_release_notes "$COMMIT_RANGE")"
+
+# Let the user review/edit the generated notes before publishing
+NOTES_FILE="$(mktemp "/tmp/release-notes-${TAG}.XXXXXX.md")"
+{
+    echo "## Sovran_SystemsOS ${TAG}"
+    echo
+    echo "${RELEASE_MESSAGE}"
+    echo
+    echo "$RELEASE_NOTES"
+    echo "**Full changelog:** [CHANGELOG.md](https://github.com/naturallaw777/Sovran_SystemsOS/blob/main/CHANGELOG.md)"
+} > "$NOTES_FILE"
+
+echo -e "  ${GREEN}✓${NC} Draft notes written to: ${CYAN}${NOTES_FILE}${NC}"
+echo
+echo "──────────────── Draft Release Notes ────────────────"
+cat "$NOTES_FILE"
+echo "──────────────────────────────────────────────────────"
+echo
+read -rp "Edit the notes before publishing? (y/N): " edit_confirm
+if [[ "$edit_confirm" =~ ^[Yy]$ ]]; then
+    "${EDITOR:-nano}" "$NOTES_FILE"
+    RELEASE_NOTES="$(sed -n '/^###/,$p' "$NOTES_FILE" | sed '/^\*\*Full changelog/d')"
+fi
+RELEASE_BODY="$(cat "$NOTES_FILE")"
 
 echo
 echo -e "${YELLOW}════════════════════════════════════════════════════════════${NC}"
@@ -200,19 +285,11 @@ echo -e "${BLUE}Step 3: Updating ${CHANGELOG_FILE}...${NC}"
 
 TODAY=$(date +%Y-%m-%d)
 
-# Create new changelog entry
+# Create new changelog entry from the generated notes (no placeholders)
 NEW_ENTRY="## [${VERSION}] - ${TODAY}
 
-### Added
-- (Add new features here)
-
-### Changed
-- (Add changes here)
-
-### Fixed
-- (Add bug fixes here)
-
-[${VERSION}]: ${GITEA_API_URL%/*}/Sovran_Systems/Sovran_SystemsOS/releases/tag/${TAG}
+${RELEASE_NOTES}
+[${VERSION}]: https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS/releases/tag/${TAG}
 "
 
 # Prepend to changelog (after the header)
@@ -281,8 +358,8 @@ echo -e "${BLUE}Step 4: Creating GitHub Release...${NC}"
 if command -v gh &>/dev/null; then
     if gh release create "${TAG}" \
         --repo naturallaw777/Sovran_SystemsOS \
-        --title "${TAG}" \
-        --notes "${RELEASE_MESSAGE}" \
+        --title "${TAG} — ${RELEASE_MESSAGE#Sovran_SystemsOS v* — }" \
+        --notes-file "${NOTES_FILE}" \
         --target main 2>/dev/null; then
         echo -e "  ${GREEN}✓${NC} GitHub release created successfully"
     else
@@ -313,16 +390,21 @@ fi
 if [[ -n "${GITEA_TOKEN:-}" ]]; then
     GITEA_REPO="Sovran_Systems/Sovran_SystemsOS"
 
+    # Build JSON payload safely (release body may contain quotes/newlines)
+    if command -v jq &>/dev/null; then
+        PAYLOAD=$(jq -n \
+            --arg tag "${TAG}" \
+            --arg name "${TAG} — Stable Release" \
+            --arg body "${RELEASE_BODY}" \
+            '{tag_name: $tag, name: $name, body: $body, draft: false, prerelease: false}')
+    else
+        PAYLOAD=$(python3 -c "import json,sys; print(json.dumps({'tag_name': sys.argv[1], 'name': sys.argv[1] + ' — Stable Release', 'body': open(sys.argv[2]).read(), 'draft': False, 'prerelease': False}))" "${TAG}" "${NOTES_FILE}")
+    fi
+
     RESPONSE=$(curl -s -X POST \
         -H "Authorization: token ${GITEA_TOKEN}" \
         -H "Content-Type: application/json" \
-        -d "{
-            \"tag_name\": \"${TAG}\",
-            \"name\": \"${TAG}\",
-            \"body\": \"${RELEASE_MESSAGE}\",
-            \"draft\": false,
-            \"prerelease\": false
-        }" \
+        -d "${PAYLOAD}" \
         "${GITEA_API_URL}/repos/${GITEA_REPO}/releases" 2>/dev/null || echo "")
 
     if echo "$RESPONSE" | grep -q '"id"'; then
@@ -348,3 +430,6 @@ echo "  • Verify releases on both GitHub and Gitea"
 echo
 echo -e "${CYAN}Tag created: ${TAG}${NC}"
 git show "${TAG}" --quiet
+
+# Clean up temp notes file
+rm -f "${NOTES_FILE}"
