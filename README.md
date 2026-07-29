@@ -186,6 +186,14 @@ communications, identity, and services.
 | Network | Any broadband | Unmetered, ~200 Mbps down / 50 Mbps up | Same as Node |
 | Also needed | — | — | A domain for publicly accessible services |
 
+> **Before choosing Server + Desktop:** this mode makes services reachable from
+> the public internet, which means opening specific ports on your home network.
+> Before you start, confirm three things: you can log in to your router's admin
+> panel, the panel includes a port-forwarding section, and your internet
+> provider allows port forwarding. Most home routers and providers already
+> support this. If you are unsure, a quick search for your router model and
+> "port forwarding" will usually turn up a step-by-step guide.
+
 ---
 
 ## Use it your way
