@@ -2544,6 +2544,47 @@ _NIX_WRAPPER_SUFFIX_RE = re.compile(
     r"-(?:env|wrapper|wrapped|script|hook|setup|compat)$"
 )
 
+# These two applications are downloaded into /var/lib/www at install time, so
+# their PHP-FPM pool units identify the runtime but not the deployed application
+# release. Read each application's own version file instead of reporting a PHP
+# or Nix package version that can be unrelated to what Caddy is serving.
+_DEPLOYED_WEB_APPLICATION_VERSION_FILES: dict[str, tuple[str, re.Pattern[str]]] = {
+    "phpfpm-nextcloud.service": (
+        "/var/lib/www/nextcloud/version.php",
+        re.compile(r"^\s*\$OC_VersionString\s*=\s*['\"]([^'\"]+)['\"]\s*;", re.MULTILINE),
+    ),
+    "phpfpm-wordpress.service": (
+        "/var/lib/www/wordpress/wp-includes/version.php",
+        re.compile(r"^\s*\$wp_version\s*=\s*['\"]([^'\"]+)['\"]\s*;", re.MULTILINE),
+    ),
+}
+
+
+def _get_deployed_web_application_version(unit: str) -> str | None:
+    """Return the version embedded in a PHP application deployed under /var/lib/www."""
+    spec = _DEPLOYED_WEB_APPLICATION_VERSION_FILES.get(unit)
+    if spec is None:
+        return None
+
+    path, version_pattern = spec
+    try:
+        # The version files are short PHP metadata files. Limiting the read makes
+        # this safe even if an installation is damaged or has been replaced.
+        with open(path, "r", encoding="utf-8", errors="replace") as fh:
+            contents = fh.read(64 * 1024)
+    except OSError:
+        return None
+
+    match = version_pattern.search(contents)
+    if match is None:
+        return None
+
+    version = match.group(1).strip()
+    if not version or len(version) > 64:
+        return None
+    return version if version.startswith("v") else f"v{version}"
+
+
 # Cache: unit → (monotonic_timestamp, version_str | None)
 _svc_version_cache: dict[str, tuple[float, str | None]] = {}
 _SVC_VERSION_CACHE_TTL = 300  # 5 minutes — versions only change on system update
@@ -2552,10 +2593,13 @@ _SVC_VERSION_CACHE_TTL = 300  # 5 minutes — versions only change on system upd
 def _get_service_version(unit: str) -> str | None:
     """Extract the version of a service.
 
-    Checks the Nix-generated build-time versions reference file (loaded via load_versions()) first.
-    Falls back to running ``systemctl show <unit> --property=ExecStart --value`` and parsing
-    the Nix store path embedded in the output if the reference file is missing or incomplete.
+    PHP applications deployed under /var/lib/www are read from their own version
+    files. Other services first use the Nix-generated build-time version reference
+    and then fall back to parsing a Nix store path in their systemd ExecStart.
     """
+    if unit in _DEPLOYED_WEB_APPLICATION_VERSION_FILES:
+        return _get_deployed_web_application_version(unit)
+
     try:
         versions_ref = load_versions()
         ver = versions_ref.get(unit)

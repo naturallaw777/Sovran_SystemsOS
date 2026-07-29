@@ -673,30 +673,6 @@ async function openServiceDetailModal(unit, name, icon) {
       '</div>' +
       '</div>');
 
-    // Keep package versions in the detail modal rather than the compact tile.
-    // The API uses `version` for regular services and `bitcoin_version` for
-    // older Bitcoin payloads, so accept both while the backend is upgraded.
-    var serviceVersion = data.version || data.bitcoin_version || '';
-    // These services are wrappers, setup helpers, or application stacks rather
-    // than a single versioned daemon represented by the tile's systemd unit.
-    var versionNotApplicable = [
-      'zeus-connect-setup.service', 'sparrow-autoconnect.service'
-    ].indexOf(unit) !== -1;
-    var versionState = serviceVersion ? 'detected' : (versionNotApplicable ? 'not-applicable' : 'unavailable');
-    var versionText = serviceVersion || (versionNotApplicable
-      ? 'This service does not expose a single package version'
-      : (effectiveEnabled ? 'Version could not be detected' : 'Start the service to detect its version'));
-    var versionBadge = serviceVersion ? 'Detected' : (versionNotApplicable ? 'Not applicable' : 'Not detected');
-    // Version is useful supporting information, but not the primary reason for
-    // opening this modal. Keep it as a quiet metadata row instead of a large
-    // callout so it does not compete with status and service actions.
-    addSetup('<div class="svc-detail-version-row svc-detail-version-row--' + versionState + '"' +
-      ' title="' + escHtml(versionText) + '">' +
-      '<span class="svc-detail-version-icon" aria-hidden="true">⌁</span>' +
-      '<span class="svc-detail-version-label">Version</span>' +
-      '<span class="svc-detail-version-value">' + escHtml(serviceVersion || versionBadge) + '</span>' +
-      '</div>');
-
     // Section B2: BIP-110 live status (bip110 tile only)
     if (icon === 'bip110' && data.bip110) {
       var bip110 = data.bip110;

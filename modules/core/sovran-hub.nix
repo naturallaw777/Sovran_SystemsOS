@@ -132,8 +132,8 @@ let
     "matrix-synapse.service" = if pkgs ? matrix-synapse then pkgs.matrix-synapse.version else "1.115.0";
     "livekit.service" = if pkgs ? livekit then pkgs.livekit.version else "1.5.2";
     "vaultwarden.service" = if pkgs ? vaultwarden then pkgs.vaultwarden.version else "1.32.0";
-    "phpfpm-nextcloud.service" = if pkgs ? nextcloud then pkgs.nextcloud.version else "29.0.0";
-    "phpfpm-wordpress.service" = if pkgs ? wordpress then pkgs.wordpress.version else "6.5.0";
+    # Nextcloud and WordPress are downloaded into /var/lib/www, so their
+    # deployed versions are read from their own PHP version files by the Hub.
     "haven-relay.service" = if pkgs ? haven-relay then pkgs.haven-relay.version else (if pkgs ? haven then pkgs.haven.version else "0.1.0");
   });
 
