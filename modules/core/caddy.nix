@@ -188,7 +188,7 @@ $HAVEN {
 EOF
       fi
 
-      # ── Wallet Connections LNURL ──────────────────────
+      # ── Lightning Wallet Connections LNURL ──────────────────────
       if [ -n "$LIGHTNING" ]; then
         cat >> /run/caddy/Caddyfile <<EOF
 

@@ -77,7 +77,7 @@ function openDomainSetupModal(feat, onSaved) {
 
   var nwcWarning = isWalletConnections
     ? '<div class="domain-nwc-warning">' +
-      '<strong>⚠ Wallet Connections requires its own unique hostname.</strong> ' +
+      '<strong>⚠ Lightning Wallet Connections requires its own unique hostname.</strong> ' +
       'Use a new subdomain such as <code>lightning.yourdomain.com</code>, or a separate domain. ' +
       'Do not reuse a domain already assigned to Matrix, Nextcloud, WordPress, BTCPay Server, Vaultwarden, Haven, or another Caddy site.' +
       '</div>'
@@ -194,7 +194,7 @@ function openDomainReconfigureModal(feat, existingDomain, onSaved) {
 
   var nwcWarning = isWalletConnections
     ? '<div class="domain-nwc-warning">' +
-      '<strong>⚠ Wallet Connections requires its own unique hostname.</strong> ' +
+      '<strong>⚠ Lightning Wallet Connections requires its own unique hostname.</strong> ' +
       'Use a new subdomain such as <code>lightning.yourdomain.com</code>, or a separate domain. ' +
       'Do not reuse a domain already assigned to Matrix, Nextcloud, WordPress, BTCPay Server, Vaultwarden, Haven, or another Caddy site.' +
       '</div>'

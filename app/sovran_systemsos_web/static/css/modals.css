@@ -223,6 +223,10 @@ button.btn-reboot:hover:not(:disabled) {
   color: var(--text-primary);
 }
 
+.creds-dialog--wide {
+  max-width: 980px;
+}
+
 .creds-body {
   padding: 24px 28px;
   overflow-y: auto;
@@ -489,38 +493,325 @@ button.btn-reboot:hover:not(:disabled) {
   font-size: 0.86rem;
 }
 
-.nwc-wallet-list {
+/* ── Lightning Wallet Connections: tabbed shell ─────────────────── */
+
+.nwc-tabs-bar {
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: -6px 0 20px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.nwc-tabs-btns {
+  display: flex;
+  gap: 4px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 4px;
+}
+
+.nwc-tab-btn {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 0.86rem;
+  font-weight: 600;
+  padding: 8px 16px;
+  border-radius: 7px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.nwc-tab-btn:hover:not(.active) {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.nwc-tab-btn.active {
+  background: var(--accent-color);
+  color: #0A1A10;
+}
+
+.nwc-header-chips {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.nwc-header-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  padding: 4px 10px;
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nwc-header-chip--domain {
+  font-family: 'JetBrains Mono', 'Fira Code', 'Source Code Pro', monospace;
+  font-size: 0.72rem;
+}
+
+.nwc-header-chip--warn {
+  border-color: rgba(245, 158, 11, 0.5);
+  color: #fbbf24;
+}
+
+.nwc-tab-panel {
+  display: none;
+}
+
+.nwc-tab-panel.active {
+  display: block;
+  animation: nwc-tab-fade 0.16s ease-out;
+}
+
+@keyframes nwc-tab-fade {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Setup tab: first section shouldn't double up on top padding */
+#nwc-tab-setup .svc-detail-section:first-child {
+  padding-top: 0;
+  margin-top: 0;
+  border-top: none;
+}
+
+.nwc-tab-intro {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.nwc-tab-intro-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.nwc-tab-intro-desc {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  max-width: 62ch;
+}
+
+/* ── Wallet toolbar ─────────────────────────────────────────────── */
+
+.nwc-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.nwc-toolbar-count {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+}
+
+.nwc-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.nwc-toolbar-actions .matrix-action-btn,
+.nwc-toolbar-actions .matrix-form-back {
+  padding: 8px 14px;
+  font-size: 0.82rem;
+}
+
+/* ── Domain-required callout ────────────────────────────────────── */
+
+.nwc-domain-required {
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  background: rgba(245, 158, 11, 0.08);
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+  font-size: 0.86rem;
+  color: var(--text-primary);
+}
+
+.nwc-domain-required-body {
+  margin-top: 6px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.nwc-domain-required-btn {
+  margin-top: 12px;
+}
+
+/* ── Empty / disabled states ────────────────────────────────────── */
+
+.nwc-empty-state,
+.nwc-disabled-state {
+  text-align: center;
+  padding: 36px 24px;
+  border: 1px dashed var(--border-color);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.015);
+}
+
+.nwc-empty-icon,
+.nwc-disabled-icon {
+  font-size: 2rem;
+  margin-bottom: 10px;
+}
+
+.nwc-empty-title,
+.nwc-disabled-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+}
+
+.nwc-empty-desc,
+.nwc-disabled-desc {
+  margin: 0 auto 14px;
+  max-width: 46ch;
+  font-size: 0.86rem;
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+
+/* ── Wallet cards ───────────────────────────────────────────────── */
+
+.nwc-wallet-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
   gap: 12px;
   margin-top: 12px;
 }
 
 .nwc-wallet-card {
   border: 1px solid var(--border-color);
-  border-radius: 10px;
-  padding: 12px;
+  border-radius: 12px;
+  padding: 14px 16px;
   background: rgba(255, 255, 255, 0.02);
+  display: flex;
+  flex-direction: column;
+  transition: border-color 0.15s ease;
+}
+
+.nwc-wallet-card:hover {
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+.nwc-wallet-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
 }
 
 .nwc-wallet-card-title {
   font-weight: 700;
-  margin-bottom: 8px;
+  font-size: 0.95rem;
   color: var(--text-primary);
+  word-break: break-word;
+}
+
+.nwc-wallet-chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  flex-shrink: 0;
+}
+
+.nwc-wallet-chip {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.72rem;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 4px 10px;
+  white-space: nowrap;
+}
+
+.nwc-wallet-chip--balance {
+  background: rgba(109, 191, 139, 0.14);
+  color: var(--green);
+  font-family: 'JetBrains Mono', 'Fira Code', 'Source Code Pro', monospace;
+}
+
+.nwc-wallet-chip--pending {
+  background: rgba(245, 158, 11, 0.14);
+  color: #fbbf24;
+}
+
+.nwc-wallet-address {
+  margin-bottom: 4px;
+}
+
+.nwc-wallet-address .creds-value {
+  font-size: 0.82rem;
+  padding: 9px 12px;
+}
+
+.nwc-wallet-address .creds-copy-btn {
+  margin-top: 5px;
+  padding: 7px 12px;
 }
 
 .nwc-wallet-actions {
   display: flex;
+  align-items: center;
   gap: 8px;
   flex-wrap: wrap;
-  margin-top: 10px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-color);
+}
+
+.nwc-wallet-actions-spacer {
+  flex: 1;
+  min-width: 0;
 }
 
 .nwc-wallet-actions .matrix-form-back,
 .nwc-wallet-actions .btn-close-modal,
 .nwc-wallet-actions .matrix-action-btn {
-  padding: 8px 12px;
-  font-size: 0.82rem;
+  padding: 7px 12px;
+  font-size: 0.8rem;
+}
+
+.nwc-wallet-danger-btn {
+  color: #f08a8a;
+}
+
+.nwc-wallet-danger-btn:hover:not(:disabled) {
+  background-color: rgba(220, 80, 80, 0.14);
+  color: #ff9d9d;
 }
 
 /* ── NWC LNURL share / download view ───────────────────────────── */
@@ -547,26 +838,68 @@ button.btn-reboot:hover:not(:disabled) {
   text-align: center;
 }
 
-/* ── NWC Liquidity Guide Card ────────────────────────────────────── */
+/* ── NWC Liquidity Guide (collapsible) ──────────────────────────── */
 
-.nwc-liquidity-guide-card {
-  background: rgba(255, 255, 255, 0.02);
+.nwc-liquidity-details {
+  margin-top: 20px;
   border: 1px solid var(--border-color);
   border-radius: 12px;
-  padding: 16px;
-  margin-bottom: 16px;
-  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.015);
 }
 
-.nwc-liquidity-header {
+.nwc-liquidity-summary {
   display: flex;
+  align-items: center;
   gap: 12px;
-  align-items: flex-start;
-  margin-bottom: 12px;
+  padding: 14px 16px;
+  cursor: pointer;
+  list-style: none;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+}
+
+.nwc-liquidity-summary::-webkit-details-marker {
+  display: none;
+}
+
+.nwc-liquidity-summary::after {
+  content: "▸";
+  margin-left: auto;
+  color: var(--text-dim);
+  transition: transform 0.15s ease;
+}
+
+.nwc-liquidity-details[open] .nwc-liquidity-summary::after {
+  transform: rotate(90deg);
+}
+
+.nwc-liquidity-summary:hover {
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 12px;
 }
 
 .nwc-liquidity-icon {
-  font-size: 24px;
+  font-size: 22px;
+}
+
+.nwc-liquidity-subtitle {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: var(--text-secondary);
+}
+
+.nwc-liquidity-guide-card {
+  padding: 0 16px 16px;
+  color: var(--text-primary);
+}
+
+.nwc-liquidity-body {
+  font-size: 0.82rem;
+  line-height: 1.55;
+  margin: 0 0 12px;
+  color: var(--text-secondary);
 }
 
 .nwc-liquidity-steps {
@@ -581,6 +914,13 @@ button.btn-reboot:hover:not(:disabled) {
   gap: 10px;
   align-items: flex-start;
   font-size: 0.85rem;
+}
+
+.nwc-liquidity-step-desc {
+  margin: 2px 0 0;
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  line-height: 1.5;
 }
 
 .step-num {
@@ -604,4 +944,61 @@ button.btn-reboot:hover:not(:disabled) {
   padding: 10px 12px;
   border-radius: 0 8px 8px 0;
   font-size: 0.82rem;
+}
+
+.nwc-liquidity-analogy {
+  margin: 0 0 10px;
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.nwc-rtl-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--border-color);
+  color: var(--text-primary);
+  border: none;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.nwc-rtl-btn:hover {
+  background: #1c2a24;
+}
+
+/* ── Narrow screens ─────────────────────────────────────────────── */
+
+@media (max-width: 720px) {
+  .nwc-tabs-bar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .nwc-tabs-btns {
+    justify-content: stretch;
+  }
+
+  .nwc-tab-btn {
+    flex: 1;
+    padding: 8px 10px;
+  }
+
+  .nwc-wallet-list {
+    grid-template-columns: 1fr;
+  }
+
+  .nwc-wallet-card-head {
+    flex-direction: column;
+  }
+
+  .nwc-wallet-chips {
+    justify-content: flex-start;
+  }
+
+  .nwc-wallet-actions-spacer {
+    display: none;
+  }
 }

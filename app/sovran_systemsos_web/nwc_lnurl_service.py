@@ -1,5 +1,5 @@
 """
-Dedicated LNURL service for Wallet Connections.
+Dedicated LNURL service for Lightning Wallet Connections.
 
 Runs as ``nwc-lnurl.service`` on 127.0.0.1:8181 (loopback only).
 Caddy proxies the public Lightning Address domain's LNURL routes to this port.

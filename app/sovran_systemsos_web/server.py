@@ -227,7 +227,7 @@ FEATURE_REGISTRY = [
     },
     {
         "id": "nwc-wallets",
-        "name": "Wallet Connections",
+        "name": "Lightning Wallet Connections",
         "description": "Connect apps to isolated wallets on your Lightning node and create reusable Lightning Addresses.",
         "category": "bitcoin",
         "needs_domain": True,
@@ -461,7 +461,7 @@ SERVICE_DESCRIPTIONS: dict[str, str] = {
         "Sovran_SystemsOS integrates Tor natively across your entire stack."
     ),
     "albyhub.service": (
-        "Create isolated Wallet Connections for Lightning apps and attach reusable Lightning "
+        "Create isolated Lightning wallets for your apps and attach reusable Lightning "
         "Addresses on your Sovran_SystemsOS node."
     ),
     "gnome-remote-desktop.service": (
@@ -4323,7 +4323,7 @@ async def api_domains_set(req: DomainSetRequest):
                     "error": "domain_conflict",
                     "conflicting_domain_key": conflicting_key,
                     "message": (
-                        "Wallet Connections requires its own unique hostname. "
+                        "Lightning Wallet Connections requires its own unique hostname. "
                         "Choose a new subdomain such as lightning.yourdomain.com. "
                         f"This hostname is already assigned to: {conflicting_key}."
                     ),
@@ -4448,7 +4448,7 @@ async def api_domains_check(req: DomainCheckRequest):
     return {"domains": list(check_results)}
 
 
-# ── Wallet Connections (NWC) endpoints ────────────────────────────
+# ── Lightning Wallet Connections (NWC) endpoints ────────────────────────────
 
 NWC_DOMAIN_FILE = "/var/lib/domains/lightning"
 NWC_ALIAS_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,31}$")
