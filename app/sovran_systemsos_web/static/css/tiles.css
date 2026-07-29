@@ -256,6 +256,80 @@
   color: var(--text-primary);
 }
 
+/* Version lives in the detail modal so compact tiles stay visually stable. */
+.svc-detail-version-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: -6px 0 20px;
+  padding: 12px 14px;
+  border: 1px solid rgba(109, 191, 139, 0.28);
+  border-radius: 10px;
+  background: linear-gradient(135deg, rgba(109, 191, 139, 0.12), rgba(109, 191, 139, 0.04));
+}
+
+.svc-detail-version-icon {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: rgba(109, 191, 139, 0.18);
+  color: var(--accent-color);
+  font-size: 1.35rem;
+  font-weight: 700;
+}
+
+.svc-detail-version-label {
+  color: var(--text-dim);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.svc-detail-version-copy {
+  min-width: 0;
+}
+
+.svc-detail-version-state {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  color: var(--accent-color);
+  background: rgba(109, 191, 139, 0.14);
+  font-size: 0.62rem;
+  letter-spacing: 0.04em;
+}
+
+.svc-detail-version-card--unavailable,
+.svc-detail-version-card--not-applicable {
+  border-color: rgba(229, 165, 10, 0.3);
+  background: rgba(229, 165, 10, 0.07);
+}
+
+.svc-detail-version-card--unavailable .svc-detail-version-icon,
+.svc-detail-version-card--not-applicable .svc-detail-version-icon {
+  color: var(--yellow);
+  background: rgba(229, 165, 10, 0.14);
+}
+
+.svc-detail-version-card--unavailable .svc-detail-version-state,
+.svc-detail-version-card--not-applicable .svc-detail-version-state {
+  color: var(--yellow);
+  background: rgba(229, 165, 10, 0.14);
+}
+
+.svc-detail-version-value {
+  margin-top: 2px;
+  color: var(--text-primary);
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 0.95rem;
+  font-weight: 700;
+  word-break: break-word;
+}
+
 /* ── Service detail: Domain ──────────────────────────────────────── */
 
 .svc-detail-domain-value {

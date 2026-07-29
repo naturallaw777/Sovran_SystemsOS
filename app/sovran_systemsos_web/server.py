@@ -2576,6 +2576,15 @@ def _get_service_version(unit: str) -> str | None:
         )
         if result.returncode == 0 and result.stdout.strip():
             m = _NIX_STORE_VERSION_RE.search(result.stdout)
+            # Some wrapped systemd commands contain an escaped or nested
+            # store path that the strict package-path expression misses. Fall
+            # back to scanning each store path segment for the version token.
+            if not m:
+                for store_path in re.findall(r"/nix/store/[a-z0-9]{32}-[^\\s/\\\"]+", result.stdout):
+                    candidates = re.findall(r"(?:^|-)(\\d+\\.\\d+(?:\\.\\d+)*(?:[+-][a-zA-Z0-9]+(?:\\.[a-zA-Z0-9]+)*)?)$", store_path)
+                    if candidates:
+                        m = type("_VersionMatch", (), {"group": lambda self, n: candidates[-1]})()
+                        break
             if m:
                 ver = m.group(1)
                 # Strip a single trailing period (defensive; shouldn't appear in store paths)

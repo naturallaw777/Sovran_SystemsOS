@@ -156,13 +156,10 @@ function buildTile(svc) {
     var pct = Math.round((svc.sync_progress || 0) * 100);
     var id = tileId(svc);
     var eta = _calcBtcEta(id, svc.sync_progress || 0);
-    var ver = svc.version || svc.bitcoin_version || '';
-    var versionLabel = ver ? '<div class="tile-version">' + escHtml(ver) + '</div>' : '';
     tile.innerHTML =
       '<img class="tile-icon" src="/static/icons/' + escHtml(svc.icon) + '.svg" alt="' + escHtml(svc.name) + '" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'">' +
       '<div class="tile-icon-fallback" style="display:none">?</div>' +
       '<div class="tile-name">' + escHtml(svc.name) + '</div>' +
-      versionLabel +
       '<div class="tile-sync-container">' +
         '<div class="tile-sync-label">\u23F3 Syncing Timechain</div>' +
         '<div class="tile-sync-bar-row">' +
@@ -178,10 +175,8 @@ function buildTile(svc) {
     return tile;
   }
 
-  var ver = svc.version || svc.bitcoin_version || '';
-  var versionLabel = ver ? '<div class="tile-version">' + escHtml(ver) + '</div>' : '';
   var bip110Badge = (svc.icon === 'bip110') ? _renderBip110Badge(svc.bip110) : '';
-  tile.innerHTML = '<img class="tile-icon" src="/static/icons/' + escHtml(svc.icon) + '.svg" alt="' + escHtml(svc.name) + '" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'"><div class="tile-icon-fallback" style="display:none">?</div><div class="tile-name">' + escHtml(svc.name) + '</div>' + versionLabel + bip110Badge + '<div class="tile-status"><span class="status-dot ' + sc + '"></span><span class="status-text">' + st + '</span></div>';
+  tile.innerHTML = '<img class="tile-icon" src="/static/icons/' + escHtml(svc.icon) + '.svg" alt="' + escHtml(svc.name) + '" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'"><div class="tile-icon-fallback" style="display:none">?</div><div class="tile-name">' + escHtml(svc.name) + '</div>' + bip110Badge + '<div class="tile-status"><span class="status-dot ' + sc + '"></span><span class="status-text">' + st + '</span></div>';
 
   tile.style.cursor = "pointer";
   tile.addEventListener("click", function() {
@@ -235,22 +230,6 @@ function updateTiles(services) {
       if (fill) fill.style.width = pct + "%";
       if (pctEl) pctEl.textContent = pct + "%";
       if (etaEl) etaEl.textContent = etaText;
-      // Update or insert version label
-      var syncVer = svc.version || svc.bitcoin_version || '';
-      if (syncVer) {
-        var syncVerEl = tile.querySelector(".tile-version");
-        if (syncVerEl) {
-          syncVerEl.textContent = syncVer;
-        } else {
-          var syncNameEl = tile.querySelector(".tile-name");
-          if (syncNameEl) {
-            var newSyncVerEl = document.createElement("div");
-            newSyncVerEl.className = "tile-version";
-            newSyncVerEl.textContent = syncVer;
-            syncNameEl.insertAdjacentElement("afterend", newSyncVerEl);
-          }
-        }
-      }
     } else {
       // IBD finished or not syncing — if tile had sync layout rebuild it normally
       if (tile.querySelector(".tile-sync-container")) {
@@ -265,22 +244,6 @@ function updateTiles(services) {
       var text = tile.querySelector(".status-text");
       if (dot) dot.className = "status-dot " + sc;
       if (text) text.textContent = st;
-      // Update or insert version label for all service tiles
-      var tileVer = svc.version || svc.bitcoin_version || '';
-      if (tileVer) {
-        var verEl = tile.querySelector(".tile-version");
-        if (verEl) {
-          verEl.textContent = tileVer;
-        } else {
-          var nameEl = tile.querySelector(".tile-name");
-          if (nameEl) {
-            var newVerEl = document.createElement("div");
-            newVerEl.className = "tile-version";
-            newVerEl.textContent = tileVer;
-            nameEl.insertAdjacentElement("afterend", newVerEl);
-          }
-        }
-      }
       // Update BIP-110 badge for bip110 tiles
       if (svc.icon === 'bip110') {
         var badgeHtml = _renderBip110Badge(svc.bip110);
@@ -290,8 +253,8 @@ function updateTiles(services) {
           var newBadge = _firstElementFromHtml(badgeHtml);
           if (newBadge) { badgeEl.replaceWith(newBadge); } else { badgeEl.remove(); }
         } else if (badgeHtml) {
-          // Insert badge after version label (or after tile-name if no version)
-          var anchorEl = tile.querySelector(".tile-version") || tile.querySelector(".tile-name");
+          // Insert badge after the service name
+          var anchorEl = tile.querySelector(".tile-name");
           if (anchorEl) {
             var newBadgeEl = _firstElementFromHtml(badgeHtml);
             if (newBadgeEl) anchorEl.insertAdjacentElement("afterend", newBadgeEl);
