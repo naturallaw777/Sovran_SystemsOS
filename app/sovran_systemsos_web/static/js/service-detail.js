@@ -634,9 +634,41 @@ async function openServiceDetailModal(unit, name, icon) {
     // Section E: Credentials & Links
     if (_isNwcServiceUnit(unit)) {
       html += '<div class="svc-detail-section">' +
-        '<div class="svc-detail-section-title">Wallet Connections</div>';
+        '<div class="svc-detail-section-title">Wallet Connections &amp; Node Liquidity</div>';
       if (effectiveEnabled || data.enabled) {
-        html += '<p class="svc-detail-desc">Create, verify, drain, and delete isolated NWC wallet connections without leaving the Hub.</p>' +
+        html += '<div class="nwc-liquidity-guide-card">' +
+          '<div class="nwc-liquidity-header">' +
+            '<span class="nwc-liquidity-icon">⚡</span>' +
+            '<div>' +
+              '<h4 style="margin:0 0 4px 0; font-size:15px; font-weight:600;">Lightning Channel &amp; Liquidity Guide</h4>' +
+              '<p class="nwc-liquidity-subtitle" style="margin:0; font-size:12px; color:var(--text-secondary);">How NWC &amp; Lightning Addresses work on new nodes</p>' +
+            '</div>' +
+          '</div>' +
+          '<p style="font-size:13px; line-height:1.5; margin:0 0 12px 0;">' +
+            'Your Alby Hub, NWC pairing keys, and Lightning Address endpoints (like <code>name@yourdomain.com</code>) are set up and working instantly. However, sending and receiving actual Bitcoin payments requires an operational Lightning node with active channels.' +
+          '</p>' +
+          '<div class="nwc-liquidity-steps">' +
+            '<div class="nwc-liquidity-step">' +
+              '<div class="step-num">1</div>' +
+              '<div>' +
+                '<strong>Outbound Liquidity (Sending)</strong>' +
+                '<p style="margin:2px 0 0 0; color:var(--text-secondary); font-size:12px;">Required so apps connected via NWC can pay invoices and send funds.</p>' +
+              '</div>' +
+            '</div>' +
+            '<div class="nwc-liquidity-step">' +
+              '<div class="step-num">2</div>' +
+              '<div>' +
+                '<strong>Inbound Liquidity (Receiving)</strong>' +
+                '<p style="margin:2px 0 0 0; color:var(--text-secondary); font-size:12px;">Required so your Lightning Address can receive incoming payments from anyone.</p>' +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+          '<div class="nwc-liquidity-action">' +
+            '<p style="margin:0 0 10px 0; font-size:12.55px; line-height:1.4;">💧 <strong>The Plumbing Analogy:</strong> Think of channels like two-way water pipes. To pour water in (receive) or pump water out (send), you need open channels with liquidity on both sides.</p>' +
+            '<button class="matrix-action-btn secondary-btn" id="nwc-open-rtl-btn" style="display:inline-flex; align-items:center; gap:6px; background:var(--border-color); color:var(--text-primary); border:none; padding:8px 14px; border-radius:8px; font-size:12.55px; cursor:pointer;">🚀 Open Ride The Lightning (RTL) to Manage Channels</button>' +
+          '</div>' +
+        '</div>' +
+        '<p class="svc-detail-desc" style="margin-top:16px;">Create, verify, drain, and delete isolated NWC wallet connections without leaving the Hub.</p>' +
           '<div id="nwc-wallets-body"><p class="creds-loading">Loading wallet connections…</p></div>';
       } else {
         html += '<p class="creds-empty">Wallet Connections is disabled. Enable this feature below, rebuild, then return here to create and manage NWC wallet connections.</p>';
@@ -725,6 +757,12 @@ async function openServiceDetailModal(unit, name, icon) {
     _attachCopyHandlers($credsBody);
     if (_isNwcServiceUnit(unit) && (effectiveEnabled || data.enabled)) {
       await _nwcInitWalletFlow(unit, name, icon);
+      var nwcRtlBtn = document.getElementById("nwc-open-rtl-btn");
+      if (nwcRtlBtn) {
+        nwcRtlBtn.addEventListener("click", function() {
+          openServiceDetailModal("rtl.service", "Ride The Lightning", "rtl");
+        });
+      }
     }
 
     if (unit === "matrix-synapse.service") {

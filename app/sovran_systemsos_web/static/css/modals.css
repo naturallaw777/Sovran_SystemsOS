@@ -546,3 +546,62 @@ button.btn-reboot:hover:not(:disabled) {
 .nwc-share-formats-hint {
   text-align: center;
 }
+
+/* ── NWC Liquidity Guide Card ────────────────────────────────────── */
+
+.nwc-liquidity-guide-card {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+  color: var(--text-primary);
+}
+
+.nwc-liquidity-header {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.nwc-liquidity-icon {
+  font-size: 24px;
+}
+
+.nwc-liquidity-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.nwc-liquidity-step {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  font-size: 0.85rem;
+}
+
+.step-num {
+  background: var(--accent-color);
+  color: #0A1A10;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.75rem;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.nwc-liquidity-action {
+  background: rgba(109, 191, 139, 0.08);
+  border-left: 3px solid var(--green);
+  padding: 10px 12px;
+  border-radius: 0 8px 8px 0;
+  font-size: 0.82rem;
+}
