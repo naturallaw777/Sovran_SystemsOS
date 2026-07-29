@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.0.4] - 2026-07-29
+
+### Added
+- (Add new features here)
+
+### Changed
+- (Add changes here)
+
+### Fixed
+- (Add bug fixes here)
+
+[1.0.4]: https://git.sovransystems.com/api/Sovran_Systems/Sovran_SystemsOS/releases/tag/v1.0.4
+
+
 ## [1.0.3] - 2026-07-29
 
 ### Added
