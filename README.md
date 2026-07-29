@@ -21,7 +21,7 @@ Lightning infrastructure when you are ready.
 **Privacy. Sovereignty. Bitcoin.**
 
 [Visit the Website](https://sovransystems.com) ·
-[Download the ISO](https://downloads.sovransystems.com/Sovran_SystemsOS.iso) ·
+[Download the ISO](https://downloads.sovransystems.com/Sovran_SystemsOS-1.0.3.iso) ·
 [Verify the Download](https://downloads.sovransystems.com/Sovran_SystemsOS.iso.sha256) ·
 [Build from Source](#build-from-source)
 

@@ -2274,13 +2274,30 @@ async def api_logout(request: Request):
     return response
 
 
+def _get_sovran_version() -> str:
+    """Read the OS version from the VERSION file."""
+    try:
+        with open("/etc/nixos/VERSION", "r") as f:
+            return f.read().strip()
+    except FileNotFoundError:
+        try:
+            with open("VERSION", "r") as f:  # fallback for development
+                return f.read().strip()
+        except FileNotFoundError:
+            return "dev"
+    except Exception:
+        return "dev"
+
+
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
+    sovran_version = _get_sovran_version()
     return templates.TemplateResponse(
         request=request,
         name="index.html",
         context={
             "asset_version": ASSET_VERSION,
+            "sovran_version": sovran_version,
         },
     )
 
