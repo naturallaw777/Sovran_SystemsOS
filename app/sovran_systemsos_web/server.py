@@ -3097,6 +3097,11 @@ async def api_services():
                 service_data["version"] = btc_ver
             if icon == "bip110":
                 service_data["bip110"] = await loop.run_in_executor(None, _get_bip110_status)
+        # ── Generic version for all services (Nix store path) ──────────
+        if enabled and unit and "version" not in service_data:
+            ver = await loop.run_in_executor(None, _get_service_version, unit)
+            if ver is not None:
+                service_data["version"] = ver
         return service_data
 
     results = await asyncio.gather(*[get_status(s) for s in services])
@@ -3371,6 +3376,11 @@ async def api_service_detail(unit: str, icon: str | None = None):
             service_detail["version"] = btc_ver
         if icon == "bip110":
             service_detail["bip110"] = await loop.run_in_executor(None, _get_bip110_status)
+    # ── Generic version for all services (Nix store path) ──────────
+    if enabled and unit and "version" not in service_detail:
+        ver = await loop.run_in_executor(None, _get_service_version, unit)
+        if ver is not None:
+            service_detail["version"] = ver
     return service_detail
 
 
