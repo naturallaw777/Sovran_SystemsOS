@@ -19,9 +19,10 @@ let
     NWC_LND_ADDRESS = "${lndRpcAddress}:${lndRpcPort}";
     NWC_LND_CERT_FILE = lndCertPath;
     NWC_LND_MACAROON_FILE = "/run/lnd/albyhub.macaroon";
-    NWC_RELAY = lib.mkIf config.sovran_systemsOS.features.haven
-      "wss://haven.${config.networking.domain}/nostr"
-      "wss://relay.getalby.com,wss://relay2.getalby.com";
+    NWC_RELAY =
+      if config.sovran_systemsOS.features.haven
+      then "wss://haven.${config.networking.domain}/nostr"
+      else "wss://relay.getalby.com,wss://relay2.getalby.com";
   };
   wrappedNwcWallet = lib.hiPrio (pkgs.writeShellScriptBin "nwc-wallet" ''
     export NWC_ALBY_HUB_API_BASE='${pythonManagerEnvironment.NWC_ALBY_HUB_API_BASE}'
@@ -113,9 +114,10 @@ lib.mkIf config.sovran_systemsOS.features."nwc-wallets" {
       DATABASE_URI = "/var/lib/albyhub/nwc.db";
       PORT = toString albyHubPort;
       # Use private Nostr relay if Haven is enabled, otherwise default to Alby's public relays
-      RELAY = lib.mkIf config.sovran_systemsOS.features.haven
-        "wss://haven.${config.networking.domain}/nostr"
-        "wss://relay.getalby.com,wss://relay2.getalby.com";
+      RELAY =
+        if config.sovran_systemsOS.features.haven
+        then "wss://haven.${config.networking.domain}/nostr"
+        else "wss://relay.getalby.com,wss://relay2.getalby.com";
       AUTO_LINK_ALBY_ACCOUNT = "false";
       SEND_EVENTS_TO_ALBY = "false";
       LOG_TO_FILE = "false";
