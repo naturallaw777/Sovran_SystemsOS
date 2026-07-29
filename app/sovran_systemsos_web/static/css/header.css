@@ -29,6 +29,14 @@
   color: var(--text-primary);
 }
 
+.title-group {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 2px;
+}
+
 .header-buttons {
   display: flex;
   align-items: center;
@@ -58,8 +66,8 @@
   color: #4ade80;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  margin-left: 12px;
   white-space: nowrap;
+  align-self: flex-start;
 }
 
 .os-version-badge:hover {

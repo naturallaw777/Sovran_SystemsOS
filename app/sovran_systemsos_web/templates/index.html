@@ -21,13 +21,16 @@
   <!-- Header bar -->
   <header class="header-bar">
     <img src="/static/sovran-hub-icon.svg" alt="Sovran Hub" class="header-logo" />
-    <span class="title">Sovran_SystemsOS Hub</span>
-    
-    <!-- OS Version Badge -->
-    <span class="os-version-badge" id="os-version-badge" title="Sovran_SystemsOS Version">
-      <span class="version-label">v</span>
-      <span class="version-number" id="version-number">{{ sovran_version }}</span>
-    </span>
+
+    <div class="title-group">
+      <span class="title">Sovran_SystemsOS Hub</span>
+
+      <!-- OS Version Badge -->
+      <span class="os-version-badge" id="os-version-badge" title="Sovran_SystemsOS Version">
+        <span class="version-label">v</span>
+        <span class="version-number" id="version-number">{{ sovran_version }}</span>
+      </span>
+    </div>
 
     <div class="header-buttons">
       <span class="role-badge" id="role-badge">Loading…</span>

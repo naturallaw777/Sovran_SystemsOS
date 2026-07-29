@@ -2275,18 +2275,39 @@ async def api_logout(request: Request):
 
 
 def _get_sovran_version() -> str:
-    """Read the OS version from the VERSION file."""
+    """Read the OS version to display in the Hub header.
+
+    Resolution order (first match wins):
+      1. ``sovran_version`` baked into the Nix-generated config.json — this
+         is the authoritative, build-time value and is what's used on a
+         real Sovran_SystemsOS install.
+      2. ``/etc/nixos/VERSION`` — present on an installed system.
+      3. A ``VERSION`` file shipped next to this package (installed by the
+         Nix build) or in the repo root (local development checkout).
+      4. A hard-coded fallback so the badge never renders a broken/empty
+         value such as the old "vdev" placeholder.
+    """
     try:
-        with open("/etc/nixos/VERSION", "r") as f:
-            return f.read().strip()
-    except FileNotFoundError:
-        try:
-            with open("VERSION", "r") as f:  # fallback for development
-                return f.read().strip()
-        except FileNotFoundError:
-            return "dev"
+        version = load_config().get("sovran_version")
+        if version:
+            return str(version).strip().lstrip("vV")
     except Exception:
-        return "dev"
+        pass
+
+    for candidate in (
+        "/etc/nixos/VERSION",
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "VERSION"),
+        "VERSION",
+    ):
+        try:
+            with open(candidate, "r") as f:
+                version = f.read().strip().lstrip("vV")
+                if version and version.lower() != "dev":
+                    return version
+        except (FileNotFoundError, OSError):
+            continue
+
+    return "1.0.0"
 
 
 @app.get("/", response_class=HTMLResponse)
