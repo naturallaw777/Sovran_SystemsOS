@@ -155,12 +155,13 @@ if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
 fi
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Step 1: Push main to stable
+# Step 1: Push tested code to Gitea (stable & staging-dev)
 # ─────────────────────────────────────────────────────────────────────────────
 echo
-echo -e "${BLUE}Step 1: Pushing main → stable on Gitea...${NC}"
+echo -e "${BLUE}Step 1: Pushing tested code to Gitea (stable & staging-dev)...${NC}"
 if git remote | grep -q -x "${GITEA_REMOTE}"; then
-    git push "${GITEA_REMOTE}" main:stable --force-with-lease || echo -e "  ${YELLOW}⚠ Push to ${GITEA_REMOTE} failed.${NC}"
+    git push "${GITEA_REMOTE}" HEAD:stable --force-with-lease || echo -e "  ${YELLOW}⚠ Push to ${GITEA_REMOTE} (stable) failed.${NC}"
+    git push "${GITEA_REMOTE}" HEAD:staging-dev --force-with-lease || echo -e "  ${YELLOW}⚠ Push to ${GITEA_REMOTE} (staging-dev) failed.${NC}"
 else
     echo -e "  ${YELLOW}⚠ Remote '${GITEA_REMOTE}' not found in git — skipping Gitea push.${NC}"
 fi
@@ -179,6 +180,10 @@ if git remote | grep -q -x "${GITEA_REMOTE}"; then
     git push "${GITEA_REMOTE}" "${TAG}" || echo -e "  ${YELLOW}⚠ Tag push to ${GITEA_REMOTE} failed.${NC}"
 else
     echo -e "  ${YELLOW}⚠ Remote '${GITEA_REMOTE}' not found in git — skipping Gitea tag push.${NC}"
+fi
+
+if git remote | grep -q -x "${GITHUB_REMOTE}"; then
+    git push "${GITHUB_REMOTE}" "${TAG}" || echo -e "  ${YELLOW}⚠ Tag push to ${GITHUB_REMOTE} failed.${NC}"
 fi
 
 # Update VERSION file for ISO builds
@@ -244,17 +249,23 @@ else
 
     # Ask if user wants to push
     echo
-    read -rp "Push the changelog commit to GitHub now? (y/N): " push_confirm
+    read -rp "Push the changelog commit to GitHub (main) and Gitea (staging-dev) now? (y/N): " push_confirm
     if [[ "$push_confirm" =~ ^[Yy]$ ]]; then
         if git remote | grep -q -x "${GITHUB_REMOTE}"; then
-            echo -e "${BLUE}Pushing changelog commit...${NC}"
-            if git push "${GITHUB_REMOTE}" main; then
-                echo -e "  ${GREEN}✓${NC} Changelog pushed to GitHub (${GITHUB_REMOTE})"
+            echo -e "${BLUE}Pushing changelog commit to GitHub main...${NC}"
+            if git push "${GITHUB_REMOTE}" HEAD:main; then
+                echo -e "  ${GREEN}✓${NC} Changelog pushed to GitHub main (${GITHUB_REMOTE})"
             else
-                echo -e "  ${YELLOW}⚠ Push to GitHub failed — verify credentials or remote name.${NC}"
+                echo -e "  ${YELLOW}⚠ Push to GitHub main failed — verify credentials or remote name.${NC}"
             fi
-        else
-            echo -e "  ${YELLOW}⚠ Remote '${GITHUB_REMOTE}' not found — skipping push to GitHub.${NC}"
+        fi
+        if git remote | grep -q -x "${GITEA_REMOTE}"; then
+            echo -e "${BLUE}Pushing changelog commit to Gitea staging-dev...${NC}"
+            if git push "${GITEA_REMOTE}" HEAD:staging-dev; then
+                echo -e "  ${GREEN}✓${NC} Changelog pushed to Gitea staging-dev (${GITEA_REMOTE})"
+            else
+                echo -e "  ${YELLOW}⚠ Push to Gitea staging-dev failed.${NC}"
+            fi
         fi
     else
         echo "  (Changelog commit left local — remember to push later)"
@@ -332,7 +343,7 @@ echo -e "${GREEN}╚════════════════════
 echo
 echo "Next manual steps (recommended):"
 echo "  • Review and enhance the new section in CHANGELOG.md"
-echo "  • Push the changelog commit: git push origin main"
+echo "  • Push changes: git push ${GITHUB_REMOTE} HEAD:main && git push ${GITEA_REMOTE} HEAD:staging-dev"
 echo "  • Verify releases on both GitHub and Gitea"
 echo
 echo -e "${CYAN}Tag created: ${TAG}${NC}"
