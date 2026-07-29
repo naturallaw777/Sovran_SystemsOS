@@ -666,8 +666,6 @@ async function openServiceDetailModal(unit, name, icon) {
     // These services are wrappers, setup helpers, or application stacks rather
     // than a single versioned daemon represented by the tile's systemd unit.
     var versionNotApplicable = [
-      'phpfpm-wordpress.service', 'phpfpm-nextcloud.service',
-      'albyhub.service', 'nwc-wallets.service',
       'zeus-connect-setup.service', 'sparrow-autoconnect.service'
     ].indexOf(unit) !== -1;
     var versionState = serviceVersion ? 'detected' : (versionNotApplicable ? 'not-applicable' : 'unavailable');

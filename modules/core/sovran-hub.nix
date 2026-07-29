@@ -118,6 +118,25 @@ let
       feature_manager  = true;
     });
 
+  generatedVersions = pkgs.writeText "sovran-hub-versions.json" (builtins.toJSON {
+    "caddy.service" = if pkgs ? caddy then pkgs.caddy.version else "2.8.4";
+    "tor.service" = if pkgs ? tor then pkgs.tor.version else "0.4.8.12";
+    "gnome-remote-desktop.service" = if pkgs ? gnome-remote-desktop then pkgs.gnome-remote-desktop.version else "46.0";
+    "bitcoind.service" = if pkgs ? bitcoind-knots then pkgs.bitcoind-knots.version else (if pkgs ? bitcoind then pkgs.bitcoind.version else "27.1.0");
+    "electrs.service" = if pkgs ? electrs then pkgs.electrs.version else "0.10.6";
+    "lnd.service" = if pkgs ? lnd then pkgs.lnd.version else "0.18.0";
+    "rtl.service" = if pkgs ? clightning-rtl then pkgs.clightning-rtl.version else (if pkgs ? rtl then pkgs.rtl.version else "0.15.2");
+    "btcpayserver.service" = if pkgs ? btcpayserver then pkgs.btcpayserver.version else "2.0.0";
+    "albyhub.service" = if pkgs ? albyhub then pkgs.albyhub.version else "1.8.0";
+    "mempool.service" = if pkgs ? mempool then pkgs.mempool.version else "3.0.0";
+    "matrix-synapse.service" = if pkgs ? matrix-synapse then pkgs.matrix-synapse.version else "1.115.0";
+    "livekit.service" = if pkgs ? livekit then pkgs.livekit.version else "1.5.2";
+    "vaultwarden.service" = if pkgs ? vaultwarden then pkgs.vaultwarden.version else "1.32.0";
+    "phpfpm-nextcloud.service" = if pkgs ? nextcloud then pkgs.nextcloud.version else "29.0.0";
+    "phpfpm-wordpress.service" = if pkgs ? wordpress then pkgs.wordpress.version else "6.5.0";
+    "haven-relay.service" = if pkgs ? haven-relay then pkgs.haven-relay.version else (if pkgs ? haven then pkgs.haven.version else "0.1.0");
+  });
+
   # ── Update wrapper script ──────────────────────────────────────
   update-script = pkgs.writeShellScript "sovran-hub-update.sh" ''
     set -uo pipefail
@@ -311,6 +330,7 @@ let
       cp -r sovran_systemsos_web $out/lib/sovran-hub-web/
 
       cp ${generatedConfig} $out/lib/sovran-hub-web/config.json
+      cp ${generatedVersions} $out/lib/sovran-hub-web/versions.json
 
       install -d $out/share/sovran-hub/icons
       cp icons/* $out/share/sovran-hub/icons/ 2>/dev/null || true
@@ -345,6 +365,7 @@ import os, sys
 base = os.path.join("$out", "lib", "sovran-hub-web")
 sys.path.insert(0, base)
 os.environ["SOVRAN_HUB_CONFIG"] = os.path.join(base, "config.json")
+os.environ["SOVRAN_HUB_VERSIONS"] = os.path.join(base, "versions.json")
 os.environ["SOVRAN_HUB_ICONS"]  = os.path.join("$out", "share", "sovran-hub", "icons")
 import uvicorn
 uvicorn.run(

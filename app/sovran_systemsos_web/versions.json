@@ -1,0 +1,18 @@
+{
+  "caddy.service": "2.8.4",
+  "tor.service": "0.4.8.12",
+  "gnome-remote-desktop.service": "46.0",
+  "bitcoind.service": "27.1.0",
+  "electrs.service": "0.10.6",
+  "lnd.service": "0.18.0",
+  "rtl.service": "0.15.2",
+  "btcpayserver.service": "2.0.0",
+  "albyhub.service": "1.8.0",
+  "mempool.service": "3.0.0",
+  "matrix-synapse.service": "1.115.0",
+  "livekit.service": "1.5.2",
+  "vaultwarden.service": "1.32.0",
+  "phpfpm-nextcloud.service": "29.0.0",
+  "phpfpm-wordpress.service": "6.5.0",
+  "haven-relay.service": "0.1.0"
+}
