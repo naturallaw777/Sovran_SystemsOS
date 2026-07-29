@@ -79,7 +79,7 @@ let
         { label = "Test Username";    file = "/var/lib/secrets/matrix-test-username"; }
         { label = "Test Password";    file = "/var/lib/secrets/matrix-test-password"; }
       ]; }
-      { name = "Element-Call";   unit = "livekit.service";        type = "system"; icon = "element-calling"; enabled = cfg.features.element-calling;  category = "communication"; credentials = []; }
+      { name = "LiveKit (Element Call)"; unit = "livekit.service"; type = "system"; icon = "element-calling"; enabled = cfg.features.element-calling; category = "communication"; credentials = []; }
     ]
     # ── Self-Hosted Apps (server+desktop only) ─────────────────
     ++ lib.optionals cfg.roles.server_plus_desktop [

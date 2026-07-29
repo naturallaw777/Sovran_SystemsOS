@@ -659,6 +659,29 @@ async function openServiceDetailModal(unit, name, icon) {
       '</div>' +
       '</div>');
 
+    // Keep package versions in the detail modal rather than the compact tile.
+    // The API uses `version` for regular services and `bitcoin_version` for
+    // older Bitcoin payloads, so accept both while the backend is upgraded.
+    var serviceVersion = data.version || data.bitcoin_version || '';
+    // These services are wrappers, setup helpers, or application stacks rather
+    // than a single versioned daemon represented by the tile's systemd unit.
+    var versionNotApplicable = [
+      'phpfpm-wordpress.service', 'phpfpm-nextcloud.service',
+      'albyhub.service', 'nwc-wallets.service',
+      'zeus-connect-setup.service', 'sparrow-autoconnect.service'
+    ].indexOf(unit) !== -1;
+    var versionState = serviceVersion ? 'detected' : (versionNotApplicable ? 'not-applicable' : 'unavailable');
+    var versionText = serviceVersion || (versionNotApplicable
+      ? 'This service does not expose a single package version'
+      : (effectiveEnabled ? 'Version could not be detected' : 'Start the service to detect its version'));
+    var versionBadge = serviceVersion ? 'Detected' : (versionNotApplicable ? 'Not applicable' : 'Not detected');
+    addSetup('<div class="svc-detail-version-card svc-detail-version-card--' + versionState + '">' +
+      '<div class="svc-detail-version-icon">⌁</div>' +
+      '<div class="svc-detail-version-copy"><div class="svc-detail-version-label">Installed version ' +
+        '<span class="svc-detail-version-state">' + versionBadge + '</span></div>' +
+      '<div class="svc-detail-version-value">' + escHtml(versionText) + '</div></div>' +
+      '</div>');
+
     // Section B2: BIP-110 live status (bip110 tile only)
     if (icon === 'bip110' && data.bip110) {
       var bip110 = data.bip110;
