@@ -403,8 +403,8 @@ SERVICE_DESCRIPTIONS: dict[str, str] = {
     ),
     "lnd.service": (
         "Your Lightning Network node for instant, low-fee Bitcoin payments. "
-        "LND powers your Zeus wallet, Ride The Lightning dashboard, and BTCPayServer's "
-        "Lightning capabilities. With Sovran_SystemsOS, it's always connected and ready."
+        "LND powers your Zeus wallet (via direct LND REST or Tor), Ride The Lightning dashboard, and BTCPayServer's "
+        "Lightning capabilities. For mobile spending with sandboxed wallets, use Lightning Wallet Connections (NWC) instead."
     ),
     "rtl.service": (
         "Your personal Lightning Network command center. Open channels, manage liquidity, "
@@ -417,9 +417,9 @@ SERVICE_DESCRIPTIONS: dict[str, str] = {
         "Sovran_SystemsOS makes running a production-grade payment gateway as simple as flipping a switch."
     ),
     "zeus-connect-setup.service": (
-        "Connect the Zeus mobile wallet to your Lightning node. Send and receive "
-        "Lightning payments from your phone, backed by your own infrastructure. "
-        "Scan the QR code and your phone becomes a sovereign wallet."
+        "Connect the Zeus mobile wallet to your Lightning node via LND REST. Send and receive "
+        "Lightning payments from your phone using a direct node connection. "
+        "Scan the QR code to add your node to Zeus — this gives full node admin access."
     ),
     "mempool.service": (
         "Your own blockchain explorer and mempool visualizer. Monitor transactions, "

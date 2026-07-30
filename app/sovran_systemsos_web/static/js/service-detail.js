@@ -9,7 +9,7 @@ function _renderCredsHtml(credentials, unit) {
     var id = "cred-" + Math.random().toString(36).substring(2, 8);
     var qrBlock = "";
     if (cred.qrcode) {
-      qrBlock = '<div class="creds-qr-wrap"><img class="creds-qr-img" src="' + cred.qrcode + '" alt="QR Code for ' + escHtml(cred.label) + '"><div class="creds-qr-hint">Scan with Zeus app on your phone</div></div>';
+      qrBlock = '<div class="creds-qr-wrap"><img class="creds-qr-img" src="' + cred.qrcode + '" alt="QR Code for ' + escHtml(cred.label) + '"><div class="creds-qr-hint">In Zeus: <em>Wallets → + → scan icon</em>. This is an <strong>LND REST</strong> QR for direct node access.</div></div>';
     }
     // If qronly, render the label + QR block only — skip value and copy button
     if (cred.qronly) {
@@ -218,7 +218,7 @@ function _nwcRenderWalletState() {
     var pairId = "nwc-pairing-uri-" + Math.random().toString(36).substring(2, 8);
     html += '<div class="nwc-secret-warning">⚠ One-time pairing secret. Save it now — it will not be shown again.</div>';
     if (created.pairing_qrcode) {
-      html += '<div class="creds-qr-wrap"><img class="creds-qr-img" src="' + created.pairing_qrcode + '" alt="QR code for Lightning Wallet Connections pairing secret"><div class="creds-qr-hint">Scan now in Zeus or copy the URI below.</div></div>';
+      html += '<div class="creds-qr-wrap"><img class="creds-qr-img" src="' + created.pairing_qrcode + '" alt="QR code for Lightning Wallet Connections pairing secret"><div class="creds-qr-hint">This is an <strong>NWC</strong> pairing QR — in Zeus, add a wallet and use the scan icon (see steps below).</div></div>';
     }
     html += '<div class="creds-row"><div class="creds-label">Pairing URI</div>' +
       '<div class="creds-value-wrap"><div class="creds-value" id="' + pairId + '">' + escHtml(created.pairing_uri || "Unavailable") + '</div><button class="creds-copy-btn" data-target="' + pairId + '">Copy</button></div></div>';
@@ -226,10 +226,21 @@ function _nwcRenderWalletState() {
       html += '<div class="creds-row"><div class="creds-label">Lightning Address</div>' +
         '<div class="creds-value-wrap"><div class="creds-value">' + escHtml(created.wallet.lightning_address) + '</div></div></div>';
     }
+    html += '<div class="nwc-connect-guide">' +
+      '<div class="nwc-connect-guide-title">📱 Connect to Zeus</div>' +
+      '<p class="nwc-connect-guide-intro">This pairing URI is an <strong>NWC (Nostr Wallet Connect)</strong> connection — the modern, mobile-friendly way to use Zeus with your node. It connects directly through your Lightning domain, so no Tor or port forwarding is needed on your phone.</p>' +
+      '<div class="nwc-connect-steps">' +
+        '<div class="nwc-connect-step"><div class="nwc-step-num">1</div><div><strong>Open Zeus</strong> and open the <strong>Wallets</strong> screen.</div></div>' +
+        '<div class="nwc-connect-step"><div class="nwc-step-num">2</div><div>Tap the <strong>+ (Add Wallet)</strong> button in the top-right corner.</div></div>' +
+        '<div class="nwc-connect-step"><div class="nwc-step-num">3</div><div>On <strong>Wallet Configuration</strong>, tap the <strong>scan icon</strong> in the top-right corner, then scan the QR code above.</div></div>' +
+        '<div class="nwc-connect-step"><div class="nwc-step-num">4</div><div>Zeus detects the NWC QR and fills in <strong>Nostr Wallet Connect</strong>. Review it, then tap <strong>Save Wallet Config</strong>.</div></div>' +
+      '</div>' +
+      '<div class="nwc-connect-note"><strong>💡 Note:</strong> This is <em>not</em> the same as the LND REST / Tor QR shown on your LND tile — that connects Zeus directly to your Lightning node for full admin control. NWC gives your wallet sandboxed, limited access for everyday spending.</div>' +
+    '</div>';
     html += '<div class="matrix-form-actions">' +
       '<button class="matrix-form-back" id="nwc-created-another-btn"' + (state.busy ? " disabled" : "") + '>Create Another Wallet</button>' +
       '<button class="matrix-form-submit" id="nwc-created-continue-btn"' + (state.busy ? " disabled" : "") + '>I Saved This Secret</button>' +
-    '</div>';
+      '</div>';
     host.innerHTML = html;
     _attachCopyHandlers(host);
     var continueBtn = document.getElementById("nwc-created-continue-btn");
@@ -332,7 +343,7 @@ function _nwcRenderWalletState() {
     html += '<div class="nwc-empty-state">' +
       '<div class="nwc-empty-icon">⚡</div>' +
       '<div class="nwc-empty-title">Ready to start spending</div>' +
-      '<p class="nwc-empty-desc">Create your first isolated wallet to connect to apps like Zeus or Nostr. Experience faster, more secure Lightning payments today.</p>' +
+      '<p class="nwc-empty-desc">Create your first isolated wallet to connect to apps like Zeus (via NWC) or Nostr. Experience faster, more secure Lightning payments today.</p>' +
       '</div>';
     host.innerHTML = html;
     _nwcWireDomainLink();
@@ -783,8 +794,8 @@ async function openServiceDetailModal(unit, name, icon) {
               '<div class="nwc-benefit-item">' +
                 '<div class="nwc-benefit-icon">📱</div>' +
                 '<div class="nwc-benefit-content">' +
-                  '<strong>Zeus on the Go</strong>' +
-                  '<p>Connect instantly to Zeus via NWC. Manage your spending and receive payments right from your phone, wherever you are.</p>' +
+                  '<strong>Zeus on the Go (via NWC)</strong>' +
+                  '<p>Connect Zeus to your wallet using NWC — no Tor, no port forwarding. Create a wallet below, scan the pairing QR, and start spending from your phone.</p>' +
                 '</div>' +
               '</div>' +
             '</div>' +
