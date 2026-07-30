@@ -174,7 +174,7 @@ function _nwcRenderWalletState() {
     var selectedLimited = state.createForm.access_preset === "send_receive_limited";
     html +=
       '<div class="nwc-tab-intro-title">Create a Wallet</div>' +
-      '<p class="nwc-tab-intro-desc">An isolated wallet you pair to a single app, with its own Lightning Address.</p>' +
+      '<p class="nwc-tab-intro-desc">Create a secure, sandboxed wallet for a specific app. Each wallet gets its own Lightning Address and optional spending limit.</p>' +
       '<div class="matrix-form-group"><label class="matrix-form-label" for="nwc-wallet-name">Wallet Name</label>' +
         '<input class="matrix-form-input" id="nwc-wallet-name" type="text" placeholder="My Wallet" value="' + escHtml(state.createForm.name || "") + '" autocomplete="off"></div>' +
       '<div class="matrix-form-group"><label class="matrix-form-label" for="nwc-wallet-alias">Lightning Address Alias</label>' +
@@ -330,9 +330,9 @@ function _nwcRenderWalletState() {
 
   if (!state.wallets || state.wallets.length === 0) {
     html += '<div class="nwc-empty-state">' +
-      '<div class="nwc-empty-icon">👛</div>' +
-      '<div class="nwc-empty-title">No wallets yet</div>' +
-      '<p class="nwc-empty-desc">Create your first wallet to get a one-time pairing secret for an app, plus a reusable Lightning Address.</p>' +
+      '<div class="nwc-empty-icon">⚡</div>' +
+      '<div class="nwc-empty-title">Ready to start spending</div>' +
+      '<p class="nwc-empty-desc">Create your first isolated wallet to connect to apps like Zeus or Nostr. Experience faster, more secure Lightning payments today.</p>' +
       '</div>';
     host.innerHTML = html;
     _nwcWireDomainLink();
@@ -761,9 +761,32 @@ async function openServiceDetailModal(unit, name, icon) {
     if (isNwc) {
       if (effectiveEnabled || data.enabled) {
         html += '<div class="nwc-tab-intro">' +
-            '<div>' +
-              '<div class="nwc-tab-intro-title">Your Lightning Wallets</div>' +
-              '<p class="nwc-tab-intro-desc">Each wallet is isolated: pair it to one app with a one-time secret, and share its Lightning Address to get paid.</p>' +
+            '<div class="nwc-intro-header">' +
+              '<div class="nwc-tab-intro-title">Lightning Wallet Connections</div>' +
+              '<p class="nwc-tab-intro-desc">Powerful, isolated wallets for your daily spending and modern apps.</p>' +
+            '</div>' +
+            '<div class="nwc-benefits-grid">' +
+              '<div class="nwc-benefit-item">' +
+                '<div class="nwc-benefit-icon">🛡️</div>' +
+                '<div class="nwc-benefit-content">' +
+                  '<strong>Isolated & Secure</strong>' +
+                  '<p>Create sandboxed wallets for quick spending while keeping your main node protected. Isolated access is faster than Tor and perfect for budgeting.</p>' +
+                '</div>' +
+              '</div>' +
+              '<div class="nwc-benefit-item">' +
+                '<div class="nwc-benefit-icon">🌐</div>' +
+                '<div class="nwc-benefit-content">' +
+                  '<strong>Modern Ecosystem</strong>' +
+                  '<p>Easily spend and receive bitcoin using LNURL and Nostr (NWC) across the growing ecosystem of decentralized apps.</p>' +
+                '</div>' +
+              '</div>' +
+              '<div class="nwc-benefit-item">' +
+                '<div class="nwc-benefit-icon">📱</div>' +
+                '<div class="nwc-benefit-content">' +
+                  '<strong>Zeus on the Go</strong>' +
+                  '<p>Connect instantly to Zeus via NWC. Manage your spending and receive payments right from your phone, wherever you are.</p>' +
+                '</div>' +
+              '</div>' +
             '</div>' +
           '</div>' +
           '<div id="nwc-wallets-body"><p class="creds-loading">Loading wallets…</p></div>' +
