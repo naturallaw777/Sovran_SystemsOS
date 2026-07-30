@@ -1,4 +1,55 @@
+/* ── NWC Benefits Grid ─────────────────────────────────────────── */
+
+.nwc-benefits-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.nwc-benefit-item {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 10px 14px;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  transition: background-color 0.2s;
+}
+
+.nwc-benefit-item:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.nwc-benefit-icon {
+  font-size: 1.25rem;
+  margin-top: 2px;
+  opacity: 0.9;
+}
+
+.nwc-benefit-content strong {
+  display: block;
+  font-size: 0.82rem;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+
+.nwc-benefit-content p {
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+@media (max-width: 800px) {
+  .nwc-benefits-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* ── Update modal ────────────────────────────────────────────────── */
+
 
 .modal-overlay {
   display: none;
@@ -607,10 +658,12 @@ button.btn-reboot:hover:not(:disabled) {
 
 .nwc-tab-intro {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
+  flex-direction: column;
+  align-items: stretch;
   gap: 16px;
-  margin-bottom: 16px;
+  margin-bottom: 20px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .nwc-tab-intro-title {
