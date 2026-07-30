@@ -473,19 +473,73 @@ function renderBackupReady(drives) {
     ].join("");
   }
 
+  // ── Role-aware backup description ─────────────────────────────
+  // Desktop Only systems run no server or Bitcoin services and have no
+  // internal second drive, so the backup mirrors only the NixOS configuration
+  // and home directory. nix-bitcoin secrets, /var/lib system service data,
+  // and the database/blockchain caveats apply only to the Node and
+  // Server + Desktop roles.
+  var isDesktopOnly = (_currentRole === "desktop");
+
+  var introHtml;
+  if (isDesktopOnly) {
+    introHtml = [
+      '<div class="support-wallet-box support-wallet-protected" style="margin-bottom:16px;">',
+        '<p class="support-wallet-desc">',
+          'This manual backup lets you create a copy of your system on an external USB drive \u2014 ',
+          'storing your data in a second location, outside the computer, for maximum protection ',
+          'against hardware failure or physical damage.',
+        '</p>',
+      '</div>',
+    ].join("");
+  } else {
+    introHtml = [
+      '<div class="support-wallet-box support-wallet-protected" style="margin-bottom:16px;">',
+        '<p class="support-wallet-desc">',
+          'Your Sovran Pro already backs up your data automatically to its internal second drive. ',
+          'This manual backup lets you create an additional copy on an external USB drive \u2014 ',
+          'storing your data in a third location, outside the computer, for maximum protection ',
+          'against hardware failure or physical damage.',
+        '</p>',
+      '</div>',
+    ].join("");
+  }
+
+  var backupItemsHtml;
+  if (isDesktopOnly) {
+    backupItemsHtml = [
+      '<li>NixOS configuration (<code>/etc/nixos</code>)</li>',
+      '<li>Home directory (<code>/home</code>)</li>',
+    ].join("");
+  } else {
+    backupItemsHtml = [
+      '<li>NixOS configuration (<code>/etc/nixos</code>)</li>',
+      '<li>nix-bitcoin secrets (<code>/etc/nix-bitcoin-secrets</code>)</li>',
+      '<li>System service data (<code>/var/lib</code>) — excluding databases and blockchain data (see note below)</li>',
+      '<li>Home directory (<code>/home</code>)</li>',
+    ].join("");
+  }
+
+  // The database/blockchain caveat is only relevant when server services exist.
+  var dbNoteHtml = "";
+  if (!isDesktopOnly) {
+    dbNoteHtml = [
+      '<div class="support-wallet-box support-wallet-warning">',
+        '<div class="support-wallet-header">',
+          '<span class="support-wallet-icon">\u2139\ufe0f</span>',
+          '<span class="support-wallet-title">Database and Blockchain Data</span>',
+        '</div>',
+        '<p class="support-wallet-desc">Application databases stored in PostgreSQL or MariaDB/MySQL are <strong>not included</strong> in Manual Backup. Bitcoin blockchain and Electrs index data are also excluded (they are stored on the internal second drive). If you use Nextcloud, Matrix, or other database-backed applications, back up those databases separately with their native tools.</p>',
+      '</div>',
+    ].join("");
+  }
+
   $supportBody.innerHTML = [
     '<div class="support-section">',
     '<div class="support-icon-big">\ud83d\udcbe</div>',
     '<h3 class="support-heading">Manual Backup</h3>',
 
-    '<div class="support-wallet-box support-wallet-protected" style="margin-bottom:16px;">',
-      '<p class="support-wallet-desc">',
-        'Your Sovran Pro already backs up your data automatically to its internal second drive. ',
-        'This manual backup lets you create an additional copy on an external USB drive \u2014 ',
-        'storing your data in a third location, outside the computer, for maximum protection ',
-        'against hardware failure or physical damage.',
-      '</p>',
-    '</div>',
+    introHtml,
 
     '<div class="support-steps">',
       '<div class="support-steps-title">Requirements</div>',
@@ -500,20 +554,11 @@ function renderBackupReady(drives) {
     '<div class="support-steps">',
       '<div class="support-steps-title">What gets backed up</div>',
       '<ol class="support-backup-steps">',
-        '<li>NixOS configuration (<code>/etc/nixos</code>)</li>',
-        '<li>nix-bitcoin secrets (<code>/etc/nix-bitcoin-secrets</code>)</li>',
-        '<li>System service data (<code>/var/lib</code>) — excluding databases and blockchain data (see note below)</li>',
-        '<li>Home directory (<code>/home</code>)</li>',
+        backupItemsHtml,
       '</ol>',
     '</div>',
 
-    '<div class="support-wallet-box support-wallet-warning">',
-      '<div class="support-wallet-header">',
-        '<span class="support-wallet-icon">\u2139\ufe0f</span>',
-        '<span class="support-wallet-title">Database and Blockchain Data</span>',
-      '</div>',
-      '<p class="support-wallet-desc">Application databases stored in PostgreSQL or MariaDB/MySQL are <strong>not included</strong> in Manual Backup. Bitcoin blockchain and Electrs index data are also excluded (they are stored on the internal second drive). If you use Nextcloud, Matrix, or other database-backed applications, back up those databases separately with their native tools.</p>',
-    '</div>',
+    dbNoteHtml,
 
     '<div class="support-wallet-box support-wallet-protected">',
       '<div class="support-wallet-header">',

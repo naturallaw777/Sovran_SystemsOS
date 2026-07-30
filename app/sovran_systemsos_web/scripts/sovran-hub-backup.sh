@@ -3,10 +3,18 @@
 # Backs up Sovran_SystemsOS data to an external USB hard drive using rsync.
 # Designed for the Hub web UI (no GUI dependencies).
 #
-# Your Sovran Pro already backs up your data automatically to its
-# internal second drive (BTCEcoandBackup at /run/media/Second_Drive).
-# This script creates an additional copy on an external USB drive —
-# storing your data in a third location for maximum protection.
+# On Server + Desktop and Node systems, your Sovran Pro already backs up
+# your data automatically to its internal second drive (BTCEcoandBackup at
+# /run/media/Second_Drive); this script stores a copy in a third location.
+# Desktop Only systems have no internal second drive, so the external copy
+# is the second location.
+#
+# What gets mirrored depends on the system role:
+#   - Node / Server + Desktop: /etc/nixos, /etc/nix-bitcoin-secrets,
+#     /home, and /var/lib (minus databases, blockchain data, logs, caches).
+#   - Desktop Only: /etc/nixos and /home. Desktop Only runs no server or
+#     Bitcoin services, so there are no nix-bitcoin secrets or system
+#     service data to back up.
 #
 # The external drive must be formatted as ext4. Files are stored as
 # directly browsable files under Sovran_SystemsOS_Backup/current/.
@@ -344,6 +352,19 @@ case "$ROLE" in
 esac
 log "Detected role: $ROLE_LABEL"
 
+# Backup scope depends on the role. Desktop Only systems run no server or
+# Bitcoin services, so only the NixOS configuration and home directory are
+# mirrored (2 stages). Node and Server + Desktop systems also mirror the
+# nix-bitcoin secrets and /var/lib system service data (4 stages).
+if [[ "$ROLE" == "desktop" ]]; then
+  TOTAL_STAGES=2
+  HOME_STAGE_NUM=2
+  log "Desktop Only role: backing up the NixOS configuration (/etc/nixos) and home directory (/home) only."
+else
+  TOTAL_STAGES=4
+  HOME_STAGE_NUM=3
+fi
+
 # ── Detect target drive ──────────────────────────────────────────
 
 if [[ -n "${BACKUP_TARGET:-}" ]]; then
@@ -385,21 +406,24 @@ log "Backup destination: $BACKUP_DIR"
 
 ETC_NIXOS_BYTES=$(estimate_path_bytes /etc/nixos)
 HOME_BYTES=$(estimate_path_bytes /home --exclude='*/.cache' --exclude='*/.local/share/Trash' --exclude='*/Trash')
+
+# nix-bitcoin secrets and /var/lib system service data exist only on the
+# Node and Server + Desktop roles — they are skipped entirely on Desktop Only.
 SECRETS_BYTES=0
+VAR_LIB_BYTES=0
 if [[ "$ROLE" != "desktop" ]]; then
   SECRETS_BYTES=$(estimate_path_bytes /etc/nix-bitcoin-secrets)
+  VAR_LIB_BYTES=$(estimate_path_bytes /var/lib \
+    --exclude='postgresql' \
+    --exclude='mysql' \
+    --exclude='mariadb' \
+    --exclude='bitcoind' \
+    --exclude='electrs' \
+    --exclude='*/log' \
+    --exclude='*/logs' \
+    --exclude='*/cache' \
+    --exclude='*/tmp')
 fi
-
-VAR_LIB_BYTES=$(estimate_path_bytes /var/lib \
-  --exclude='postgresql' \
-  --exclude='mysql' \
-  --exclude='mariadb' \
-  --exclude='bitcoind' \
-  --exclude='electrs' \
-  --exclude='*/log' \
-  --exclude='*/logs' \
-  --exclude='*/cache' \
-  --exclude='*/tmp')
 
 ESTIMATED_BYTES=$(( ETC_NIXOS_BYTES + HOME_BYTES + SECRETS_BYTES + VAR_LIB_BYTES ))
 # Require 20% growth headroom plus a fixed 1 GiB safety margin.
@@ -418,10 +442,10 @@ log "Free space on drive: ${FREE_GB} GB"
 (( FREE_BYTES >= REQUIRED_BYTES )) || \
   fail "Not enough free space on drive (${FREE_GB} GB available, ${REQUIRED_GB} GB required)."
 
-# ── Stage 1/4: NixOS configuration ──────────────────────────────
+# ── Stage 1: NixOS configuration ────────────────────────────────
 
 log ""
-log "── Stage 1/4: NixOS configuration (/etc/nixos) ──────────────"
+log "── Stage 1/${TOTAL_STAGES}: NixOS configuration (/etc/nixos) ──────────────"
 if [[ -d /etc/nixos ]]; then
   sync_tree "/etc/nixos" no /etc/nixos/ "$BACKUP_DIR/etc/nixos/"
   log "Stage 1 complete."
@@ -429,26 +453,30 @@ else
   log "WARNING: /etc/nixos not found — skipping."
 fi
 
-# ── Stage 2/4: Secrets ──────────────────────────────────────────
+# ── Stage 2: Secrets ────────────────────────────────────────────
+# Only applies to the Node and Server + Desktop roles. Desktop Only systems
+# run no nix-bitcoin services, so there are no secrets to back up and this
+# stage does not exist for them.
 
-log ""
-log "── Stage 2/4: Secrets (/etc/nix-bitcoin-secrets) ───────────"
-if [[ "$ROLE" == "desktop" ]]; then
-  log "Skipping /etc/nix-bitcoin-secrets — not applicable for Desktop Only role."
-elif [[ -e /etc/nix-bitcoin-secrets ]]; then
-  sync_tree "/etc/nix-bitcoin-secrets" no /etc/nix-bitcoin-secrets/ "$BACKUP_DIR/etc/nix-bitcoin-secrets/"
-else
-  log "(not found: /etc/nix-bitcoin-secrets — skipping)"
+if [[ "$ROLE" != "desktop" ]]; then
+  log ""
+  log "── Stage 2/${TOTAL_STAGES}: Secrets (/etc/nix-bitcoin-secrets) ───────────"
+  if [[ -e /etc/nix-bitcoin-secrets ]]; then
+    sync_tree "/etc/nix-bitcoin-secrets" no /etc/nix-bitcoin-secrets/ "$BACKUP_DIR/etc/nix-bitcoin-secrets/"
+  else
+    log "(not found: /etc/nix-bitcoin-secrets — skipping)"
+  fi
+  log "Stage 2 complete."
 fi
-log "Stage 2 complete."
 
-# ── Stage 3/4: Home directory ───────────────────────────────────
+# ── Home directory ──────────────────────────────────────────────
+# Stage 2/2 on Desktop Only, stage 3/4 on Node and Server + Desktop.
 # Rsync exit code 24 (vanished source files) is treated as nonfatal here
 # because the desktop may be active and files can disappear between the
 # directory scan and the copy. All other nonzero exit codes remain fatal.
 
 log ""
-log "── Stage 3/4: Home directory (/home) ───────────────────────"
+log "── Stage ${HOME_STAGE_NUM}/${TOTAL_STAGES}: Home directory (/home) ───────────────────────"
 if [[ -d /home ]]; then
   sync_tree "/home" yes /home/ "$BACKUP_DIR/home/" \
     --exclude='.cache/' \
@@ -467,32 +495,36 @@ if [[ -d /home ]]; then
     --exclude='.thumbnails/' \
     --exclude='.xsession-errors' \
     --exclude='.xsession-errors.old'
-  log "Stage 3 complete."
+  log "Stage ${HOME_STAGE_NUM} complete."
 else
   log "WARNING: /home not found — skipping."
 fi
 
-# ── Stage 4/4: System data ──────────────────────────────────────
+# ── Stage 4: System data ────────────────────────────────────────
+# Only applies to the Node and Server + Desktop roles — Desktop Only systems
+# run no server services, so /var/lib holds no service data worth mirroring.
 # PostgreSQL/MariaDB raw database directories are excluded. Application
 # databases must be backed up separately with native database tools.
 # Bitcoin/Electrs data are excluded; they live on the internal second drive.
 
-log ""
-log "── Stage 4/4: System data (/var/lib) ───────────────────────"
-if [[ -d /var/lib ]]; then
-  sync_tree "/var/lib" no /var/lib/ "$BACKUP_DIR/var/lib/" \
-    --exclude='postgresql/' \
-    --exclude='mysql/' \
-    --exclude='mariadb/' \
-    --exclude='bitcoind/' \
-    --exclude='electrs/' \
-    --exclude='*/log/' \
-    --exclude='*/logs/' \
-    --exclude='*/cache/' \
-    --exclude='*/tmp/'
-  log "Stage 4 complete."
-else
-  log "WARNING: /var/lib not found — skipping."
+if [[ "$ROLE" != "desktop" ]]; then
+  log ""
+  log "── Stage 4/${TOTAL_STAGES}: System data (/var/lib) ───────────────────────"
+  if [[ -d /var/lib ]]; then
+    sync_tree "/var/lib" no /var/lib/ "$BACKUP_DIR/var/lib/" \
+      --exclude='postgresql/' \
+      --exclude='mysql/' \
+      --exclude='mariadb/' \
+      --exclude='bitcoind/' \
+      --exclude='electrs/' \
+      --exclude='*/log/' \
+      --exclude='*/logs/' \
+      --exclude='*/cache/' \
+      --exclude='*/tmp/'
+    log "Stage 4 complete."
+  else
+    log "WARNING: /var/lib not found — skipping."
+  fi
 fi
 
 # ── Generate manifest ────────────────────────────────────────────
@@ -517,23 +549,29 @@ MANIFEST_FILE="$BACKUP_DIR/BACKUP_MANIFEST.txt"
     echo "- /etc/nix-bitcoin-secrets (when present)  →  current/etc/nix-bitcoin-secrets/"
   fi
   echo "- /home  →  current/home/"
-  echo "- /var/lib  →  current/var/lib/"
+  if [[ "$ROLE" != "desktop" ]]; then
+    echo "- /var/lib  →  current/var/lib/"
+  fi
   echo ""
   echo "Exclusions:"
-  echo "- /var/lib/postgresql (PostgreSQL raw database files — not included)"
-  echo "- /var/lib/mysql, /var/lib/mariadb (MariaDB raw database files — not included)"
-  echo "- /var/lib/bitcoind (Bitcoin blockchain — excluded; lives on internal second drive)"
-  echo "- /var/lib/electrs (Electrs index — excluded; lives on internal second drive)"
-  echo "- /run/media/Second_Drive (internal second drive — never traversed)"
-  echo "- /var/lib/*/log, /var/lib/*/logs, /var/lib/*/cache, /var/lib/*/tmp"
+  if [[ "$ROLE" != "desktop" ]]; then
+    echo "- /var/lib/postgresql (PostgreSQL raw database files — not included)"
+    echo "- /var/lib/mysql, /var/lib/mariadb (MariaDB raw database files — not included)"
+    echo "- /var/lib/bitcoind (Bitcoin blockchain — excluded; lives on internal second drive)"
+    echo "- /var/lib/electrs (Electrs index — excluded; lives on internal second drive)"
+    echo "- /run/media/Second_Drive (internal second drive — never traversed)"
+    echo "- /var/lib/*/log, /var/lib/*/logs, /var/lib/*/cache, /var/lib/*/tmp"
+  fi
   echo "- Browser disk caches, thumbnail caches, trash directories, X session error logs"
   echo ""
   echo "Important limitations:"
-  echo "- PostgreSQL and MariaDB/MySQL application databases are NOT included in this"
-  echo "  backup. If you use Nextcloud, Matrix/Synapse, or other database-backed"
-  echo "  applications, their data must be backed up separately using native tools."
-  echo "- Bitcoin blockchain data and Electrs indexes are NOT included; they are"
-  echo "  reconstructable or stored on the internal second drive."
+  if [[ "$ROLE" != "desktop" ]]; then
+    echo "- PostgreSQL and MariaDB/MySQL application databases are NOT included in this"
+    echo "  backup. If you use Nextcloud, Matrix/Synapse, or other database-backed"
+    echo "  applications, their data must be backed up separately using native tools."
+    echo "- Bitcoin blockchain data and Electrs indexes are NOT included; they are"
+    echo "  reconstructable or stored on the internal second drive."
+  fi
   echo "- This is a live file-level mirror, not a transactional database backup."
   echo "  Files being written during the backup may be in an inconsistent state."
   echo ""
@@ -542,7 +580,9 @@ MANIFEST_FILE="$BACKUP_DIR/BACKUP_MANIFEST.txt"
   echo "- To restore a directory:"
   echo "    sudo rsync -aAXH --numeric-ids current/etc/nixos/ /etc/nixos/"
   echo "    sudo rsync -aAXH --numeric-ids current/home/ /home/"
-  echo "    sudo rsync -aAXH --numeric-ids current/var/lib/ /var/lib/"
+  if [[ "$ROLE" != "desktop" ]]; then
+    echo "    sudo rsync -aAXH --numeric-ids current/var/lib/ /var/lib/"
+  fi
   echo "- To copy individual files:"
   echo "    sudo cp -a current/home/username/ /home/username/"
   echo "- When restoring /etc/nixos to replacement hardware, regenerate"
@@ -556,10 +596,12 @@ MANIFEST_FILE="$BACKUP_DIR/BACKUP_MANIFEST.txt"
       echo "- $warning"
     done
   fi
-  echo ""
-  echo "Note: Bitcoin blockchain and Electrs index data are intentionally excluded"
-  echo "from manual external backup because they already live on the internal second drive"
-  echo "(/run/media/Second_Drive) and are reconstructable/internal-backup data."
+  if [[ "$ROLE" != "desktop" ]]; then
+    echo ""
+    echo "Note: Bitcoin blockchain and Electrs index data are intentionally excluded"
+    echo "from manual external backup because they already live on the internal second drive"
+    echo "(/run/media/Second_Drive) and are reconstructable/internal-backup data."
+  fi
 } > "$MANIFEST_FILE"
 
 log "Manifest written to $MANIFEST_FILE"
@@ -576,7 +618,11 @@ if [[ "${#RSYNC_WARNINGS[@]}" -gt 0 ]]; then
   log "vanished during backup, which is normal on an active desktop."
   log ""
 fi
-log "All Finished! Your data is now backed up to a third location."
+if [[ "$ROLE" == "desktop" ]]; then
+  log "All Finished! Your data is now backed up to a second, external location."
+else
+  log "All Finished! Your data is now backed up to a third location."
+fi
 log "Files are directly browsable on the drive under: ${BACKUP_DIR}"
 log "Please eject the drive safely before removing it from your Sovran Pro."
 

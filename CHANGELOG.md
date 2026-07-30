@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased]
+
+### Fixed
+- **Manual Backup now matches the system role**: on the Desktop Only role the Hub's
+  "What gets backed up" list no longer shows Node / Server + Desktop items
+  (nix-bitcoin secrets, `/var/lib` system service data, and the database/blockchain
+  caveats), and the backup script skips those stages entirely — Desktop Only backups
+  now mirror only the NixOS configuration (`/etc/nixos`) and home directory (`/home`).
+  The free-space estimate, stage numbering, backup manifest, and completion message
+  are all role-aware; Node and Server + Desktop backups are unchanged.
+
+---
+
 ## [1.0.4] - 2026-07-29
 
 ### Added
