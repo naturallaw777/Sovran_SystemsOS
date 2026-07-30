@@ -86,6 +86,12 @@ NJALLA_SCRIPT     = "/var/lib/njalla/njalla.sh"
 # Systemd service that rewrites the Sovran-managed /etc/hosts loopback block
 SOVRAN_HOSTS_SERVICE = "sovran-hosts-update.service"
 
+# Caddy and its runtime Caddyfile generator (see modules/core/caddy.nix).
+# caddy-generate-config.service rewrites /run/caddy/Caddyfile from
+# /var/lib/domains/*; caddy.service serves that generated config.
+CADDY_GENERATE_UNIT = "caddy-generate-config.service"
+CADDY_UNIT          = "caddy.service"
+
 # Domain keys that produce a public HTTPS virtual host via Caddy
 _SERVICE_DOMAIN_KEYS = frozenset([
     "matrix", "wordpress", "nextcloud", "btcpayserver",
@@ -4350,6 +4356,33 @@ def _run_njalla_ddns() -> None:
         pass
 
 
+def _reload_caddy_for_domain_change() -> None:
+    """Regenerate Caddy's runtime Caddyfile and reload it (best-effort).
+
+    The Caddyfile is generated at runtime by caddy-generate-config.service
+    from /var/lib/domains/* (see modules/core/caddy.nix). The generator only
+    runs before caddy.service starts — nothing re-runs it while Caddy is up.
+    So when a domain is saved while Caddy is already running, the new virtual
+    host never gets seated: no proxying and no ACME certificate, and the
+    Hub's reachability check wrongly reports a "ports 80/443" error until
+    the next reboot or a rebuild that happens to start Caddy fresh. Restart
+    the generator, then reload Caddy so the change takes effect immediately.
+
+    Entirely skipped when Caddy is not active — e.g. the Node role before
+    its first domain-based service is enabled. In that case the rebuild
+    that enables the service starts caddy.service for the first time, which
+    runs the generator first (requiredBy caddy.service) and seats the
+    already-saved domain on its own.
+    """
+    try:
+        if sysctl.is_active(CADDY_UNIT) != "active":
+            return
+        sysctl.run_action("restart", CADDY_GENERATE_UNIT)
+        sysctl.run_action("reload", CADDY_UNIT)
+    except Exception:
+        pass
+
+
 # Hostname characters: letters, digits, hyphens only within labels; dots separate labels.
 # Each label must start and end with a letter or digit; no consecutive dots.
 _HOSTNAME_RE = re.compile(
@@ -4471,6 +4504,16 @@ async def api_domains_set(req: DomainSetRequest):
     if req.domain_name in _SERVICE_DOMAIN_KEYS:
         _trigger_hosts_update()
 
+    # If Caddy is already running, regenerate its runtime Caddyfile and reload
+    # so the saved domain's virtual host is seated immediately. Without this,
+    # a domain added to an already-running Caddy never gets its site block
+    # (no proxying, no ACME cert) and the Hub's reachability check shows a
+    # misleading "ports 80/443" error until reboot. No-op when Caddy is
+    # inactive — e.g. Node role pre-enable, where the rebuild seats it anyway.
+    if req.domain_name in _SERVICE_DOMAIN_KEYS:
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, _reload_caddy_for_domain_change)
+
     return {"ok": True}
 
 
@@ -4486,6 +4529,12 @@ async def api_domains_set_email(req: DomainSetEmailRequest):
     with open(email_path, "w") as f:
         f.write(req.email.strip())
     _chown_to_caddy(email_path)
+
+    # The ACME email lives in the Caddyfile's global block — regenerate and
+    # reload so a running Caddy picks it up (no-op when Caddy is inactive).
+    loop = asyncio.get_event_loop()
+    await loop.run_in_executor(None, _reload_caddy_for_domain_change)
+
     return {"ok": True}
 
 

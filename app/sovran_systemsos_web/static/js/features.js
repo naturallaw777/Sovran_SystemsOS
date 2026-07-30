@@ -86,45 +86,17 @@ function openDomainSetupModal(feat, onSaved) {
   var domainPlaceholder = isWalletConnections ? "lightning.yourdomain.com" : "myservice.example.com";
   var domainLabelExample = isWalletConnections ? "lightning.yourdomain.com" : "call.yourdomain.com";
 
-  var introHtml;
-  if (_currentRole === "node") {
-    introHtml =
-      '<p>To enable <strong>' + escHtml(feat.name) + '</strong>, it needs its own domain from Njal.la.</p>' +
-      '<ol style="margin:8px 0 0 16px;padding:0;line-height:1.7;">' +
-      '<li>Create an account at <a href="https://njal.la" target="_blank" rel="noopener noreferrer" style="color:var(--accent-color);">njal.la</a>.</li>' +
-      '<li>Set up a domain for it — either a free subdomain or a separate domain. Pick one option:</li>' +
-      '</ol>';
-  } else {
-    introHtml =
-      '<p>To enable <strong>' + escHtml(feat.name) + '</strong>, it needs its own domain from Njal.la. ' +
-      'In your Njal.la account, set up a domain for it — either a free subdomain or a separate domain. Pick one option:</p>';
-  }
+  // Shared instructions (single source of truth: static/js/domain-prereqs.js) —
+  // identical wording to the Server + Desktop onboarding wizard and every other
+  // domain-based feature, regardless of role (Node / Desktop / Server+Desktop).
+  var hostExample = isWalletConnections ? "lightning" : "call";
 
   $domainSetupBody.innerHTML =
     '<div class="domain-setup-intro">' +
     nwcWarning +
-    introHtml +
-    '<details style="margin-top:10px;">' +
-    '<summary style="cursor:pointer;font-weight:600;">Option A — Free subdomain (recommended)</summary>' +
-    '<ol style="margin:8px 0 0 16px;padding:0;line-height:1.7;">' +
-    '<li>In Njal.la, open a domain you own and click &quot;Add record&quot;.</li>' +
-    '<li>Set record type to <strong>Dynamic</strong>.</li>' +
-    '<li>In the <strong>Name</strong> field, type ONLY the host part — the word before your domain.<br>' +
-    '(Example only, your choice — for &quot;' + domainLabelExample + '&quot; you&apos;d type just: &nbsp;<code>' + (isWalletConnections ? 'lightning' : 'call') + '</code>)<br>' +
-    '&#9888; Do NOT type the full domain here — Njal.la adds it automatically.</li>' +
-    '<li>A Dynamic record has NO IP field — the IP auto-fills after the rebuild/reboot.</li>' +
-    '<li>Copy the curl command Njal.la gives you, e.g.:<br>' +
-    '<code style="font-size:0.8em;">curl &quot;https://njal.la/update/?h=' + domainLabelExample + '&amp;k=abc123&amp;auto&quot;</code></li>' +
-    '</ol>' +
-    '</details>' +
-    '<details style="margin-top:6px;">' +
-    '<summary style="cursor:pointer;font-weight:600;">Option B — Separate / new domain</summary>' +
-    '<ol style="margin:8px 0 0 16px;padding:0;line-height:1.7;">' +
-    '<li>In Njal.la, buy the domain you want.</li>' +
-    '<li>Add a Dynamic record as in Option A. If this domain is dedicated to the service, leave the Name field blank or use <code>@</code>.</li>' +
-    '<li>Copy the curl command Njal.la gives you.</li>' +
-    '</ol>' +
-    '</details>' +
+    renderDomainNeedsHtml({ serviceName: feat.name, hostExample: hostExample }) +
+    renderNjallaStepsHtml({ hostExample: hostExample, pasteHint: "below" }) +
+    '<div class="onboarding-port-warn" id="domain-router-box" style="margin-top:12px;"></div>' +
     '<p style="margin-top:10px;">Below, enter the full domain for this service — a subdomain (e.g. ' + domainLabelExample + ') or a separate domain — and paste its curl command.</p>' +
     '</div>' +
     '<div class="domain-field-group"><label class="domain-field-label" for="domain-subdomain-input">Service domain (e.g. ' + domainLabelExample + '):</label><input class="domain-field-input" type="text" id="domain-subdomain-input" placeholder="' + domainPlaceholder + '" /></div>' +
@@ -170,6 +142,9 @@ function openDomainSetupModal(feat, onSaved) {
   });
 
   $domainSetupModal.classList.add("open");
+
+  // Fill the router port-forwarding box with this computer's LAN IP (best-effort)
+  renderRouterPortsBox("domain-router-box");
 }
 
 function openDomainReconfigureModal(feat, existingDomain, onSaved) {
@@ -218,7 +193,9 @@ function openDomainReconfigureModal(feat, existingDomain, onSaved) {
     '<span style="display:inline-block;margin-top:4px;padding:4px 10px;background:var(--card-color);border:1px solid var(--border-color);border-radius:6px;font-family:monospace;font-size:1em;font-weight:700;">' + escHtml(externalIp) + '</span></li>' +
     '<li>If the IP is wrong or the record is missing, update it</li>' +
     '<li>If you changed the DDNS curl command, paste the updated one below</li>' +
+    '<li>Confirm ports <strong>80</strong> and <strong>443</strong> (TCP) are still forwarded on your router to this computer — see the reminder below:</li>' +
     '</ol>' +
+    '<div class="onboarding-port-warn" id="domain-router-box" style="margin-top:12px;"></div>' +
     '</div>' +
     '<div class="domain-field-group"><label class="domain-field-label" for="domain-subdomain-input">Service domain (e.g. ' + domainLabelExample + '):</label><input class="domain-field-input" type="text" id="domain-subdomain-input" placeholder="' + domainPlaceholder + '" value="' + escHtml(currentDomain) + '" /></div>' +
     '<div class="domain-field-group"><label class="domain-field-label" for="domain-ddns-input">Njal.la Dynamic DNS Update Command:</label><input class="domain-field-input" type="text" id="domain-ddns-input" placeholder="curl &quot;https://njal.la/update/?h=' + domainPlaceholder + '&amp;k=abc123&amp;auto&quot;" /><p class="domain-field-hint">ℹ Paste the full curl command from your Njal.la dashboard\'s Dynamic record</p></div>' +
@@ -263,6 +240,9 @@ function openDomainReconfigureModal(feat, existingDomain, onSaved) {
   });
 
   $domainSetupModal.classList.add("open");
+
+  // Fill the router port-forwarding box with this computer's LAN IP (best-effort)
+  renderRouterPortsBox("domain-router-box");
 }
 
 function closeDomainSetupModal() {

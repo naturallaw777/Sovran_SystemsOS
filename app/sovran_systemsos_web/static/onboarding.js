@@ -357,38 +357,24 @@ async function loadStep3() {
   if (relevantDomains.length === 0) {
     html += '<p class="onboarding-body-text">No domain-based services are enabled for your role. You can skip this step.</p>';
   } else {
+    // Shared instructions (single source of truth: static/js/domain-prereqs.js) —
+    // identical wording to the feature-enable domain modal shown for NWC,
+    // BTCPay Server, and every other domain-based feature, in every role.
     html += '<div class="onboarding-port-warn" style="margin-bottom:16px;">'
-      + '<p style="margin:0 0 8px;"><strong>Sovran_SystemsOS uses Njal.la for domains and Dynamic DNS.</strong></p>'
-      + '<ol style="margin:8px 0 0 16px; padding:0; line-height:1.7;">'
-      + '<li>Create an account at <a href="https://njal.la" target="_blank" style="color:var(--accent-color);">https://njal.la</a>.</li>'
-      + '<li>Buy at least one domain. Each service below needs its own domain — you can either give each service its own subdomain of a single domain you buy (subdomains are free, and one domain can have many), OR use a separate domain for each. Your choice.</li>'
-      + '<li>For each service, add a <strong>Dynamic</strong> record in Njal.la:'
-      + '<ul style="margin:4px 0 0 16px;padding:0;line-height:1.7;">'
-      + '<li>In the Njal.la <strong>Name</strong> field, type ONLY the host part — the word before your domain.<br>'
-      + '(Example only, your choice — for &quot;call.yourdomain.com&quot; you&apos;d type just: <code>call</code>.)<br>'
-      + 'If you bought a whole separate domain just for this service, leave Name blank or use <code>@</code>.<br>'
-      + '&#9888; Do NOT type the full domain in the Name field — Njal.la adds it automatically.</li>'
-      + '<li>A Dynamic record has NO IP field. You don&apos;t enter an IP anywhere — it auto-fills once Sovran_SystemsOS updates it (on save, and again after reboot).</li>'
-      + '</ul>'
-      + '</li>'
-      + '<li>Njal.la gives you a curl command like:<br>'
-      + '<code style="font-size:0.8em;">curl &quot;https://njal.la/update/?h=call.yourdomain.com&amp;k=abc123&amp;auto&quot;</code></li>'
-      + '</ol>'
+      + renderDomainNeedsHtml({ serviceName: null, hostExample: "call" })
+      + renderNjallaStepsHtml({ hostExample: "call", pasteHint: "next to its service below" })
       + '</div>';
     html += '<p class="onboarding-hint">Enter each service\'s full domain — a subdomain (e.g. <code>call.yourdomain.com</code>) or a separate domain (e.g. <code>call.com</code>) — and its Njal.la DDNS curl command.</p>';
 
-    // Compact router note (full port guidance is shown when a feature is
-    // enabled, and lives on each service tile afterwards)
-    var routerIpPart = internalIp
-      ? ' to this computer&rsquo;s internal IP <strong>' + escHtml(internalIp) + '</strong>'
-      : ' to this computer&rsquo;s internal IP';
+    // Router note (the same wording is shown again, per-service, whenever a
+    // domain-based feature is enabled, and lives on each service tile afterwards)
     html += '<div class="onboarding-port-warn" style="margin-bottom:16px;">'
-      + '🔌 <strong>One router task:</strong> in your router&rsquo;s <strong>port forwarding</strong> settings, forward '
-      + 'port <strong>80 (TCP)</strong> and port <strong>443 (TCP)</strong>'
-      + routerIpPart + '. Use the <strong>same number for the internal and external port</strong>. '
-      + 'These are required for HTTPS and SSL certificates — without them your services cannot be reached from outside your home network. '
-      + 'Add port <strong>22 (TCP)</strong> as well if you want remote SSH access. '
-      + 'Element Call needs a few extra ports (some UDP), and you&rsquo;ll be shown exactly which when you enable it.'
+      + renderRouterPortsHtml({
+          internalIp: internalIp,
+          plural: true,
+          includeSsh: true,
+          extraNote: "Element Call needs a few extra ports (some UDP), and you’ll be shown exactly which when you enable it.",
+        })
       + '</div>';
 
     relevantDomains.forEach(function(d) {
