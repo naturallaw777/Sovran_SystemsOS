@@ -9,7 +9,10 @@ function _renderCredsHtml(credentials, unit) {
     var id = "cred-" + Math.random().toString(36).substring(2, 8);
     var qrBlock = "";
     if (cred.qrcode) {
-      qrBlock = '<div class="creds-qr-wrap"><img class="creds-qr-img" src="' + cred.qrcode + '" alt="QR Code for ' + escHtml(cred.label) + '"><div class="creds-qr-hint">In Zeus: <em>Wallets → + → scan icon</em>. This is an <strong>LND REST</strong> QR for direct node access.</div></div>';
+      var qrHint = (unit === "zeus-connect-setup.service")
+        ? "In Zeus: <em>Settings → Connect a node → Scan LN node QR</em>. This is an <strong>LND REST</strong> QR for direct node access."
+        : "In Zeus: <em>Wallets → + → scan icon</em>. This is an <strong>LND REST</strong> QR for direct node access.";
+      qrBlock = '<div class="creds-qr-wrap"><img class="creds-qr-img" src="' + cred.qrcode + '" alt="QR Code for ' + escHtml(cred.label) + '"><div class="creds-qr-hint">' + qrHint + '</div></div>';
     }
     // If qronly, render the label + QR block only — skip value and copy button
     if (cred.qronly) {
@@ -1063,6 +1066,19 @@ async function openCredsModal(unit, name, icon) {
         '<button class="matrix-action-btn" id="matrix-add-user-btn">➕ Add New User</button>' +
         '<button class="matrix-action-btn" id="matrix-change-pw-btn">🔑 Change Password</button>' +
         '</div>';
+    }
+    if (unit === "zeus-connect-setup.service") {
+      html += '<div class="nwc-connect-guide">' +
+        '<div class="nwc-connect-guide-title">📱 Connect to Zeus (Direct Node Access)</div>' +
+        '<p class="nwc-connect-guide-intro">This QR is an <strong>LND REST</strong> connection — the direct way to use Zeus with your Lightning node for full admin control. It lets you manage channels, balances, and payments from your phone.</p>' +
+        '<div class="nwc-connect-steps">' +
+          '<div class="nwc-connect-step"><div class="nwc-step-num">1</div><div><strong>Download Zeus</strong> from the App Store or Google Play.</div></div>' +
+          '<div class="nwc-connect-step"><div class="nwc-step-num">2</div><div>Open Zeus and go to <strong>Settings → Connect a node</strong> (or <strong>Scan Node Config</strong>).</div></div>' +
+          '<div class="nwc-connect-step"><div class="nwc-step-num">3</div><div>Tap <strong>Scan LN node QR</strong> and scan the QR code above.</div></div>' +
+          '<div class="nwc-connect-step"><div class="nwc-step-num">4</div><div>Review the connection details, then tap <strong>Save Node Config</strong>.</div></div>' +
+        '</div>' +
+        '<div class="nwc-connect-note"><strong>💡 Note:</strong> This is <em>not</em> the same as the NWC pairing QR shown in Lightning Wallet Connections — that gives your wallet sandboxed, limited access for everyday spending. LND REST connects Zeus directly to your node for full admin control.</div>' +
+      '</div>';
     }
     $credsBody.innerHTML = html;
     _attachCopyHandlers($credsBody);

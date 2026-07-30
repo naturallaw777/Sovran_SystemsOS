@@ -65,7 +65,7 @@ let
       ]; }
       { name = "Zeus Connect";       unit = "zeus-connect-setup.service"; type = "system"; icon = "zeus";   enabled = cfg.services.bitcoin;  category = "bitcoin-apps"; credentials = [
         { label = "QR Code"; file = "/var/lib/secrets/zeus-connect-url"; qrcode = true; qronly = true; }
-        { label = "How to Connect"; value = "1. Download Zeus from App Store or Google Play\n2. Open Zeus → Scan Node Config\n3. Scan the QR code above"; }
+        { label = "How to Connect"; value = "📱 Connect to Zeus (Direct Node Access)\n\nThis QR is an LND REST connection — the direct way to use Zeus with your Lightning node for full admin control.\n\n1. Download Zeus from the App Store or Google Play.\n2. Open Zeus and go to Settings → Connect a node (or Scan Node Config).\n3. Tap Scan LN node QR and scan the QR code above.\n4. Review the connection details, then tap Save Node Config.\n\n💡 Note: This is not the same as the NWC pairing QR shown in Lightning Wallet Connections — that gives your wallet sandboxed, limited access for everyday spending. LND REST connects Zeus directly to your node for full admin control."; }
       ]; }
       { name = "Sparrow Auto-Link"; unit = "sparrow-autoconnect.service"; type = "system"; icon = "sparrow"; enabled = cfg.services.bitcoin; category = "bitcoin-apps"; credentials = [
         { label = "Server"; value = "tcp://127.0.0.1:50001 (Electrs)"; }
