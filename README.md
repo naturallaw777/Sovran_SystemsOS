@@ -4,21 +4,21 @@
 
 # Sovran_SystemsOS
 
-### Your Bitcoin life. Your keys. Your node. Your machine.
+### Bitcoin sovereignty. Sovereign computing. One system.
 
-Sovran_SystemsOS is a free and open-source operating system for **Bitcoin
-self-custody** and **digital sovereignty**. Hold your own keys, trade
-peer-to-peer, and verify your own money with your own node. Then extend the
-same ownership to the rest of your digital life: your files, communications,
-passwords, and websites, all on hardware you control.
+Sovran_SystemsOS is a free and open-source operating system built for two
+inseparable freedoms: **Bitcoin self-custody** and **sovereign computing**.
+Hold your own keys, trade peer-to-peer, and verify your own money with your
+own node. Then claim that same uncompromising ownership over the rest of your
+digital life — your files, communications, passwords, and websites — all on
+hardware you control, running auditable open-source software you can trust.
 
 Every installation is a private [NixOS](https://nixos.org) desktop with
 [Sparrow Wallet](https://sparrowwallet.com), [Bisq](https://bisq.network), and
 [Bisq 2](https://github.com/bisq-network/bisq2) ready to use. Move beyond
-custodial exchanges from the first boot, and grow into your own Bitcoin and
-Lightning infrastructure when you are ready.
-
-**Privacy. Sovereignty. Bitcoin.**
+custodial exchanges from the first boot, and grow into your own Bitcoin node,
+Lightning infrastructure, private cloud, and communications platform when you
+are ready.
 
 [Visit the Website](https://sovransystems.com) ·
 [Download the ISO](https://downloads.sovransystems.com/Sovran_SystemsOS-1.0.3.iso) ·
