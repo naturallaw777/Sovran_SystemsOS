@@ -397,6 +397,26 @@ installer. Do not format the drive.
 If the normal operating system starts instead, restart and try the boot-menu
 key again.
 
+### Installing in a virtual machine (optional)
+
+Sovran_SystemsOS can be tested in VirtualBox, VMware, QEMU/KVM, Proxmox, and
+similar x86_64 virtual machines. Use production-like resources where possible:
+
+- Allocate **8 GB RAM or more** for Desktop Only. Node and Server + Desktop
+  should follow the normal 16 GB / 32 GB recommendations.
+- Create a **256 GB or larger virtual OS disk**. Thin-provisioned / dynamically
+  allocated disks are fine; they do not consume the full size immediately.
+- Use NAT or bridged networking with internet access before opening the
+  installer.
+- UEFI/EFI firmware is preferred. In UEFI VMs, the installer avoids depending
+  on VM NVRAM boot-entry writes. If a VM boots the ISO in legacy BIOS mode,
+  the installer automatically switches the installed system to GRUB.
+- For Node or Server + Desktop, attach a **second 2 TB virtual data disk**.
+  If you only attach one disk, choose **Desktop Only**.
+- Present the install target as a normal virtual disk such as VirtIO, SATA,
+  SCSI, or NVMe. USB-attached target disks are intentionally hidden by the
+  installer to avoid erasing the installer USB by mistake.
+
 ### 5. Install
 
 Follow the on-screen installer. Before confirming:

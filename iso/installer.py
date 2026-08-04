@@ -103,25 +103,81 @@ def human_size(nbytes):
     return f"{nbytes:.1f} PB"
 
 def check_internet():
-    """Return True if the machine can reach the internet."""
+    """Return True if the machine can reach the internet.
+
+    Some VM NAT setups and managed networks block ICMP even when HTTPS works,
+    so keep the existing ping checks but fall back to small HTTPS requests.
+    """
+    checks = [
+        ["ping", "-c", "1", "-W", "5", "nixos.org"],
+        ["curl", "--location", "--fail", "--silent", "--show-error", "--connect-timeout", "5", "--max-time", "10", "--output", "/dev/null", "https://cache.nixos.org/nix-cache-info"],
+        ["curl", "--location", "--fail", "--silent", "--show-error", "--connect-timeout", "5", "--max-time", "10", "--output", "/dev/null", "https://nixos.org/"],
+        ["ping", "-c", "1", "-W", "5", "1.1.1.1"],
+    ]
+
+    for cmd in checks:
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True)
+            if result.returncode == 0:
+                return True
+            log(f"Connectivity check failed ({' '.join(cmd)}): {result.stderr.strip() or result.stdout.strip()}")
+        except Exception as e:
+            log(f"Connectivity check failed ({' '.join(cmd)}): {e}")
+
+    return False
+
+def detect_virtualization():
+    """Return the VM technology name when running inside a VM, else None."""
     try:
         result = subprocess.run(
-            ["ping", "-c", "1", "-W", "5", "nixos.org"],
+            ["systemd-detect-virt", "--vm"],
             capture_output=True, text=True
         )
         if result.returncode == 0:
-            return True
+            name = result.stdout.strip()
+            if name == "none":
+                return None
+            return name or "virtual machine"
     except Exception:
         pass
-    # Fallback: try a second host in case DNS for nixos.org is down
-    try:
-        result = subprocess.run(
-            ["ping", "-c", "1", "-W", "5", "1.1.1.1"],
-            capture_output=True, text=True
-        )
-        return result.returncode == 0
-    except Exception:
-        return False
+
+    # Fallback for minimal environments where systemd-detect-virt is absent.
+    dmi_paths = [
+        "/sys/class/dmi/id/product_name",
+        "/sys/class/dmi/id/sys_vendor",
+        "/sys/class/dmi/id/board_vendor",
+    ]
+    markers = (
+        "kvm", "qemu", "virtualbox", "vmware", "hyper-v",
+        "bhyve", "parallels", "xen", "bochs", "virtual",
+    )
+    for dmi_path in dmi_paths:
+        try:
+            value = open(dmi_path, "r", encoding="utf-8", errors="ignore").read().strip()
+        except OSError:
+            continue
+        lowered = value.lower()
+        if any(marker in lowered for marker in markers):
+            return value or "virtual machine"
+
+    return None
+
+def detect_boot_mode():
+    """Return the firmware mode used to boot the installer ISO."""
+    return "uefi" if os.path.isdir("/sys/firmware/efi") else "bios"
+
+def boot_mode_label(mode):
+    if mode == "uefi":
+        return "UEFI (systemd-boot)"
+    return "Legacy BIOS (GRUB)"
+
+def nix_string(value):
+    """Quote a Python string for a simple Nix string literal."""
+    escaped = value.replace("\\", "\\\\")
+    escaped = escaped.replace('"', '\\"')
+    escaped = escaped.replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t")
+    escaped = escaped.replace("${", "\\${")
+    return f'"{escaped}"'
 
 def symbolic_icon(name):
     """Create a crisp symbolic icon suitable for use as an ActionRow prefix."""
@@ -159,6 +215,10 @@ class InstallerWindow(Adw.ApplicationWindow):
         self.data_size = None
         self.data_drive_has_timechain = False
         self.free_password = None
+        self.virtualization = detect_virtualization()
+        self.boot_mode = detect_boot_mode()
+
+        log(f"Installer environment: boot_mode={self.boot_mode}, virtualization={self.virtualization or 'none'}")
 
         # Root navigation view
         self.nav = Adw.NavigationView()
@@ -343,7 +403,7 @@ class InstallerWindow(Adw.ApplicationWindow):
         if os.path.exists(LOGO):
             try:
                 img = Gtk.Image.new_from_file(LOGO)
-                img.set_pixel_size(480)
+                img.set_pixel_size(320 if self.virtualization else 480)
                 hero.append(img)
             except Exception:
                 pass
@@ -397,6 +457,42 @@ class InstallerWindow(Adw.ApplicationWindow):
         notice_frame.set_child(notice_box)
         outer.append(notice_frame)
 
+        if self.virtualization:
+            vm_frame = Gtk.Frame()
+            vm_frame.add_css_class("card")
+            vm_frame.set_margin_start(40)
+            vm_frame.set_margin_end(40)
+            vm_frame.set_margin_top(12)
+            vm_frame.set_margin_bottom(4)
+
+            vm_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+            vm_box.set_margin_top(12)
+            vm_box.set_margin_bottom(12)
+            vm_box.set_margin_start(16)
+            vm_box.set_margin_end(16)
+
+            vm_icon = symbolic_icon("computer-symbolic")
+            vm_icon.set_valign(Gtk.Align.START)
+            vm_box.append(vm_icon)
+
+            vm_lbl = Gtk.Label()
+            vm_lbl.set_use_markup(True)
+            vm_lbl.set_wrap(True)
+            vm_lbl.set_xalign(0)
+            vm_lbl.set_halign(Gtk.Align.FILL)
+            vm_lbl.set_markup(
+                f"<span weight='bold'>Virtual machine detected: {GLib.markup_escape_text(self.virtualization)}</span>\n"
+                f"Boot mode: <span weight='bold'>{boot_mode_label(self.boot_mode)}</span>. "
+                "For the smoothest VM test, use 8+ GB RAM, NAT/bridged networking, "
+                "and a thin-provisioned virtual OS disk of at least 256 GB. "
+                "For Node or Server + Desktop, attach a second 2 TB virtual data disk; "
+                "otherwise choose Desktop Only."
+            )
+            vm_box.append(vm_lbl)
+
+            vm_frame.set_child(vm_box)
+            outer.append(vm_frame)
+
         # Role label
         role_lbl = Gtk.Label()
         role_lbl.set_markup("<span size='medium' weight='bold'>Choose your installation type:</span>")
@@ -448,7 +544,10 @@ class InstallerWindow(Adw.ApplicationWindow):
 
             available = has_second_drive or key not in NEEDS_DATA_DRIVE
             if not available:
-                card.set_subtitle(desc + "\n⚠ Requires a second internal drive (not detected)")
+                drive_hint = "⚠ Requires a second internal drive (not detected)"
+                if self.virtualization:
+                    drive_hint += " — in a VM, attach a second virtual disk or choose Desktop Only"
+                card.set_subtitle(desc + f"\n{drive_hint}")
                 card.set_sensitive(False)
             else:
                 card.set_subtitle(desc)
@@ -531,9 +630,10 @@ class InstallerWindow(Adw.ApplicationWindow):
         # ── OS Drive group ────────────────────────────────────────────
         os_group = Adw.PreferencesGroup()
         os_group.set_title("OS Drive  (NixOS Boot + Root)")
-        os_group.set_description(
-            "Choose the drive for the NixOS installation.  Minimum 256 GB required."
-        )
+        os_description = "Choose the drive for the NixOS installation.  Minimum 256 GB required."
+        if self.virtualization:
+            os_description += " In a VM, a thin-provisioned virtual disk is OK."
+        os_group.set_description(os_description)
         os_group.set_margin_top(24)
         os_group.set_margin_start(40)
         os_group.set_margin_end(40)
@@ -546,6 +646,8 @@ class InstallerWindow(Adw.ApplicationWindow):
             row.set_title(f"/dev/{name}")
             type_label = tran.upper() if tran else "Disk"
             meets = "✓ Meets 256 GB minimum" if size >= BYTES_256GB else "✗ Below 256 GB minimum"
+            if self.virtualization and size < BYTES_256GB:
+                meets += " (expand the virtual disk)"
             row.set_subtitle(f"{human_size(size)}  ·  {type_label}  —  {meets}")
             row.add_prefix(symbolic_icon("drive-harddisk-symbolic"))
 
@@ -570,11 +672,14 @@ class InstallerWindow(Adw.ApplicationWindow):
         if self.role != "Desktop Only":
             data_group = Adw.PreferencesGroup()
             data_group.set_title("Bitcoin Timechain & Backups Drive")
-            data_group.set_description(
+            data_description = (
                 "💡 Tip: Always assign your LARGEST drive here.  "
                 "The full Bitcoin timechain is over 700 GB and grows continuously — "
                 "a 2 TB or larger drive is required."
             )
+            if self.virtualization:
+                data_description += " In a VM, attach a second 2 TB thin-provisioned virtual disk for Node or Server + Desktop."
+            data_group.set_description(data_description)
             data_group.set_margin_top(20)
             data_group.set_margin_start(40)
             data_group.set_margin_end(40)
@@ -599,6 +704,8 @@ class InstallerWindow(Adw.ApplicationWindow):
                 row.set_title(f"/dev/{name}")
                 type_label = tran.upper() if tran else "Disk"
                 meets = "✓ Meets 2 TB minimum" if size >= BYTES_2TB else "✗ Below 2 TB minimum"
+                if self.virtualization and size < BYTES_2TB:
+                    meets += " (use a 2 TB thin-provisioned virtual disk)"
                 row.set_subtitle(f"{human_size(size)}  ·  {type_label}  —  {meets}")
                 row.add_prefix(symbolic_icon("drive-harddisk-symbolic"))
 
@@ -655,10 +762,16 @@ class InstallerWindow(Adw.ApplicationWindow):
             dlg = Adw.MessageDialog()
             dlg.set_transient_for(self)
             dlg.set_heading("OS Drive Too Small")
-            dlg.set_body(
+            body = (
                 f"The selected OS drive (/dev/{os_name}, {human_size(os_size)}) "
                 f"does not meet the 256 GB minimum.  Please choose a larger drive."
             )
+            if self.virtualization:
+                body += (
+                    "\n\nVM tip: expand the virtual OS disk to at least 256 GB. "
+                    "Thin-provisioned disks usually do not consume the full size immediately."
+                )
+            dlg.set_body(body)
             dlg.add_response("ok", "OK")
             dlg.present()
             return
@@ -668,12 +781,18 @@ class InstallerWindow(Adw.ApplicationWindow):
             dlg = Adw.MessageDialog()
             dlg.set_transient_for(self)
             dlg.set_heading("Bitcoin Drive Too Small")
-            dlg.set_body(
+            body = (
                 f"The selected Bitcoin Timechain & Backups drive "
                 f"(/dev/{data_name}, {human_size(data_size)}) "
                 f"does not meet the 2 TB minimum.  "
                 f"Please choose a larger drive or select \"None\"."
             )
+            if self.virtualization:
+                body += (
+                    "\n\nVM tip: attach a second 2 TB thin-provisioned virtual disk "
+                    "for Node or Server + Desktop test installs."
+                )
+            dlg.set_body(body)
             dlg.add_response("ok", "OK")
             dlg.present()
             return
@@ -829,7 +948,12 @@ class InstallerWindow(Adw.ApplicationWindow):
     # ── Worker: partition ─────────────────────────────────────────────────
 
     def partition_path(self, dev_path, num):
-        return f"{dev_path}p{num}" if "nvme" in dev_path else f"{dev_path}{num}"
+        base = os.path.basename(dev_path)
+        needs_p = (
+            base.startswith(("nvme", "mmcblk", "loop", "md")) or
+            (base[-1:].isdigit())
+        )
+        return f"{dev_path}p{num}" if needs_p else f"{dev_path}{num}"
 
     def detect_existing_timechain_data(self, data_path, buf=None):
         data_p1 = self.partition_path(data_path, 1)
@@ -900,12 +1024,19 @@ class InstallerWindow(Adw.ApplicationWindow):
 
         time.sleep(2)
 
-        # ── Partition boot disk: 512M ESP + rest as root ──
-        GLib.idle_add(append_text, buf, "\n=== Partitioning boot disk ===\n")
-        run_stream(["sudo", "sgdisk",
-                    "-n", "1:1M:+512M", "-t", "1:EF00", "-c", "1:ESP",
-                    "-n", "2:0:0",      "-t", "2:8300", "-c", "2:root",
-                    boot_path], buf)
+        # ── Partition boot disk ──
+        if self.boot_mode == "uefi":
+            GLib.idle_add(append_text, buf, "\n=== Partitioning boot disk (UEFI) ===\n")
+            run_stream(["sudo", "sgdisk",
+                        "-n", "1:1M:+512M", "-t", "1:EF00", "-c", "1:ESP",
+                        "-n", "2:0:0",      "-t", "2:8300", "-c", "2:root",
+                        boot_path], buf)
+        else:
+            GLib.idle_add(append_text, buf, "\n=== Partitioning boot disk (Legacy BIOS) ===\n")
+            run_stream(["sudo", "sgdisk",
+                        "-n", "1:1M:+1M", "-t", "1:EF02", "-c", "1:BIOS-boot",
+                        "-n", "2:0:0",    "-t", "2:8300", "-c", "2:root",
+                        boot_path], buf)
 
         run_stream(["sudo", "partprobe", boot_path], buf)
         time.sleep(2)
@@ -925,7 +1056,10 @@ class InstallerWindow(Adw.ApplicationWindow):
         boot_p1 = self.partition_path(boot_path, 1)
         boot_p2 = self.partition_path(boot_path, 2)
 
-        run_stream(["sudo", "mkfs.vfat", "-F", "32", boot_p1], buf)
+        if self.boot_mode == "uefi":
+            run_stream(["sudo", "mkfs.vfat", "-F", "32", boot_p1], buf)
+        else:
+            GLib.idle_add(append_text, buf, "Skipping ESP format for Legacy BIOS install.\n")
         run_stream(["sudo", "mkfs.ext4", "-F", "-L", "sovran_systemsos", boot_p2], buf)
 
         if data_path and not self.data_drive_has_timechain:
@@ -935,8 +1069,11 @@ class InstallerWindow(Adw.ApplicationWindow):
         # ── Mount filesystems ──
         GLib.idle_add(append_text, buf, "\n=== Mounting filesystems ===\n")
         run_stream(["sudo", "mount", boot_p2, "/mnt"], buf)
-        run_stream(["sudo", "mkdir", "-p", "/mnt/boot/efi"], buf)
-        run_stream(["sudo", "mount", "-o", "umask=0077,defaults", boot_p1, "/mnt/boot/efi"], buf)
+        if self.boot_mode == "uefi":
+            run_stream(["sudo", "mkdir", "-p", "/mnt/boot/efi"], buf)
+            run_stream(["sudo", "mount", "-o", "umask=0077,defaults", boot_p1, "/mnt/boot/efi"], buf)
+        else:
+            GLib.idle_add(append_text, buf, "Legacy BIOS install: /boot/efi mount not required.\n")
 
         if data_path:
             data_p1 = self.partition_path(data_path, 1)
@@ -966,12 +1103,33 @@ class InstallerWindow(Adw.ApplicationWindow):
         is_server = str(self.role == "Server+Desktop").lower()
         is_desktop = str(self.role == "Desktop Only").lower()
         is_node = str(self.role == "Node (Bitcoin-only)").lower()
+        boot_overrides = ""
+        if self.boot_mode == "bios":
+            grub_device = nix_string(f"/dev/{self.boot_disk}")
+            boot_overrides = f"""
+
+  # The installer ISO was booted in Legacy BIOS mode, so install GRUB to the
+  # target disk instead of using the default UEFI systemd-boot configuration.
+  boot.loader.systemd-boot.enable = lib.mkForce false;
+  boot.loader.efi.canTouchEfiVariables = lib.mkForce false;
+  boot.loader.grub.enable = lib.mkForce true;
+  boot.loader.grub.device = lib.mkForce {grub_device};
+  fileSystems."/boot/efi".enable = lib.mkForce false;
+"""
+        elif self.virtualization:
+            boot_overrides = """
+
+  # VM UEFI firmware can reject or forget NVRAM boot-entry writes. Keep the
+  # normal UEFI systemd-boot layout, but use the fallback removable path instead
+  # of depending on EFI variable updates.
+  boot.loader.efi.canTouchEfiVariables = lib.mkForce false;
+"""
         content = f"""# THIS FILE IS AUTO-GENERATED BY THE INSTALLER. DO NOT EDIT.
 {{ config, lib, ... }}:
 {{
   sovran_systemsOS.roles.server_plus_desktop = lib.mkDefault {is_server};
   sovran_systemsOS.roles.desktop = lib.mkDefault {is_desktop};
-  sovran_systemsOS.roles.node = lib.mkDefault {is_node};
+  sovran_systemsOS.roles.node = lib.mkDefault {is_node};{boot_overrides}
 }}
 """
         proc = subprocess.run(
@@ -1007,6 +1165,11 @@ class InstallerWindow(Adw.ApplicationWindow):
         boot_row.set_title("Boot Disk")
         boot_row.set_subtitle(f"/dev/{self.boot_disk}  —  {human_size(self.boot_size)}")
         details.add(boot_row)
+
+        boot_mode_row = Adw.ActionRow()
+        boot_mode_row.set_title("Boot Mode")
+        boot_mode_row.set_subtitle(boot_mode_label(self.boot_mode))
+        details.add(boot_mode_row)
 
         if self.data_disk:
             data_row = Adw.ActionRow()
