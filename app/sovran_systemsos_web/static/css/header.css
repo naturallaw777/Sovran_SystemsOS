@@ -32,9 +32,9 @@
 .title-group {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: center;
   justify-content: center;
-  gap: 2px;
+  gap: 6px;
 }
 
 .header-buttons {
@@ -67,7 +67,7 @@
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   white-space: nowrap;
-  align-self: flex-start;
+  align-self: center;
 }
 
 .os-version-badge:hover {
