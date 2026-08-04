@@ -2,11 +2,28 @@
 
 First off, thank you for considering contributing to Sovran_SystemsOS! 🎉
 
-## This Github Repo
+## This GitHub Repo
 
-This repo is for the development of Sovran_SystemsOS and serves as its connection to the GitHub ecosystem. The main repo for Sovran_SystemsOS is hosted at https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS/src/branch/stable. All activity in this GitHub repo is tested and eventually mirrored to the main repo on Gitea, as the ethos of Sovran_SystemsOS is self-sovereignty.
+This repository is the **development mirror** of Sovran_SystemsOS and serves as
+its connection to the GitHub ecosystem. The **main, stable repository** is
+self-hosted on the project's Gitea instance at
+https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS
+([`stable` branch](https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS/src/branch/stable)),
+as the ethos of Sovran_SystemsOS is self-sovereignty.
 
-Please note: this repo may contain new features and code not yet in the stable branch on Gitea, and this code is not fully tested.
+The workflow is:
+
+1. Development happens on the `staging-dev` branch on Gitea, which this GitHub
+   repository mirrors.
+2. All activity in this GitHub repo — issues, pull requests, reviews, and
+   testing — is done against the mirrored `staging-dev` code.
+3. When changes are complete and tested, they are moved to the `stable` branch
+   on the Gitea instance, which is the code used by released Sovran_SystemsOS
+   builds.
+
+Please note: this repo mirrors `staging-dev`, so it may contain new features
+and code not yet in the `stable` branch on Gitea, and this code is not fully
+tested.
 
 Moreover, Sovran_SystemsOS has been improved with the help of AI. We have used Copilot and Arean.Ai to work through significant coding challenges and troubleshooting hurdles. We will continue to use AI to help keep Sovran_SystemsOS stable and maintained.
 
