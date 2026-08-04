@@ -33,11 +33,12 @@ are ready.
 
 > **📌 Development mirror — stable releases live on Gitea**
 >
-> This GitHub repository is for **development**. It mirrors the `staging-dev`
+> The [GitHub repository](https://github.com/naturallaw777/Sovran_SystemsOS) is
+> the **development mirror** of this project. It mirrors the `staging-dev`
 > branch from the project's self-hosted Gitea instance. Changes are tested
-> here, and once complete they are moved to the `stable` branch on
+> there, and once complete they are moved to the `stable` branch on
 > [git.sovransystems.com](https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS/src/branch/stable)
-> — the canonical, release-ready home of Sovran_SystemsOS. Code in this
+> — the canonical, release-ready home of Sovran_SystemsOS. Code in the GitHub
 > repository may be newer and less tested than the Gitea `stable` branch.
 > See [Development workflow](#development-workflow) for details.
 
@@ -474,23 +475,23 @@ Sovran_SystemsOS development is split across two repositories:
   Its [`stable` branch](https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS/src/branch/stable)
   holds the tested, release-ready code, and its `staging-dev` branch holds
   work in progress.
-- **[GitHub (this repository)](https://github.com/naturallaw777/Sovran_SystemsOS)** — the
+- **[GitHub](https://github.com/naturallaw777/Sovran_SystemsOS)** — the
   development mirror and the project's connection to the GitHub ecosystem. It
   mirrors the `staging-dev` branch from Gitea.
 
 The workflow is:
 
-1. Development happens on the `staging-dev` branch on Gitea, which this GitHub
+1. Development happens on the `staging-dev` branch on Gitea, which the GitHub
    repository mirrors.
-2. All activity in this GitHub repository — issues, pull requests, reviews,
+2. All activity in the GitHub repository — issues, pull requests, reviews,
    and testing — is done against the mirrored `staging-dev` code.
 3. When changes are complete and tested, they are moved to the `stable` branch
    on the Gitea instance, which is the code used by released
    Sovran_SystemsOS builds.
 
-> ⚠️ Because this repository tracks `staging-dev`, it may contain new features
-> and code that are not yet fully tested or released. For the current stable,
-> audited code, use the `stable` branch on
+> ⚠️ Because the GitHub repository tracks `staging-dev`, it may contain new
+> features and code that are not yet fully tested or released. For the current
+> stable, audited code, use the `stable` branch on
 > [git.sovransystems.com](https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS/src/branch/stable).
 
 ### Technology
@@ -520,8 +521,8 @@ git clone -b stable https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsO
 cd Sovran_SystemsOS
 ```
 
-or clone the **development mirror** from GitHub (this repository), which
-tracks Gitea's `staging-dev` branch and may contain untested changes:
+or clone the **development mirror** from GitHub, which tracks Gitea's
+`staging-dev` branch and may contain untested changes:
 
 ```bash
 git clone https://github.com/naturallaw777/Sovran_SystemsOS.git
@@ -813,9 +814,11 @@ Read the complete license terms in [`LICENSE`](LICENSE).
 
 ## Contributing
 
-We welcome contributions! This GitHub repository is the **development mirror**
-— the stable, tested releases are maintained on the `stable` branch of the
-self-hosted [Gitea instance](https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS).
+We welcome contributions! The
+[GitHub repository](https://github.com/naturallaw777/Sovran_SystemsOS) is the
+**development mirror** — the stable, tested releases are maintained on the
+`stable` branch of the self-hosted
+[Gitea instance](https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS).
 Please read our [Contributing Guidelines](CONTRIBUTING.md) before submitting a
 pull request.
 
