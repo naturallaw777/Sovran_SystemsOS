@@ -31,6 +31,17 @@ are ready.
 
 </div>
 
+> **📌 Development mirror — stable releases live on Gitea**
+>
+> The [GitHub repository](https://github.com/naturallaw777/Sovran_SystemsOS) is
+> the **development mirror** of this project. It mirrors the `staging-dev`
+> branch from the project's self-hosted Gitea instance. Changes are tested
+> there, and once complete they are moved to the `stable` branch on
+> [git.sovransystems.com](https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS/src/branch/stable)
+> — the canonical, release-ready home of Sovran_SystemsOS. Code in the GitHub
+> repository may be newer and less tested than the Gitea `stable` branch.
+> See [Development workflow](#development-workflow) for details.
+
 ---
 
 ## Contents
@@ -42,6 +53,8 @@ are ready.
 - [The Sovran Hub](#the-sovran-hub)
 - [Install Sovran_SystemsOS](#install-sovran_systemsos)
 - [For developers](#for-developers)
+  - [Development workflow](#development-workflow)
+  - [Build from source](#build-from-source)
 - [About Bitcoin wallet entropy](#about-bitcoin-wallet-entropy)
 - [Security approach](#security-approach)
 - [Acknowledgements](#acknowledgements)
@@ -453,6 +466,34 @@ Sovran Hub into a complete Bitcoin operating system. The operating system
 configuration, installer, Hub, desktop integration, Bitcoin services, and
 optional self-hosting services are all maintained in this repository.
 
+### Development workflow
+
+Sovran_SystemsOS development is split across two repositories:
+
+- **[git.sovransystems.com (self-hosted Gitea)](https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS)** — the
+  canonical home of the project, in keeping with the ethos of self-sovereignty.
+  Its [`stable` branch](https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS/src/branch/stable)
+  holds the tested, release-ready code, and its `staging-dev` branch holds
+  work in progress.
+- **[GitHub](https://github.com/naturallaw777/Sovran_SystemsOS)** — the
+  development mirror and the project's connection to the GitHub ecosystem. It
+  mirrors the `staging-dev` branch from Gitea.
+
+The workflow is:
+
+1. Development happens on the `staging-dev` branch on Gitea, which the GitHub
+   repository mirrors.
+2. All activity in the GitHub repository — issues, pull requests, reviews,
+   and testing — is done against the mirrored `staging-dev` code.
+3. When changes are complete and tested, they are moved to the `stable` branch
+   on the Gitea instance, which is the code used by released
+   Sovran_SystemsOS builds.
+
+> ⚠️ Because the GitHub repository tracks `staging-dev`, it may contain new
+> features and code that are not yet fully tested or released. For the current
+> stable, audited code, use the `stable` branch on
+> [git.sovransystems.com](https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS/src/branch/stable).
+
 ### Technology
 
 - [NixOS](https://nixos.org) and [Nix flakes](https://nixos.wiki/wiki/Flakes)
@@ -473,10 +514,24 @@ optional self-hosting services are all maintained in this repository.
 
 You need a system with Nix installed and flakes enabled.
 
+Clone the **stable** code from the self-hosted Gitea instance (recommended):
+
+```bash
+git clone -b stable https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS.git
+cd Sovran_SystemsOS
+```
+
+or clone the **development mirror** from GitHub, which tracks Gitea's
+`staging-dev` branch and may contain untested changes:
+
 ```bash
 git clone https://github.com/naturallaw777/Sovran_SystemsOS.git
 cd Sovran_SystemsOS
+```
 
+Then build the installer ISO:
+
+```bash
 nix build \
   .#nixosConfigurations.sovran_systemsos-iso.config.system.build.isoImage
 ```
@@ -759,7 +814,13 @@ Read the complete license terms in [`LICENSE`](LICENSE).
 
 ## Contributing
 
-We welcome contributions! Please read our [Contributing Guidelines](CONTRIBUTING.md) before submitting a pull request.
+We welcome contributions! The
+[GitHub repository](https://github.com/naturallaw777/Sovran_SystemsOS) is the
+**development mirror** — the stable, tested releases are maintained on the
+`stable` branch of the self-hosted
+[Gitea instance](https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS).
+Please read our [Contributing Guidelines](CONTRIBUTING.md) before submitting a
+pull request.
 
 <div align="center">
 
