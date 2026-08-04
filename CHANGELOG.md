@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.0.5] - 2026-08-04
+
+### Added
+- LND Update to v0.21.1-beta
+- Nixpkgs Update
+- Nixpkgs Update
+- Update LND REST Zeus Connect instructions and design to match NWC exactly
+- UI: Align LND REST and NWC Zeus connection instructions styling
+- Make Zeus LND REST instructions coherent with NWC Zeus connect guide
+- Clarify Zeus NWC wallet setup
+- Make Manual Backup match the system role (Desktop Only scope)
+- Reload Caddy immediately when a domain (or ACME email) is saved
+- Unify Njal.la + router port-forwarding guidance across onboarding and feature enable modals
+- Enhance Lightning Wallet Connect modal with professional benefits grid and refined messaging
+
+### Fixed
+- Resolve 'vdev' version badge and align it under the Hub title
+- Align release script with Gitea staging-dev and stable branch workflow
+- Auto-detect git remotes and clean up temp files in release-stable.sh
+
+### Documentation
+- Write real v1.0.4 changelog and auto-generate release notes in release script
+[1.0.5]: https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS/releases/tag/v1.0.5
+
+
 ## [Unreleased]
 
 ### Fixed
