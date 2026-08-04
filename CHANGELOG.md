@@ -35,6 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- Installer VM compatibility: legacy BIOS VM boots now install with GRUB, UEFI VM installs avoid depending on NVRAM boot-entry writes, VM users get clearer disk/resource guidance, and the internet check falls back to HTTPS when ICMP is blocked.
 - **Manual Backup now matches the system role**: on the Desktop Only role the Hub's
   "What gets backed up" list no longer shows Node / Server + Desktop items
   (nix-bitcoin secrets, `/var/lib` system service data, and the database/blockchain
