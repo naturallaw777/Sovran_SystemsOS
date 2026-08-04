@@ -8,7 +8,7 @@ This repo is for the development of Sovran_SystemsOS and serves as its connectio
 
 Please note: this repo may contain new features and code not yet in the stable branch on Gitea, and this code is not fully tested.
 
-Moreover, Sovran_SystemsOS has been improved with the help of AI. We have used Copilot to work through significant coding challenges and troubleshooting hurdles. We will continue to use AI to help keep Sovran_SystemsOS stable and maintained.
+Moreover, Sovran_SystemsOS has been improved with the help of AI. We have used Copilot and Arean.Ai to work through significant coding challenges and troubleshooting hurdles. We will continue to use AI to help keep Sovran_SystemsOS stable and maintained.
 
 ## How Can I Contribute?
 
