@@ -615,12 +615,18 @@ an attacker. Your wallet cannot be recovered without **both**.
 
 This is not a recommendation against hardware wallets, dice, or any other
 well-tested method of creating entropy. Those are established and valuable
-approaches. The takeaway is simply this: **how your entropy is created matters,
-and generating your two entropy sources on two physically separate devices is a
+approaches. If you use a hardware wallet, verify for yourself that its entropy
+generation — both the software and the hardware — is sound and follows best
+practices.
+
+The takeaway is simply this: **how your entropy is created matters, and
+generating your two entropy sources on two physically separate devices is a
 strong practice to understand before setting up a Bitcoin wallet** with the
 software included in Sovran_SystemsOS.
 
-*This is educational context, not financial advice.*
+**You must do your own research.** The information above is basic educational
+context to help you build your own best practices — not financial advice and not
+a substitute for your own due diligence.
 
 ---
 
