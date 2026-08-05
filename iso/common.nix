@@ -9,7 +9,7 @@ let
                 else "dev";
 
   # Clean version (remove 'v' prefix and newlines)
-  cleanVersion = builtins.replaceStrings ["v" "\n" "\r"] [""] versionFile;
+  cleanVersion = builtins.replaceStrings ["v" "\n" "\r"] ["" "" ""] versionFile;
 
   pythonEnv = pkgs.python3.withPackages (ps: [ ps.pygobject3 ps.pycairo ]);
 
