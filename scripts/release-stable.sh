@@ -424,6 +424,10 @@ echo -e "${GREEN}║           ✅ Release ${TAG} completed successfully!       
 echo -e "${GREEN}╚════════════════════════════════════════════════════════════╝${NC}"
 echo
 echo "Next manual steps (recommended):"
+echo "  • Build the installer ISO:"
+echo "    nix build .#nixosConfigurations.sovran_systemsos-iso.config.system.build.isoImage"
+echo "  • Package, verify, and upload ISO to CDN:"
+echo "    ./scripts/upload-cdn.sh --upload"
 echo "  • Review and enhance the new section in CHANGELOG.md"
 echo "  • Push changes: git push ${GITHUB_REMOTE} HEAD:main && git push ${GITEA_REMOTE} HEAD:staging-dev"
 echo "  • Verify releases on both GitHub and Gitea"

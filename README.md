@@ -21,9 +21,9 @@ Lightning infrastructure, private cloud, and communications platform when you
 are ready.
 
 [Visit the Website](https://sovransystems.com) ·
-[Download the ISO](https://downloads.sovransystems.com/Sovran_SystemsOS-1.0.3.iso) ·
+[Download the ISO](https://downloads.sovransystems.com/Sovran_SystemsOS-1.0.5.iso) ·
 [Try it safely in a VM](#try-it-first-in-a-virtual-machine) ·
-[Verify the Download](https://downloads.sovransystems.com/Sovran_SystemsOS.iso.sha256) ·
+[Verify the Download](https://downloads.sovransystems.com/Sovran_SystemsOS-1.0.5.iso.sha256) ·
 [Build from Source](#build-from-source)
 
 <img src="assets/desktop-screenshot.png" alt="Sovran_SystemsOS private Bitcoin desktop" width="800" />
@@ -50,6 +50,7 @@ are ready.
 - [For developers](#for-developers)
   - [Development workflow](#development-workflow)
   - [Build from source](#build-from-source)
+  - [Publishing a release](#publishing-a-release)
 - [About Bitcoin wallet entropy](#about-bitcoin-wallet-entropy)
 - [Security approach](#security-approach)
 - [Acknowledgements](#acknowledgements)
@@ -341,8 +342,8 @@ with an imaging application such as [Balena Etcher](https://etcher.balena.io).
 
 ### 1. Download the ISO and checksum
 
-- [Download Sovran_SystemsOS.iso](https://downloads.sovransystems.com/Sovran_SystemsOS.iso)
-- [Download Sovran_SystemsOS.iso.sha256](https://downloads.sovransystems.com/Sovran_SystemsOS.iso.sha256)
+- [Download Sovran_SystemsOS-1.0.5.iso](https://downloads.sovransystems.com/Sovran_SystemsOS-1.0.5.iso)
+- [Download Sovran_SystemsOS-1.0.5.iso.sha256](https://downloads.sovransystems.com/Sovran_SystemsOS-1.0.5.iso.sha256)
 
 The download may take some time. Do not rename or modify the ISO before
 verifying it, and keep both files in the same folder.
@@ -360,16 +361,16 @@ checksum exactly.
 Open a terminal in the download folder and run:
 
 ```bash
-sha256sum --check Sovran_SystemsOS.iso.sha256
+sha256sum --check Sovran_SystemsOS-1.0.5.iso.sha256
 ```
 
 A successful comparison reports:
 
 ```text
-Sovran_SystemsOS.iso: OK
+Sovran_SystemsOS-1.0.5.iso: OK
 ```
 
-You can also run `sha256sum Sovran_SystemsOS.iso` and compare the output
+You can also run `sha256sum Sovran_SystemsOS-1.0.5.iso` and compare the output
 against the checksum file manually.
 
 </details>
@@ -380,11 +381,11 @@ against the checksum file manually.
 Open Terminal in the download folder and run:
 
 ```bash
-shasum -a 256 Sovran_SystemsOS.iso
+shasum -a 256 Sovran_SystemsOS-1.0.5.iso
 ```
 
 Compare the value shown in Terminal with the value inside
-`Sovran_SystemsOS.iso.sha256`.
+`Sovran_SystemsOS-1.0.5.iso.sha256`.
 
 </details>
 
@@ -394,7 +395,7 @@ Compare the value shown in Terminal with the value inside
 Open PowerShell in the download folder and run:
 
 ```powershell
-Get-FileHash .\Sovran_SystemsOS.iso -Algorithm SHA256
+Get-FileHash .\Sovran_SystemsOS-1.0.5.iso -Algorithm SHA256
 ```
 
 Compare the value under `Hash` with the published checksum.
@@ -409,7 +410,7 @@ match exactly.
 
 1. Download and install [Balena Etcher](https://etcher.balena.io), then
    connect the USB drive.
-2. Choose **Flash from file** and select `Sovran_SystemsOS.iso`.
+2. Choose **Flash from file** and select `Sovran_SystemsOS-1.0.5.iso`.
 3. Choose **Select target**, select the USB drive, and review your selection
    carefully.
 4. Choose **Flash** and wait for the writing and verification process to
@@ -572,6 +573,23 @@ nix build \
 
 The resulting build output will be available through the `result` symlink.
 
+### Publishing a release
+
+Releases are managed with `scripts/release-stable.sh` and `scripts/upload-cdn.sh`:
+
+1. Run the stable release script to bump version, tag, update changelog, and push/create releases:
+   ```bash
+   ./scripts/release-stable.sh [version]
+   ```
+2. Build the installer ISO:
+   ```bash
+   nix build .#nixosConfigurations.sovran_systemsos-iso.config.system.build.isoImage
+   ```
+3. Copy, checksum, verify, and optionally upload to CDN:
+   ```bash
+   ./scripts/upload-cdn.sh --upload
+   ```
+
 ### Common development commands
 
 Run these commands from the flake root.
@@ -610,6 +628,7 @@ sudo nixos-rebuild switch --rollback
 | `modules/` | Core modules, Bitcoin services, self-hosted services, and optional features |
 | `modules/core/` | Roles, Hub integration, Caddy, desktop, support, and other core behavior |
 | `app/` | Sovran Hub backend, templates, static assets, scripts, and web interface |
+| `scripts/` | Automated release, build, and CDN upload utility scripts |
 | `iso/` | Installer configuration, installer code, and installer assets |
 | `packages/` | Custom package sources and patches (for example, Alby Hub) |
 | `assets/` | Documentation images |
@@ -860,7 +879,7 @@ primary location for collaboration. Please read our
 ## Privacy. Sovereignty. Bitcoin.
 
 [Visit Sovran Systems](https://sovransystems.com) ·
-[Download Sovran_SystemsOS](https://downloads.sovransystems.com/Sovran_SystemsOS.iso) ·
+[Download Sovran_SystemsOS](https://downloads.sovransystems.com/Sovran_SystemsOS-1.0.5.iso) ·
 [View the License](LICENSE)
 
 </div>
