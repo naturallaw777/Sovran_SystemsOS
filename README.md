@@ -22,6 +22,7 @@ are ready.
 
 [Visit the Website](https://sovransystems.com) ·
 [Download the ISO](https://downloads.sovransystems.com/Sovran_SystemsOS-1.0.3.iso) ·
+[Try it safely in a VM](#try-it-first-in-a-virtual-machine) ·
 [Verify the Download](https://downloads.sovransystems.com/Sovran_SystemsOS.iso.sha256) ·
 [Build from Source](#build-from-source)
 
@@ -40,6 +41,7 @@ are ready.
 ## Contents
 
 - [Why Sovran_SystemsOS?](#why-sovran_systemsos)
+- [Try it first in a virtual machine](#try-it-first-in-a-virtual-machine)
 - [What is included](#what-is-included)
 - [Three modes](#three-modes)
 - [Use it your way](#use-it-your-way)
@@ -102,6 +104,40 @@ and a reproducible, auditable NixOS foundation.
 > Sovran_SystemsOS provides tools for self-custody and peer-to-peer Bitcoin
 > use. Users remain responsible for protecting their keys, understanding their
 > trades, following applicable laws, and maintaining secure backups.
+
+---
+
+## Try it first in a virtual machine
+
+**Curious, but not ready to replace your current operating system?** Start with
+Sovran_SystemsOS in a virtual machine (VM). A VM runs Sovran_SystemsOS in a
+window on your existing Windows, macOS, or Linux computer, using a virtual disk
+file instead of your computer's internal drive. You can explore the desktop,
+Sovran Hub, Sparrow, Bisq, and the installation experience before changing how
+you use any physical machine.
+
+This is a low-commitment way to decide whether Sovran_SystemsOS is right for
+you:
+
+- **Keep your current OS.** Closing or deleting the VM leaves the host operating
+  system in place.
+- **Learn at your own pace.** Familiarize yourself with the desktop and tools
+  without needing to make it your daily computer on day one.
+- **Choose your next step with confidence.** When you are ready, install it on
+  a dedicated computer, or keep using the VM as a learning environment.
+
+You can use the same ISO with [VirtualBox](https://www.virtualbox.org), VMware,
+QEMU/KVM, Proxmox, and similar x86_64 VM software. For a first look, select
+**Desktop Only**, allocate at least **8 GB RAM**, and create a **256 GB or
+larger dynamically allocated virtual disk**. The full VM setup and installer
+requirements are in [Installing in a virtual machine](#installing-in-a-virtual-machine-optional).
+
+> **A VM is for evaluation and learning, not a substitute for a dedicated,
+> hardened setup.** Do not use a trial VM to hold meaningful Bitcoin, recovery
+> phrases, passwords, or other sensitive data. Avoid attaching physical drives
+> to the VM, and be deliberate about shared folders, clipboard sharing, and
+> network settings. The installer only changes the disk you select, but you
+> should always review VM disk selections before confirming an install.
 
 ---
 
