@@ -612,17 +612,24 @@ def _read_free_password() -> str | None:
 
 
 def _hash_password(password: str) -> str:
-    """Return a SHA-256 hex digest of the given password for safe storage."""
-    return hashlib.sha256(password.encode()).hexdigest()
+    """Return a scrypt-hashed password string formatted as 'salt_hex:hash_hex'."""
+    salt = os.urandom(16)
+    hashed = hashlib.scrypt(password.encode(), salt=salt, n=16384, r=8, p=1)
+    return salt.hex() + ":" + hashed.hex()
 
 
 def _check_password(submitted: str) -> bool:
-    """Constant-time comparison of submitted password against the stored hash."""
+    """Constant-time comparison of submitted password against the stored scrypt hash."""
     stored = _read_free_password()
     if stored is None:
         return False
-    submitted_hash = _hash_password(submitted)
-    return hmac.compare_digest(submitted_hash.encode(), stored.encode())
+    try:
+        salt_hex, hash_hex = stored.split(":", 1)
+        salt = bytes.fromhex(salt_hex)
+    except (ValueError, AttributeError):
+        return False
+    submitted_hash = hashlib.scrypt(submitted.encode(), salt=salt, n=16384, r=8, p=1)
+    return hmac.compare_digest(submitted_hash.hex().encode(), hash_hex.encode())
 
 
 def _ensure_onboarding_reopened_for_migration() -> None:
