@@ -284,6 +284,36 @@ git commit -m "chore: bump VERSION to ${TAG} for ISO naming" || true
 echo -e "  ${GREEN}✓${NC} VERSION file updated to ${VERSION}"
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Step 2b: Auto-update README.md ISO download references
+# ─────────────────────────────────────────────────────────────────────────────
+echo
+echo -e "${BLUE}Step 2b: Updating README.md ISO references to ${VERSION}...${NC}"
+
+README_FILE="README.md"
+if [ -f "$README_FILE" ]; then
+    # Extract the version currently used in the README's ISO filenames,
+    # e.g. "Sovran_SystemsOS-1.0.6.iso" -> "1.0.6"
+    OLD_ISO_VER=$(grep -oE 'Sovran_SystemsOS-[0-9]+\.[0-9]+\.[0-9]+\.iso' "$README_FILE" | head -1 | sed 's/Sovran_SystemsOS-//; s/\.iso//')
+
+    if [ -n "$OLD_ISO_VER" ] && [ "$OLD_ISO_VER" != "$VERSION" ]; then
+        # Portable in-place edit (works with GNU sed and BSD/macOS sed)
+        sed "s/Sovran_SystemsOS-${OLD_ISO_VER}/Sovran_SystemsOS-${VERSION}/g" \
+            "$README_FILE" > "$README_FILE.tmp" && mv "$README_FILE.tmp" "$README_FILE"
+
+        UPDATED=$(grep -c "Sovran_SystemsOS-${VERSION}" "$README_FILE")
+        echo -e "  ${GREEN}✓${NC} README.md: ${OLD_ISO_VER} -> ${VERSION} (${UPDATED} references updated)"
+
+        git add "$README_FILE"
+        git commit -m "docs: update README ISO download links to ${TAG}" || true
+        echo -e "  ${GREEN}✓${NC} Committed README update"
+    else
+        echo -e "  ${YELLOW}⚠${NC} README.md already references ${VERSION} or no versioned ISO links found — skipping"
+    fi
+else
+    echo -e "  ${YELLOW}⚠${NC} README.md not found — skipping"
+fi
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Step 3: Auto-update CHANGELOG.md
 # ─────────────────────────────────────────────────────────────────────────────
 echo
