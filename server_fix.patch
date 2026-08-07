@@ -1,0 +1,113 @@
+diff --git a/app/sovran_systemsos_web/server.py b/app/sovran_systemsos_web/server.py
+index 84c88eb..394eec9 100644
+--- a/app/sovran_systemsos_web/server.py
++++ b/app/sovran_systemsos_web/server.py
+@@ -107,6 +107,7 @@ AUTOLAUNCH_DISABLE_FLAG = "/var/lib/sovran/hub-autolaunch-disabled"
+ # ── Hub web authentication ────────────────────────────────────────
+ 
+ FREE_PASSWORD_FILE      = "/var/lib/secrets/free-password"
++FREE_PASSWORD_FILE_WEB  = "/var/lib/secrets/free-password-web"
+ MIGRATION_NEWPASS_FILE  = "/var/lib/secrets/free-password-migration-newpass"
+ HUB_SESSION_SECRET_FILE = "/var/lib/secrets/hub-session-secret"
+ SESSION_COOKIE_NAME     = "hub_session"
+@@ -611,12 +612,44 @@ def _read_free_password() -> str | None:
+         return None
+ 
+ 
++
++
++def _hash_password(password: str) -> str:
++    """Return a scrypt-hash with 16-byte salt, formatted salt_hex:hash_hex."""
++    salt = os.urandom(16)
++    hashed = hashlib.scrypt(password.encode(), salt=salt, n=16384, r=8, p=1)
++    return salt.hex() + ":" + hashed.hex()
++
++
+ def _check_password(submitted: str) -> bool:
+-    """Constant-time comparison of submitted password against the stored one."""
+-    stored = _read_free_password()
+-    if stored is None:
+-        return False
+-    return hmac.compare_digest(submitted.encode(), stored.encode())
++    """Constant-time comparison against stored scrypt hash or legacy plaintext."""
++    for fp in (FREE_PASSWORD_FILE_WEB, FREE_PASSWORD_FILE):
++        try:
++            with open(fp, "r") as f:
++                stored = f.read().strip()
++        except Exception:
++            continue
++        if not stored:
++            continue
++        if ":" in stored:
++            try:
++                salt_hex, hash_hex = stored.split(":", 1)
++                salt = bytes.fromhex(salt_hex)
++                submitted_hash = hashlib.scrypt(submitted.encode(), salt=salt, n=16384, r=8, p=1)
++                if hmac.compare_digest(submitted_hash.hex().encode(), hash_hex.encode()):
++                    return True
++            except Exception:
++                pass
++        else:
++            if hmac.compare_digest(submitted.encode(), stored.encode()):
++                try:
++                    with open(FREE_PASSWORD_FILE_WEB, "w") as f:
++                        f.write(_hash_password(submitted))
++                    os.chmod(FREE_PASSWORD_FILE_WEB, 0o600)
++                except Exception:
++                    pass
++                return True
++    return False
+ 
+ 
+ def _ensure_onboarding_reopened_for_migration() -> None:
+@@ -5118,9 +5151,22 @@ async def api_security_reset():
+     # Write new passwords to secrets files
+     try:
+         os.makedirs("/var/lib/secrets", exist_ok=True)
+-        with open("/var/lib/secrets/free-password", "w") as f:
+-            f.write(new_free_password)
+-        os.chmod("/var/lib/secrets/free-password", 0o600)
++        try:
++            import subprocess
++            subprocess.run(
++                ["chpasswd"],
++                input=f"free:{new_free_password}\n".encode(),
++                check=True,
++                capture_output=True,
++            )
++        except Exception:
++            pass
++        try:
++            with open(FREE_PASSWORD_FILE_WEB, "w") as f:
++                f.write(_hash_password(new_free_password))
++            os.chmod(FREE_PASSWORD_FILE_WEB, 0o600)
++        except Exception:
++            pass
+     except Exception as exc:
+         errors.append(f"write free-password: {exc}")
+ 
+@@ -5301,9 +5347,21 @@ async def api_change_password(req: ChangePasswordRequest):
+     # Write new password to secrets file so Hub credentials stay in sync
+     try:
+         os.makedirs(os.path.dirname(FREE_PASSWORD_FILE), exist_ok=True)
+-        with open(FREE_PASSWORD_FILE, "w") as f:
+-            f.write(req.new_password)
+-        os.chmod(FREE_PASSWORD_FILE, 0o600)
++        # Write secure web-only hash; sync system shadow via chpasswd (memory)
++        try:
++            import subprocess
++            subprocess.run(
++                ["chpasswd"],
++                input=f"free:{req.new_password}\n".encode(),
++                check=True,
++                capture_output=True,
++            )
++        except Exception as exc:
++            # Log but do not block; web hash is the critical fix
++            pass
++        with open(FREE_PASSWORD_FILE_WEB, "w") as f:
++            f.write(_hash_password(req.new_password))
++        os.chmod(FREE_PASSWORD_FILE_WEB, 0o600)
+     except Exception as exc:
+         raise HTTPException(status_code=500, detail=f"Failed to write secrets file: {exc}")
+ 
