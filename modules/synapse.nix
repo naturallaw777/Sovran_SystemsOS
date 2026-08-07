@@ -229,6 +229,30 @@ CREDS
         chmod 600 "$CREDS_FILE"
       fi
 
+      # Provision a private, random Matrix administrator for the Hub's Admin
+      # API calls.  This is deliberately separate from the visible bootstrap
+      # admin account: installations where @admin pre-dated Sovran do not have
+      # its password, but Hub user management must still work.  Keeping the
+      # generated localpart in this root-only file makes the operation
+      # idempotent without exposing this service credential in the Hub UI.
+      HUB_ADMIN_CREDS="/var/lib/secrets/matrix-hub-admin"
+      if [ ! -s "$HUB_ADMIN_CREDS" ]; then
+        HUB_ADMIN_USER="sovran-hub-$(tr -dc 'a-z0-9' < /dev/urandom | head -c 20)"
+        HUB_ADMIN_PASS=$(pwgen -s 32 1)
+        if register_new_matrix_user -c /run/matrix-synapse/runtime-config.yaml \
+          -u "$HUB_ADMIN_USER" -p "$HUB_ADMIN_PASS" -a http://localhost:8008; then
+          (umask 077; cat > "$HUB_ADMIN_CREDS" <<CREDS
+username=$HUB_ADMIN_USER
+password=$HUB_ADMIN_PASS
+CREDS
+          )
+          echo "Created private Matrix Hub service administrator."
+        else
+          echo "Failed to create the private Matrix Hub service administrator." >&2
+          exit 1
+        fi
+      fi
+
       # Always write individual credential files for the hub UI, even if the bulk
       # credentials file already existed from a prior run (umask 077 ensures mode 600).
       # If passwords were not freshly generated above, parse them from the bulk file.
