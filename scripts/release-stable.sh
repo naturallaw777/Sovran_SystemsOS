@@ -63,7 +63,12 @@ echo
 # Helper: Get latest tag
 # ─────────────────────────────────────────────────────────────────────────────
 get_latest_tag() {
-    git tag --list 'v*' --sort=-version:refname | head -1 || echo ""
+    local exclude="${1:-}"
+    if [[ -n "$exclude" ]]; then
+        git tag --list 'v*' --sort=-version:refname | grep -v -x -E "v?${exclude#v}|${exclude}" | head -1 || echo ""
+    else
+        git tag --list 'v*' --sort=-version:refname | head -1 || echo ""
+    fi
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -88,7 +93,7 @@ suggest_next_version() {
 # Step 0: Fetch everything
 # ─────────────────────────────────────────────────────────────────────────────
 echo -e "${BLUE}Step 0: Fetching latest from all remotes...${NC}"
-git fetch --all --tags --prune --force || git fetch --all --tags --prune --force 2>/dev/null || true
+git fetch --all --tags 2>/dev/null || true
 
 LATEST_TAG=$(get_latest_tag)
 NEXT_VERSION=$(suggest_next_version "$LATEST_TAG")
@@ -188,9 +193,10 @@ generate_release_notes() {
     printf '%s' "$notes"
 }
 
-# Build the notes from commits since the previous tag
-if [[ -n "$LATEST_TAG" ]] && git rev-parse -q --verify "$LATEST_TAG" >/dev/null; then
-    COMMIT_RANGE="${LATEST_TAG}..HEAD"
+# Build the notes from commits since the previous tag (exclude the target tag if already present)
+PREV_TAG=$(get_latest_tag "$TAG")
+if [[ -n "$PREV_TAG" ]] && git rev-parse -q --verify "$PREV_TAG" >/dev/null; then
+    COMMIT_RANGE="${PREV_TAG}..HEAD"
 else
     COMMIT_RANGE="HEAD"
 fi
@@ -256,7 +262,7 @@ fi
 # ─────────────────────────────────────────────────────────────────────────────
 echo
 echo -e "${BLUE}Step 2: Creating annotated tag ${TAG}...${NC}"
-git tag -a "${TAG}" -m "${RELEASE_MESSAGE}
+git tag -f -a "${TAG}" -m "${RELEASE_MESSAGE}
 
 - Stable release of Sovran_SystemsOS
 - See CHANGELOG.md for full details" || true
