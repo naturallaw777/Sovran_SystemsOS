@@ -51,50 +51,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Clarify GitHub is the dev mirror of the Gitea stable repo
 [1.0.6]: https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS/releases/tag/v1.0.6
 
-
-## [1.0.6] - 2026-08-07
-
-### Added
-- Iso: fix replaceStrings length mismatch in cleanVersion
-- Promote virtual machine trial option in README
-- Improve installer VM compatibility
-- Trim redundant dev-vs-stable Gitea explanations in README
-- Add Arean.Ai to AI tools used for development
-- Prefix OS version badge with 'v' (v1.0.5)
-- Match OS version badge styling to service modal version badges
-- Place OS version badge inline right after the Hub title
-- Center OS version badge under the Hub title
-- Strengthen entropy section: add DYOR emphasis and hardware wallet verification note
-- Add 'About Bitcoin wallet entropy' section to README
-- README: balance intro between Bitcoin sovereignty and sovereign computing
-
-### Changed
-- Removed temp patch file
-
-### Fixed
-- Harden error handling and sanitize exception details across security endpoints (CWE-209)
-- Sanitize exception handling in verify-integrity and security-reset (CWE-209)
-- Sanitize api_security_reset errors to prevent exception information exposure (CWE-209)
-- Use canonical prefix containment check for CodeQL path-injection
-- Pass sanitized abs_path to os.chown to resolve CodeQL path injection at 4338
-- Add CodeQL-recognized path sanitization for domain_name
-- Remove domain substring check for CodeQL incomplete-url
-- Use sentinel for njalla header check (CodeQL incomplete-url-substring)
-- Prevent reflected XSS in lnurl-qr print endpoint
-- Hash root password instead of storing in clear text (CWE-312)
-- Separate web auth hash from system password file
-- Fix Matrix Hub admin API credentials
-- Fix CWE-78: replace subprocess call with Synapse Admin API in create-user endpoint
-
-### Documentation
-- Add SECURITY.md detailing security policy and best practices
-- Versioned CDN downloads + add CDN upload script
-- Correct active development workflow
-- Make repo references mirror-neutral for Gitea readers
-- Clarify GitHub is the dev mirror of the Gitea stable repo
-[1.0.6]: https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS/releases/tag/v1.0.6
-
-
 ## [1.0.5] - 2026-08-04
 
 ### Added
