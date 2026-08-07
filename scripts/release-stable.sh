@@ -356,17 +356,18 @@ echo
 echo -e "${BLUE}Step 4: Creating GitHub Release...${NC}"
 
 if command -v gh &>/dev/null; then
+    title_suffix="${RELEASE_MESSAGE#Sovran_SystemsOS v* — }"
+    title_suffix="${title_suffix#Sovran_SystemsOS * — }"
     if gh release create "${TAG}" \
         --repo naturallaw777/Sovran_SystemsOS \
-        --title "${TAG} — ${RELEASE_MESSAGE#Sovran_SystemsOS v* — }" \
-        --notes-file "${NOTES_FILE}" \
-        --target main 2>/dev/null; then
+        --title "${TAG} — ${title_suffix}" \
+        --notes-file "${NOTES_FILE}"; then
         echo -e "  ${GREEN}✓${NC} GitHub release created successfully"
     else
-        echo -e "  ${YELLOW}⚠${NC} GitHub release may already exist or failed"
+        echo -e "  ${YELLOW}⚠${NC} GitHub release creation failed (check 'gh auth status' or create via web GUI)"
     fi
 else
-    echo -e "  ${YELLOW}⚠${NC} gh CLI not found — skipping GitHub release"
+    echo -e "  ${YELLOW}⚠${NC} gh CLI not found — skipping GitHub release (create via GitHub web GUI)"
 fi
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -409,6 +410,9 @@ if [[ -n "${GITEA_TOKEN:-}" ]]; then
 
     if echo "$RESPONSE" | grep -q '"id"'; then
         echo -e "  ${GREEN}✓${NC} Gitea release created successfully"
+    elif echo "$RESPONSE" | grep -q "write:repository"; then
+        echo -e "  ${YELLOW}⚠${NC} Gitea token scope issue: your token requires the 'write:repository' scope (currently has write:package)."
+        echo "     To fix: In Gitea, navigate to Settings → Applications → Manage Access Tokens and generate a token with 'write:repository'."
     else
         echo -e "  ${YELLOW}⚠${NC} Gitea release creation failed or already exists"
         echo "     Response: $RESPONSE"
