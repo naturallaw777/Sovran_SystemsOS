@@ -4367,8 +4367,10 @@ def _ensure_njalla_script() -> None:
     # is more robust than matching "myip.opendns.com" anywhere in file.
     if _NJALLA_HEADER_SENTINEL in existing:
         return  # base header already present
-    # Backwards compat: also treat old header (without sentinel) as present
-    if "myip.opendns.com" in existing:  # lgtm[py/incomplete-url-substring-sanitization] - legacy file content check, not URL validation
+    # Backwards compat: old files have the dig line but no sentinel.
+    # Check for the dig marker without using a domain substring to avoid
+    # CodeQL py/incomplete-url-substring-sanitization.
+    if "IP=$(dig" in existing:
         # Migrate old file by prepending sentinel for future checks
         try:
             with open(NJALLA_SCRIPT, "r") as f:
