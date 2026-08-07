@@ -4329,10 +4329,14 @@ def _ensure_domains_dir() -> None:
 
 def _chown_to_caddy(path: str) -> None:
     """Set the owner of a file to caddy:root (best-effort)."""
+    # CodeQL path-injection: ensure path is inside DOMAINS_DIR or is NJALLA_SCRIPT
     try:
+        abs_path = os.path.abspath(path)
+        if abs_path != os.path.abspath(NJALLA_SCRIPT) and os.path.commonpath([os.path.abspath(DOMAINS_DIR), abs_path]) != os.path.abspath(DOMAINS_DIR):
+            return
         pw = pwd.getpwnam("caddy")
         os.chown(path, pw.pw_uid, 0)
-    except KeyError:
+    except (KeyError, ValueError):
         pass
 
 
@@ -4528,7 +4532,14 @@ async def api_domains_set(req: DomainSetRequest):
             )
 
     _ensure_domains_dir()
+    # --- CodeQL path-injection fix ---
+    if os.path.basename(req.domain_name) != req.domain_name:
+        raise HTTPException(status_code=400, detail="Invalid domain_name")
+    if "/" in req.domain_name or "\\" in req.domain_name or ".." in req.domain_name:
+        raise HTTPException(status_code=400, detail="Invalid domain_name")
     domain_path = os.path.join(DOMAINS_DIR, req.domain_name)
+    if os.path.commonpath([os.path.abspath(DOMAINS_DIR), os.path.abspath(domain_path)]) != os.path.abspath(DOMAINS_DIR):
+        raise HTTPException(status_code=400, detail="Invalid domain_name")
     with open(domain_path, "w") as f:
         f.write(normalized)
     _chown_to_caddy(domain_path)
