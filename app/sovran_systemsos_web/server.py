@@ -5573,32 +5573,60 @@ class MatrixCreateUserRequest(BaseModel):
 
 @app.post("/api/matrix/create-user")
 async def api_matrix_create_user(req: MatrixCreateUserRequest):
-    """Create a new Matrix user via register_new_matrix_user."""
+    """Create a new Matrix user via the Synapse Admin API."""
     if not _validate_matrix_username(req.username):
         raise HTTPException(status_code=400, detail="Invalid username. Use only lowercase letters, digits, '.', '_', '-'.")
     if not req.password:
         raise HTTPException(status_code=400, detail="Password must not be empty.")
 
-    admin_flag = ["-a"] if req.admin else ["--no-admin"]
-    cmd = [
-        "register_new_matrix_user",
-        "-c", "/run/matrix-synapse/runtime-config.yaml",
-        "-u", req.username,
-        "-p", req.password,
-        *admin_flag,
-        "http://localhost:8008",
-    ]
+    # Read domain
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+        with open(MATRIX_DOMAINS_FILE, "r") as f:
+            domain = f.read().strip()
     except FileNotFoundError:
-        raise HTTPException(status_code=500, detail="register_new_matrix_user not found on this system.")
-    except subprocess.TimeoutExpired:
-        raise HTTPException(status_code=500, detail="Command timed out.")
+        raise HTTPException(status_code=500, detail="Matrix domain not configured.")
 
-    output = (result.stdout + result.stderr).strip()
-    if result.returncode != 0:
-        # Surface the actual error from the tool (e.g. "User ID already taken")
-        raise HTTPException(status_code=400, detail=output or "Failed to create user.")
+    # Parse admin credentials
+    try:
+        admin_user, admin_pass = _parse_matrix_admin_creds()
+    except FileNotFoundError:
+        raise HTTPException(status_code=500, detail="Matrix credentials file not found.")
+    except ValueError as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+    # Obtain admin access token
+    loop = asyncio.get_event_loop()
+    try:
+        token = await loop.run_in_executor(
+            None, _matrix_get_admin_token, domain, admin_user, admin_pass
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Could not authenticate as admin: {exc}")
+
+    # Call Synapse Admin API to create the user
+    target_user_id = f"@{req.username}:{domain}"
+    url = f"http://[::1]:8008/_synapse/admin/v2/users/{urllib.parse.quote(target_user_id, safe='@:')}"
+    payload = json.dumps({"password": req.password, "admin": req.admin}).encode()
+    api_req = urllib.request.Request(
+        url, data=payload,
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"******",
+        },
+        method="PUT",
+    )
+    try:
+        with urllib.request.urlopen(api_req, timeout=15) as resp:
+            resp.read()
+    except urllib.error.HTTPError as exc:
+        body = exc.read().decode(errors="replace")
+        try:
+            detail = json.loads(body).get("error", body)
+        except Exception:
+            detail = body
+        raise HTTPException(status_code=400, detail=detail)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Admin API call failed: {exc}")
 
     return {"ok": True, "username": req.username}
 
