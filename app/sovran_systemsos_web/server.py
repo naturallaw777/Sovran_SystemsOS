@@ -5125,7 +5125,8 @@ async def api_security_reset():
                 import shutil as _shutil
                 _shutil.rmtree(path, ignore_errors=True)
             except Exception as exc:
-                errors.append(f"rm {path}: {exc}")
+                logger.warning("Failed to wipe path %s: %s", path, exc)
+                errors.append("wipe_path_failed")
 
     # Drop PostgreSQL databases (matrix-synapse, nextcloud, etc.)
     try:
@@ -5143,7 +5144,8 @@ async def api_security_reset():
                         capture_output=True, text=True, timeout=30,
                     )
     except Exception as exc:
-        errors.append(f"postgres wipe: {exc}")
+        logger.warning("Postgres wipe failed: %s", exc)
+        errors.append("postgres_wipe_failed")
 
     # Drop MariaDB databases
     try:
@@ -5162,7 +5164,8 @@ async def api_security_reset():
                         capture_output=True, text=True, timeout=30,
                     )
     except Exception as exc:
-        errors.append(f"mariadb wipe: {exc}")
+        logger.warning("MariaDB wipe failed: %s", exc)
+        errors.append("mariadb_wipe_failed")
 
     # Generate new diceware passwords
     new_free_password = _generate_diceware_password()
@@ -5184,9 +5187,11 @@ async def api_security_reset():
                 capture_output=True, text=True,
             )
             if result.returncode != 0:
-                errors.append(f"chpasswd free: {(result.stderr or result.stdout).strip()}")
+                logger.warning("chpasswd free failed: %s", (result.stderr or result.stdout).strip())
+                errors.append("chpasswd_free_failed")
         except Exception as exc:
-            errors.append(f"chpasswd free: {exc}")
+            logger.warning("chpasswd free error: %s", exc)
+            errors.append("chpasswd_free_failed")
 
         # Set root password
         try:
@@ -5196,11 +5201,14 @@ async def api_security_reset():
                 capture_output=True, text=True,
             )
             if result.returncode != 0:
-                errors.append(f"chpasswd root: {(result.stderr or result.stdout).strip()}")
+                logger.warning("chpasswd root failed: %s", (result.stderr or result.stdout).strip())
+                errors.append("chpasswd_root_failed")
         except Exception as exc:
-            errors.append(f"chpasswd root: {exc}")
+            logger.warning("chpasswd root error: %s", exc)
+            errors.append("chpasswd_root_failed")
     else:
-        errors.append("chpasswd not found; passwords not reset")
+        logger.warning("chpasswd not found; passwords not reset")
+        errors.append("chpasswd_not_found")
 
     # Write new passwords to secrets files
     try:
@@ -5222,7 +5230,8 @@ async def api_security_reset():
         except Exception:
             pass
     except Exception as exc:
-        errors.append(f"write free-password: {exc}")
+        logger.warning("write free-password error: %s", exc)
+        errors.append("write_free_password_failed")
 
     try:
         os.makedirs("/var/lib/secrets", exist_ok=True)
@@ -5230,7 +5239,8 @@ async def api_security_reset():
             f.write(_hash_password(new_root_password))
         os.chmod("/var/lib/secrets/root-password", 0o600)
     except Exception as exc:
-        errors.append(f"write root-password: {exc}")
+        logger.warning("write root-password error: %s", exc)
+        errors.append("write_root_password_failed")
 
     # Clear only the locked keyring databases, leaving the directory and 'default' pointer intact.
     keyring_dir = "/home/free/.local/share/keyrings"
@@ -5239,7 +5249,8 @@ async def api_security_reset():
         try:
             os.remove(kf)
         except OSError as exc:
-            errors.append(f"keyring wipe: {kf}: {exc}")
+            logger.warning("keyring wipe error for %s: %s", kf, exc)
+            errors.append("keyring_wipe_failed")
 
     # The user performed a full security reset — the banner's purpose is served.
     try:
