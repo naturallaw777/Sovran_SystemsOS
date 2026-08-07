@@ -4967,9 +4967,16 @@ async def api_nwc_wallet_lnurl_qr_print(wallet_identifier: str):
     if err:
         return err
     address = wallet.get("lightning_address") or f"{wallet['alias']}@{domain}"
-    name = _html_escape(str(wallet.get("name") or "Wallet"))
-    addr_html = _html_escape(address)
-    img_src = f"/api/nwc/wallets/{urllib.parse.quote(wallet_identifier, safe='')}/lnurl-qr.png?scale=24"
+    name = _html_escape(str(wallet.get("name") or "Wallet"), quote=True)
+    addr_html = _html_escape(address, quote=True)
+    # ── XSS FIX: do not reflect raw wallet_identifier (attacker-controlled) ──
+    # Use canonical ID from the resolved wallet (DB = trusted), then
+    # URL-encode for URL context + HTML-escape for HTML attribute context.
+    # urllib.parse.quote alone is NOT recognized by CodeQL as an HTML sanitizer.
+    canonical_id = str(wallet.get("id") or wallet.get("pubkey") or wallet_identifier)
+    safe_id = urllib.parse.quote(canonical_id, safe="")
+    img_src_raw = f"/api/nwc/wallets/{safe_id}/lnurl-qr.png?scale=24"
+    img_src = _html_escape(img_src_raw, quote=True)
     html_doc = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -5010,7 +5017,14 @@ async def api_nwc_wallet_lnurl_qr_print(wallet_identifier: str):
   </script>
 </body>
 </html>"""
-    return HTMLResponse(content=html_doc, headers={"Cache-Control": "no-store"})
+    return HTMLResponse(
+        content=html_doc,
+        headers={
+            "Cache-Control": "no-store",
+            "Content-Security-Policy": "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'",
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
 
 
 
