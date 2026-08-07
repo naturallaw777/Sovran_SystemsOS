@@ -4341,6 +4341,9 @@ def _validate_safe_name(name: str) -> bool:
     return bool(name) and _SAFE_NAME_RE.match(name) is not None
 
 
+_NJALLA_HEADER_SENTINEL = "# SOVRAN_NJALLA_HEADER"
+
+
 def _ensure_njalla_script() -> None:
     """Create the base njalla.sh (shebang + public-IP lookup) if it is missing.
 
@@ -4359,10 +4362,26 @@ def _ensure_njalla_script() -> None:
             existing = f.read()
     except OSError:
         pass
-    if "myip.opendns.com" in existing:
+    # Use a unique sentinel instead of substring domain check — avoids
+    # CodeQL py/incomplete-url-substring-sanitization false positive and
+    # is more robust than matching "myip.opendns.com" anywhere in file.
+    if _NJALLA_HEADER_SENTINEL in existing:
         return  # base header already present
+    # Backwards compat: also treat old header (without sentinel) as present
+    if "myip.opendns.com" in existing:  # lgtm[py/incomplete-url-substring-sanitization] - legacy file content check, not URL validation
+        # Migrate old file by prepending sentinel for future checks
+        try:
+            with open(NJALLA_SCRIPT, "r") as f:
+                old_content = f.read()
+            with open(NJALLA_SCRIPT, "w") as f:
+                f.write(f"{_NJALLA_HEADER_SENTINEL}\n" + old_content)
+            os.chmod(NJALLA_SCRIPT, 0o755)
+        except OSError:
+            pass
+        return
     header = (
         "#!/usr/bin/env bash\n"
+        f"{_NJALLA_HEADER_SENTINEL}\n"
         "IP=$(dig @resolver4.opendns.com myip.opendns.com +short -4)\n\n"
         "## Add DDNS entries below — one curl per line\n"
         "## Managed via Sovran Hub web interface\n"
