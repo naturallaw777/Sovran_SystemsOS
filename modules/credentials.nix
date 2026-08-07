@@ -111,7 +111,15 @@ in
         echo "$ROOT_PASS" > "$SECRET_FILE"
         chmod 600 "$SECRET_FILE"
       fi
-      echo "root:$(cat "$SECRET_FILE")" | chpasswd
+      # If the file contains a scrypt hash (salt:hash), skip chpasswd — the
+      # password was already set via the Hub security reset endpoint and this
+      # service is only re-running as a manual recovery step.
+      CONTENT="$(cat "$SECRET_FILE")"
+      if echo "$CONTENT" | grep -qE '^[0-9a-f]{32}:[0-9a-f]{64,}$'; then
+        echo "root-password-setup: stored value is already hashed — skipping chpasswd" >&2
+      else
+        echo "root:$CONTENT" | chpasswd
+      fi
     '';
   };
 

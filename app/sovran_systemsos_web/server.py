@@ -1554,7 +1554,11 @@ def _resolve_credential(cred: dict) -> dict | None:
         else:
             return None
 
-    value = prefix + raw + suffix
+    # Detect scrypt hash (salt_hex:hash_hex) — passwords stored securely
+    if re.match(r'^[0-9a-f]{32}:[0-9a-f]{64,}$', raw):
+        value = "(stored securely — use Security Reset to set a new one)"
+    else:
+        value = prefix + raw + suffix
     result = {"label": label, "value": value, "multiline": multiline}
 
     if qrcode:
@@ -5173,7 +5177,7 @@ async def api_security_reset():
     try:
         os.makedirs("/var/lib/secrets", exist_ok=True)
         with open("/var/lib/secrets/root-password", "w") as f:
-            f.write(new_root_password)
+            f.write(_hash_password(new_root_password))
         os.chmod("/var/lib/secrets/root-password", 0o600)
     except Exception as exc:
         errors.append(f"write root-password: {exc}")
@@ -5195,7 +5199,7 @@ async def api_security_reset():
     except OSError:
         pass  # Non-fatal
 
-    return {"ok": True, "new_password": new_free_password, "errors": errors}
+    return {"ok": True, "new_password": new_free_password, "new_root_password": new_root_password, "errors": errors}
 
 
 @app.post("/api/security/verify-integrity")
