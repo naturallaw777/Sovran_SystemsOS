@@ -5410,7 +5410,8 @@ async def api_change_password(req: ChangePasswordRequest):
     except HTTPException:
         raise
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Failed to update system password: {exc}")
+        logger.error("Failed to update system password: %s", exc)
+        raise HTTPException(status_code=500, detail="Failed to update system password.")
 
     # Write new password to secrets file so Hub credentials stay in sync
     try:
@@ -5431,7 +5432,8 @@ async def api_change_password(req: ChangePasswordRequest):
             f.write(_hash_password(req.new_password))
         os.chmod(FREE_PASSWORD_FILE_WEB, 0o600)
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Failed to write secrets file: {exc}")
+        logger.error("Failed to write secrets file: %s", exc)
+        raise HTTPException(status_code=500, detail="Failed to write secrets file.")
 
     # Clear only the locked keyring databases, leaving the directory and 'default' pointer intact.
     keyring_dir = "/home/free/.local/share/keyrings"
