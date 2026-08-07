@@ -4329,10 +4329,14 @@ def _ensure_domains_dir() -> None:
 
 def _chown_to_caddy(path: str) -> None:
     """Set the owner of a file to caddy:root (best-effort)."""
+    # CodeQL path-injection: ensure path is inside DOMAINS_DIR or is NJALLA_SCRIPT
     try:
+        abs_path = os.path.abspath(path)
+        if abs_path != os.path.abspath(NJALLA_SCRIPT) and os.path.commonpath([os.path.abspath(DOMAINS_DIR), abs_path]) != os.path.abspath(DOMAINS_DIR):
+            return
         pw = pwd.getpwnam("caddy")
         os.chown(path, pw.pw_uid, 0)
-    except KeyError:
+    except (KeyError, ValueError):
         pass
 
 
