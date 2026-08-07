@@ -611,12 +611,18 @@ def _read_free_password() -> str | None:
         return None
 
 
+def _hash_password(password: str) -> str:
+    """Return a SHA-256 hex digest of the given password for safe storage."""
+    return hashlib.sha256(password.encode()).hexdigest()
+
+
 def _check_password(submitted: str) -> bool:
-    """Constant-time comparison of submitted password against the stored one."""
+    """Constant-time comparison of submitted password against the stored hash."""
     stored = _read_free_password()
     if stored is None:
         return False
-    return hmac.compare_digest(submitted.encode(), stored.encode())
+    submitted_hash = _hash_password(submitted)
+    return hmac.compare_digest(submitted_hash.encode(), stored.encode())
 
 
 def _ensure_onboarding_reopened_for_migration() -> None:
@@ -5302,7 +5308,7 @@ async def api_change_password(req: ChangePasswordRequest):
     try:
         os.makedirs(os.path.dirname(FREE_PASSWORD_FILE), exist_ok=True)
         with open(FREE_PASSWORD_FILE, "w") as f:
-            f.write(req.new_password)
+            f.write(_hash_password(req.new_password))
         os.chmod(FREE_PASSWORD_FILE, 0o600)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Failed to write secrets file: {exc}")
