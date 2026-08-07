@@ -4331,12 +4331,14 @@ def _chown_to_caddy(path: str) -> None:
     """Set the owner of a file to caddy:root (best-effort)."""
     # CodeQL path-injection: ensure path is inside DOMAINS_DIR or is NJALLA_SCRIPT
     try:
+        base_dir = os.path.abspath(DOMAINS_DIR)
+        njalla_file = os.path.abspath(NJALLA_SCRIPT)
         abs_path = os.path.abspath(path)
-        if abs_path != os.path.abspath(NJALLA_SCRIPT) and os.path.commonpath([os.path.abspath(DOMAINS_DIR), abs_path]) != os.path.abspath(DOMAINS_DIR):
+        if abs_path != njalla_file and not abs_path.startswith(base_dir + os.sep):
             return
         pw = pwd.getpwnam("caddy")
-        os.chown(path, pw.pw_uid, 0)
-    except (KeyError, ValueError):
+        os.chown(abs_path, pw.pw_uid, 0)
+    except (KeyError, ValueError, OSError):
         pass
 
 
@@ -4532,17 +4534,16 @@ async def api_domains_set(req: DomainSetRequest):
             )
 
     _ensure_domains_dir()
-    domain_path = os.path.join(DOMAINS_DIR, req.domain_name)
     # --- CodeQL path-injection fix ---
-    # _validate_safe_name already enforces ^[a-zA-Z0-9_-]+$, but CodeQL
-    # does not recognize it as a sanitizer. Add explicit checks that
-    # CodeQL *does* recognize: basename equality and commonpath containment.
-    if os.path.basename(domain_path) != req.domain_name:
+    safe_name = os.path.basename(req.domain_name)
+    if safe_name != req.domain_name or not _validate_safe_name(safe_name):
         raise HTTPException(status_code=400, detail="Invalid domain_name")
-    # Ensure the final path is still inside DOMAINS_DIR (prevents ../ traversal)
-    # Use normpath + commonpath — recognized by py/path-injection query.
-    if os.path.commonpath([os.path.normpath(DOMAINS_DIR), os.path.normpath(domain_path)]) != os.path.normpath(DOMAINS_DIR):
+
+    base_dir = os.path.abspath(DOMAINS_DIR)
+    domain_path = os.path.abspath(os.path.join(base_dir, safe_name))
+    if not domain_path.startswith(base_dir + os.sep):
         raise HTTPException(status_code=400, detail="Invalid domain_name")
+
     with open(domain_path, "w") as f:
         f.write(normalized)
     _chown_to_caddy(domain_path)
