@@ -5313,7 +5313,8 @@ async def api_security_verify_integrity():
     except subprocess.TimeoutExpired:
         store_errors = ["Verification timed out after 5 minutes."]
     except Exception as exc:
-        store_errors = [str(exc)]
+        logger.warning("Nix store verification failed: %s", exc)
+        store_errors = ["Verification failed unexpectedly."]
 
     # ── 3. Compare running system to flake build ──────────────────
     system_matches = False
@@ -5340,13 +5341,15 @@ async def api_security_verify_integrity():
                     expected_system_path = "Build succeeded but no result symlink found"
             else:
                 # Surface the error so the UI can show what went wrong
-                expected_system_path = f"Build failed: {(result.stderr or result.stdout).strip()[:500]}"
+                logger.warning("System verification build failed: %s", (result.stderr or result.stdout).strip()[:500])
+                expected_system_path = "Build failed"
         finally:
             shutil.rmtree(tmpdir, ignore_errors=True)
     except subprocess.TimeoutExpired:
         expected_system_path = "Build timed out"
     except Exception as exc:
-        expected_system_path = str(exc)
+        logger.warning("System verification failed: %s", exc)
+        expected_system_path = "Verification failed"
 
     return {
         "flake_commit": flake_commit,
