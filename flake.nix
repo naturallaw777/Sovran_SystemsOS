@@ -3,13 +3,12 @@
 
 	inputs = {
 		nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-		nix-bitcoin.url = "github:fort-nix/nix-bitcoin/release";
 		nixvim.url = "github:nix-community/nixvim";
 		btc-clients.url = "github:emmanuelrosa/btc-clients-nix";
 		nixpkgs-stable.url = "github:nixos/nixpkgs/nixos-26.05";
 	};
 
-	outputs = { self, nixpkgs, nix-bitcoin, nixvim, btc-clients, nixpkgs-stable, ... }:
+	outputs = { self, nixpkgs, nixvim, btc-clients, nixpkgs-stable, ... }:
 
 	let
 		overlay-stable = final: prev: {
@@ -22,7 +21,7 @@
 	{
 		nixosConfigurations.nixos = nixpkgs.lib.nixosSystem {
 			modules = [
-				{ nixpkgs.hostPlatform = "x86_64-linux"; }
+				{ nixpkgs.hostPlatform = "x86_64-linux"; nixpkgs.overlays = [ overlay-stable ]; }
 				self.nixosModules.Sovran_SystemsOS
 				./hardware-configuration.nix
 				./role-state.nix
@@ -32,10 +31,9 @@
 
 		nixosConfigurations.sovran_systemsos-iso = nixpkgs.lib.nixosSystem {
 			modules = [
-				{ nixpkgs.hostPlatform = "x86_64-linux"; }
-				({ config, pkgs, ... }: { nixpkgs.overlays = [ overlay-stable ]; })
+				{ nixpkgs.hostPlatform = "x86_64-linux"; nixpkgs.overlays = [ overlay-stable ]; }
 				./iso/common.nix
-				nix-bitcoin.nixosModules.default
+				./modules/bitcoin
 				nixvim.nixosModules.nixvim
 			];
 		};
@@ -46,7 +44,7 @@
 					nixpkgs.overlays = [ overlay-stable ];
 				})
 				./configuration.nix
-				nix-bitcoin.nixosModules.default
+				./modules/bitcoin
 				nixvim.nixosModules.nixvim
 			];
 			config = {
