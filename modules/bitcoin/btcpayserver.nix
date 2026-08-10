@@ -30,7 +30,7 @@ let
         description = "The data directory for btcpayserver.";
       };
       lightningBackend = mkOption {
-        type = types.nullOr (types.enum [ "clightning" "lnd" ]);
+        type = types.nullOr (types.enum [ "lnd" ]); # Sovran uses LND only
         default = null;
         description = "The lightning node implementation to use.";
       };
@@ -201,8 +201,6 @@ in {
         postgres=User ID=${cfg.btcpayserver.user};Host=/run/postgresql;Database=btcpaydb
       '' + optionalString (cfg.btcpayserver.rootpath != null) ''
         rootpath=${cfg.btcpayserver.rootpath}
-      '' + optionalString (cfg.btcpayserver.lightningBackend == "clightning") ''
-        btclightning=type=clightning;server=unix:///${config.services.clightning.dataDir or "/var/lib/clightning"}/${bitcoind.makeNetworkName "bitcoin" "regtest"}/lightning-rpc
       '' + optionalString (cfg.btcpayserver.lightningBackend == "lnd")
         (
           "btclightning=type=lnd-rest;" +
@@ -250,8 +248,7 @@ in {
     users.users.${cfg.btcpayserver.user} = {
       isSystemUser = true;
       group = cfg.btcpayserver.group;
-      extraGroups = [ cfg.nbxplorer.group ]
-                    ++ optional (cfg.btcpayserver.lightningBackend == "clightning" && config.services ? clightning) (config.services.clightning.user or "clightning");
+      extraGroups = [ cfg.nbxplorer.group ];
       home = cfg.btcpayserver.dataDir;
     };
     users.groups.${cfg.btcpayserver.group} = {};
