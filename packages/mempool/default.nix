@@ -83,12 +83,22 @@ in rec {
     # postPatch runs in the npmDeps fetcher too. Copy the lock file to
     # the repo root so prefetch-npm-deps can find it, then apply patches
     # in the main build.
+    # Also create a dummy rust-gbt stub so `npm ci --offline` can resolve
+    # the `file:./rust-gbt` dependency before the real native module is
+    # synced in buildPhase.
     postPatch = ''
       cp backend/package-lock.json .
       patch -p1 < ${./0001-allow-disabling-mining-pool-fetching.patch}
+      mkdir -p backend/rust-gbt
+      cat > backend/rust-gbt/package.json <<'EOF'
+      {"name":"rust-gbt","version":"0.0.1","main":"index.js"}
+      EOF
     '';
 
-    npmDepsHash = "sha256-PhLLW7IFW3B6QrqvSYIyovgNXXwZiiRwX/4JgN2rDkU=";
+    npmDepsHash = "sha256-tuMrdc9vw5CWzaL1xRxZnskgGwElWv8qz4LSNvSUdXI=";
+    npmDepsFetcherVersion = 2;
+    makeCacheWritable = true;
+    npmFlags = [ "--legacy-peer-deps" ];
 
     nativeBuildInputs = [
       makeWrapper
@@ -137,9 +147,6 @@ in rec {
 
   # Argument `config` (type: attrset) defines the mempool frontend config.
   # If `{}`, the default config is used.
-  # See here for available options:
-  # https://github.com/mempool/mempool/blob/master/frontend/src/app/services/state.service.ts
-  # (`interface Env` and `defaultEnv`)
   mkFrontend = config: buildNpmPackage {
     pname = "mempool-frontend";
     inherit version src;
@@ -150,7 +157,8 @@ in rec {
       cp frontend/package-lock.json .
     '';
 
-    npmDepsHash = "sha256-fCI491w1htcYarEDbDff34Ir9pxW6E1lUNSCn3Xd+FE=";
+    npmDepsHash = "sha256-/UwK0X9knsqTSAmnh2+jk35SK/J7DjBUhsR7e6OOn8Y=";
+    npmDepsFetcherVersion = 2;
 
     nativeBuildInputs = [
       makeWrapper
