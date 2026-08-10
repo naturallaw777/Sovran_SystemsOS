@@ -10,7 +10,6 @@
     ./rtl.nix
     ./btcpayserver.nix
     ./mempool.nix
-    ./stubs.nix
   ];
 
   disabledModules = [ "services/networking/bitcoind.nix" ];

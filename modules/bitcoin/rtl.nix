@@ -116,7 +116,7 @@ let
     lnNode = "Node";
     lnImplementation = if isLnd then "LND" else "CLT";
     Authentication = {
-      ${optionalAttr (isLnd && lndLoopEnabled) "swapMacaroonPath"} = "${lightning-loop.dataDir}/${bitcoind.network}";
+      ${optionalAttr (isLnd && lndLoopEnabled) "swapMacaroonPath"} = "${(lightning-loop.dataDir or "/var/lib/lightning-loop")}/${bitcoind.network}";
       ${optionalAttr (isLnd) "macaroonPath"} = "${cfg.dataDir}/macaroons";
       ${optionalAttr (!isLnd) "runePath"} = runePath;
     };
@@ -129,7 +129,7 @@ let
       fiatConversion = cfg.extraCurrency != null;
       ${optionalAttr (cfg.extraCurrency != null) "currencyUnit"} = cfg.extraCurrency;
       ${optionalAttr (isLnd && lndLoopEnabled) "swapServerUrl"} =
-        "https://${nbLib.addressWithPort lightning-loop.restAddress lightning-loop.restPort}";
+        "https://${nbLib.addressWithPort (lightning-loop.restAddress or "127.0.0.1") (lightning-loop.restPort or 8081)}";
       lnServerUrl = "https://${
         if isLnd
         then nbLib.addressWithPort lnd.restAddress lnd.restPort
@@ -175,8 +175,7 @@ in {
       }
     ];
 
-    services.lnd.enable = mkIf cfg.nodes.lnd.enable true;
-    services.lightning-loop.enable = mkIf lndLoopEnabled true;
+    services.lnd.enable = mkIf cfg.nodes.lnd.enable true;    # lightning-loop removed - not used
     # vendored fix: clightning may not exist in this nixpkgs
     # clightning removed - Sovran uses lnd only
 

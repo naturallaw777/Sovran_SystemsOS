@@ -105,7 +105,8 @@ let
   cfg = config.services;
   nbLib = config.nix-bitcoin.lib;
 
-  inherit (config.services) bitcoind liquidd;
+  inherit (config.services) bitcoind;
+  # liquidd removed - Sovran uses lbtc=false, not needed
 in {
   inherit options;
 
@@ -132,10 +133,6 @@ in {
       };
     };
     # vendored fix: liquidd may not exist in nixpkgs with this name
-    services.liquidd = mkIf (cfg.btcpayserver.lbtc && config.services ? liquidd) {
-      enable = true;
-      listenWhitelisted = true;
-    };
     services.postgresql = {
       enable = true;
       ensureDatabases = [
@@ -166,28 +163,17 @@ in {
         btcrpcurl=http://${nbLib.addressWithPort bitcoind.rpc.address cfg.bitcoind.rpc.port}
         btcnodeendpoint=${nbLib.addressWithPort bitcoind.address bitcoind.whitelistedPort}
         bind=${cfg.nbxplorer.address}
-        port=${toString cfg.nbxplorer.port}
-        ${optionalString cfg.btcpayserver.lbtc ''
-          chains=btc,lbtc
-          lbtcrpcuser=${liquidd.rpcuser}
-          lbtcrpcurl=http://${nbLib.addressWithPort liquidd.rpc.address liquidd.rpc.port}
-          lbtcnodeendpoint=${nbLib.addressWithPort liquidd.address liquidd.whitelistedPort}
-        ''}
-        postgres=User ID=${cfg.nbxplorer.user};Host=/run/postgresql;Database=nbxplorer
+        port=${toString cfg.nbxplorer.port}        postgres=User ID=${cfg.nbxplorer.user};Host=/run/postgresql;Database=nbxplorer
       '';
     in rec {
       wantedBy = [ "multi-user.target" ];
       requires = [ "postgresql.target" ];
-      wants = [ "bitcoind.service" ] ++ optional cfg.btcpayserver.lbtc "liquidd.service";
+      wants = [ "bitcoind.service" ];
       after = requires ++ wants ++ [ "nix-bitcoin-secrets.target" ];
       preStart = ''
         install -m 600 ${configFile} '${cfg.nbxplorer.dataDir}/settings.config'
         {
-          echo "btcrpcpassword=$(cat ${config.nix-bitcoin.secretsDir}/bitcoin-rpcpassword-btcpayserver)"
-          ${optionalString cfg.btcpayserver.lbtc ''
-            echo "lbtcrpcpassword=$(cat ${config.nix-bitcoin.secretsDir}/liquid-rpcpassword)"
-          ''}
-        } >> '${cfg.nbxplorer.dataDir}/settings.config'
+          echo "btcrpcpassword=$(cat ${config.nix-bitcoin.secretsDir}/bitcoin-rpcpassword-btcpayserver)"        } >> '${cfg.nbxplorer.dataDir}/settings.config'
       '';
       serviceConfig = nbLib.defaultHardening // {
         ExecStart = ''
@@ -258,7 +244,6 @@ in {
       isSystemUser = true;
       group = cfg.nbxplorer.group;
       extraGroups = [ "bitcoinrpc-public" ]
-                    ++ optional cfg.btcpayserver.lbtc liquidd.group;
       home = cfg.nbxplorer.dataDir;
     };
     users.groups.${cfg.nbxplorer.group} = {};
