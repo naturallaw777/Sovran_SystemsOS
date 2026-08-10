@@ -2,6 +2,7 @@
 , stdenvNoCC
 , nodejs_22
 , nodejs-slim_22
+, buildNpmPackage
 , fetchFromGitHub
 , runCommand
 , makeWrapper
@@ -74,36 +75,30 @@ let
 
   sync = "${rsync}/bin/rsync -a --inplace";
 
-  mkDerivationMempool = args: stdenvNoCC.mkDerivation ({
+in rec {
+  mempool-backend = buildNpmPackage {
+    pname = "mempool-backend";
     inherit version src;
 
-    nativeBuildInputs = [
-      makeWrapper
-      nodejs_22
-      rsync
-    ];
+    sourceRoot = "source/backend";
 
-    phases = "unpackPhase patchPhase buildPhase installPhase";
-
-    meta = with lib; {
-      description = "Bitcoin blockchain and mempool explorer";
-      homepage = "https://github.com/mempool/mempool/";
-      license = licenses.agpl3Plus;
-      maintainers = with maintainers; [ erikarvstedt ];
-      platforms = platforms.unix;
-    };
-  } // args);
-
-in rec {
-  mempool-backend = mkDerivationMempool {
-    pname = "mempool-backend";
+    # Placeholder: build once, then replace with the hash from the
+    # "hash mismatch" error output.
+    npmDepsHash = lib.fakeHash;
 
     patches = [ ./0001-allow-disabling-mining-pool-fetching.patch ];
 
+    nativeBuildInputs = [
+      makeWrapper
+      rsync
+    ];
+
+    dontNpmBuild = true;
+    dontNpmInstall = true;
+
     buildPhase = ''
-      cd backend
-      # Install dependencies using npm ci (requires package-lock.json)
-      npm ci --legacy-peer-deps --ignore-scripts
+      runHook preBuild
+
       patchShebangs node_modules
 
       ${sync} ${mempool-rust-gbt}/ rust-gbt
@@ -126,20 +121,43 @@ in rec {
       nodejs = nodejs_22;
       nodejsRuntime = nodejs-slim_22;
     };
+
+    meta = with lib; {
+      description = "Bitcoin blockchain and mempool explorer (backend)";
+      homepage = "https://github.com/mempool/mempool/";
+      license = licenses.agpl3Plus;
+      platforms = platforms.unix;
+    };
   };
 
   mempool-frontend = mkFrontend {};
 
   # Argument `config` (type: attrset) defines the mempool frontend config.
   # If `{}`, the default config is used.
-  mkFrontend = config: mkDerivationMempool {
+  # See here for available options:
+  # https://github.com/mempool/mempool/blob/master/frontend/src/app/services/state.service.ts
+  # (`interface Env` and `defaultEnv`)
+  mkFrontend = config: buildNpmPackage {
     pname = "mempool-frontend";
+    inherit version src;
+
+    sourceRoot = "source/frontend";
+
+    # Placeholder: build once, then replace with the hash from the
+    # "hash mismatch" error output.
+    npmDepsHash = lib.fakeHash;
+
+    nativeBuildInputs = [
+      makeWrapper
+      rsync
+    ];
+
+    dontNpmBuild = true;
+    dontNpmInstall = true;
 
     buildPhase = ''
-      cd frontend
+      runHook preBuild
 
-      # Install dependencies using npm ci (requires package-lock.json)
-      npm ci --legacy-peer-deps --ignore-scripts
       patchShebangs node_modules
 
       # sync-assets.js is called during `npm run build` and downloads assets from the
@@ -167,6 +185,13 @@ in rec {
     passthru = {
       withConfig = mkFrontend;
       assets = frontendAssets;
+    };
+
+    meta = with lib; {
+      description = "Bitcoin blockchain and mempool explorer (frontend)";
+      homepage = "https://github.com/mempool/mempool/";
+      license = licenses.agpl3Plus;
+      platforms = platforms.unix;
     };
   };
 
