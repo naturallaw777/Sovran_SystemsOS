@@ -3,164 +3,146 @@
 with lib;
 let
   options.services.rtl = {
-    enable = mkEnableOption "Ride The Lightning, a web interface for lnd and clightning";
+    enable = mkEnableOption "RTL, a web interface for LND";
+
     address = mkOption {
       type = types.str;
       default = "127.0.0.1";
-      description = "HTTP server address.";
+      description = "Address to listen for HTTP connections.";
     };
+
     port = mkOption {
       type = types.port;
       default = 3000;
-      description = "HTTP server port.";
+      description = "Port to listen for HTTP connections.";
     };
+
     dataDir = mkOption {
       type = types.path;
       default = "/var/lib/rtl";
       description = "The data directory for RTL.";
     };
+
+    nightTheme = mkOption {
+      type = types.bool;
+      default = false;
+      description = "Enable night theme by default.";
+    };
+
+    extraCurrency = mkOption {
+      type = types.nullOr types.str;
+      default = null;
+      example = "USD";
+      description = ''
+        Additional currency for displaying amounts.
+        When set, Tor is disabled for the RTL service to allow currency rate fetching.
+      '';
+    };
+
     nodes = {
-      clightning = {
-        enable = mkOption {
-          type = types.bool;
-          default = false;
-          description = "Enable the clightning node interface.";
-        };
-        extraConfig = mkOption {
-          type = with types; attrsOf anything;
-          default = {};
-          example = {
-            Settings.userPersona = "MERCHANT";
-            Settings.logLevel = "DEBUG";
-          };
-          description = ''
-            Extra clightning node configuration.
-            See here for all available options:
-            https://github.com/Ride-The-Lightning/RTL/blob/master/.github/docs/Application_configurations.md
-          '';
-        };
-      };
       lnd = {
         enable = mkOption {
           type = types.bool;
           default = false;
-          description = "Enable the lnd node interface.";
+          description = "Enable LND node in RTL.";
         };
         loop = mkOption {
           type = types.bool;
           default = false;
-          description = "Enable swaps with lightning-loop.";
-        };
-        extraConfig = mkOption {
-          type = with types; attrsOf anything;
-          default = {};
-          example = {
-            Settings.userPersona = "MERCHANT";
-            Settings.logLevel = "DEBUG";
-          };
-          description = ''
-            Extra lnd node configuration.
-            See here for all available options:
-            https://github.com/Ride-The-Lightning/RTL/blob/master/.github/docs/Application_configurations.md
-          '';
+          description = "Enable Lightning Loop integration (requires loopd).";
         };
       };
-      reverseOrder = mkOption {
-        type = types.bool;
-        default = false;
-        description = ''
-          Reverse the order of nodes shown in the UI.
-          By default, clightning is shown before lnd.
-        '';
+      clightning = {
+        enable = mkOption {
+          type = types.bool;
+          default = false;
+          description = "Enable Core Lightning node in RTL (not supported in Sovran).";
+        };
       };
     };
-    nightTheme = mkOption {
-      type = types.bool;
-      default = false;
-      description = "Enable the Night UI Theme.";
-    };
-    extraCurrency = mkOption {
-      type = with types; nullOr str;
-      default = null;
-      example = "USD";
-      description = ''
-        Currency code (ISO 4217) of the extra currency used for displaying balances.
-        When set, this option enables online currency rate fetching.
-        Warning: Rate fetching requires outgoing clearnet connections, so option
-        {option}`tor.enforce` is automatically disabled.
-      '';
-    };
+
     user = mkOption {
       type = types.str;
       default = "rtl";
       description = "The user as which to run RTL.";
     };
+
     group = mkOption {
       type = types.str;
       default = cfg.user;
       description = "The group as which to run RTL.";
     };
-    tor.enforce = nbLib.tor.enforce;
+
+    tor = nbLib.tor;
   };
 
   cfg = config.services.rtl;
   nbLib = config.nix-bitcoin.lib;
-  nbPkgs = pkgs;
   secretsDir = config.nix-bitcoin.secretsDir;
-  runePath = "${cfg.dataDir}/clightning-admin-rune";
 
-  inherit (nbLib) optionalAttr;
+  # Vendored RTL package
+  rtlPackage = pkgs.callPackage ../../packages/rtl {};
 
-  node = { isLnd, index }: {
-    inherit index;
-    lnNode = "Node";
-    lnImplementation = if isLnd then "LND" else "CLT";
-    Authentication = {
-      ${optionalAttr (isLnd && lndLoopEnabled) "swapMacaroonPath"} = "${(lightning-loop.dataDir or "/var/lib/lightning-loop")}/${bitcoind.network}";
-      ${optionalAttr (isLnd) "macaroonPath"} = "${cfg.dataDir}/macaroons";
-      ${optionalAttr (!isLnd) "runePath"} = runePath;
-    };
-    Settings = {
-      userPersona = "OPERATOR";
-      themeMode = if cfg.nightTheme then "NIGHT" else "DAY";
-      themeColor = "PURPLE";
-      ${optionalAttr isLnd "channelBackupPath"} = "${cfg.dataDir}/backup/lnd";
-      logLevel = "INFO";
-      fiatConversion = cfg.extraCurrency != null;
-      ${optionalAttr (cfg.extraCurrency != null) "currencyUnit"} = cfg.extraCurrency;
-      ${optionalAttr (isLnd && lndLoopEnabled) "swapServerUrl"} =
-        "https://${nbLib.addressWithPort (lightning-loop.restAddress or "127.0.0.1") (lightning-loop.restPort or 8081)}";
-      lnServerUrl = "https://${
-        if isLnd
-        then nbLib.addressWithPort lnd.restAddress lnd.restPort
-        else nbLib.addressWithPort clightning.plugins.clnrest.address clightning.plugins.clnrest.port
-      }";
-    };
-  };
-
-  nodes' =
-    optional cfg.nodes.clightning.enable
-      (recursiveUpdate (node { isLnd = false; index = 1; }) cfg.nodes.clightning.extraConfig) ++
-    optional cfg.nodes.lnd.enable
-      (recursiveUpdate (node { isLnd = true;  index = 2; }) cfg.nodes.lnd.extraConfig);
-
-  nodes = if cfg.nodes.reverseOrder then reverseList nodes' else nodes';
+  runePath = "${cfg.dataDir}/CLN-Rune.env";
 
   rtlConfig = {
     multiPass = "@multiPass@";
-    host = cfg.address;
     port = cfg.port;
-    SSO.rtlSSO = 0;
-    inherit nodes;
+    host = cfg.address;
+    defaultNodeIndex = 1;
+    dbDirectoryPath = cfg.dataDir;
+    SSO = {
+      rtlSSO = 0;
+      rtlCookiePath = "";
+      logoutRedirectLink = "";
+    };
+    nodes = optional cfg.nodes.lnd.enable ({
+      index = 1;
+      lnNode = "lnd";
+      lnImplementation = "LND";
+      Authentication = {
+        macaroonPath = "${cfg.dataDir}/macaroons";
+        swapMacaroonPath = if cfg.nodes.lnd.loop then "${cfg.dataDir}/loop-macaroons" else "";
+        boltzMacaroonPath = "";
+      };
+      Settings = {
+        userPersona = "OPERATOR";
+        themeMode = if cfg.nightTheme then "NIGHT" else "DAY";
+        themeColor = "PURPLE";
+        channelBackupPath = "${cfg.dataDir}/backup";
+        logLevel = "INFO";
+        fiatConversion = cfg.extraCurrency != null;
+        unannouncedChannels = true;
+      } // optionalAttrs (cfg.extraCurrency != null) {
+        currencyUnit = cfg.extraCurrency;
+      };
+    } // optionalAttrs cfg.nodes.lnd.loop {
+      swapServerUrl = "https://localhost:8081";
+      boltzServerUrl = "";
+    }) ++ optional cfg.nodes.clightning.enable {
+      index = 2;
+      lnNode = "clightning";
+      lnImplementation = "CLN";
+      Authentication = {
+        runePath = runePath;
+      };
+      Settings = {
+        userPersona = "OPERATOR";
+        themeMode = if cfg.nightTheme then "NIGHT" else "DAY";
+        themeColor = "PURPLE";
+        logLevel = "INFO";
+        fiatConversion = cfg.extraCurrency != null;
+      } // optionalAttrs (cfg.extraCurrency != null) {
+        currencyUnit = cfg.extraCurrency;
+      };
+    };
   };
 
   configFile = builtins.toFile "config" (builtins.toJSON rtlConfig);
 
   inherit (config.services)
     bitcoind
-    lnd
-    clightning
-    lightning-loop;
+    lnd;
 
   lndLoopEnabled = cfg.nodes.lnd.enable && cfg.nodes.lnd.loop;
 in {
@@ -168,16 +150,19 @@ in {
 
   config = mkIf cfg.enable {
     assertions = [
-      { assertion = cfg.nodes.clightning.enable || cfg.nodes.lnd.enable;
+      { assertion = cfg.nodes.lnd.enable;
         message = ''
-          RTL: At least one of `nodes.lnd.enable` or `nodes.clightning.enable` must be `true`.
+          RTL: At least one node must be enabled. Sovran supports LND only.
+        '';
+      }
+      { assertion = !cfg.nodes.clightning.enable;
+        message = ''
+          RTL: Core Lightning (clightning) is not supported in Sovran. Use LND instead.
         '';
       }
     ];
 
-    services.lnd.enable = mkIf cfg.nodes.lnd.enable true;    # lightning-loop removed - not used
-    # vendored fix: clightning may not exist in this nixpkgs
-    # clightning removed - Sovran uses lnd only
+    services.lnd.enable = mkIf cfg.nodes.lnd.enable true;
 
     systemd.tmpfiles.rules = [
       "d '${cfg.dataDir}' 0770 ${cfg.user} ${cfg.group} - -"
@@ -187,8 +172,7 @@ in {
 
     systemd.services.rtl = rec {
       wantedBy = [ "multi-user.target" ];
-      wants = optional cfg.nodes.clightning.enable "clightning.service" ++
-              optional cfg.nodes.lnd.enable "lnd.service";
+      wants = optional cfg.nodes.lnd.enable "lnd.service";
       after = wants ++ [ "nix-bitcoin-secrets.target" ];
       environment.RTL_CONFIG_PATH = cfg.dataDir;
       environment.DB_DIRECTORY_PATH = cfg.dataDir;
@@ -204,13 +188,8 @@ in {
           (nbLib.rootScript "rtl-copy-macaroon" ''
             install --compare -m 640 -o ${cfg.user} -g ${cfg.group} -D ${lnd.networkDir}/admin.macaroon \
               '${cfg.dataDir}/macaroons/admin.macaroon'
-          '')
-        ++ optional cfg.nodes.clightning.enable
-          (nbLib.rootScript "rtl-create-clnrest-rune-file" ''
-            rune=$(cat '${clightning.networkDir}/admin-rune')
-            install --compare -m 640 -o ${cfg.user} -g ${cfg.group} <(printf 'LIGHTNING_RUNE="%s"\n' "$rune") '${runePath}'
           '');
-        ExecStart = "${pkgs.rtl}/bin/rtl";
+        ExecStart = "${rtlPackage}/bin/rtl";
         # Show "rtl" instead of "node" in the journal
         SyslogIdentifier = "rtl";
         User = cfg.user;
