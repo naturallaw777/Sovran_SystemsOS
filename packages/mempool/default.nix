@@ -80,18 +80,25 @@ in rec {
     pname = "mempool-backend";
     inherit version src;
 
-    sourceRoot = "source/backend";
+    # Use postUnpack (not sourceRoot) so the npmDeps fixed-output
+    # derivation hashes the same unpacked tree as the main build.
+    postUnpack = ''
+      cd source/backend
+    '';
 
     # Placeholder: build once, then replace with the hash from the
     # "hash mismatch" error output.
     npmDepsHash = lib.fakeHash;
 
-    patches = [ ./0001-allow-disabling-mining-pool-fetching.patch ];
-
     nativeBuildInputs = [
       makeWrapper
       rsync
     ];
+
+    # Apply patches only in the main build, not in the npmDeps fetcher.
+    postPatch = ''
+      patch -p1 < ${./0001-allow-disabling-mining-pool-fetching.patch}
+    '';
 
     dontNpmBuild = true;
     dontNpmInstall = true;
@@ -141,7 +148,11 @@ in rec {
     pname = "mempool-frontend";
     inherit version src;
 
-    sourceRoot = "source/frontend";
+    # Use postUnpack (not sourceRoot) so the npmDeps fixed-output
+    # derivation hashes the same unpacked tree as the main build.
+    postUnpack = ''
+      cd source/frontend
+    '';
 
     # Placeholder: build once, then replace with the hash from the
     # "hash mismatch" error output.
