@@ -82,8 +82,8 @@ let
             exec(make_info, globals(), locals())
             infos[service] = info
 
-    if is_enabled("onion-adresses") and not is_active("onion-adresses"):
-        print("error: service 'onion-adresses' is not running")
+    if is_enabled("onion-addresses") and not is_active("onion-addresses"):
+        print("error: service 'onion-addresses' is not running")
         exit(1)
 
     ${concatStrings infos}
@@ -130,11 +130,6 @@ in {
 
     nix-bitcoin.nodeinfo.services = with nodeinfoLib; {
       bitcoind = mkInfo "";
-      clightning = mkInfo ''
-        info["nodeid"] = shell("lightning-cli getinfo | jq -r '.id'")
-        if 'onion_address' in info:
-            info["id"] = f"{info['nodeid']}@{info['onion_address']}"
-      '';
       lnd = name: cfg: mkInfo (''
         info["rest_address"] = "${nbLib.addressWithPort cfg.restAddress cfg.restPort}"
       '' + mkIfOnionPort "lnd-rest" (onionPort: ''
@@ -142,16 +137,8 @@ in {
       '') + ''
         info["nodeid"] = shell("lncli getinfo | jq -r '.identity_pubkey'")
       '') name cfg;
-      clnrest = name: cfg: mkInfoLong {
-        inherit name cfg;
-        systemdServiceName = "clightning";
-      };
-      clightning-rest = mkInfo "";
       electrs = mkInfo "";
-      fulcrum = mkInfo "";
       btcpayserver = mkInfo "";
-      liquidd = mkInfo "";
-      joinmarket-ob-watcher = mkInfo "";
       rtl = mkInfo "";
       mempool = mkInfo "";
       mempool-frontend = name: cfg: mkInfoLong {
