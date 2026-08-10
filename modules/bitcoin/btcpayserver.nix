@@ -1,77 +1,18 @@
-{ config, lib, pkgs, ... }:
+{ config, lib, pkgs, pkgs-stable, ... }:
 
 with lib;
 let
   options.services = {
-    btcpayserver = {
-      enable = mkEnableOption "btcpayserver, a self-hosted Bitcoin payment processor";
-      address = mkOption {
-        type = types.str;
-        default = "127.0.0.1";
-        description = "Address to listen on.";
-      };
-      port = mkOption {
-        type = types.port;
-        default = 23000;
-        description = "Port to listen on.";
-      };
-      package = mkOption {
-        type = types.package;
-        default = if cfg.btcpayserver.lbtc then
-                    pkgs.btcpayserver.override { altcoinSupport = true; }
-                  else
-                    pkgs.btcpayserver;
-        defaultText = "(See source)";
-        description = "The package providing btcpayserver binaries.";
-      };
-      dataDir = mkOption {
-        type = types.path;
-        default = "/var/lib/btcpayserver";
-        description = "The data directory for btcpayserver.";
-      };
-      lightningBackend = mkOption {
-        type = types.nullOr (types.enum [ "lnd" ]); # Sovran uses LND only
-        default = null;
-        description = "The lightning node implementation to use.";
-      };
-      lbtc = mkOption {
-        type = types.bool;
-        default = false;
-        description = "Enable liquid support in btcpayserver.";
-      };
-      rootpath = mkOption {
-        type = types.nullOr types.str;
-        default = null;
-        example = "btcpayserver";
-        description = "The prefix for root-relative btcpayserver URLs.";
-      };
-      user = mkOption {
-        type = types.str;
-        default = "btcpayserver";
-        description = "The user as which to run btcpayserver.";
-      };
-      group = mkOption {
-        type = types.str;
-        default = cfg.btcpayserver.user;
-        description = "The group as which to run btcpayserver.";
-      };
-      tor.enforce = nbLib.tor.enforce;
-    };
-
     nbxplorer = {
       enable = mkOption {
-        # This option is only used by netns-isolation
-        internal = true;
-        default = cfg.btcpayserver.enable;
+        type = types.bool;
+        default = false;
         description = ''
-          nbxplorer is always enabled when btcpayserver is enabled.
+          Enable nbxplorer, a lightweight API for Bitcoin HD wallets.
+
+          Access API documentation here:
+          {option}`services.nbxplorer.address`:{option}`services.nbxplorer.port`
         '';
-      };
-      package = mkOption {
-        type = types.package;
-        default = pkgs.nbxplorer;
-        defaultText = "pkgs.nbxplorer";
-        description = "The package providing nbxplorer binaries.";
       };
       address = mkOption {
         type = types.str;
@@ -83,185 +24,225 @@ let
         default = 24444;
         description = "Port to listen on.";
       };
+      package = mkOption {
+        type = types.package;
+        default = pkgs-stable.nbxplorer;
+        defaultText = "pkgs-stable.nbxplorer";
+        description = "The package providing nbxplorer binaries.";
+      };
       dataDir = mkOption {
         type = types.path;
         default = "/var/lib/nbxplorer";
         description = "The data directory for nbxplorer.";
       };
+      # TODO-EXTERNAL:
+      # The shortcut link `main` in the datadir has changed to a directory
+      # in version 2.3.3.
+      # Add a dummy symlink, if it does not already exist, to be compatible with older modules.
+      # When the old system uses a link and the new system a directory, switching fails with:
+      #   mv: cannot move '/var/lib/nbxplorer/Main' to '/var/lib/nbxplorer/.Main.tmp':
+      #   No such file or directory
+      #
+      # Remove this option when it is irrelevant (i.e. when the old system will never
+      # be nix-bitcoin <=0.0.91)
+      addNetworkSymlink = mkOption {
+        readOnly = true;
+        default = pkgs-stable.nbxplorer != cfg.nbxplorer.package;
+        description = ''
+          Whether to add a compatibility symlink (like `${cfg.nbxplorer.dataDir}/Main`)
+          to the dataDir.
+          This is enabled by default if the nbxplorer package is set to the version-locked package.
+        '';
+      };
       user = mkOption {
         type = types.str;
         default = "nbxplorer";
-        description = "The user as which to run nbxplorer.";
+        description = "The user as which to run NBXplorer.";
       };
       group = mkOption {
         type = types.str;
         default = cfg.nbxplorer.user;
-        description = "The group as which to run nbxplorer.";
+        description = "The group as which to run NBXplorer.";
       };
-      tor.enforce = nbLib.tor.enforce;
+      tor = nbLib.tor;
+    };
+
+    btcpayserver = {
+      enable = mkOption {
+        type = types.bool;
+        default = false;
+        description = ''
+          Enable BTCPay Server, a self-hosted, open-source payment processor.
+
+          Extra recommendations:
+          - Enable `services.btcpayserver.lightningBackend` to provide Lightning payment support.
+          - Secure this service if the instance is publically accessible. For example, set
+            {option}`services.btcpayserver.address` to `127.0.0.1` and use a reverse proxy
+            that enforces TLS (Transport Layer Security).
+        '';
+      };
+      package = mkOption {
+        type = types.package;
+        default = pkgs-stable.btcpayserver;
+        defaultText = "pkgs-stable.btcpayserver";
+        description = "The package providing BTCPay Server binaries.";
+      };
+      address = mkOption {
+        type = types.str;
+        default = "127.0.0.1";
+        description = "Address to listen on.";
+      };
+      port = mkOption {
+        type = types.port;
+        default = 23000;
+        description = "Port to listen on.";
+      };
+      lightningBackend = mkOption {
+        type = types.nullOr (types.enum [ "lnd" ]);
+        default = null;
+        description = ''
+          The lightning node to use as a backend.
+          Enables the node service if not already enabled.
+        '';
+      };
+      lbtc = mkOption {
+        readOnly = true;
+        default = false;
+        description = ''
+          Enable Liquid support.
+        '';
+      };
+      dataDir = mkOption {
+        type = types.path;
+        default = "/var/lib/btcpayserver";
+        description = "The data directory for BTCPay Server.";
+      };
+      user = mkOption {
+        type = types.str;
+        default = "btcpayserver";
+        description = "The user as which to run BTCPay Server.";
+      };
+      group = mkOption {
+        type = types.str;
+        default = cfg.btcpayserver.user;
+        description = "The group as which to run BTCPay Server.";
+      };
+      tor = nbLib.tor;
     };
   };
 
-  cfg = config.services;
+  cfg = {
+    inherit (config.services)
+      nbxplorer
+      btcpayserver
+      bitcoind;
+  };
+
   nbLib = config.nix-bitcoin.lib;
 
-  inherit (config.services) bitcoind;
-  # liquidd removed - Sovran uses lbtc=false, not needed
 in {
   inherit options;
 
-  config = mkIf cfg.btcpayserver.enable {
-    services.bitcoind = {
-      enable = true;
-      rpc.users.btcpayserver = {
-        passwordHMACFromFile = true;
-        rpcwhitelist = cfg.bitcoind.rpc.users.public.rpcwhitelist ++ [
-          "setban"
-          "generatetoaddress"
-        ];
-      };
-      listenWhitelisted = true;
-    };
-    # vendored fix: only enable clightning if module exists (nixpkgs unstable may have renamed/removed it)
-    # Sovran uses lnd only, so this is never true in practice
-    # clightning removed/has no enable on this nixpkgs - not used by Sovran (lnd only), intentionally not set
-    services.lnd = mkIf (cfg.btcpayserver.lightningBackend == "lnd") {
-      enable = true;
-      macaroons.btcpayserver = {
-        inherit (cfg.btcpayserver) user;
-        permissions = ''{"entity":"info","action":"read"},{"entity":"onchain","action":"read"},{"entity":"offchain","action":"read"},{"entity":"address","action":"read"},{"entity":"message","action":"read"},{"entity":"peers","action":"read"},{"entity":"signer","action":"read"},{"entity":"invoices","action":"read"},{"entity":"invoices","action":"write"},{"entity":"address","action":"write"}'';
-      };
-    };
-    # vendored fix: liquidd may not exist in nixpkgs with this name
-    services.postgresql = {
-      enable = true;
-      ensureDatabases = [
-        "btcpaydb" # This name is kept for backwards compatibility
-        "nbxplorer"
+  config = mkMerge [
+    (mkIf cfg.nbxplorer.enable {
+      # For backwards compatibility only
+      systemd.tmpfiles.rules = mkIf cfg.nbxplorer.addNetworkSymlink [
+        "L+ '${cfg.nbxplorer.dataDir}/Main' - - - - '${cfg.nbxplorer.dataDir}/main'"
       ];
-      ensureUsers = [
-        { name = cfg.btcpayserver.user; }
-        { name = cfg.nbxplorer.user; }
-      ];
-    };
-    systemd.services.postgresql-setup.postStart = ''
-      psql -tAc '
-        ALTER DATABASE "btcpaydb" OWNER TO "${cfg.btcpayserver.user}";
-        ALTER DATABASE "nbxplorer" OWNER TO "${cfg.nbxplorer.user}";
-      '
-    '';
 
-    systemd.tmpfiles.rules = [
-      "d '${cfg.nbxplorer.dataDir}' 0770 ${cfg.nbxplorer.user} ${cfg.nbxplorer.group} - -"
-      "d '${cfg.btcpayserver.dataDir}' 0770 ${cfg.btcpayserver.user} ${cfg.btcpayserver.group} - -"
-    ];
-
-    systemd.services.nbxplorer = let
-      configFile = builtins.toFile "config" ''
-        network=${bitcoind.network}
-        btcrpcuser=${cfg.bitcoind.rpc.users.btcpayserver.name}
-        btcrpcurl=http://${nbLib.addressWithPort bitcoind.rpc.address cfg.bitcoind.rpc.port}
-        btcnodeendpoint=${nbLib.addressWithPort bitcoind.address bitcoind.whitelistedPort}
-        bind=${cfg.nbxplorer.address}
-        port=${toString cfg.nbxplorer.port}        postgres=User ID=${cfg.nbxplorer.user};Host=/run/postgresql;Database=nbxplorer
-      '';
-    in rec {
-      wantedBy = [ "multi-user.target" ];
-      requires = [ "postgresql.target" ];
-      wants = [ "bitcoind.service" ];
-      after = requires ++ wants ++ [ "nix-bitcoin-secrets.target" ];
-      preStart = ''
-        install -m 600 ${configFile} '${cfg.nbxplorer.dataDir}/settings.config'
-        {
-          echo "btcrpcpassword=$(cat ${config.nix-bitcoin.secretsDir}/bitcoin-rpcpassword-btcpayserver)"        } >> '${cfg.nbxplorer.dataDir}/settings.config'
-      '';
-      serviceConfig = nbLib.defaultHardening // {
-        ExecStart = ''
-          ${cfg.nbxplorer.package}/bin/nbxplorer --conf=${cfg.nbxplorer.dataDir}/settings.config \
-            --datadir=${cfg.nbxplorer.dataDir}
+      systemd.services.nbxplorer = rec {
+        wantedBy = [ "multi-user.target" ];
+        requires = [ "bitcoind.service" ];
+        after = requires;
+        preStart = ''
+          {
+            echo "btcrpcuser=${cfg.bitcoind.rpc.users.btcpayserver.name}"
+            echo "btcrpcpassword=$(cat ${config.nix-bitcoin.secretsDir}/bitcoin-rpcpassword-btcpayserver)"
+          } >> '${cfg.nbxplorer.dataDir}/settings.config'
         '';
-        User = cfg.nbxplorer.user;
-        Restart = "on-failure";
-        RestartSec = "10s";
-        ReadWritePaths = [ cfg.nbxplorer.dataDir ];
-        MemoryDenyWriteExecute = false;
-      } // nbLib.allowedIPAddresses cfg.nbxplorer.tor.enforce;
-    };
+        serviceConfig = nbLib.defaultHardening // {
+          ExecStart = "${cfg.nbxplorer.package}/bin/nbxplorer --conf=${cfg.nbxplorer.dataDir}/settings.config";
+          RuntimeDirectory = "nbxplorer";
+          StateDirectory = "nbxplorer";
+          User = cfg.nbxplorer.user;
+          Group = cfg.nbxplorer.group;
+          Restart = "on-failure";
+          RestartSec = "10s";
+          ReadWritePaths = [ cfg.nbxplorer.dataDir ];
+        } // nbLib.allowedIPAddresses cfg.nbxplorer.tor.enforce;
+      };
 
-    systemd.services.btcpayserver = let
-      nbExplorerUrl = "http://${nbLib.addressWithPort cfg.nbxplorer.address cfg.nbxplorer.port}/";
-      nbExplorerCookie = "${cfg.nbxplorer.dataDir}/${bitcoind.makeNetworkName "Main" "RegTest"}/.cookie";
-      configFile = builtins.toFile "btcpayserver-config" (''
-        network=${bitcoind.network}
-        bind=${cfg.btcpayserver.address}
-        port=${toString cfg.btcpayserver.port}
-        socksendpoint=${config.nix-bitcoin.torClientAddressWithPort}
-        btcexplorerurl=${nbExplorerUrl}
-        btcexplorercookiefile=${nbExplorerCookie}
-        postgres=User ID=${cfg.btcpayserver.user};Host=/run/postgresql;Database=btcpaydb
-      '' + optionalString (cfg.btcpayserver.rootpath != null) ''
-        rootpath=${cfg.btcpayserver.rootpath}
-      '' + optionalString (cfg.btcpayserver.lightningBackend == "lnd")
-        (
-          "btclightning=type=lnd-rest;" +
-          "server=https://${nbLib.address cfg.lnd.restAddress}:${toString cfg.lnd.restPort}/;" +
-          "macaroonfilepath=/run/lnd/btcpayserver.macaroon;" +
-          "certfilepath=${config.services.lnd.certPath}" +
-          "\n"
-        )
-      + optionalString cfg.btcpayserver.lbtc ''
-        chains=btc,lbtc
-        lbtcexplorerurl=${nbExplorerUrl}
-        lbtcexplorercookiefile=${nbExplorerCookie}
-      '');
-    in rec {
-      wantedBy = [ "multi-user.target" ];
-      requires = [ "postgresql.target" ];
-      wants = [ "nbxplorer.service" ]
-              ++ optional (cfg.btcpayserver.lightningBackend != null) "${cfg.btcpayserver.lightningBackend}.service";
-      after = requires ++ wants;
-      serviceConfig = nbLib.defaultHardening // {
-        ExecStart = ''
-          ${cfg.btcpayserver.package}/bin/btcpayserver --conf=${configFile} \
-            --datadir='${cfg.btcpayserver.dataDir}'
-        '';
-        User = cfg.btcpayserver.user;
-        # Also restart after the program has exited successfully.
-        # This is required to support restarting from the web interface after
-        # interactive plugin installation.
-        # Restart rate limiting is implemented via the `startLimit*` options below.
-        Restart = "always";
-        ReadWritePaths = [ cfg.btcpayserver.dataDir ];
-        MemoryDenyWriteExecute = false;
-      } // nbLib.allowedIPAddresses cfg.btcpayserver.tor.enforce;
-      startLimitIntervalSec = 30;
-      startLimitBurst = 10;
-    };
+      services.bitcoind = {
+        enable = true;
+        txindex = true;
+      };
 
-    users.users.${cfg.nbxplorer.user} = {
-      isSystemUser = true;
-      group = cfg.nbxplorer.group;
-      extraGroups = [ "bitcoinrpc-public" ];
-      home = cfg.nbxplorer.dataDir;
-    };
-    users.groups.${cfg.nbxplorer.group} = {};
-    users.users.${cfg.btcpayserver.user} = {
-      isSystemUser = true;
-      group = cfg.btcpayserver.group;
-      extraGroups = [ cfg.nbxplorer.group ];
-      home = cfg.btcpayserver.dataDir;
-    };
-    users.groups.${cfg.btcpayserver.group} = {};
-
-    nix-bitcoin.secrets = {
-      bitcoin-rpcpassword-btcpayserver = {
-        user = cfg.bitcoind.user;
+      users.users.${cfg.nbxplorer.user} = {
+        isSystemUser = true;
         group = cfg.nbxplorer.group;
       };
-      bitcoin-HMAC-btcpayserver.user = cfg.bitcoind.user;
-    };
-    nix-bitcoin.generateSecretsCmds.btcpayserver = ''
-      makeBitcoinRPCPassword btcpayserver
-    '';
-  };
+      users.groups.${cfg.nbxplorer.group} = {};
+    })
+
+    (mkIf cfg.btcpayserver.enable {
+      services.nbxplorer.enable = true;
+
+      systemd.services.btcpayserver = rec {
+        wantedBy = [ "multi-user.target" ];
+        requires = [ "nbxplorer.service" ];
+        after = requires;
+        preStart = ''
+          {
+            echo "postgres=User ID=${cfg.btcpayserver.user};Host=/run/postgresql;Database=btcpayserver"
+            echo "explorer.postgres=User ID=${cfg.nbxplorer.user};Host=/run/postgresql;Database=nbxplorer"
+          } >> '${cfg.btcpayserver.dataDir}/settings.config'
+        '';
+        serviceConfig = nbLib.defaultHardening // {
+          ExecStart = "${cfg.btcpayserver.package}/bin/btcpayserver --conf=${cfg.btcpayserver.dataDir}/settings.config";
+          RuntimeDirectory = "btcpayserver";
+          StateDirectory = "btcpayserver";
+          User = cfg.btcpayserver.user;
+          Group = cfg.btcpayserver.group;
+          Restart = "on-failure";
+          RestartSec = "10s";
+          ReadWritePaths = [ cfg.btcpayserver.dataDir ];
+        } // nbLib.allowedIPAddresses cfg.btcpayserver.tor.enforce;
+      };
+
+      services.postgresql = {
+        enable = true;
+        ensureDatabases = [ "btcpayserver" "nbxplorer" ];
+        ensureUsers = [
+          { name = cfg.btcpayserver.user; ensurePermissions = { "DATABASE btcpayserver" = "ALL PRIVILEGES"; }; }
+          { name = cfg.nbxplorer.user; ensurePermissions = { "DATABASE nbxplorer" = "ALL PRIVILEGES"; }; }
+        ];
+      };
+
+      users.users.${cfg.btcpayserver.user} = {
+        isSystemUser = true;
+        group = cfg.btcpayserver.group;
+        extraGroups = optional (cfg.btcpayserver.lightningBackend == "lnd") config.services.lnd.group;
+      };
+      users.groups.${cfg.btcpayserver.group} = {};
+
+      nix-bitcoin.secrets.bitcoin-rpcpassword-btcpayserver.user = cfg.btcpayserver.user;
+      nix-bitcoin.generateSecretsCmds.btcpayserver = ''
+        makeBitcoinRPCPassword btcpayserver
+      '';
+    })
+
+    (mkIf (cfg.btcpayserver.enable && cfg.btcpayserver.lightningBackend == "lnd") {
+      services.lnd = {
+        enable = true;
+        macaroons.btcpayserver = {
+          enable = true;
+          permissions = ''
+            {"entity":"address","action":"write"},{"entity":"info","action":"read"},{"entity":"invoices","action":"read"},{"entity":"invoices","action":"write"},{"entity":"offchain","action":"read"},{"entity":"offchain","action":"write"},{"entity":"onchain","action":"read"},{"entity":"onchain","action":"write"},{"entity":"peers","action":"read"},{"entity":"peers","action":"write"}
+          '';
+        };
+      };
+
+      users.users.${config.services.lnd.user}.extraGroups = [ cfg.btcpayserver.group ];
+    })
+  ];
 }
