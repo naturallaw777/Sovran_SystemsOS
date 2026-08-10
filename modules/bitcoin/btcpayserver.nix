@@ -248,8 +248,8 @@ in {
         enable = true;
         ensureDatabases = [ "btcpayserver" "nbxplorer" ];
         ensureUsers = [
-          { name = cfg.btcpayserver.user; ensureClauses = { "DATABASE btcpayserver" = "ALL PRIVILEGES"; }; }
-          { name = cfg.nbxplorer.user; ensureClauses = { "DATABASE nbxplorer" = "ALL PRIVILEGES"; }; }
+          { name = cfg.btcpayserver.user; ensureDBOwnership = true; }
+          { name = cfg.nbxplorer.user; ensureDBOwnership = true; }
         ];
       };
 
