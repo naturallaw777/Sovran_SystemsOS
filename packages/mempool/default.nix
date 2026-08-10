@@ -85,14 +85,10 @@ in rec {
     # in the main build.
     postPatch = ''
       cp backend/package-lock.json .
-      cd backend
       patch -p1 < ${./0001-allow-disabling-mining-pool-fetching.patch}
-      cd ..
     '';
 
-    # Placeholder: build once, then replace with the hash from the
-    # "hash mismatch" error output.
-    npmDepsHash = lib.fakeHash;
+    npmDepsHash = "sha256-PhLLW7IFW3B6QrqvSYIyovgNXXwZiiRwX/4JgN2rDkU=";
 
     nativeBuildInputs = [
       makeWrapper
@@ -154,9 +150,7 @@ in rec {
       cp frontend/package-lock.json .
     '';
 
-    # Placeholder: build once, then replace with the hash from the
-    # "hash mismatch" error output.
-    npmDepsHash = lib.fakeHash;
+    npmDepsHash = "sha256-fCI491w1htcYarEDbDff34Ir9pxW6E1lUNSCn3Xd+FE=";
 
     nativeBuildInputs = [
       makeWrapper
