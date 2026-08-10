@@ -194,8 +194,8 @@ in {
     assertions = [
       { assertion =
           !(config.services ? clightning)
-          || !(config.services.clightning.enable or false)
-          || (config.services.clightning.port or 9735) != cfg.port;
+          || !((config.services.clightning or {}).enable or false)
+          || (((config.services.clightning or {}).port or 9735) != cfg.port);
         message = ''
           LND and clightning can't both bind to lightning port 9735. Either
           disable LND/clightning or change services.clightning.port or
