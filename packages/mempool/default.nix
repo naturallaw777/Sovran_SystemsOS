@@ -80,10 +80,11 @@ in rec {
     pname = "mempool-backend";
     inherit version src;
 
-    # Use postUnpack (not sourceRoot) so the npmDeps fixed-output
-    # derivation hashes the same unpacked tree as the main build.
-    postUnpack = ''
-      cd source/backend
+    # cd into the backend subdir during unpack so the npmDeps fetcher
+    # finds package-lock.json at its CWD. This hook runs in both the
+    # deps fetcher and the main build.
+    preBuild = ''
+      cd backend
     '';
 
     # Placeholder: build once, then replace with the hash from the
@@ -96,6 +97,11 @@ in rec {
     ];
 
     # Apply patches only in the main build, not in the npmDeps fetcher.
+    # prePatch runs before patchPhase in the main build only.
+    prePatch = ''
+      cd backend
+    '';
+
     postPatch = ''
       patch -p1 < ${./0001-allow-disabling-mining-pool-fetching.patch}
     '';
@@ -148,10 +154,10 @@ in rec {
     pname = "mempool-frontend";
     inherit version src;
 
-    # Use postUnpack (not sourceRoot) so the npmDeps fixed-output
-    # derivation hashes the same unpacked tree as the main build.
-    postUnpack = ''
-      cd source/frontend
+    # cd into the frontend subdir so the npmDeps fetcher finds
+    # package-lock.json at its CWD.
+    preBuild = ''
+      cd frontend
     '';
 
     # Placeholder: build once, then replace with the hash from the
