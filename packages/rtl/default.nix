@@ -1,38 +1,35 @@
 { lib
-, stdenvNoCC
+, buildNpmPackage
 , nodejs_22
 , nodejs-slim_22
-, fetchNodeModules
 , fetchurl
 , makeWrapper
 }:
-let self = stdenvNoCC.mkDerivation {
-  pname = "rtl";
+
+let
   version = "0.15.8";
 
   src = fetchurl {
-    url = "https://github.com/Ride-The-Lightning/RTL/archive/refs/tags/v${self.version}.tar.gz";
+    url = "https://github.com/Ride-The-Lightning/RTL/archive/refs/tags/v${version}.tar.gz";
     hash = "sha256-8XdGyORxB2dkZRB/Yl7zh+Quqo4L/Y0VmC6Brbr/hqU=";
   };
 
-  passthru = {
-    nodejs = nodejs_22;
-    nodejsRuntime = nodejs-slim_22;
+in buildNpmPackage {
+  pname = "rtl";
+  inherit version src;
 
-    nodeModules = fetchNodeModules {
-      inherit (self) src nodejs;
-      # TODO-EXTERNAL: Remove `npmFlags` when no longer required
-      # See: https://github.com/Ride-The-Lightning/RTL/issues/1182
-      npmFlags = "--legacy-peer-deps";
-      hash = "sha256-oMqd6nLzS6iQ9w4z2yzpR2unA5qhOq5YdvfoS8IgYLY=";
-    };
-  };
+  # Placeholder: build once, then replace with the hash from the
+  # "hash mismatch" error output.
+  npmDepsHash = lib.fakeHash;
+
+  npmFlags = [ "--legacy-peer-deps" ];
 
   nativeBuildInputs = [
     makeWrapper
   ];
 
-  phases = "unpackPhase patchPhase installPhase";
+  dontNpmBuild = true;
+  dontNpmInstall = true;
 
   # `src` already contains the precompiled frontend and backend.
   # Copy all files required for packaging, like in
@@ -45,20 +42,25 @@ let self = stdenvNoCC.mkDerivation {
       package.json \
       frontend \
       backend \
-      ${self.nodeModules}/lib/node_modules \
+      node_modules \
       $dest
 
-    makeWrapper ${self.nodejsRuntime}/bin/node "$out/bin/rtl" \
+    makeWrapper ${nodejs-slim_22}/bin/node "$out/bin/rtl" \
       --add-flags "$dest/rtl.js"
 
     runHook postInstall
   '';
 
+  passthru = {
+    nodejs = nodejs_22;
+    nodejsRuntime = nodejs-slim_22;
+  };
+
   meta = with lib; {
-    description = "A web interface for LND, c-lightning and Eclair";
+    description = "A web interface for LND";
     homepage = "https://github.com/Ride-The-Lightning/RTL";
     license = licenses.mit;
     maintainers = with maintainers; [ ];
     platforms = platforms.unix;
   };
-}; in self
+}
