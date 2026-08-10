@@ -60,7 +60,6 @@ let
 
     buildPhase = ''
       runHook preBuild
-      # napi doesn't accept an absolute path as dest dir, so we can't directly write to $out
       napi build --platform --release --strip out
       runHook postBuild
     '';
@@ -79,18 +78,24 @@ in rec {
   mempool-backend = buildNpmPackage {
     pname = "mempool-backend";
     inherit version src;
+    npmRoot = "backend";
 
     # postPatch runs in the npmDeps fetcher too. Copy the lock file to
-    # the repo root so prefetch-npm-deps can find it, then apply patches
-    # in the main build.
+    # the repo root so prefetch-npm-deps can find it, then apply patches.
     # Also create a dummy rust-gbt stub so `npm ci --offline` can resolve
     # the `file:./rust-gbt` dependency before the real native module is
     # synced in buildPhase.
     postPatch = ''
-      cp backend/package-lock.json .
+      cp backend/package-lock.json ./package-lock.json
+      cp backend/package.json ./package.json
       patch -p1 < ${./0001-allow-disabling-mining-pool-fetching.patch}
       mkdir -p backend/rust-gbt
       cat > backend/rust-gbt/package.json <<'EOF'
+      {"name":"rust-gbt","version":"0.0.1","main":"index.js"}
+      EOF
+      # also need stub at repo root for the fetcher's npm ci at root
+      mkdir -p rust-gbt
+      cat > rust-gbt/package.json <<'EOF'
       {"name":"rust-gbt","version":"0.0.1","main":"index.js"}
       EOF
     '';
@@ -100,40 +105,29 @@ in rec {
     makeCacheWritable = true;
     npmFlags = [ "--legacy-peer-deps" ];
 
-    nativeBuildInputs = [
-      makeWrapper
-      rsync
-    ];
+    nativeBuildInputs = [ makeWrapper rsync ];
 
     dontNpmBuild = true;
     dontNpmInstall = true;
 
     buildPhase = ''
       runHook preBuild
-
       cd backend
       patchShebangs node_modules
-
       ${sync} ${mempool-rust-gbt}/ rust-gbt
       npm run package
-
       runHook postBuild
     '';
 
     installPhase = ''
       mkdir -p $out/lib/mempool-backend
       ${sync} package/ $out/lib/mempool-backend
-
       makeWrapper ${nodejs-slim_22}/bin/node $out/bin/mempool-backend \
         --add-flags $out/lib/mempool-backend/index.js
-
       runHook postInstall
     '';
 
-    passthru = {
-      nodejs = nodejs_22;
-      nodejsRuntime = nodejs-slim_22;
-    };
+    passthru = { nodejs = nodejs_22; nodejsRuntime = nodejs-slim_22; };
 
     meta = with lib; {
       description = "Bitcoin blockchain and mempool explorer (backend)";
@@ -145,61 +139,43 @@ in rec {
 
   mempool-frontend = mkFrontend {};
 
-  # Argument `config` (type: attrset) defines the mempool frontend config.
-  # If `{}`, the default config is used.
   mkFrontend = config: buildNpmPackage {
     pname = "mempool-frontend";
     inherit version src;
+    npmRoot = "frontend";
 
-    # postPatch runs in the npmDeps fetcher too. Copy the lock file to
-    # the repo root so prefetch-npm-deps can find it.
     postPatch = ''
-      cp frontend/package-lock.json .
+      cp frontend/package-lock.json ./package-lock.json
+      cp frontend/package.json ./package.json
     '';
 
     npmDepsHash = "sha256-/UwK0X9knsqTSAmnh2+jk35SK/J7DjBUhsR7e6OOn8Y=";
     npmDepsFetcherVersion = 2;
 
-    nativeBuildInputs = [
-      makeWrapper
-      rsync
-    ];
+    nativeBuildInputs = [ makeWrapper rsync ];
 
     dontNpmBuild = true;
     dontNpmInstall = true;
 
     buildPhase = ''
       runHook preBuild
-
       cd frontend
       patchShebangs node_modules
-
-      # sync-assets.js is called during `npm run build` and downloads assets from the
-      # internet. Disable this script and instead add the assets manually after building.
       : > sync-assets.js
-
       ${lib.optionalString (config != {}) ''
         ln -s ${builtins.toFile "mempool-frontend-config" (builtins.toJSON config)} mempool-frontend-config.json
       ''}
-
       npm run build
-
-      # Add assets that would otherwise be downloaded by sync-assets.js
       ${sync} ${frontendAssets}/ dist/mempool/browser/resources
-
       runHook postBuild
     '';
 
     installPhase = ''
       ${sync} dist/mempool/browser/ $out
-
       runHook postInstall
     '';
 
-    passthru = {
-      withConfig = mkFrontend;
-      assets = frontendAssets;
-    };
+    passthru = { withConfig = mkFrontend; assets = frontendAssets; };
 
     meta = with lib; {
       description = "Bitcoin blockchain and mempool explorer (frontend)";
