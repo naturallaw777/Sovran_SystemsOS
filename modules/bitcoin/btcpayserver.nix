@@ -1,4 +1,4 @@
-{ config, lib, pkgs, pkgs-stable, ... }:
+{ config, lib, pkgs, ... }:
 
 with lib;
 let
@@ -26,8 +26,8 @@ let
       };
       package = mkOption {
         type = types.package;
-        default = pkgs-stable.nbxplorer;
-        defaultText = "pkgs-stable.nbxplorer";
+        default = pkgs.stable.nbxplorer;
+        defaultText = "pkgs.stable.nbxplorer";
         description = "The package providing nbxplorer binaries.";
       };
       dataDir = mkOption {
@@ -47,7 +47,7 @@ let
       # be nix-bitcoin <=0.0.91)
       addNetworkSymlink = mkOption {
         readOnly = true;
-        default = pkgs-stable.nbxplorer != cfg.nbxplorer.package;
+        default = pkgs.stable.nbxplorer != cfg.nbxplorer.package;
         description = ''
           Whether to add a compatibility symlink (like `${cfg.nbxplorer.dataDir}/Main`)
           to the dataDir.
@@ -83,8 +83,8 @@ let
       };
       package = mkOption {
         type = types.package;
-        default = pkgs-stable.btcpayserver;
-        defaultText = "pkgs-stable.btcpayserver";
+        default = pkgs.stable.btcpayserver;
+        defaultText = "pkgs.stable.btcpayserver";
         description = "The package providing BTCPay Server binaries.";
       };
       address = mkOption {
