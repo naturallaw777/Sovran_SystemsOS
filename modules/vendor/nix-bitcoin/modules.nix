@@ -3,8 +3,10 @@
 # Only services actually used by Sovran are kept (6 services vs 20+ upstream)
 # - backups.nix removed: Sovran uses rsnapshot to Second_Drive (configuration.nix)
 # - netns-isolation.nix is now a stub (requires false for nwc-wallets)
+# - stubs.nix provides options for services referenced but not in nixpkgs unstable 2026-08
 {
   imports = [
+    ./stubs.nix
     ./nix-bitcoin.nix
     ./secrets/secrets.nix
     ./operator.nix
