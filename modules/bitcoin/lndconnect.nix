@@ -54,8 +54,8 @@ in {
     })
     (mkIf (cfg.lndconnect.enable && cfg.lndconnect.onion) {
       services.tor.relay.onionServices.lnd = nbLib.mkOnionService {
-        map = [{ port = cfg.restPort; target = { addr = nbLib.address cfg.restAddress; port = cfg.restPort; }; }];
-        version = 3;
+        port = cfg.restPort;
+        target = { addr = nbLib.address cfg.restAddress; port = cfg.restPort; };
       };
       nix-bitcoin.onionAddresses.access.${operatorName} = [ "lnd" ];
     })
