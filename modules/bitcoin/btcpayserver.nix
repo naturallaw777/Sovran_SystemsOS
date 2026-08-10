@@ -187,6 +187,41 @@ in {
     (mkIf cfg.btcpayserver.enable {
       services.nbxplorer.enable = true;
 
+      services.bitcoind = {
+        rpc.users.btcpayserver = {
+          name = "btcpayserver";
+          passwordHMACFromFile = true;
+          rpcwhitelist = [
+            "getblockchaininfo"
+            "getblock"
+            "getblockhash"
+            "getblockheader"
+            "getblockstats"
+            "gettransaction"
+            "getrawtransaction"
+            "sendrawtransaction"
+            "getblockcount"
+            "getbestblockhash"
+            "getnetworkinfo"
+            "getpeerinfo"
+            "estimatesmartfee"
+            "getmempoolinfo"
+            "getmempoolentry"
+            "getrawmempool"
+            "gettxout"
+            "scantxoutset"
+            "importmulti"
+            "listunspent"
+            "getwalletinfo"
+            "listtransactions"
+            "listreceivedbyaddress"
+            "getnewaddress"
+            "uptime"
+            "getrpcinfo"
+          ];
+        };
+      };
+
       systemd.services.btcpayserver = rec {
         wantedBy = [ "multi-user.target" ];
         requires = [ "nbxplorer.service" ];
