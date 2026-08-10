@@ -174,7 +174,7 @@ let
   # Vendored mempool package
   mempoolPkgs = pkgs.callPackage ../../packages/mempool {};
 
-  # See the `services.nginx` definition further below below
+  # See the `services.nginx` definition further below
   # on how to use these snippets.
   frontend.nginxConfig = {
     # This must be added to `services.nginx.commonHttpConfig` when
