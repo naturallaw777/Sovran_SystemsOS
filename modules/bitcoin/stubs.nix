@@ -1,11 +1,7 @@
 { lib, ... }:
 with lib;
 {
-  # Stubs for services referenced by vendored nix-bitcoin modules but not in nixpkgs
-  # clightning and clightning-rest are NOT stubbed - they exist in some nixpkgs (f13ff45) but not others (8b8c811)
-  # and have different option structures (plugins only, no enable). Handled via guards, not stubs.
-  # Other services don't exist in either nixpkgs version, so unconditional is safe.
-
+  # Stubs for services referenced but not in nixpkgs - clightning not stubbed (exists in f13ff45, handled via guards)
   options.services.liquidd.enable = mkOption { type = types.bool; default = false; };
   options.services.liquidd.dataDir = mkOption { type = types.path; default = "/var/lib/liquidd"; };
   options.services.liquidd.address = mkOption { type = types.str; default = "127.0.0.1"; };
@@ -17,7 +13,6 @@ with lib;
   options.services.liquidd.group = mkOption { type = types.str; default = "liquidd"; };
 
   options.services.fulcrum.enable = mkOption { type = types.bool; default = false; };
-
   options.services.lightning-loop.enable = mkOption { type = types.bool; default = false; };
   options.services.lightning-pool.enable = mkOption { type = types.bool; default = false; };
   options.services.joinmarket.enable = mkOption { type = types.bool; default = false; };

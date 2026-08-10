@@ -17,12 +17,11 @@
 				config.allowUnfree = true;
 			};
 		};
-		overlay-sovran = import ./pkgs/sovran-overlay.nix;
 	in
 	{
 		nixosConfigurations.nixos = nixpkgs.lib.nixosSystem {
 			modules = [
-				{ nixpkgs.hostPlatform = "x86_64-linux"; nixpkgs.overlays = [ overlay-stable overlay-sovran ]; }
+				{ nixpkgs.hostPlatform = "x86_64-linux"; nixpkgs.overlays = [ overlay-stable ]; }
 				self.nixosModules.Sovran_SystemsOS
 				./hardware-configuration.nix
 				./role-state.nix
@@ -32,9 +31,9 @@
 
 		nixosConfigurations.sovran_systemsos-iso = nixpkgs.lib.nixosSystem {
 			modules = [
-				{ nixpkgs.hostPlatform = "x86_64-linux"; nixpkgs.overlays = [ overlay-stable overlay-sovran ]; }
+				{ nixpkgs.hostPlatform = "x86_64-linux"; nixpkgs.overlays = [ overlay-stable ]; }
 				./iso/common.nix
-				./modules/vendor/nix-bitcoin/modules.nix
+				./modules/bitcoin
 				nixvim.nixosModules.nixvim
 			];
 		};
@@ -42,10 +41,10 @@
 		nixosModules.Sovran_SystemsOS = { pkgs, lib, config, ... }: {
 			imports = [
 				({ config, pkgs, ... }: {
-					nixpkgs.overlays = [ overlay-stable overlay-sovran ];
+					nixpkgs.overlays = [ overlay-stable ];
 				})
 				./configuration.nix
-				./modules/vendor/nix-bitcoin/modules.nix
+				./modules/bitcoin
 				nixvim.nixosModules.nixvim
 			];
 			config = {
