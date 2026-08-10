@@ -270,7 +270,7 @@ in {
       services.lnd = {
         enable = true;
         macaroons.btcpayserver = {
-          enable = true;
+          user = cfg.btcpayserver.user;
           permissions = ''
             {"entity":"address","action":"write"},{"entity":"info","action":"read"},{"entity":"invoices","action":"read"},{"entity":"invoices","action":"write"},{"entity":"offchain","action":"read"},{"entity":"offchain","action":"write"},{"entity":"onchain","action":"read"},{"entity":"onchain","action":"write"},{"entity":"peers","action":"read"},{"entity":"peers","action":"write"}
           '';
