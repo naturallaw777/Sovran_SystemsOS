@@ -66,7 +66,7 @@ let
         };
         staticContentRoot = mkOption {
           type = types.path;
-          default = (pkgs.callPackage ../../packages/mempool {}).mempool-frontend.withConfig cfg.frontend.settings;
+          default = (pkgs.callPackage ../../packages/mempool { fetchNodeModules = pkgs.callPackage ../../packages/build-support/fetch-node-modules.nix {}; }).mempool-frontend.withConfig cfg.frontend.settings;
           defaultText = "mempoolPkgs.mempool-frontend";
           description = "
             Path of the static frontend content root.
@@ -131,7 +131,7 @@ let
       };
       package = mkOption {
         type = types.package;
-        default = (pkgs.callPackage ../../packages/mempool {}).mempool-backend;
+        default = (pkgs.callPackage ../../packages/mempool { fetchNodeModules = pkgs.callPackage ../../packages/build-support/fetch-node-modules.nix {}; }).mempool-backend;
         defaultText = "mempoolPkgs.mempool-backend";
         description = "The package providing mempool binaries.";
       };
@@ -172,7 +172,8 @@ let
 
   torSocket = config.services.tor.client.socksListenAddress;
   # Vendored mempool package
-  mempoolPkgs = pkgs.callPackage ../../packages/mempool {};
+  fetchNodeModules = pkgs.callPackage ../../packages/build-support/fetch-node-modules.nix {};
+  mempoolPkgs = pkgs.callPackage ../../packages/mempool { inherit fetchNodeModules; };
 
   # See the `services.nginx` definition further below
   # on how to use these snippets.

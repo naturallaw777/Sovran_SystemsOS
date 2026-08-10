@@ -81,7 +81,8 @@ let
   secretsDir = config.nix-bitcoin.secretsDir;
 
   # Vendored RTL package
-  rtlPackage = pkgs.callPackage ../../packages/rtl {};
+  fetchNodeModules = pkgs.callPackage ../../packages/build-support/fetch-node-modules.nix {};
+  rtlPackage = pkgs.callPackage ../../packages/rtl { inherit fetchNodeModules; };
 
   runePath = "${cfg.dataDir}/CLN-Rune.env";
 
