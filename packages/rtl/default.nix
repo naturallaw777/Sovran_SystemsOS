@@ -20,7 +20,7 @@ in buildNpmPackage {
 
   # Placeholder: build once, then replace with the hash from the
   # "hash mismatch" error output.
-  npmDepsHash = lib.fakeHash;
+  npmDepsHash = "sha256-hNBPdIBTHkAQ0Kztj9xvBEqYIkFW8mLZ3W6LAwYPOqM=";
 
   npmFlags = [ "--legacy-peer-deps" ];
 
