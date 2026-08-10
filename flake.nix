@@ -1,32 +1,68 @@
 {
-  description = "Sovran Systems OS - A secure, self-hosted server OS";
+	description = "The Ultimate Sovran_SystemsOS Configuration from Sovran Systems";
 
-  inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    nixpkgs-stable.url = "github:nixos/nixpkgs/nixos-26.05";
-    nixvim.url = "github:nix-community/nixvim";
-    btc-clients.url = "github:emmanuelrosa/btc-clients-nix";
-  };
+	inputs = {
+		nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+		nixvim.url = "github:nix-community/nixvim";
+		btc-clients.url = "github:emmanuelrosa/btc-clients-nix";
+		nixpkgs-stable.url = "github:nixos/nixpkgs/nixos-26.05";
+	};
 
-  outputs = { self, nixpkgs, nixpkgs-stable, nixvim, btc-clients }:
-    let
-      system = "x86_64-linux";
-      pkgs = nixpkgs.legacyPackages.${system};
-      pkgs-stable = import nixpkgs-stable {
-        inherit system;
-        config.allowUnfree = true;
-      };
-    in
-    {
-      nixosConfigurations.nixos = nixpkgs.lib.nixosSystem {
-        inherit system;
-        specialArgs = { inherit pkgs-stable; };
-        modules = [
-          ./configuration.nix
-          ./modules
-          btc-clients.nixosModules.bitcoin
-          nixvim.nixosModules.nixvim
-        ];
-      };
-    };
+	outputs = { self, nixpkgs, nixvim, btc-clients, nixpkgs-stable, ... }:
+
+	let
+		overlay-stable = final: prev: {
+			stable = import nixpkgs-stable {
+				system = prev.stdenv.hostPlatform.system;
+				config.allowUnfree = true;
+			};
+		};
+	in
+	{
+		nixosConfigurations.nixos = nixpkgs.lib.nixosSystem {
+			modules = [
+				{ nixpkgs.hostPlatform = "x86_64-linux"; nixpkgs.overlays = [ overlay-stable ]; }
+				self.nixosModules.Sovran_SystemsOS
+				./hardware-configuration.nix
+				./role-state.nix
+				./custom.nix
+			];
+		};
+
+		nixosConfigurations.sovran_systemsos-iso = nixpkgs.lib.nixosSystem {
+			modules = [
+				{ nixpkgs.hostPlatform = "x86_64-linux"; nixpkgs.overlays = [ overlay-stable ]; }
+				./iso/common.nix
+				./modules/bitcoin
+				nixvim.nixosModules.nixvim
+			];
+		};
+
+		nixosModules.Sovran_SystemsOS = { pkgs, lib, config, ... }: {
+			imports = [
+				({ config, pkgs, ... }: {
+					nixpkgs.overlays = [ overlay-stable ];
+				})
+				./configuration.nix
+				./modules/bitcoin
+				nixvim.nixosModules.nixvim
+			];
+			config = {
+				environment.systemPackages = with pkgs; [
+					btc-clients.packages.${pkgs.system}.bisq
+					btc-clients.packages.${pkgs.system}.bisq2
+					btc-clients.packages.${pkgs.system}.sparrow
+				];
+			};
+		};
+
+		nixosTests.nwc-wallets-port-collision =
+			import ./nix/tests/nwc-wallets-port-collision.nix {
+				inherit nixpkgs;
+				system = "x86_64-linux";
+			};
+
+		checks.x86_64-linux.nwc-wallets-port-collision =
+			self.nixosTests.nwc-wallets-port-collision;
+	};
 }
