@@ -80,11 +80,14 @@ in rec {
     pname = "mempool-backend";
     inherit version src;
 
-    # cd into the backend subdir during unpack so the npmDeps fetcher
-    # finds package-lock.json at its CWD. This hook runs in both the
-    # deps fetcher and the main build.
-    preBuild = ''
+    # postPatch runs in the npmDeps fetcher too. Copy the lock file to
+    # the repo root so prefetch-npm-deps can find it, then apply patches
+    # in the main build.
+    postPatch = ''
+      cp backend/package-lock.json .
       cd backend
+      patch -p1 < ${./0001-allow-disabling-mining-pool-fetching.patch}
+      cd ..
     '';
 
     # Placeholder: build once, then replace with the hash from the
@@ -96,22 +99,13 @@ in rec {
       rsync
     ];
 
-    # Apply patches only in the main build, not in the npmDeps fetcher.
-    # prePatch runs before patchPhase in the main build only.
-    prePatch = ''
-      cd backend
-    '';
-
-    postPatch = ''
-      patch -p1 < ${./0001-allow-disabling-mining-pool-fetching.patch}
-    '';
-
     dontNpmBuild = true;
     dontNpmInstall = true;
 
     buildPhase = ''
       runHook preBuild
 
+      cd backend
       patchShebangs node_modules
 
       ${sync} ${mempool-rust-gbt}/ rust-gbt
@@ -154,10 +148,10 @@ in rec {
     pname = "mempool-frontend";
     inherit version src;
 
-    # cd into the frontend subdir so the npmDeps fetcher finds
-    # package-lock.json at its CWD.
-    preBuild = ''
-      cd frontend
+    # postPatch runs in the npmDeps fetcher too. Copy the lock file to
+    # the repo root so prefetch-npm-deps can find it.
+    postPatch = ''
+      cp frontend/package-lock.json .
     '';
 
     # Placeholder: build once, then replace with the hash from the
@@ -175,6 +169,7 @@ in rec {
     buildPhase = ''
       runHook preBuild
 
+      cd frontend
       patchShebangs node_modules
 
       # sync-assets.js is called during `npm run build` and downloads assets from the
