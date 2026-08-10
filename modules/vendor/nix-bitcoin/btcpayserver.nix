@@ -123,7 +123,7 @@ in {
     };
     # vendored fix: only enable clightning if module exists (nixpkgs unstable may have renamed/removed it)
     # Sovran uses lnd only, so this is never true in practice
-    services.clightning.enable = mkIf (cfg.btcpayserver.lightningBackend == "clightning" && config.services ? clightning) true;
+    # clightning removed/has no enable on this nixpkgs - not used by Sovran (lnd only), intentionally not set
     services.lnd = mkIf (cfg.btcpayserver.lightningBackend == "lnd") {
       enable = true;
       macaroons.btcpayserver = {

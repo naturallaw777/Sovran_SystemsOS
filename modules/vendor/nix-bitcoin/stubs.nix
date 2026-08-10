@@ -2,8 +2,8 @@
 with lib;
 {
   # Stubs for services referenced by vendored nix-bitcoin modules but not in nixpkgs
-  # clightning and clightning-rest are NOT stubbed - they exist in nixpkgs f13ff45
-  # (clightning removed in 8b8c811, but handled via guards in btcpayserver/lnd)
+  # clightning and clightning-rest are NOT stubbed - they exist in some nixpkgs (f13ff45) but not others (8b8c811)
+  # and have different option structures (plugins only, no enable). Handled via guards, not stubs.
   # Other services don't exist in either nixpkgs version, so unconditional is safe.
 
   options.services.liquidd.enable = mkOption { type = types.bool; default = false; };
