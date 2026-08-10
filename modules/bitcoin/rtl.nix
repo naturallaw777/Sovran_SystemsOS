@@ -178,10 +178,7 @@ in {
     services.lnd.enable = mkIf cfg.nodes.lnd.enable true;
     services.lightning-loop.enable = mkIf lndLoopEnabled true;
     # vendored fix: clightning may not exist in this nixpkgs
-    services.clightning = mkIf (cfg.nodes.clightning.enable && config.services ? clightning) {
-      enable = true;
-      plugins.clnrest.enable = true;
-    };
+    # clightning removed - Sovran uses lnd only
 
     systemd.tmpfiles.rules = [
       "d '${cfg.dataDir}' 0770 ${cfg.user} ${cfg.group} - -"
