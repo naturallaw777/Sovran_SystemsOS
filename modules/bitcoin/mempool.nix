@@ -170,8 +170,7 @@ let
 
   inherit (config.services)
     bitcoind
-    electrs
-    fulcrum;
+    electrs;
 
   torSocket = config.services.tor.client.socksListenAddress;
 
@@ -241,8 +240,7 @@ in {
   config = mkIf cfg.enable {
     services.bitcoind.txindex = true;
     services.electrs.enable = mkIf (cfg.electrumServer == "electrs" ) true;
-    # vendored fix: fulcrum may not exist
-    services.fulcrum.enable = mkIf (cfg.electrumServer == "fulcrum" && config.services ? fulcrum) true;
+    # vendored fix: fulcrum may not exist    # fulcrum removed - Sovran uses electrs only
     services.mysql = {
       enable = true;
       package = pkgs.mariadb;
