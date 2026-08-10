@@ -68,6 +68,7 @@ lib.mkIf config.sovran_systemsOS.services.bitcoin {
     name = "free";
   };
 
+  # vendored: now no-op (always uses nixpkgs)
   nix-bitcoin.useVersionLockedPkgs = false;
 
   systemd.services.bitcoind = {

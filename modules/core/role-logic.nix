@@ -3,9 +3,9 @@
 {
   config = lib.mkMerge [
 
-    # nix-bitcoin is globally imported by the flake (nixosModules.Sovran_SystemsOS).
-    # This default satisfies nix-bitcoin's generateSecrets assertion so that Desktop
-    # Only systems can evaluate without enabling any Bitcoin services.
+    # Vendored nix-bitcoin is always imported via modules/vendor/nix-bitcoin/modules.nix.
+    # This default satisfies the secrets assertion so Desktop-Only systems evaluate
+    # without enabling any Bitcoin services.
     {
       nix-bitcoin.generateSecrets = lib.mkDefault true;
     }
