@@ -66,8 +66,8 @@ let
         };
         staticContentRoot = mkOption {
           type = types.path;
-          default = pkgs.mempool-frontend.withConfig cfg.frontend.settings;
-          defaultText = "pkgs.mempool-frontend";
+          default = (pkgs.callPackage ../../packages/mempool {}).mempool-frontend.withConfig cfg.frontend.settings;
+          defaultText = "mempoolPkgs.mempool-frontend";
           description = "
             Path of the static frontend content root.
           ";
@@ -95,7 +95,7 @@ let
         description = "Mempool backend port.";
       };
       electrumServer = mkOption {
-        type = types.enum [ "electrs" "fulcrum" ];
+        type = types.enum [ "electrs" ];
         default = "electrs";
         description = ''
           The Electrum server to use for fetching address information.
@@ -103,8 +103,6 @@ let
           Possible options:
           - electrs:
             Small database size, slow when querying new addresses.
-          - fulcrum:
-            Large database size, quickly serves arbitrary address queries.
         '';
       };
       settings = mkOption {
@@ -133,8 +131,8 @@ let
       };
       package = mkOption {
         type = types.package;
-        default = pkgs.mempool-backend;
-        defaultText = "pkgs.mempool-backend";
+        default = (pkgs.callPackage ../../packages/mempool {}).mempool-backend;
+        defaultText = "mempoolPkgs.mempool-backend";
         description = "The package providing mempool binaries.";
       };
       user = mkOption {
@@ -173,6 +171,8 @@ let
     electrs;
 
   torSocket = config.services.tor.client.socksListenAddress;
+  # Vendored mempool package
+  mempoolPkgs = pkgs.callPackage ../../packages/mempool {};
 
   # See the `services.nginx` definition further below below
   # on how to use these snippets.
@@ -180,7 +180,7 @@ let
     # This must be added to `services.nginx.commonHttpConfig` when
     # `mempool/location-static.conf` is used
     httpConfig = ''
-      include ${if pkgs ? mempool-nginx-conf then "${pkgs.mempool-nginx-conf}/http-language.conf" else "/dev/null"};
+      include ${mempoolPkgs.mempool-nginx-conf}/http-language.conf;
     '';
 
     # Config for static website content.
@@ -193,7 +193,7 @@ let
       add_header Vary Accept-Language;
       add_header Vary Cookie;
 
-      include ${if pkgs ? mempool-nginx-conf then "${pkgs.mempool-nginx-conf}/location-static.conf" else "/dev/null"};
+      include ${mempoolPkgs.mempool-nginx-conf}/location-static.conf;
 
       # Redirect /api to /docs/api
       location = /api {
@@ -239,8 +239,7 @@ in {
 
   config = mkIf cfg.enable {
     services.bitcoind.txindex = true;
-    services.electrs.enable = mkIf (cfg.electrumServer == "electrs" ) true;
-    # vendored fix: fulcrum may not exist    # fulcrum removed - Sovran uses electrs only
+    services.electrs.enable = true;
     services.mysql = {
       enable = true;
       package = pkgs.mariadb;
