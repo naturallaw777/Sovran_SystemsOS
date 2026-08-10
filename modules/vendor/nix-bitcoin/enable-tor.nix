@@ -19,14 +19,14 @@ in {
     # and restrict all connections to Tor
     #
     bitcoind = defaultEnableTorProxy;
-    clightning = defaultEnableTorProxy;
+    # clightning = defaultEnableTorProxy; # vendored: not needed (Sovran uses lnd)
     lnd = defaultEnableTorProxy;
-    lightning-loop = defaultEnableTorProxy;
-    liquidd = defaultEnableTorProxy;
+    # lightning-loop = defaultEnableTorProxy; # vendored: not used
+    # liquidd = defaultEnableTorProxy; # vendored: not used
     # TODO-EXTERNAL:
     # disable Tor enforcement until btcpayserver can fetch rates over Tor
     # btcpayserver = defaultEnableTorProxy;
-    lightning-pool = defaultEnableTorProxy;
+    # lightning-pool = defaultEnableTorProxy; # vendored: not used
     mempool = defaultEnableTorProxy;
 
     # These services don't make outgoing connections
@@ -34,21 +34,21 @@ in {
     # but we restrict them to Tor just to be safe.
     #
     electrs = defaultEnforceTor;
-    fulcrum = defaultEnforceTor;
+    # fulcrum = defaultEnforceTor; # vendored: not used
     nbxplorer = defaultEnforceTor;
     rtl = defaultEnforceTor;
-    joinmarket = defaultEnforceTor;
-    joinmarket-ob-watcher = defaultEnforceTor;
-    clightning-rest = defaultEnforceTor;
+    # joinmarket = defaultEnforceTor; # vendored: not used
+    # joinmarket-ob-watcher = defaultEnforceTor; # vendored: not used
+    # clightning-rest = defaultEnforceTor; # vendored: not used
   };
 
   # Add onion services for incoming connections
   nix-bitcoin.onionServices = {
     bitcoind.enable = defaultTrue;
-    liquidd.enable = defaultTrue;
+    # liquidd.enable = defaultTrue; # stub
     electrs.enable = defaultTrue;
-    fulcrum.enable = defaultTrue;
-    joinmarket-ob-watcher.enable = defaultTrue;
+    # fulcrum.enable = defaultTrue; # stub
+    # joinmarket-ob-watcher.enable = defaultTrue; # stub
     rtl.enable = defaultTrue;
   };
 }

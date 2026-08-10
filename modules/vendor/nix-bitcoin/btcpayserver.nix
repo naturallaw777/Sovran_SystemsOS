@@ -121,7 +121,9 @@ in {
       };
       listenWhitelisted = true;
     };
-    services.clightning.enable = mkIf (cfg.btcpayserver.lightningBackend == "clightning") true;
+    # vendored fix: only enable clightning if module exists (nixpkgs unstable may have renamed/removed it)
+    # Sovran uses lnd only, so this is never true in practice
+    services.clightning.enable = mkIf (cfg.btcpayserver.lightningBackend == "clightning" && config.services ? clightning) true;
     services.lnd = mkIf (cfg.btcpayserver.lightningBackend == "lnd") {
       enable = true;
       macaroons.btcpayserver = {
@@ -129,7 +131,8 @@ in {
         permissions = ''{"entity":"info","action":"read"},{"entity":"onchain","action":"read"},{"entity":"offchain","action":"read"},{"entity":"address","action":"read"},{"entity":"message","action":"read"},{"entity":"peers","action":"read"},{"entity":"signer","action":"read"},{"entity":"invoices","action":"read"},{"entity":"invoices","action":"write"},{"entity":"address","action":"write"}'';
       };
     };
-    services.liquidd = mkIf cfg.btcpayserver.lbtc {
+    # vendored fix: liquidd may not exist in nixpkgs with this name
+    services.liquidd = mkIf (cfg.btcpayserver.lbtc && config.services ? liquidd) {
       enable = true;
       listenWhitelisted = true;
     };
@@ -213,7 +216,7 @@ in {
       '' + optionalString (cfg.btcpayserver.rootpath != null) ''
         rootpath=${cfg.btcpayserver.rootpath}
       '' + optionalString (cfg.btcpayserver.lightningBackend == "clightning") ''
-        btclightning=type=clightning;server=unix:///${cfg.clightning.dataDir}/${bitcoind.makeNetworkName "bitcoin" "regtest"}/lightning-rpc
+        btclightning=type=clightning;server=unix:///${config.services.clightning.dataDir or "/var/lib/clightning"}/${bitcoind.makeNetworkName "bitcoin" "regtest"}/lightning-rpc
       '' + optionalString (cfg.btcpayserver.lightningBackend == "lnd")
         (
           "btclightning=type=lnd-rest;" +
@@ -263,7 +266,7 @@ in {
       isSystemUser = true;
       group = cfg.btcpayserver.group;
       extraGroups = [ cfg.nbxplorer.group ]
-                    ++ optional (cfg.btcpayserver.lightningBackend == "clightning") cfg.clightning.user;
+                    ++ optional (cfg.btcpayserver.lightningBackend == "clightning" && config.services ? clightning) (config.services.clightning.user or "clightning");
       home = cfg.btcpayserver.dataDir;
     };
     users.groups.${cfg.btcpayserver.group} = {};

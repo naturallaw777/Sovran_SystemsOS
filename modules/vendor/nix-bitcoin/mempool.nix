@@ -241,7 +241,8 @@ in {
   config = mkIf cfg.enable {
     services.bitcoind.txindex = true;
     services.electrs.enable = mkIf (cfg.electrumServer == "electrs" ) true;
-    services.fulcrum.enable = mkIf (cfg.electrumServer == "fulcrum" ) true;
+    # vendored fix: fulcrum may not exist
+    services.fulcrum.enable = mkIf (cfg.electrumServer == "fulcrum" && config.services ? fulcrum) true;
     services.mysql = {
       enable = true;
       package = pkgs.mariadb;

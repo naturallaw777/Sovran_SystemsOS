@@ -177,7 +177,8 @@ in {
 
     services.lnd.enable = mkIf cfg.nodes.lnd.enable true;
     services.lightning-loop.enable = mkIf lndLoopEnabled true;
-    services.clightning = mkIf cfg.nodes.clightning.enable {
+    # vendored fix: clightning may not exist in this nixpkgs
+    services.clightning = mkIf (cfg.nodes.clightning.enable && config.services ? clightning) {
       enable = true;
       plugins.clnrest.enable = true;
     };
