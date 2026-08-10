@@ -241,7 +241,7 @@ in {
     users.users.${cfg.nbxplorer.user} = {
       isSystemUser = true;
       group = cfg.nbxplorer.group;
-      extraGroups = [ "bitcoinrpc-public" ]
+      extraGroups = [ "bitcoinrpc-public" ];
       home = cfg.nbxplorer.dataDir;
     };
     users.groups.${cfg.nbxplorer.group} = {};
