@@ -264,9 +264,8 @@ in {
         );
       in rec {
         wantedBy = [ "multi-user.target" ];
-        requires = [ "postgresql.target" ];
-        wants = [ "nbxplorer.service" ]
-          ++ optional (cfg.btcpayserver.lightningBackend == "lnd") "lnd.service";
+        requires = [ "postgresql.target" "nbxplorer.service" ];
+        wants = optional (cfg.btcpayserver.lightningBackend == "lnd") "lnd.service";
         after = requires ++ wants;
         serviceConfig = nbLib.defaultHardening // {
           ExecStart = ''

@@ -423,21 +423,21 @@ in {
 
           if [[ ! -e "$hmacFile" ]]; then
             echo "Error: Bitcoin RPC HMAC file is missing: $hmacFile" >&2
-            exit 1
+            return 1
           fi
           if [[ ! -r "$hmacFile" ]]; then
             echo "Error: Bitcoin RPC HMAC file is unreadable: $hmacFile" >&2
-            exit 1
+            return 1
           fi
 
           hmacPayload="$(<"$hmacFile")"
           if [[ -z "$hmacPayload" ]]; then
             echo "Error: Bitcoin RPC HMAC file is empty: $hmacFile" >&2
-            exit 1
+            return 1
           fi
           if [[ ! "$hmacPayload" =~ ^[[:xdigit:]]+\$[[:xdigit:]]+$ ]]; then
             echo "Error: Bitcoin RPC HMAC file has invalid format: $hmacFile" >&2
-            exit 1
+            return 1
           fi
 
           printf '%s\n' "$hmacPayload"
