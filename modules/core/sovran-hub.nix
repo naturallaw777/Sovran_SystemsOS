@@ -135,13 +135,16 @@ let
     "bitcoind.service" = if pkgs ? bitcoind-knots then pkgs.bitcoind-knots.version else (if pkgs ? bitcoind then pkgs.bitcoind.version else "27.1.0");
     "electrs.service" = if pkgs ? electrs then pkgs.electrs.version else "0.10.6";
     "lnd.service" = if pkgs ? lnd then pkgs.lnd.version else "0.18.0";
-    "rtl.service" = if pkgs ? clightning-rtl then pkgs.clightning-rtl.version else (if pkgs ? rtl then pkgs.rtl.version else "0.15.2");
+    # Keep the fallbacks aligned with the vendored packages used by the
+    # service modules (RTL 0.15.8 and Mempool 3.2.1).  The nixpkgs attrs are
+    # optional because these packages are built locally in this repository.
+    "rtl.service" = if pkgs ? clightning-rtl then pkgs.clightning-rtl.version else (if pkgs ? rtl then pkgs.rtl.version else "0.15.8");
     # BTCPay Server is intentionally sourced from pkgs.stable by the service
     # module.  Read the configured package here rather than pkgs.btcpayserver
     # (unstable), otherwise the Hub can advertise a version that is not running.
     "btcpayserver.service" = lib.getVersion config.services.btcpayserver.package;
     "albyhub.service" = if pkgs ? albyhub then pkgs.albyhub.version else "1.8.0";
-    "mempool.service" = if pkgs ? mempool then pkgs.mempool.version else "3.0.0";
+    "mempool.service" = if pkgs ? mempool then pkgs.mempool.version else "3.2.1";
     "matrix-synapse.service" = if pkgs ? matrix-synapse then pkgs.matrix-synapse.version else "1.115.0";
     "livekit.service" = if pkgs ? livekit then pkgs.livekit.version else "1.5.2";
     "vaultwarden.service" = if pkgs ? vaultwarden then pkgs.vaultwarden.version else "1.32.0";
@@ -320,7 +323,8 @@ let
 
   sovran-hub-web = pkgs.python3Packages.buildPythonApplication {
     pname   = "sovran-systemsos-hub-web";
-    version = "1.0.0";
+    # Keep the package metadata in lockstep with the version shown in the Hub.
+    version = sovranVersion;
     format  = "other";
 
     src = ../../app;
