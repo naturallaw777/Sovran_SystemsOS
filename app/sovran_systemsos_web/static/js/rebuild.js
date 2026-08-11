@@ -8,6 +8,7 @@ function openRebuildModal() {
   _rebuildLogOffset = 0;
   _rebuildServerDown = false;
   _rebuildFinished = false;
+  _rebuildPollFailures = 0;
   if ($rebuildLog) { $rebuildLog.textContent = ""; $rebuildLog.style.display = "none"; }
   var action = _rebuildIsEnabling ? "Enabling" : "Disabling";
   var label = _rebuildFeatureName || "feature";
@@ -45,6 +46,7 @@ async function pollRebuildStatus() {
   if (_rebuildFinished) return;
   try {
     var data = await apiFetch("/api/rebuild/status?offset=" + _rebuildLogOffset);
+    _rebuildPollFailures = 0;
     if (_rebuildServerDown) { _rebuildServerDown = false; }
     if (data.log) appendRebuildLog(data.log);
     _rebuildLogOffset = data.offset;
@@ -57,6 +59,18 @@ async function pollRebuildStatus() {
       onRebuildDone(data.result === "success");
     }
   } catch (err) {
+    _rebuildPollFailures += 1;
+    // The Hub restarts itself during activation, which briefly drops this poll.
+    // If polling stays broken long past a normal restart, the page's session
+    // almost certainly no longer matches the server (e.g. the Hub restarted
+    // and sessions were not recovered).  Reload to re-authenticate and show
+    // the real feature state instead of spinning forever.
+    if (_rebuildPollFailures >= STATUS_POLL_MAX_FAILURES) {
+      _rebuildFinished = true;
+      stopRebuildPoll();
+      window.location.reload();
+      return;
+    }
     if (!_rebuildServerDown) { _rebuildServerDown = true; if ($rebuildStatus) $rebuildStatus.textContent = "Applying changes…"; }
   }
 }

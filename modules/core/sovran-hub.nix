@@ -185,13 +185,14 @@ let
 
     if [ "$RC" -eq 0 ]; then
       echo "── Step 2/3: nixos-rebuild boot (stage next reboot) ──"
-      BOOT_OUT=$(nixos-rebuild boot --flake /etc/nixos --print-build-logs \
+      # Stream output straight into $LOG (see rebuild-script) so the Hub UI
+      # shows live progress instead of an empty log during long builds.
+      nixos-rebuild boot --flake /etc/nixos --print-build-logs \
         --option connect-timeout 10 \
         --option stalled-download-timeout 90 \
         --option download-attempts 7 \
-        --option fallback true 2>&1)
+        --option fallback true
       BOOT_RC=$?
-      echo "$BOOT_OUT"
       if [ "$BOOT_RC" -ne 0 ]; then
         echo "[ERROR] nixos-rebuild boot failed"
         RC=1
@@ -240,20 +241,23 @@ let
     echo "══════════════════════════════════════════════════"
     echo ""
     echo "── Rebuilding system configuration ──────────────"
-    SWITCH_OUT=$(nixos-rebuild switch --flake /etc/nixos --print-build-logs \
+    # Stream output straight into $LOG (tee'd by the exec redirect above) so
+    # the Hub UI shows live progress.  Capturing the output in a variable
+    # kept the log empty for the entire build+activation, which made long
+    # rebuilds (e.g. the Bitcoin Knots → Core switch) look like a hang.
+    nixos-rebuild switch --flake /etc/nixos --print-build-logs \
       --option connect-timeout 10 \
       --option stalled-download-timeout 90 \
       --option download-attempts 7 \
-      --option fallback true 2>&1)
+      --option fallback true
     SWITCH_RC=$?
-    echo "$SWITCH_OUT"
     if [ "$SWITCH_RC" -eq 0 ]; then
       echo ""
       echo "══════════════════════════════════════════════════"
       echo "  ✓ Rebuild completed successfully"
       echo "══════════════════════════════════════════════════"
       echo "SUCCESS" > "$STATUS"
-    elif echo "$SWITCH_OUT" | grep -q "switchInhibitors\|Pre-switch checks failed"; then
+    elif grep -q "switchInhibitors\|Pre-switch checks failed" "$LOG"; then
       echo ""
       echo "  ✓ Build succeeded — a reboot is required to apply this rebuild"
       echo "  (Critical system components changed; running nixos-rebuild boot instead)"

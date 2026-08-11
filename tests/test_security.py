@@ -14,6 +14,7 @@ import json
 import os
 import sys
 import tempfile
+import time
 import unittest
 
 # Add the app package to the path so we can import without the full FastAPI tree.
@@ -30,6 +31,8 @@ from sovran_systemsos_web.security_helpers import (  # noqa: E402
     _validate_ssh_pubkey,
     _DDNS_ALLOWED_HOSTNAMES,
     _bech32_decode,
+    load_session_store,
+    save_session_store,
 )
 from sovran_systemsos_web import support_ops  # noqa: E402
 
@@ -360,6 +363,96 @@ class TestAuthExemptPaths(unittest.TestCase):
 
     def test_ping_still_exempt(self):
         self.assertIn("/api/ping", self._get_exempt_paths())
+
+
+# ---------------------------------------------------------------------------
+# Persistent session store
+# ---------------------------------------------------------------------------
+
+class TestSessionStore(unittest.TestCase):
+    """Sessions must persist across Hub restarts so rebuild/update polling
+    keeps working after nixos-rebuild switch restarts the Hub service."""
+
+    def _store_path(self, tmpdir, name="hub-sessions.json"):
+        return os.path.join(tmpdir, name)
+
+    def test_roundtrip(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = self._store_path(tmpdir)
+            future = time.time() + 3600
+            sessions = {"token-a": future, "token-b": future + 10}
+            self.assertTrue(save_session_store(path, sessions))
+            self.assertEqual(load_session_store(path), sessions)
+
+    def test_missing_file_returns_empty(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            self.assertEqual(load_session_store(self._store_path(tmpdir)), {})
+
+    def test_malformed_json_returns_empty(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = self._store_path(tmpdir)
+            with open(path, "w") as f:
+                f.write("{not json")
+            self.assertEqual(load_session_store(path), {})
+
+    def test_non_dict_json_returns_empty(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = self._store_path(tmpdir)
+            with open(path, "w") as f:
+                json.dump(["token"], f)
+            self.assertEqual(load_session_store(path), {})
+
+    def test_expired_sessions_discarded(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = self._store_path(tmpdir)
+            now = time.time()
+            save_session_store(path, {"alive": now + 3600, "dead": now - 1})
+            loaded = load_session_store(path)
+            self.assertIn("alive", loaded)
+            self.assertNotIn("dead", loaded)
+
+    def test_invalid_entries_skipped(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = self._store_path(tmpdir)
+            now = time.time()
+            with open(path, "w") as f:
+                json.dump({
+                    "good": now + 3600,
+                    "": now + 3600,              # empty token
+                    "bool-expiry": True,         # bool is not a valid expiry
+                    "str-expiry": "soon",        # non-numeric expiry
+                    "none-expiry": None,
+                }, f)
+            loaded = load_session_store(path)
+            self.assertEqual(list(loaded.keys()), ["good"])
+
+    def test_file_mode_is_0600(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = self._store_path(tmpdir)
+            save_session_store(path, {"token": time.time() + 60})
+            mode = os.stat(path).st_mode & 0o777
+            self.assertEqual(mode, 0o600)
+
+    def test_save_overwrites_existing_store(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = self._store_path(tmpdir)
+            future = time.time() + 3600
+            save_session_store(path, {"old": future})
+            save_session_store(path, {"new": future})
+            self.assertEqual(load_session_store(path), {"new": future})
+
+    def test_empty_store_roundtrip(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = self._store_path(tmpdir)
+            self.assertTrue(save_session_store(path, {}))
+            self.assertEqual(load_session_store(path), {})
+
+    def test_no_leftover_temp_files(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = self._store_path(tmpdir)
+            save_session_store(path, {"token": time.time() + 60})
+            leftovers = [n for n in os.listdir(tmpdir) if n.startswith(".hub_sessions_tmp")]
+            self.assertEqual(leftovers, [])
 
 
 # ---------------------------------------------------------------------------
