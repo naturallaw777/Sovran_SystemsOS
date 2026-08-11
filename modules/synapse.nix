@@ -237,7 +237,7 @@ CREDS
       # idempotent without exposing this service credential in the Hub UI.
       HUB_ADMIN_CREDS="/var/lib/secrets/matrix-hub-admin"
       if [ ! -s "$HUB_ADMIN_CREDS" ]; then
-        HUB_ADMIN_USER="sovran-hub-$(tr -dc 'a-z0-9' < /dev/urandom | head -c 20)"
+        HUB_ADMIN_USER="sovran-hub-$(pwgen -sA0 20 1)"
         HUB_ADMIN_PASS=$(pwgen -s 32 1)
         if register_new_matrix_user -c /run/matrix-synapse/runtime-config.yaml \
           -u "$HUB_ADMIN_USER" -p "$HUB_ADMIN_PASS" -a http://localhost:8008; then
