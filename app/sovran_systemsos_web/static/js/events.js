@@ -187,30 +187,39 @@ function showSecurityBanner() {
 // ── Init ──────────────────────────────────────────────────────────
 
 async function init() {
-  // Check onboarding status first — redirect to wizard if not complete
+  // These lightweight requests are independent.  Running them together avoids
+  // making the dashboard wait through three serial network round-trips before
+  // it can even start loading the service tiles.
+  var onboardingStatus = null;
+  var bannerData = null;
+  var cfg;
   try {
-    var onboardingStatus = await apiFetch("/api/onboarding/status");
-    if (!onboardingStatus.complete) {
-      window.location.href = "/onboarding";
-      return;
-    }
+    var startupResults = await Promise.all([
+      apiFetch("/api/onboarding/status").catch(function() { return null; }),
+      apiFetch("/api/security/banner-status").catch(function() { return null; }),
+      apiFetch("/api/config"),
+    ]);
+    onboardingStatus = startupResults[0];
+    bannerData = startupResults[1];
+    cfg = startupResults[2];
   } catch (_) {
-    // If we can't reach the endpoint, continue to normal dashboard
+    // If config cannot be loaded, continue with the normal service fallback.
+    cfg = null;
+  }
+
+  if (onboardingStatus && !onboardingStatus.complete) {
+    window.location.href = "/onboarding";
+    return;
   }
 
   // Show first-login security banner only for machines that went through onboarding
   // (legacy machines without the onboarding flag will never see this)
-  try {
-    var bannerData = await apiFetch("/api/security/banner-status");
-    if (bannerData && bannerData.show) {
-      showSecurityBanner();
-    }
-  } catch (_) {
-    // Non-fatal — silently ignore
+  if (bannerData && bannerData.show) {
+    showSecurityBanner();
   }
 
   try {
-    var cfg = await apiFetch("/api/config");
+    if (!cfg) throw new Error("Hub config unavailable");
     _currentRole = cfg.role || "server_plus_desktop";
     if (cfg.category_order) {
       for (var i = 0; i < cfg.category_order.length; i++) {
