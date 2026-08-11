@@ -7,6 +7,72 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.1.0] - 2026-08-11
+
+### Added
+- Speed up Hub service status loading
+- Update Documentation
+- Njalla.nix: fail on ImportError; fix redundant except clause
+- Correctly escape DDNS placeholder in Nix string
+- Security hardening: fix all 8 blocking findings for PR #419
+- Security hardening: fix DDNS injection, Nix injection, reboot auth, support key, sudo rules
+- Harden btcpay and nbxplorer config handling
+- Add provenance headers and fix flake checks for PR409
+- Restore upstream nix-bitcoin fetchNodeModules for mempool and RTL packages
+- Refactor Nix build configuration for mempool
+- Update npm dependencies and patch handling in default.nix
+- Update npmDepsHash for backend and frontend packages
+- Mempool: use postPatch to copy lock file for npmDeps fetcher
+- Mempool: use preBuild cd instead of postUnpack so npmDeps fetcher finds lock files
+- Mempool: fix npmDeps fetcher — postUnpack instead of sourceRoot, postPatch instead of patches
+- Mempool: switch backend and frontend to buildNpmPackage with placeholder npmDepsHash
+- Update npmDepsHash with correct hash value
+- RTL: switch to buildNpmPackage with placeholder npmDepsHash
+- Add bitcoind.rpc.users.btcpayserver for NBXplorer
+- Restore original flake.nix with nixosModules.Sovran_SystemsOS export
+- Add vendored RTL package and fix rtl.nix to use it
+- Vendor mempool packages and wire mempool module to vendored pkgs
+- Refactor onion service configuration for LND
+- Add missing bitcoind-rpc-public-whitelist.nix
+- Remove joinmarket-ob-watcher from onion-services defaults
+- Tailor: make bitcoin modules truly Sovran-only (lnd-only) and delete stubs.nix
+- Vendor: replace nix-bitcoin flake input with minimal vendored modules (nixpkgs-only)
+- Remove duplicate 1.0.6 release notes from CHANGELOG
+
+### Changed
+- Clean mempool module comment typo
+- Move vendor/nix-bitcoin to modules/bitcoin, remove overlays
+- Nix flake update - drop nix-bitcoin
+
+### Fixed
+- Correct RTL and Mempool Hub versions
+- Fix DDNS URL validation: replace ${IP} temporarily for validator, keep placeholder for storage
+- Fix all 8 security hardening blockers for PR #423
+- Fix Nix interpolation in DDNS runner
+- Fix IP validation in DDNS and document journalctl sudo rule
+- Report configured BTCPay Server version
+- Fix Matrix SIGPIPE and RTL v0.15.8 config schema regressions
+- Add NBXplorer cookie auth and WorkingDirectory for BTCPay service
+- Fix BTCPay startup regression: add home dirs to service users
+- Address btcpay hardening review feedback
+- Register bitcoin-HMAC-btcpayserver as managed secret owned by bitcoind user
+- Fix RTL: use fetchNodeModules instead of npm ci in buildPhase
+- Fix PostgreSQL ensureUsers: use ensureDBOwnership instead of ensureClauses
+- Fix lnd macaroons: replace invalid 'enable' with 'user'
+- Fix postgresql ensurePermissions -> ensureClauses for nixpkgs unstable
+- Fix btcpayserver.nix to use pkgs.stable overlay
+- Fix btcpayserver syntax error and pin to nixpkgs-stable (2.4.2)
+- Fix mempool package: remove fetchNodeModules dependency
+- Fix typo in onion-addresses service check
+- Fix formatting of extraGroups in btcpayserver.nix
+- Add missing semicolon after extraGroups in btcpayserver.nix
+- Remove services.clightning.enable assignment that fails on f13ff45
+- Remove clightning and clightning-rest from stubs to avoid duplicate on f13ff45
+- Add stubs for nixpkgs-unstable 2026-08 where services.clightning removed
+- Keep ISO artifacts out of the repo and auto-update README on release
+[1.1.0]: https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS/releases/tag/v1.1.0
+
+
 ## [1.0.6] - 2026-08-07
 
 ### Added
