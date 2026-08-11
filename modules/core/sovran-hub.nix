@@ -136,7 +136,10 @@ let
     "electrs.service" = if pkgs ? electrs then pkgs.electrs.version else "0.10.6";
     "lnd.service" = if pkgs ? lnd then pkgs.lnd.version else "0.18.0";
     "rtl.service" = if pkgs ? clightning-rtl then pkgs.clightning-rtl.version else (if pkgs ? rtl then pkgs.rtl.version else "0.15.2");
-    "btcpayserver.service" = if pkgs ? btcpayserver then pkgs.btcpayserver.version else "2.0.0";
+    # BTCPay Server is intentionally sourced from pkgs.stable by the service
+    # module.  Read the configured package here rather than pkgs.btcpayserver
+    # (unstable), otherwise the Hub can advertise a version that is not running.
+    "btcpayserver.service" = lib.getVersion config.services.btcpayserver.package;
     "albyhub.service" = if pkgs ? albyhub then pkgs.albyhub.version else "1.8.0";
     "mempool.service" = if pkgs ? mempool then pkgs.mempool.version else "3.0.0";
     "matrix-synapse.service" = if pkgs ? matrix-synapse then pkgs.matrix-synapse.version else "1.115.0";

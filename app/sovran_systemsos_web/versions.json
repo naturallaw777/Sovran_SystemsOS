@@ -6,7 +6,7 @@
   "electrs.service": "0.10.6",
   "lnd.service": "0.18.0",
   "rtl.service": "0.15.2",
-  "btcpayserver.service": "2.0.0",
+  "btcpayserver.service": "2.4.2",
   "albyhub.service": "1.8.0",
   "mempool.service": "3.0.0",
   "matrix-synapse.service": "1.115.0",
