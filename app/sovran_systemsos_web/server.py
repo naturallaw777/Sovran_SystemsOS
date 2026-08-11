@@ -4535,18 +4535,22 @@ def _run_njalla_ddns() -> None:
     if not urls:
         return
     # Resolve current public IP (best-effort; skip if unavailable)
+    public_ip = ""
     try:
         ip_result = subprocess.run(
             ["dig", "@resolver4.opendns.com", "myip.opendns.com", "+short", "-4"],
             capture_output=True, text=True, timeout=10, check=False,
         )
-        public_ip = ip_result.stdout.strip()
+        raw_ip = ip_result.stdout.strip().splitlines()[0] if ip_result.stdout.strip() else ""
+        # Validate strictly as a proper IPv4/IPv6 address before substitution
+        ipaddress.ip_address(raw_ip)
+        public_ip = raw_ip
     except Exception:
         public_ip = ""
 
     for raw_url in urls:
         try:
-            # Replace the placeholder with the resolved IP (safe string replacement)
+            # Replace the placeholder with the validated IP (safe string replacement)
             url = raw_url.replace("${IP}", public_ip) if public_ip else raw_url
             subprocess.run(
                 ["curl", "--silent", "--max-time", "15", "--fail", url],

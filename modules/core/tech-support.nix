@@ -61,6 +61,14 @@
         { command = "/run/current-system/sw/bin/systemctl status bitcoind.service";     options = [ "NOPASSWD" ]; }
         { command = "/run/current-system/sw/bin/systemctl status lnd.service";          options = [ "NOPASSWD" ]; }
         { command = "/run/current-system/sw/bin/journalctl *";                          options = [ "NOPASSWD" ]; }
+        # NOTE: journalctl with arbitrary flags is retained to allow support
+        # staff to filter logs by unit, time-range, and priority during
+        # diagnostics.  The --file / --directory flags could theoretically
+        # allow reading arbitrary log files, but the support user already has
+        # read access to /var/log as a system user.  Wallet and secret files
+        # are not stored in journald format, so exposure is limited to
+        # operational logs.  Consider restricting to specific units if a
+        # narrower support workflow is defined in a future release.
       ];
     }
   ];
