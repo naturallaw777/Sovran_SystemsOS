@@ -84,6 +84,17 @@ _DOMAIN_REACHABILITY_STARTUP_DELAY = 5
 _domain_reachability_task: asyncio.Task | None = None
 _domain_reachability_task_lock = asyncio.Lock()
 
+# Short-lived local diagnostics caches.  These values are only used for the
+# dashboard's health hints, so a few seconds of staleness is preferable to
+# launching several subprocesses and DNS lookups on every five-second poll.
+_PORT_CACHE_TTL = 5
+_port_cache_lock = Lock()
+_listening_ports_cache: tuple[float, dict[str, set[int]]] = (0.0, {"tcp": set(), "udp": set()})
+_firewall_ports_cache: tuple[float, dict[str, set[int]]] = (0.0, {"tcp": set(), "udp": set()})
+_DOMAIN_DNS_CACHE_TTL = 60
+_domain_dns_cache_lock = Lock()
+_domain_dns_cache: dict[str, tuple[float, list[str]]] = {}
+
 # Units to start after the next successful rebuild (feature enable flow)
 _pending_service_starts: set[str] = set()
 _pending_service_starts_lock = Lock()
@@ -918,7 +929,7 @@ def _get_listening_ports() -> dict[str, set[int]]:
         try:
             proc = subprocess.run(
                 ["ss", flag],
-                capture_output=True, text=True, timeout=10,
+                capture_output=True, text=True, timeout=5,
             )
             logger.debug("ss %s rc=%s stderr=%r", flag, proc.returncode, proc.stderr.strip())
             logger.debug("ss %s output sample: %r", flag, "\n".join(proc.stdout.splitlines()[:8]))
@@ -969,7 +980,7 @@ def _get_firewall_allowed_ports() -> dict[str, set[int]]:
     try:
         proc = subprocess.run(
             ["nft", "list", "ruleset"],
-            capture_output=True, text=True, timeout=10,
+            capture_output=True, text=True, timeout=5,
         )
         logger.debug("nft list ruleset rc=%s stderr=%r", proc.returncode, proc.stderr.strip())
         logger.debug("nft output sample: %r", "\n".join(proc.stdout.splitlines()[:12]))
@@ -1006,7 +1017,7 @@ def _get_firewall_allowed_ports() -> dict[str, set[int]]:
     try:
         proc = subprocess.run(
             ["iptables", "-L", "-n"],
-            capture_output=True, text=True, timeout=10,
+            capture_output=True, text=True, timeout=5,
         )
         if proc.returncode == 0:
             for line in proc.stdout.splitlines():
@@ -1021,6 +1032,50 @@ def _get_firewall_allowed_ports() -> dict[str, set[int]]:
         pass
 
     return result
+
+
+def _get_listening_ports_cached() -> dict[str, set[int]]:
+    """Return listening ports from a short-lived cache."""
+    global _listening_ports_cache
+    now = time.monotonic()
+    with _port_cache_lock:
+        cached_at, cached_value = _listening_ports_cache
+        if now - cached_at < _PORT_CACHE_TTL:
+            return cached_value
+
+    value = _get_listening_ports()
+    with _port_cache_lock:
+        _listening_ports_cache = (now, value)
+    return value
+
+
+def _get_firewall_allowed_ports_cached() -> dict[str, set[int]]:
+    """Return firewall ports from a short-lived cache."""
+    global _firewall_ports_cache
+    now = time.monotonic()
+    with _port_cache_lock:
+        cached_at, cached_value = _firewall_ports_cache
+        if now - cached_at < _PORT_CACHE_TTL:
+            return cached_value
+
+    value = _get_firewall_allowed_ports()
+    with _port_cache_lock:
+        _firewall_ports_cache = (now, value)
+    return value
+
+
+def _resolve_all_addresses_cached(domain: str) -> list[str]:
+    """Resolve a domain once per cache window for dashboard health checks."""
+    now = time.monotonic()
+    with _domain_dns_cache_lock:
+        cached = _domain_dns_cache.get(domain)
+        if cached is not None and now - cached[0] < _DOMAIN_DNS_CACHE_TTL:
+            return cached[1]
+
+    addresses = _resolve_all_addresses(domain)
+    with _domain_dns_cache_lock:
+        _domain_dns_cache[domain] = (now, addresses)
+    return addresses
 
 
 def _port_range_to_ints(port_str: str) -> list[int]:
@@ -2886,7 +2941,9 @@ def _get_bitcoin_version_info() -> dict | None:
             ["bitcoin-cli", f"-datadir={BITCOIN_DATADIR}", "getnetworkinfo"],
             capture_output=True,
             text=True,
-            timeout=10,
+            # This is a dashboard hint; do not make an unavailable RPC delay
+            # the entire service tile response.
+            timeout=3,
         )
         if result.returncode != 0:
             _btc_version_cache = (now, None)
@@ -2915,7 +2972,9 @@ def _get_bitcoin_deployment_info() -> dict | None:
             ["bitcoin-cli", f"-datadir={BITCOIN_DATADIR}", "getdeploymentinfo"],
             capture_output=True,
             text=True,
-            timeout=10,
+            # BIP-110 is supplementary tile metadata; an RPC timeout must not
+            # block the dashboard from rendering.
+            timeout=3,
         )
         if result.returncode != 0:
             _btc_deployment_cache = (now, None)
@@ -3114,7 +3173,9 @@ def _get_bitcoin_sync_info() -> dict | None:
             ["bitcoin-cli", f"-datadir={BITCOIN_DATADIR}", "getblockchaininfo"],
             capture_output=True,
             text=True,
-            timeout=10,
+            # Sync progress is optional tile metadata.  Keep a cold/unavailable
+            # node from delaying the initial dashboard response.
+            timeout=3,
         )
         if result.returncode != 0:
             _btc_sync_cache = (now, None)
@@ -3176,6 +3237,7 @@ async def api_bitcoin_bip110():
 
 @app.get("/api/services")
 async def api_services():
+    started_at = time.monotonic()
     cfg = load_config()
     services = cfg.get("services", [])
 
@@ -3188,32 +3250,115 @@ async def api_services():
 
     loop = asyncio.get_event_loop()
 
-    # Read runtime feature overrides from custom.nix Hub Managed section
+    # Read runtime feature overrides from custom.nix Hub Managed section and
+    # calculate each service's effective enabled state once.  The old code did
+    # this inside every status coroutine and then launched one systemctl process
+    # per tile; batching the state lookup keeps a slow D-Bus from multiplying
+    # the dashboard's first-render latency.
     overrides, *_ = await loop.run_in_executor(None, _read_hub_overrides)
-
-    # Cache port/firewall data once for the entire /api/services request
-    listening_ports, firewall_ports = await asyncio.gather(
-        loop.run_in_executor(None, _get_listening_ports),
-        loop.run_in_executor(None, _get_firewall_allowed_ports),
-    )
-
-    async def get_status(entry):
+    effective_entries: list[tuple[dict, bool]] = []
+    active_units_by_scope: dict[str, list[str]] = {}
+    domain_names: set[str] = set()
+    for entry in services:
         unit = entry.get("unit", "")
         scope = entry.get("type", "system")
         icon = entry.get("icon", "")
         enabled = entry.get("enabled", True)
 
-        # Overlay runtime feature state from custom.nix Hub Managed section
         feat_id = unit_to_feature.get(unit)
         if feat_id is None:
             feat_id = FEATURE_ICON_MAP.get(icon)
         if feat_id is not None and feat_id in overrides:
             enabled = overrides[feat_id]
 
+        effective_entries.append((entry, enabled))
+        if enabled and unit:
+            active_units_by_scope.setdefault(scope, []).append(unit)
+
         if enabled:
-            status = await loop.run_in_executor(
-                None, lambda: sysctl.is_active(unit, scope)
+            domain_key = SERVICE_DOMAIN_MAP.get(unit)
+            if domain_key:
+                domain_path = os.path.join(DOMAINS_DIR, domain_key)
+                try:
+                    with open(domain_path, "r") as f:
+                        domain = f.read(512).strip()
+                    if domain:
+                        domain_names.add(domain)
+                except OSError:
+                    pass
+
+    async def resolve_domain(domain: str) -> tuple[str, list[str] | None]:
+        """Resolve DNS off the event loop with a hard upper bound.
+
+        A broken DNS server must not hold the entire dashboard response hostage.
+        ``None`` means the lookup was inconclusive and the background checker can
+        fill in the health result later; an empty list means DNS definitively
+        returned no address.
+        """
+        try:
+            addresses = await asyncio.wait_for(
+                loop.run_in_executor(None, _resolve_all_addresses_cached, domain),
+                timeout=2,
             )
+            return domain, addresses
+        except (asyncio.TimeoutError, OSError):
+            return domain, None
+
+    active_states_future = loop.run_in_executor(
+        None, sysctl.active_states, active_units_by_scope
+    )
+    port_states_future = asyncio.gather(
+        loop.run_in_executor(None, _get_listening_ports_cached),
+        loop.run_in_executor(None, _get_firewall_allowed_ports_cached),
+    )
+    dns_states_future = asyncio.gather(
+        *(resolve_domain(domain) for domain in sorted(domain_names))
+    )
+    # Bitcoin sync and BIP-110 are supplementary tile metadata.  Fetch each
+    # once, concurrently with the other diagnostics, instead of doing duplicate
+    # RPC calls inside both bitcoind tile coroutines.
+    has_enabled_bitcoin = any(
+        entry.get("unit") == "bitcoind.service" and enabled
+        for entry, enabled in effective_entries
+    )
+    has_enabled_bip110 = any(
+        entry.get("icon") == "bip110" and enabled
+        for entry, enabled in effective_entries
+    )
+    bitcoin_sync_future = (
+        loop.run_in_executor(None, _get_bitcoin_sync_info)
+        if has_enabled_bitcoin
+        else asyncio.sleep(0, result=None)
+    )
+    bip110_future = (
+        loop.run_in_executor(None, _get_bip110_status)
+        if has_enabled_bip110
+        else asyncio.sleep(0, result=None)
+    )
+    (
+        active_states,
+        port_states,
+        dns_states,
+        bitcoin_sync_info,
+        bip110_status,
+    ) = await asyncio.gather(
+        active_states_future,
+        port_states_future,
+        dns_states_future,
+        bitcoin_sync_future,
+        bip110_future,
+    )
+    listening_ports, firewall_ports = port_states
+    resolved_domains = dict(dns_states)
+
+    async def get_status(item: tuple[dict, bool]):
+        entry, enabled = item
+        unit = entry.get("unit", "")
+        scope = entry.get("type", "system")
+        icon = entry.get("icon", "")
+
+        if enabled:
+            status = active_states.get((scope, unit), "unknown")
         else:
             status = "disabled"
 
@@ -3269,18 +3414,23 @@ async def api_services():
                     break
         has_domain_issues = False
         if needs_domain and domain and enabled:
-            addrs = _resolve_all_addresses(domain)
+            # DNS was resolved concurrently above.  A timed-out lookup is
+            # treated as unknown rather than as a hard failure; the background
+            # reachability checker will refresh the health state without
+            # delaying the first tile render.
+            addrs = resolved_domains.get(domain)
             dns_ok = True
-            if not addrs:
-                dns_ok = False
-            elif all(_is_loopback_address(a) for a in addrs):
-                # Intentional server-local /etc/hosts override — not a mismatch.
-                dns_ok = True
-            elif (
-                _cached_external_ip != "unavailable"
-                and not any(a == _cached_external_ip for a in addrs)
-            ):
-                dns_ok = False
+            if addrs is not None:
+                if not addrs:
+                    dns_ok = False
+                elif all(_is_loopback_address(a) for a in addrs):
+                    # Intentional server-local /etc/hosts override — not a mismatch.
+                    dns_ok = True
+                elif (
+                    _cached_external_ip != "unavailable"
+                    and not any(a == _cached_external_ip for a in addrs)
+                ):
+                    dns_ok = False
 
             if not dns_ok:
                 has_domain_issues = True
@@ -3304,14 +3454,13 @@ async def api_services():
                     health = "checking_reachability" if cached_reachable is None else "healthy"
                 else:
                     health = "healthy"
-            # Check Bitcoin IBD state
+            # Check Bitcoin IBD state from the single shared lookup above.
             if unit == "bitcoind.service" and enabled:
-                sync = await loop.run_in_executor(None, _get_bitcoin_sync_info)
-                if sync and sync.get("initialblockdownload"):
+                if bitcoin_sync_info and bitcoin_sync_info.get("initialblockdownload"):
                     health = "syncing"
-                    sync_progress = sync.get("verificationprogress", 0)
-                    sync_blocks = sync.get("blocks", 0)
-                    sync_headers = sync.get("headers", 0)
+                    sync_progress = bitcoin_sync_info.get("verificationprogress", 0)
+                    sync_blocks = bitcoin_sync_info.get("blocks", 0)
+                    sync_headers = bitcoin_sync_info.get("headers", 0)
                     sync_ibd = True
         elif status == "inactive":
             # For enabled services that are inactive (e.g. socket-activated PHP-FPM),
@@ -3356,8 +3505,8 @@ async def api_services():
                 btc_ver = _format_bitcoin_version(raw_ver, icon=icon)
                 service_data["bitcoin_version"] = btc_ver  # backwards compat
                 service_data["version"] = btc_ver
-            if icon == "bip110":
-                service_data["bip110"] = await loop.run_in_executor(None, _get_bip110_status)
+            if icon == "bip110" and bip110_status is not None:
+                service_data["bip110"] = bip110_status
         # ── Generic version for all services (Nix store path) ──────────
         if enabled and unit and "version" not in service_data:
             ver = await loop.run_in_executor(None, _get_service_version, unit)
@@ -3365,7 +3514,9 @@ async def api_services():
                 service_data["version"] = ver
         return service_data
 
-    results = await asyncio.gather(*[get_status(s) for s in services])
+    results = await asyncio.gather(*[get_status(item) for item in effective_entries])
+    elapsed = time.monotonic() - started_at
+    logger.info("/api/services: %d services in %.3fs", len(results), elapsed)
     return list(results)
 
 
