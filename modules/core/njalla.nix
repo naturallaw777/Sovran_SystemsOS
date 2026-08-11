@@ -76,7 +76,7 @@ except Exception:
 import urllib.parse
 for raw_url in urls:
     try:
-        url = raw_url.replace("${IP}", public_ip) if public_ip else raw_url
+        url = raw_url.replace("\${IP}", public_ip) if public_ip else raw_url
         parsed = urllib.parse.urlparse(url)
         if parsed.scheme.lower() != "https":
             continue
