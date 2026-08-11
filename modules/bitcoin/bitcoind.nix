@@ -406,7 +406,8 @@ in {
         extraRpcauth = concatMapStrings (name: let
           user = cfg.rpc.users.${name};
         in optionalString user.passwordHMACFromFile ''
-            echo "rpcauth=${user.name}:$(cat ${secretsDir}/bitcoin-HMAC-${name})"
+            hmacPayload="$(readValidatedRpcHmac '${secretsDir}/bitcoin-HMAC-${name}')" || exit 1
+            printf '%s\n' "rpcauth=${user.name}:$hmacPayload"
           ''
         ) (builtins.attrNames cfg.rpc.users);
       in ''
@@ -415,6 +416,32 @@ in {
             chmod -R g+rX '${cfg.dataDir}/blocks'
           fi
         ''}
+
+        readValidatedRpcHmac() {
+          local hmacFile="$1"
+          local hmacPayload
+
+          if [[ ! -e "$hmacFile" ]]; then
+            echo "Error: Bitcoin RPC HMAC file is missing: $hmacFile" >&2
+            return 1
+          fi
+          if [[ ! -r "$hmacFile" ]]; then
+            echo "Error: Bitcoin RPC HMAC file is unreadable: $hmacFile" >&2
+            return 1
+          fi
+
+          hmacPayload="$(<"$hmacFile")"
+          if [[ -z "$hmacPayload" ]]; then
+            echo "Error: Bitcoin RPC HMAC file is empty: $hmacFile" >&2
+            return 1
+          fi
+          if [[ ! "$hmacPayload" =~ ^[[:xdigit:]]+\$[[:xdigit:]]+$ ]]; then
+            echo "Error: Bitcoin RPC HMAC file has invalid format: $hmacFile" >&2
+            return 1
+          fi
+
+          printf '%s\n' "$hmacPayload"
+        }
 
         cfg=$(
           cat ${configFile}
