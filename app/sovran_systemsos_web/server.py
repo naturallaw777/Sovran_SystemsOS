@@ -52,6 +52,8 @@ from .security_helpers import (
     _SSH_PUBKEY_ALGORITHMS,
     _bech32_decode,
     _bech32_convertbits_decode,
+    load_session_store,
+    save_session_store,
 )
 
 logger = logging.getLogger(__name__)
@@ -144,8 +146,27 @@ HUB_SESSION_SECRET_FILE = "/var/lib/secrets/hub-session-secret"
 SESSION_COOKIE_NAME     = "hub_session"
 SESSION_MAX_AGE         = 86400  # 24 hours
 
-# In-memory session store: token → expiry timestamp (float)
+# Sessions are persisted here so logins survive a restart of the Hub service.
+# nixos-rebuild switch restarts sovran-hub-web.service during activation (its
+# unit definition changes with every feature toggle — e.g. the Bitcoin
+# Knots → Core switch changes services.bitcoind.package, which is on the Hub's
+# PATH).  Without persistence the browser session dies mid-rebuild, the
+# /api/rebuild/status polling starts receiving 401s and the rebuild modal
+# hangs forever showing "Applying changes…".  The file lives in
+# /var/lib/secrets so a security reset wipes it and forces a re-login, like
+# the session secret itself.
+SESSIONS_FILE = "/var/lib/secrets/hub-sessions.json"
+
+# Session store: token → expiry timestamp (float).  Loaded lazily from
+# SESSIONS_FILE on first use and written back on every meaningful change.
 _sessions: dict[str, float] = {}
+_sessions_loaded = False
+_sessions_lock = Lock()
+
+# Sliding the expiry on every authenticated request would rewrite the store on
+# every poll, so persist slide-only updates at most this often.
+_SESSION_PERSIST_MIN_INTERVAL = 30.0  # seconds
+_sessions_last_persist = 0.0
 
 # Failed login tracking: ip → list of failure timestamps
 _login_failures: dict[str, list[float]] = {}
@@ -606,38 +627,74 @@ def _get_or_create_session_secret() -> bytes:
     return token_hex
 
 
+def _load_sessions_once() -> None:
+    """Lazily load the persisted session store on first use (idempotent)."""
+    global _sessions_loaded
+    with _sessions_lock:
+        if _sessions_loaded:
+            return
+        _sessions.update(load_session_store(SESSIONS_FILE))
+        _sessions_loaded = True
+
+
+def _persist_sessions(force: bool = False) -> None:
+    """Write the session store to SESSIONS_FILE (best-effort).
+
+    Expiry slides happen on every authenticated request, so non-forced
+    persists are throttled; create/destroy/purge pass ``force=True``.
+    """
+    global _sessions_last_persist
+    now = time.time()
+    with _sessions_lock:
+        if not force and (now - _sessions_last_persist) < _SESSION_PERSIST_MIN_INTERVAL:
+            return
+        snapshot = dict(_sessions)
+        _sessions_last_persist = now
+    save_session_store(SESSIONS_FILE, snapshot)
+
+
 def _create_session() -> str:
     """Create a new opaque session token and register it in the store."""
+    _load_sessions_once()
     _purge_expired_sessions()
     token = secrets.token_hex(32)
     _sessions[token] = time.time() + SESSION_MAX_AGE
+    _persist_sessions(force=True)
     return token
 
 
 def _destroy_session(token: str) -> None:
     """Remove a session token from the store."""
-    _sessions.pop(token, None)
+    _load_sessions_once()
+    if _sessions.pop(token, None) is not None:
+        _persist_sessions(force=True)
 
 
 def _purge_expired_sessions() -> None:
-    """Remove all expired sessions from the in-memory store."""
+    """Remove all expired sessions from the store."""
+    _load_sessions_once()
     now = time.time()
     expired = [tok for tok, exp in _sessions.items() if exp <= now]
     for tok in expired:
         del _sessions[tok]
+    if expired:
+        _persist_sessions(force=True)
 
 
 def _is_authenticated(request: Request) -> bool:
     """Return True if the request carries a valid, unexpired session cookie."""
+    _load_sessions_once()
     token = request.cookies.get(SESSION_COOKIE_NAME)
     if not token:
         return False
     expiry = _sessions.get(token)
     if expiry is None or time.time() >= expiry:
-        _sessions.pop(token, None)
+        if _sessions.pop(token, None) is not None:
+            _persist_sessions(force=True)
         return False
     # Slide the expiry window on activity
     _sessions[token] = time.time() + SESSION_MAX_AGE
+    _persist_sessions()  # throttled — don't rewrite the store on every poll
     return True
 
 
@@ -6152,6 +6209,9 @@ async def _startup_session_secret():
     """Ensure the session secret exists on disk at startup."""
     loop = asyncio.get_event_loop()
     await loop.run_in_executor(None, _get_or_create_session_secret)
+    # Preload persisted sessions so browser logins survive this restart (the
+    # Hub service is restarted by nixos-rebuild switch during every rebuild).
+    await loop.run_in_executor(None, _load_sessions_once)
 
 
 # ── Startup: recover stale RUNNING status files ──────────────────

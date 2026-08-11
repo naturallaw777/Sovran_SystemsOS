@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased]
+
+### Fixed
+- Fix Bitcoin Knots → Bitcoin Core switch hanging in the Hub UI
+  - Sessions are now persisted to `/var/lib/secrets/hub-sessions.json` so the
+    browser login survives the Hub service restart that `nixos-rebuild switch`
+    performs during activation. Previously the in-memory session store was
+    wiped by that restart, the `/api/rebuild/status` poll started returning
+    401, and the rebuild modal spun forever showing "Applying changes…" while
+    the switch result was never displayed.
+  - Rebuild and update modals now bail out and reload the page after sustained
+    polling failures instead of hanging indefinitely.
+  - Rebuild/update scripts stream `nixos-rebuild` output into the live log
+    (it was buffered until completion, making long rebuilds look frozen).
+
+---
+
 ## [1.1.0] - 2026-08-11
 
 ### Added

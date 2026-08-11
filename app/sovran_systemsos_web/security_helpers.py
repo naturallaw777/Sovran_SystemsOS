@@ -11,7 +11,11 @@ from __future__ import annotations
 
 import base64
 import ipaddress
+import json
+import os
 import re
+import tempfile
+import time
 import urllib.parse
 
 # ── Nix string escaping ────────────────────────────────────────────────────────
@@ -239,3 +243,71 @@ def _validate_ssh_pubkey(key: str) -> str:
     if len(decoded) < 20:
         raise ValueError("SSH public key payload is too short")
     return key
+
+
+# ── Persistent Hub session store ─────────────────────────────────────────────
+
+def load_session_store(path: str) -> dict[str, float]:
+    """Load persisted Hub sessions from *path*.
+
+    Returns a mapping of session token → expiry timestamp (epoch seconds).
+    Expired entries are discarded.  A missing, unreadable or malformed file
+    yields an empty mapping — losing sessions is a UX inconvenience (the user
+    must log in again), never a fatal error.
+
+    Persistence exists so that authenticated sessions survive a restart of
+    the Hub service itself.  ``nixos-rebuild switch`` restarts
+    ``sovran-hub-web.service`` during activation (its unit definition changes
+    with every feature toggle), and without persistence the in-progress
+    rebuild/update status polling loses authentication and the UI hangs.
+    """
+    try:
+        with open(path, "r") as f:
+            data = json.load(f)
+    except (OSError, ValueError):
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    now = time.time()
+    sessions: dict[str, float] = {}
+    for token, expiry in data.items():
+        if not isinstance(token, str) or not token:
+            continue
+        if isinstance(expiry, bool) or not isinstance(expiry, (int, float)):
+            continue
+        if expiry > now:
+            sessions[token] = float(expiry)
+    return sessions
+
+
+def save_session_store(path: str, sessions: dict[str, float]) -> bool:
+    """Atomically persist *sessions* (token → expiry) to *path* with mode 0600.
+
+    Writes to a temp file in the same directory and renames it into place so
+    the store is never left partially written.  Returns True on success,
+    False otherwise (persistence is best-effort).
+    """
+    directory = os.path.dirname(path) or "."
+    fd = None
+    tmp_path = None
+    try:
+        os.makedirs(directory, exist_ok=True)
+        fd, tmp_path = tempfile.mkstemp(dir=directory, prefix=".hub_sessions_tmp")
+        with os.fdopen(fd, "w") as f:
+            fd = None  # os.fdopen takes ownership of the descriptor
+            json.dump(sessions, f)
+        os.chmod(tmp_path, 0o600)
+        os.replace(tmp_path, path)
+        return True
+    except OSError:
+        if fd is not None:
+            try:
+                os.close(fd)
+            except OSError:
+                pass
+        if tmp_path is not None:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+        return False

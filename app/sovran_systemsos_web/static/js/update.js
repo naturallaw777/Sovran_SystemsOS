@@ -33,6 +33,7 @@ function _doOpenUpdateModal() {
   _updateLogOffset = 0;
   _serverWasDown = false;
   _updateFinished = false;
+  _updatePollFailures = 0;
   if ($modalLog) $modalLog.textContent = "";
   if ($modalStatus) $modalStatus.textContent = "Starting update…";
   if ($modalSpinner) $modalSpinner.classList.add("spinning");
@@ -94,6 +95,7 @@ async function pollUpdateStatus() {
   if (_updateFinished) return;
   try {
     var data = await apiFetch("/api/updates/status?offset=" + _updateLogOffset);
+    _updatePollFailures = 0;
     if (_serverWasDown) {
       _serverWasDown = false;
       if (!data.running) {
@@ -143,6 +145,16 @@ async function pollUpdateStatus() {
       onUpdateDone(false);
     }
   } catch (err) {
+    _updatePollFailures += 1;
+    // Same guard as the rebuild modal: if polling stays broken long past a
+    // normal Hub restart, reload to re-authenticate and show the real state
+    // instead of spinning forever.
+    if (_updatePollFailures >= STATUS_POLL_MAX_FAILURES) {
+      _updateFinished = true;
+      stopUpdatePoll();
+      window.location.reload();
+      return;
+    }
     if (!_serverWasDown) { _serverWasDown = true; appendLog("\n[Server restarting — waiting for it to come back…]\n"); if ($modalStatus) $modalStatus.textContent = "Server restarting…"; }
   }
 }
