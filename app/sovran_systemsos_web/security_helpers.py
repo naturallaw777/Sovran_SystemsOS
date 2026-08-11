@@ -188,6 +188,14 @@ def _validate_ddns_url(url: str) -> str:
         )
     if "%00" in url.lower():
         raise ValueError("DDNS URL must not contain encoded null bytes")
+    # Reject any remaining $ expressions — after ${IP} substitution there
+    # must be none.  Callers that store ${IP} placeholder URLs must substitute
+    # before calling this function.
+    if "$" in url:
+        raise ValueError("DDNS URL must not contain $ expressions")
+    # Require the exact /update/ path used by Njal.la
+    if parsed.path != "/update/":
+        raise ValueError("DDNS URL path must be exactly /update/")
     return url
 
 

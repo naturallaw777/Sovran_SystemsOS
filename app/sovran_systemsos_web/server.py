@@ -19,10 +19,12 @@ import shutil
 import socket
 import subprocess
 import tempfile
+import threading
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
+import uuid
 from threading import Lock
 
 from fastapi import FastAPI, HTTPException
@@ -37,6 +39,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from .config import load_config, load_versions
 from . import systemctl as sysctl
 from . import nwc_hub_manager as _nwc_mgr
+from . import support_ops as _support_ops
 from .security_helpers import (
     _nix_escape,
     NPUB_RE,
@@ -184,6 +187,11 @@ PROTECTED_WALLET_PATHS: list[str] = [
     "/var/lib/lnd",
     "/home",
 ]
+
+# Server-side independent expiry timer for the active support session.
+# Scheduled when a session is enabled; cancelled when disabled.
+_support_expiry_timer: threading.Timer | None = None
+_support_expiry_timer_lock = Lock()
 
 CATEGORY_ORDER = [
     ("infrastructure", "Infrastructure"),
@@ -1997,26 +2005,13 @@ def _expire_support_if_stale() -> bool:
     startup, so expiry is enforced even if the user never calls
     ``/api/support/disable``.
     """
-    try:
-        with open(SUPPORT_STATUS_FILE, "r") as f:
-            info = json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
-        return False
-    expires_at = info.get("expires_at")
-    if expires_at is None:
-        # Legacy session without expiry: treat as expired after
-        # SUPPORT_SESSION_MAX_SECONDS from when it was enabled.
-        enabled_at = info.get("enabled_at", 0)
-        if enabled_at and (time.time() - enabled_at) > SUPPORT_SESSION_MAX_SECONDS:
-            _log_support_audit("SUPPORT_EXPIRED", "legacy session without expires_at exceeded max duration")
-            _disable_support()
-            return True
-        return False
-    if time.time() >= expires_at:
-        _log_support_audit("SUPPORT_EXPIRED", f"session expired at {expires_at:.0f}")
-        _disable_support()
-        return True
-    return False
+    return _support_ops.expire_if_stale(
+        SUPPORT_STATUS_FILE,
+        clock_fn=time.time,
+        disable_fn=_disable_support,
+        audit_fn=_log_support_audit,
+        max_session_seconds=float(SUPPORT_SESSION_MAX_SECONDS),
+    )
 
 
 def _get_support_session_info() -> dict:
@@ -2169,82 +2164,33 @@ def _get_wallet_unlock_info() -> dict:
         return {}
 
 
-# The exact legacy fleet-wide support key comment used in old deployments.
-# This is the only key that the upgrade migration will remove from root's
-# authorized_keys.  All other keys (admin keys, etc.) are preserved.
-_LEGACY_ROOT_SUPPORT_KEY_COMMENT = "sovransystemsos-support"
+# The exact base64 blob of the historical fleet-wide root support key is defined
+# in support_ops.LEGACY_ROOT_KEY_BLOB and used by _remove_legacy_root_support_key().
 
 
 def _remove_legacy_root_support_key() -> bool:
-    """One-time upgrade migration: remove the old fleet-wide support key from root.
+    """One-time upgrade migration: remove the exact historical fleet-wide support key.
 
-    Reads ``/root/.ssh/authorized_keys``, removes only lines whose comment
-    field exactly matches ``_LEGACY_ROOT_SUPPORT_KEY_COMMENT``, and writes the
-    file back atomically.  All other keys and blank/comment lines are
-    preserved unchanged.
+    Identifies the key by its exact base64 blob, regardless of algorithm prefix
+    or comment field.  All other keys, blank lines, and comment lines are
+    preserved.  The file is written atomically.
 
     Returns ``True`` if the file was updated, ``False`` if unchanged or absent.
     """
-    try:
-        with open(AUTHORIZED_KEYS, "r") as f:
-            lines = f.readlines()
-    except FileNotFoundError:
-        return False
-    except OSError:
-        return False
-
-    kept: list[str] = []
-    removed_count = 0
-    for line in lines:
-        stripped = line.rstrip("\n")
-        # A key line has at least 2 whitespace-separated fields; the optional
-        # third field is the comment.  We only remove lines where the comment
-        # matches exactly — no substring matching.
-        parts = stripped.split()
-        if len(parts) >= 3 and parts[2] == _LEGACY_ROOT_SUPPORT_KEY_COMMENT:
-            removed_count += 1
-            _log_support_audit(
-                "LEGACY_ROOT_KEY_REMOVED",
-                f"removed legacy fleet key with comment={_LEGACY_ROOT_SUPPORT_KEY_COMMENT!r}",
-            )
-        else:
-            kept.append(line)
-
-    if removed_count == 0:
-        return False
-
-    # Atomic write: write to tmp then rename
-    try:
-        auth_dir = os.path.dirname(AUTHORIZED_KEYS)
-        fd, tmp = tempfile.mkstemp(dir=auth_dir or ".", prefix=".authorized_keys_tmp")
-        try:
-            with os.fdopen(fd, "w") as f:
-                f.writelines(kept)
-            os.chmod(tmp, 0o600)
-            os.replace(tmp, AUTHORIZED_KEYS)
-        except Exception:
-            try:
-                os.unlink(tmp)
-            except OSError:
-                pass
-            raise
-    except OSError:
-        return False
-
-    _log_support_audit(
-        "LEGACY_ROOT_KEY_CLEANUP_COMPLETE",
-        f"removed={removed_count} keys_retained={len(kept)}",
+    return _support_ops.remove_legacy_root_key(
+        AUTHORIZED_KEYS,
+        _support_ops.LEGACY_ROOT_KEY_BLOB,
+        audit_fn=_log_support_audit,
     )
-    return True
 
 
 def _enable_support(pubkey: str) -> bool:
     """Install a per-session SSH public key for the restricted support user.
 
     The key is written only to the ``sovran-support`` account's
-    ``authorized_keys``; root's ``authorized_keys`` is never modified.
-    Applies POSIX ACLs to wallet directories to prevent access by the support
-    user without explicit user consent.
+    ``authorized_keys`` (atomically); root's ``authorized_keys`` is never
+    modified.  Applies POSIX ACLs to wallet directories to prevent access by
+    the support user without explicit user consent.
 
     Args:
         pubkey: A validated Ed25519/ECDSA OpenSSH public key string (single line).
@@ -2254,12 +2200,28 @@ def _enable_support(pubkey: str) -> bool:
 
         if use_restricted_user:
             os.makedirs(SUPPORT_USER_SSH_DIR, mode=0o700, exist_ok=True)
-            with open(SUPPORT_USER_AUTH_KEYS, "w") as f:
-                f.write(pubkey.strip() + "\n")
-            os.chmod(SUPPORT_USER_AUTH_KEYS, 0o600)
+            # Atomic write: mkstemp + os.replace
+            fd, tmp_keys = tempfile.mkstemp(
+                dir=SUPPORT_USER_SSH_DIR, prefix=".authorized_keys_tmp"
+            )
+            try:
+                with os.fdopen(fd, "w") as f:
+                    f.write(pubkey.strip() + "\n")
+                os.chmod(tmp_keys, 0o600)
+                try:
+                    pw = pwd.getpwnam(SUPPORT_USER)
+                    os.chown(tmp_keys, pw.pw_uid, pw.pw_gid)
+                except Exception:
+                    pass
+                os.replace(tmp_keys, SUPPORT_USER_AUTH_KEYS)
+            except Exception:
+                try:
+                    os.unlink(tmp_keys)
+                except OSError:
+                    pass
+                raise
             try:
                 pw = pwd.getpwnam(SUPPORT_USER)
-                os.chown(SUPPORT_USER_AUTH_KEYS, pw.pw_uid, pw.pw_gid)
                 os.chown(SUPPORT_USER_SSH_DIR, pw.pw_uid, pw.pw_gid)
             except Exception:
                 pass
@@ -2271,18 +2233,35 @@ def _enable_support(pubkey: str) -> bool:
         acl_applied = _apply_wallet_acls() if use_restricted_user else False
         wallet_paths = _get_existing_wallet_paths()
 
+        session_id = str(uuid.uuid4())
+        expires_at = time.time() + SUPPORT_SESSION_MAX_SECONDS
         session_info = {
+            "session_id": session_id,
             "enabled_at": time.time(),
             "enabled_at_human": time.strftime("%Y-%m-%d %H:%M:%S %Z"),
-            "expires_at": time.time() + SUPPORT_SESSION_MAX_SECONDS,
+            "expires_at": expires_at,
             "use_restricted_user": use_restricted_user,
             "wallet_protected": use_restricted_user,
             "acl_applied": acl_applied,
             "protected_paths": wallet_paths,
         }
-        os.makedirs(os.path.dirname(SUPPORT_STATUS_FILE), exist_ok=True)
-        with open(SUPPORT_STATUS_FILE, "w") as f:
-            json.dump(session_info, f)
+        # Atomic write of session metadata
+        status_dir = os.path.dirname(SUPPORT_STATUS_FILE)
+        os.makedirs(status_dir, exist_ok=True)
+        fd2, tmp_status = tempfile.mkstemp(dir=status_dir, prefix=".support-session-tmp")
+        try:
+            with os.fdopen(fd2, "w") as f:
+                json.dump(session_info, f)
+            os.replace(tmp_status, SUPPORT_STATUS_FILE)
+        except Exception:
+            try:
+                os.unlink(tmp_status)
+            except OSError:
+                pass
+            raise
+
+        # Schedule server-side independent expiry timer
+        _schedule_expiry_timer(session_id, expires_at)
 
         _log_support_audit(
             "SUPPORT_ENABLED",
@@ -2294,9 +2273,55 @@ def _enable_support(pubkey: str) -> bool:
         return False
 
 
+def _schedule_expiry_timer(session_id: str, expires_at: float) -> None:
+    """Schedule a server-side timer to expire the support session at ``expires_at``.
+
+    Cancels any previously scheduled timer first.  The timer callback compares
+    the stored session_id and expires_at to prevent a stale timer (for an
+    older session) from revoking a replacement session.
+    """
+    global _support_expiry_timer
+    delay = max(0.0, expires_at - time.time())
+    with _support_expiry_timer_lock:
+        if _support_expiry_timer is not None:
+            _support_expiry_timer.cancel()
+        t = threading.Timer(delay, _auto_expire_support, args=[session_id, expires_at])
+        t.daemon = True
+        t.start()
+        _support_expiry_timer = t
+
+
+def _cancel_expiry_timer() -> None:
+    """Cancel the active server-side support expiry timer if one is running."""
+    global _support_expiry_timer
+    with _support_expiry_timer_lock:
+        if _support_expiry_timer is not None:
+            _support_expiry_timer.cancel()
+            _support_expiry_timer = None
+
+
+def _auto_expire_support(session_id: str, expected_expiry: float) -> None:
+    """Timer callback: expire the session only if it still matches session_id / expires_at.
+
+    A stale timer for an older session must never revoke a replacement session.
+    """
+    _support_ops.expire_if_stale(
+        SUPPORT_STATUS_FILE,
+        clock_fn=time.time,
+        disable_fn=_disable_support,
+        audit_fn=_log_support_audit,
+        session_id=session_id,
+        expected_expiry=expected_expiry,
+        max_session_seconds=float(SUPPORT_SESSION_MAX_SECONDS),
+    )
+
+
 def _disable_support() -> bool:
-    """Remove the per-session support key and revoke all wallet access."""
+    """Remove the per-session support key and restore wallet protection."""
     try:
+        # Cancel any pending expiry timer
+        _cancel_expiry_timer()
+
         # Remove from support user's authorized_keys
         try:
             os.remove(SUPPORT_USER_AUTH_KEYS)
@@ -2315,8 +2340,8 @@ def _disable_support() -> bool:
         except FileNotFoundError:
             pass
 
-        # Re-apply ACLs to ensure wallet access is revoked
-        _revoke_wallet_acls()
+        # Re-apply deny ACLs to restore wallet protection
+        _apply_wallet_acls()
 
         # Remove session metadata
         try:
@@ -4353,11 +4378,10 @@ async def api_features_toggle(req: FeatureToggleRequest):
     await loop.run_in_executor(None, _write_hub_overrides, features, nostr_npub, cur_tz, cur_locale)
 
     # When enabling a feature that relies on dynamic DNS, refresh the Njal.la
-    # records right away instead of waiting for the 15-minute cron tick.
+    # records right away instead of waiting for the 15-minute timer tick.
     # The newly enabled service needs DNS pointing at this machine as soon as
     # the rebuild finishes (cert issuance, reachability).
     if req.enabled and feat_meta.get("needs_ddns"):
-        await loop.run_in_executor(None, _ensure_njalla_script)
         await loop.run_in_executor(None, _run_njalla_ddns)
 
     # Clear the old rebuild log so the frontend doesn't pick up stale results
@@ -4464,130 +4488,29 @@ def _validate_safe_name(name: str) -> bool:
 
 _NJALLA_HEADER_SENTINEL = "# SOVRAN_NJALLA_HEADER"
 
-# Narrow regex matching only the exact curl DDNS pattern written by old Hub
-# versions: curl <https://njal.la/...> with optional flags but NO semicolons,
-# shell expansions, backticks, or pipe characters.  Anything else is rejected.
-_LEGACY_NJALLA_CURL_RE = re.compile(
-    r'^curl\s+(?:--silent\s+)?(?:--max-time\s+\d+\s+)?(?:--fail\s+)?'
-    r'(https://(?:www\.)?njal\.la/(?:[^\s;|`$\x00-\x1f]|\$\{IP\})+)$'
-)
+# Import the migration regex from support_ops so there is a single canonical
+# definition used by both the production server and the test suite.
+_LEGACY_NJALLA_CURL_RE = _support_ops._LEGACY_NJALLA_CURL_RE
 
 
 def _migrate_legacy_njalla_script() -> None:
     """Safely migrate legacy curl DDNS lines from ``njalla.sh`` to JSON store.
 
     Reads ``njalla.sh`` without executing or sourcing it.  Parses only the
-    exact narrow curl-pattern lines written by old Hub versions.  Any line
-    that does not match the narrow pattern (including potential injected
-    commands) is silently discarded — never executed or logged.
-
-    URLs extracted from matching lines are validated through
-    ``_validate_ddns_url()`` (HTTPS only, njal.la allowlist) before being
-    added to ``ddns_urls.json``.
+    exact narrow curl-pattern lines (quoted or unquoted) written by old Hub
+    versions.  Delegates to ``support_ops.migrate_legacy_njalla_script`` so
+    tests can exercise the same code path.
 
     After migration the script is archived with permissions 0o000 so it can
-    no longer be executed by cron or any other mechanism.  If the script does
-    not exist or the JSON store already has entries, this is a no-op.
+    no longer be executed.  If persistence fails the script is left untouched.
     """
-    try:
-        with open(NJALLA_SCRIPT, "r") as f:
-            content = f.read()
-    except FileNotFoundError:
-        return
-    except OSError:
-        return
-
-    existing_urls = _load_ddns_urls()
-
-    new_urls: list[str] = []
-    for raw_line in content.splitlines():
-        line = raw_line.strip()
-        if not line or line.startswith("#"):
-            continue
-        # Only match the exact IP-lookup pattern (not a DDNS curl line)
-        if line.startswith("IP=") or line.startswith("#!/"):
-            continue
-        m = _LEGACY_NJALLA_CURL_RE.match(line)
-        if not m:
-            # Unrecognised line — discard silently, do NOT log (may contain tokens)
-            continue
-        raw_url = m.group(1)
-        # Replace the bare ${IP} placeholder used in older scripts
-        url_to_validate = raw_url.replace("${IP}", "127.0.0.1")
-        try:
-            # Validate without the IP so host/scheme/path checks work; the
-            # placeholder is restored before storing.
-            _validate_ddns_url(url_to_validate)
-        except ValueError:
-            continue  # Silently discard invalid / non-njalla URLs
-        if raw_url not in existing_urls and raw_url not in new_urls:
-            new_urls.append(raw_url)
-
-    if new_urls:
-        combined = existing_urls + new_urls
-        _save_ddns_urls(combined)
-        _log_support_audit(
-            "NJALLA_MIGRATION",
-            f"migrated {len(new_urls)} DDNS URLs from legacy script",
-        )
-
-    # Archive the script: remove executable bit so cron can no longer run it.
-    try:
-        os.chmod(NJALLA_SCRIPT, 0o000)
-    except OSError:
-        pass
-
-
-def _ensure_njalla_script() -> None:
-    """Create the base njalla.sh (shebang + public-IP lookup) if it is missing.
-
-    The Hub appends DDNS curl lines to this script, and those lines use ${IP}.
-    If the file exists only because of an append (e.g. the web app saved a
-    domain before the njalla-init systemd unit ran), it would lack the IP
-    lookup — ${IP} would expand empty during cron runs and the file couldn't
-    be executed directly. Keep in sync with modules/core/njalla.nix.
-    """
-    njalla_dir = os.path.dirname(NJALLA_SCRIPT)
-    if njalla_dir:
-        os.makedirs(njalla_dir, exist_ok=True)
-    existing = ""
-    try:
-        with open(NJALLA_SCRIPT, "r") as f:
-            existing = f.read()
-    except OSError:
-        pass
-    # Use a unique sentinel instead of substring domain check — avoids
-    # CodeQL py/incomplete-url-substring-sanitization false positive and
-    # is more robust than matching "myip.opendns.com" anywhere in file.
-    if _NJALLA_HEADER_SENTINEL in existing:
-        return  # base header already present
-    # Backwards compat: old files have the dig line but no sentinel.
-    # Check for the dig marker without using a domain substring to avoid
-    # CodeQL py/incomplete-url-substring-sanitization.
-    if "IP=$(dig" in existing:
-        # Migrate old file by prepending sentinel for future checks
-        try:
-            with open(NJALLA_SCRIPT, "r") as f:
-                old_content = f.read()
-            with open(NJALLA_SCRIPT, "w") as f:
-                f.write(f"{_NJALLA_HEADER_SENTINEL}\n" + old_content)
-            os.chmod(NJALLA_SCRIPT, 0o755)
-        except OSError:
-            pass
-        return
-    header = (
-        "#!/usr/bin/env bash\n"
-        f"{_NJALLA_HEADER_SENTINEL}\n"
-        "IP=$(dig @resolver4.opendns.com myip.opendns.com +short -4)\n\n"
-        "## Add DDNS entries below — one curl per line\n"
-        "## Managed via Sovran Hub web interface\n"
+    _support_ops.migrate_legacy_njalla_script(
+        NJALLA_SCRIPT,
+        _validate_ddns_url,
+        _save_ddns_urls,
+        _load_ddns_urls,
+        audit_fn=_log_support_audit,
     )
-    try:
-        with open(NJALLA_SCRIPT, "w") as f:
-            f.write(header + existing)
-        os.chmod(NJALLA_SCRIPT, 0o755)
-    except OSError:
-        pass
 
 
 def _load_ddns_urls() -> list[str]:
@@ -4626,10 +4549,12 @@ def _run_njalla_ddns() -> None:
     Resolves the current public IP once, then invokes ``curl`` directly as a
     subprocess for each stored DDNS update URL.  No shell interpolation is
     performed and no user-controlled value is interpreted as shell syntax.
+    Each URL is revalidated through ``_validate_ddns_url()`` after ``${IP}``
+    substitution; URLs that fail validation are silently skipped.
 
     Called when a domain/DDNS entry is saved and when a DDNS-backed feature
     is enabled, so DNS is refreshed right away instead of waiting for the
-    15-minute cron job (see modules/core/njalla.nix).
+    15-minute timer tick (see modules/core/njalla.nix).
     """
     urls = _load_ddns_urls()
     if not urls:
@@ -4648,10 +4573,15 @@ def _run_njalla_ddns() -> None:
     except Exception:
         public_ip = ""
 
+    if not public_ip:
+        return  # skip to avoid sending bare ${IP} to curl
+
     for raw_url in urls:
         try:
             # Replace the placeholder with the validated IP (safe string replacement)
-            url = raw_url.replace("${IP}", public_ip) if public_ip else raw_url
+            url = raw_url.replace("${IP}", public_ip)
+            # Revalidate after substitution — enforces /update/ path, no $, etc.
+            _validate_ddns_url(url)
             subprocess.run(
                 ["curl", "--silent", "--max-time", "15", "--fail", "--no-location", url],
                 timeout=20, check=False,
@@ -6278,11 +6208,34 @@ async def _startup_security_migrations():
     await loop.run_in_executor(None, _remove_legacy_root_support_key)
     # Expire any support session that has passed its deadline
     await loop.run_in_executor(None, _expire_support_if_stale)
+    # Reconcile the expiry timer: if a valid session survived startup expiry,
+    # schedule the server-side timer so expiry occurs even without user activity.
+    await loop.run_in_executor(None, _reconcile_expiry_timer)
+
+
+def _reconcile_expiry_timer() -> None:
+    """Reschedule the expiry timer from persisted session metadata on startup.
+
+    Called after ``_expire_support_if_stale`` so only still-valid sessions are
+    rescheduled.  Cancels any previously running timer first.
+    """
+    try:
+        with open(SUPPORT_STATUS_FILE, "r") as f:
+            info = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        _cancel_expiry_timer()
+        return
+    session_id = info.get("session_id")
+    expires_at = info.get("expires_at")
+    if session_id and expires_at and time.time() < expires_at:
+        _schedule_expiry_timer(session_id, expires_at)
+    else:
+        _cancel_expiry_timer()
 
 
 @app.on_event("shutdown")
 async def _shutdown_domain_reachability():
-    """Stop the background domain reachability checker."""
+    """Stop the background domain reachability checker and cancel expiry timer."""
     global _domain_reachability_task
     async with _domain_reachability_task_lock:
         task = _domain_reachability_task
@@ -6291,3 +6244,4 @@ async def _shutdown_domain_reachability():
         task.cancel()
         with contextlib.suppress(asyncio.CancelledError):
             await task
+    _cancel_expiry_timer()

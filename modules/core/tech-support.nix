@@ -63,11 +63,11 @@
     {
       users = [ "sovran-support" ];
       commands = [
-        { command = "/run/current-system/sw/bin/systemctl restart sovran-hub.service";  options = [ "NOPASSWD" ]; }
+        { command = "/run/current-system/sw/bin/systemctl restart sovran-hub-web.service"; options = [ "NOPASSWD" ]; }
         { command = "/run/current-system/sw/bin/systemctl restart caddy.service";       options = [ "NOPASSWD" ]; }
         { command = "/run/current-system/sw/bin/systemctl restart bitcoind.service";    options = [ "NOPASSWD" ]; }
         { command = "/run/current-system/sw/bin/systemctl restart lnd.service";         options = [ "NOPASSWD" ]; }
-        { command = "/run/current-system/sw/bin/systemctl status sovran-hub.service";   options = [ "NOPASSWD" ]; }
+        { command = "/run/current-system/sw/bin/systemctl status sovran-hub-web.service"; options = [ "NOPASSWD" ]; }
         { command = "/run/current-system/sw/bin/systemctl status caddy.service";        options = [ "NOPASSWD" ]; }
         { command = "/run/current-system/sw/bin/systemctl status bitcoind.service";     options = [ "NOPASSWD" ]; }
         { command = "/run/current-system/sw/bin/systemctl status lnd.service";          options = [ "NOPASSWD" ]; }

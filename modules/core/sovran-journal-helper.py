@@ -6,13 +6,14 @@ a strict allowlist of safe flags.  Replaces the ``journalctl *`` sudo rule
 in tech-support.nix.
 
 Accepted flags:
-  --unit / -u <name>        unit name (letters, digits, @, ., _, - only; .service suffix required)
+  --unit / -u <name>        must be one of the explicitly approved service units
   --lines / -n <N>          positive integer (max 10000)
   --priority / -p <level>   0-7 or emerg/alert/crit/err/warning/notice/info/debug
   --since <datetime>        ISO 8601 date/datetime (no paths, no filesystem roots)
   --until <datetime>        ISO 8601 date/datetime (no paths, no filesystem roots)
   --output / -o <format>    short | short-iso | cat | json | verbose
 
+At least one ``--unit`` flag is required; whole-journal queries are rejected.
 All other flags, paths, directories, roots, namespaces, and output
 destinations are rejected with a non-zero exit code.
 """
@@ -23,9 +24,14 @@ import sys
 
 # ── Allowlists ────────────────────────────────────────────────────────────────
 
-_ALLOWED_UNITS_RE = re.compile(
-    r'^[a-zA-Z0-9@._\-]+\.(service|socket|timer|target|mount|path|slice|scope)$'
-)
+# Explicit approved units.  Only these four services may be queried through
+# the restricted journal helper.  Any other unit is rejected.
+_APPROVED_UNITS: frozenset[str] = frozenset([
+    "sovran-hub-web.service",
+    "caddy.service",
+    "bitcoind.service",
+    "lnd.service",
+])
 
 _ALLOWED_PRIORITIES = frozenset([
     "0", "1", "2", "3", "4", "5", "6", "7",
@@ -50,8 +56,11 @@ def _die(msg: str) -> None:
 
 
 def _validate_unit(val: str) -> str:
-    if not _ALLOWED_UNITS_RE.match(val):
-        _die(f"rejected unit name: {val!r} (only letters/digits/@._- with a known suffix)")
+    if val not in _APPROVED_UNITS:
+        _die(
+            f"rejected unit name: {val!r} "
+            f"(allowed: {', '.join(sorted(_APPROVED_UNITS))})"
+        )
     return val
 
 
@@ -86,6 +95,7 @@ def _validate_output(val: str) -> str:
 def main() -> None:
     args = sys.argv[1:]
     cmd = ["journalctl"]
+    unit_count = 0
 
     i = 0
     while i < len(args):
@@ -96,8 +106,10 @@ def main() -> None:
             if i >= len(args):
                 _die("--unit requires a value")
             cmd += ["--unit", _validate_unit(args[i])]
+            unit_count += 1
         elif arg.startswith("--unit="):
             cmd += ["--unit", _validate_unit(arg[len("--unit="):])]
+            unit_count += 1
 
         elif arg in ("--lines", "-n"):
             i += 1
@@ -149,8 +161,11 @@ def main() -> None:
 
         i += 1
 
-    if not cmd[1:]:
-        _die("at least one flag is required (try --unit <name>)")
+    if unit_count == 0:
+        _die(
+            "at least one --unit flag is required; "
+            f"allowed units: {', '.join(sorted(_APPROVED_UNITS))}"
+        )
 
     result = subprocess.run(cmd)
     sys.exit(result.returncode)

