@@ -65,6 +65,9 @@
 			mempoolPkgs =
 				pkgs.callPackage ./packages/mempool { inherit fetchNodeModules; };
 		in {
+			bitcoin-btcpay-hardening = import ./tests/bitcoin-btcpay-hardening.nix {
+				inherit nixpkgs overlay-stable;
+			};
 			mempool-backend = mempoolPkgs.mempool-backend;
 			mempool-frontend = mempoolPkgs.mempool-frontend;
 			rtl = pkgs.callPackage ./packages/rtl { inherit fetchNodeModules; };

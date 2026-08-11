@@ -139,29 +139,43 @@ let
   };
 
   nbLib = config.nix-bitcoin.lib;
+  secretsDir = config.nix-bitcoin.secretsDir;
 
 in {
   inherit options;
 
   config = mkMerge [
     (mkIf cfg.nbxplorer.enable {
-      # For backwards compatibility only
-      systemd.tmpfiles.rules = mkIf cfg.nbxplorer.addNetworkSymlink [
-        "L+ '${cfg.nbxplorer.dataDir}/Main' - - - - '${cfg.nbxplorer.dataDir}/main'"
-      ];
+      systemd.tmpfiles.rules = [
+        "d '${cfg.nbxplorer.dataDir}' 0770 ${cfg.nbxplorer.user} ${cfg.nbxplorer.group} - -"
+      ] ++ optional cfg.nbxplorer.addNetworkSymlink
+        "L+ '${cfg.nbxplorer.dataDir}/Main' - - - - '${cfg.nbxplorer.dataDir}/main'";
 
-      systemd.services.nbxplorer = rec {
+      systemd.services.nbxplorer = let
+        configFile = builtins.toFile "nbxplorer-config" ''
+          network=${cfg.bitcoind.network}
+          btcrpcuser=${cfg.bitcoind.rpc.users.btcpayserver.name}
+          btcrpcurl=http://${nbLib.addressWithPort cfg.bitcoind.rpc.address cfg.bitcoind.rpc.port}
+          btcnodeendpoint=${nbLib.addressWithPort cfg.bitcoind.address cfg.bitcoind.whitelistedPort}
+          bind=${cfg.nbxplorer.address}
+          port=${toString cfg.nbxplorer.port}
+          postgres=User ID=${cfg.nbxplorer.user};Host=/run/postgresql;Database=nbxplorer
+        '';
+      in rec {
         wantedBy = [ "multi-user.target" ];
-        requires = [ "bitcoind.service" ];
-        after = requires;
+        requires = [ "postgresql.target" ];
+        wants = [ "bitcoind.service" ];
+        after = requires ++ wants ++ [ "nix-bitcoin-secrets.target" ];
         preStart = ''
-          {
-            echo "btcrpcuser=${cfg.bitcoind.rpc.users.btcpayserver.name}"
-            echo "btcrpcpassword=$(cat ${config.nix-bitcoin.secretsDir}/bitcoin-rpcpassword-btcpayserver)"
-          } >> '${cfg.nbxplorer.dataDir}/settings.config'
+          install -m 600 ${configFile} '${cfg.nbxplorer.dataDir}/settings.config'
+          printf '%s\n' "btcrpcpassword=$(<${secretsDir}/bitcoin-rpcpassword-btcpayserver)" \
+            >> '${cfg.nbxplorer.dataDir}/settings.config'
         '';
         serviceConfig = nbLib.defaultHardening // {
-          ExecStart = "${cfg.nbxplorer.package}/bin/nbxplorer --conf=${cfg.nbxplorer.dataDir}/settings.config";
+          ExecStart = ''
+            ${cfg.nbxplorer.package}/bin/nbxplorer --conf=${cfg.nbxplorer.dataDir}/settings.config \
+              --datadir='${cfg.nbxplorer.dataDir}'
+          '';
           RuntimeDirectory = "nbxplorer";
           StateDirectory = "nbxplorer";
           User = cfg.nbxplorer.user;
@@ -169,11 +183,13 @@ in {
           Restart = "on-failure";
           RestartSec = "10s";
           ReadWritePaths = [ cfg.nbxplorer.dataDir ];
+          MemoryDenyWriteExecute = false;
         } // nbLib.allowedIPAddresses cfg.nbxplorer.tor.enforce;
       };
 
       services.bitcoind = {
         enable = true;
+        listenWhitelisted = true;
         txindex = true;
       };
 
@@ -188,6 +204,7 @@ in {
       services.nbxplorer.enable = true;
 
       services.bitcoind = {
+        listenWhitelisted = true;
         rpc.users.btcpayserver = {
           name = "btcpayserver";
           passwordHMACFromFile = true;
@@ -222,18 +239,40 @@ in {
         };
       };
 
-      systemd.services.btcpayserver = rec {
+      systemd.tmpfiles.rules = [
+        "d '${cfg.btcpayserver.dataDir}' 0770 ${cfg.btcpayserver.user} ${cfg.btcpayserver.group} - -"
+      ];
+
+      systemd.services.btcpayserver = let
+        nbExplorerUrl = "http://${nbLib.addressWithPort cfg.nbxplorer.address cfg.nbxplorer.port}/";
+        configFile = builtins.toFile "btcpayserver-config" (
+          ''
+            network=${cfg.bitcoind.network}
+            bind=${cfg.btcpayserver.address}
+            port=${toString cfg.btcpayserver.port}
+            socksendpoint=${config.nix-bitcoin.torClientAddressWithPort}
+            btcexplorerurl=${nbExplorerUrl}
+            explorer.postgres=User ID=${cfg.nbxplorer.user};Host=/run/postgresql;Database=nbxplorer
+            postgres=User ID=${cfg.btcpayserver.user};Host=/run/postgresql;Database=btcpayserver
+          '' + optionalString (cfg.btcpayserver.lightningBackend == "lnd")
+            (
+              "btclightning=type=lnd-rest;"
+              + "server=https://${nbLib.address config.services.lnd.restAddress}:${toString config.services.lnd.restPort}/;"
+              + "macaroonfilepath=/run/lnd/btcpayserver.macaroon;"
+              + "certfilepath=${config.services.lnd.certPath}\n"
+            )
+        );
+      in rec {
         wantedBy = [ "multi-user.target" ];
-        requires = [ "nbxplorer.service" ];
-        after = requires;
-        preStart = ''
-          {
-            echo "postgres=User ID=${cfg.btcpayserver.user};Host=/run/postgresql;Database=btcpayserver"
-            echo "explorer.postgres=User ID=${cfg.nbxplorer.user};Host=/run/postgresql;Database=nbxplorer"
-          } >> '${cfg.btcpayserver.dataDir}/settings.config'
-        '';
+        requires = [ "postgresql.target" ];
+        wants = [ "nbxplorer.service" ]
+          ++ optional (cfg.btcpayserver.lightningBackend == "lnd") "lnd.service";
+        after = requires ++ wants;
         serviceConfig = nbLib.defaultHardening // {
-          ExecStart = "${cfg.btcpayserver.package}/bin/btcpayserver --conf=${cfg.btcpayserver.dataDir}/settings.config";
+          ExecStart = ''
+            ${cfg.btcpayserver.package}/bin/btcpayserver --conf=${configFile} \
+              --datadir='${cfg.btcpayserver.dataDir}'
+          '';
           RuntimeDirectory = "btcpayserver";
           StateDirectory = "btcpayserver";
           User = cfg.btcpayserver.user;
@@ -241,6 +280,7 @@ in {
           Restart = "on-failure";
           RestartSec = "10s";
           ReadWritePaths = [ cfg.btcpayserver.dataDir ];
+          MemoryDenyWriteExecute = false;
         } // nbLib.allowedIPAddresses cfg.btcpayserver.tor.enforce;
       };
 
@@ -261,7 +301,10 @@ in {
       users.groups.${cfg.btcpayserver.group} = {};
 
       nix-bitcoin.secrets = {
-        bitcoin-rpcpassword-btcpayserver.user = cfg.btcpayserver.user;
+        bitcoin-rpcpassword-btcpayserver = {
+          user = cfg.bitcoind.user;
+          group = cfg.nbxplorer.group;
+        };
         bitcoin-HMAC-btcpayserver.user = cfg.bitcoind.user;
       };
       nix-bitcoin.generateSecretsCmds.btcpayserver = ''
