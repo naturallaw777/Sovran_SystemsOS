@@ -30,7 +30,7 @@ The workflow is:
 Please note: GitHub `main` and Gitea `staging-dev` may contain new features and
 code not yet in `stable`, and that code may not be fully tested.
 
-Moreover, Sovran_SystemsOS has been improved with the help of AI. We have used Copilot and Arean.Ai to work through significant coding challenges and troubleshooting hurdles. We will continue to use AI to help keep Sovran_SystemsOS stable and maintained.
+Moreover, Sovran_SystemsOS has been improved with the help of AI. We have used Copilot and Arena.ai to work through significant coding challenges and troubleshooting hurdles. We will continue to use AI to help keep Sovran_SystemsOS stable and maintained.
 
 ## How Can I Contribute?
 
@@ -91,6 +91,13 @@ git push origin feature/your-feature-name
 - **Write meaningful commit messages.**
 - **Do not push directly to `main`.** Always use a feature branch and open a PR.
 - **Be patient.** PRs will be reviewed as soon as possible.
+
+## Security-Sensitive Changes
+
+- Report vulnerabilities privately as described in [`SECURITY.md`](SECURITY.md).
+- Pin upstream revisions and hashes; do not use floating source references.
+- Update [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) when importing code.
+- Add regression tests and describe any threat-model change in the pull request.
 
 ## Code Style
 
