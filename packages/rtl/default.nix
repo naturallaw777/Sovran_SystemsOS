@@ -1,9 +1,10 @@
+# Packaging adapted from fort-nix/nix-bitcoin commit 360e30fee.
+# This local copy does not fetch or import nix-bitcoin.
 { lib
 , stdenvNoCC
 , nodejs_22
 , nodejs-slim_22
 , fetchNodeModules
-, fetchpatch
 , fetchurl
 , makeWrapper
 }:

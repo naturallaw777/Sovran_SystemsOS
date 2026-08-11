@@ -56,13 +56,18 @@
 			};
 		};
 
-		nixosTests.nwc-wallets-port-collision =
-			import ./nix/tests/nwc-wallets-port-collision.nix {
-				inherit nixpkgs;
+		checks.x86_64-linux = let
+			pkgs = import nixpkgs {
 				system = "x86_64-linux";
 			};
-
-		checks.x86_64-linux.nwc-wallets-port-collision =
-			self.nixosTests.nwc-wallets-port-collision;
+			fetchNodeModules =
+				pkgs.callPackage ./packages/build-support/fetch-node-modules.nix {};
+			mempoolPkgs =
+				pkgs.callPackage ./packages/mempool { inherit fetchNodeModules; };
+		in {
+			mempool-backend = mempoolPkgs.mempool-backend;
+			mempool-frontend = mempoolPkgs.mempool-frontend;
+			rtl = pkgs.callPackage ./packages/rtl { inherit fetchNodeModules; };
+		};
 	};
 }

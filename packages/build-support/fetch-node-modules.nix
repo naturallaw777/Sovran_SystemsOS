@@ -1,3 +1,5 @@
+# Vendored from fort-nix/nix-bitcoin commit 360e30fee.
+# This local copy does not fetch or import nix-bitcoin.
 # This is a modified version of
 # https://github.com/NixOS/nixpkgs/pull/128749
 
