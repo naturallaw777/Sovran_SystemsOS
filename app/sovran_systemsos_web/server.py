@@ -4730,9 +4730,11 @@ async def api_domains_set(req: DomainSetRequest):
         # Replace trailing &auto with the IP placeholder used by _run_njalla_ddns
         if ddns_url.endswith("&auto"):
             ddns_url = ddns_url[:-5] + "&a=${IP}"
-        # Validate URL strictly — reject injection attempts before persisting
+        # Validate URL strictly — reject injection attempts before persisting.
+        # The placeholder ${IP} is replaced temporarily so the validator sees a
+        # real address; the original URL (with the placeholder) is kept for storage.
         try:
-            ddns_url = _validate_ddns_url(ddns_url)
+            _validate_ddns_url(ddns_url.replace("${IP}", "127.0.0.1"))
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=f"Invalid DDNS URL: {exc}")
         # Persist the URL in the JSON store (never in executable shell source)
