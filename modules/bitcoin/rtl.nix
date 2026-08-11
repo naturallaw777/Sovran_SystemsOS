@@ -101,33 +101,33 @@ let
       index = 1;
       lnNode = "lnd";
       lnImplementation = "LND";
-      Authentication = {
+      authentication = {
         macaroonPath = "${cfg.dataDir}/macaroons";
         swapMacaroonPath = if cfg.nodes.lnd.loop then "${cfg.dataDir}/loop-macaroons" else "";
         boltzMacaroonPath = "";
       };
-      Settings = {
+      settings = {
         userPersona = "OPERATOR";
         themeMode = if cfg.nightTheme then "NIGHT" else "DAY";
         themeColor = "PURPLE";
         channelBackupPath = "${cfg.dataDir}/backup";
         logLevel = "INFO";
+        lnServerUrl = "https://${lnd.restAddress}:${toString lnd.restPort}";
+        swapServerUrl = if cfg.nodes.lnd.loop then "https://127.0.0.1:8081" else "";
+        boltzServerUrl = "";
         fiatConversion = cfg.extraCurrency != null;
         unannouncedChannels = true;
       } // optionalAttrs (cfg.extraCurrency != null) {
         currencyUnit = cfg.extraCurrency;
       };
-    } // optionalAttrs cfg.nodes.lnd.loop {
-      swapServerUrl = "https://localhost:8081";
-      boltzServerUrl = "";
     }) ++ optional cfg.nodes.clightning.enable {
       index = 2;
       lnNode = "clightning";
       lnImplementation = "CLN";
-      Authentication = {
+      authentication = {
         runePath = runePath;
       };
-      Settings = {
+      settings = {
         userPersona = "OPERATOR";
         themeMode = if cfg.nightTheme then "NIGHT" else "DAY";
         themeColor = "PURPLE";
