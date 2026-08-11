@@ -50,6 +50,7 @@ let
   nbxplorerPreStart = config.systemd.services.nbxplorer.preStart;
   bitcoindPreStart = config.systemd.services.bitcoind.preStart;
   btcpayExecStart = config.systemd.services.btcpayserver.serviceConfig.ExecStart;
+  btcpayWorkingDir = config.systemd.services.btcpayserver.serviceConfig.WorkingDirectory;
 
   nbxplorerConfigPath = extractAfter "install -m 600" nbxplorerPreStart;
   btcpayConfigPath = extractFlagValue "--conf" btcpayExecStart;
@@ -92,6 +93,13 @@ assert lib.assertMsg
     && lib.hasInfix "port=24444" nbxplorerConfig
     && lib.hasInfix "postgres=User ID=nbxplorer;Host=/run/postgresql;Database=nbxplorer" nbxplorerConfig)
   "nbxplorer base config must contain the expected non-secret settings";
+assert lib.assertMsg
+  (lib.hasInfix "btcexplorerurl=http://127.0.0.1:24444/" btcpayConfig
+    && lib.hasInfix "btcexplorercookiefile=/build/nbxplorer/Main/.cookie" btcpayConfig)
+  "btcpayserver config must contain btcexplorerurl and btcexplorercookiefile";
+assert lib.assertMsg
+  (lib.hasSuffix "/lib/btcpayserver" btcpayWorkingDir)
+  "btcpayserver WorkingDirectory must end with /lib/btcpayserver";
 assert lib.assertMsg
   (!lib.hasInfix "/build/btcpayserver/settings.config" btcpayExecStart
     && lib.hasInfix "--datadir='/build/btcpayserver'" btcpayExecStart)

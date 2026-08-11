@@ -246,6 +246,8 @@ in {
 
       systemd.services.btcpayserver = let
         nbExplorerUrl = "http://${nbLib.addressWithPort cfg.nbxplorer.address cfg.nbxplorer.port}/";
+        nbExplorerCookie =
+          "${cfg.nbxplorer.dataDir}/${cfg.bitcoind.makeNetworkName "Main" "RegTest"}/.cookie";
         configFile = builtins.toFile "btcpayserver-config" (
           ''
             network=${cfg.bitcoind.network}
@@ -253,6 +255,7 @@ in {
             port=${toString cfg.btcpayserver.port}
             socksendpoint=${config.nix-bitcoin.torClientAddressWithPort}
             btcexplorerurl=${nbExplorerUrl}
+            btcexplorercookiefile=${nbExplorerCookie}
             explorer.postgres=User ID=${cfg.nbxplorer.user};Host=/run/postgresql;Database=nbxplorer
             postgres=User ID=${cfg.btcpayserver.user};Host=/run/postgresql;Database=btcpayserver
           '' + optionalString (cfg.btcpayserver.lightningBackend == "lnd")
@@ -273,6 +276,7 @@ in {
             ${cfg.btcpayserver.package}/bin/btcpayserver --conf=${configFile} \
               --datadir='${cfg.btcpayserver.dataDir}'
           '';
+          WorkingDirectory = "${cfg.btcpayserver.package}/lib/btcpayserver";
           RuntimeDirectory = "btcpayserver";
           StateDirectory = "btcpayserver";
           User = cfg.btcpayserver.user;
