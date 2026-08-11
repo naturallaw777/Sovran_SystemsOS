@@ -37,6 +37,19 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from .config import load_config, load_versions
 from . import systemctl as sysctl
 from . import nwc_hub_manager as _nwc_mgr
+from .security_helpers import (
+    _nix_escape,
+    NPUB_RE,
+    _validate_npub,
+    _validate_ddns_url,
+    _validate_ssh_pubkey,
+    _DDNS_URL_MAX_LEN,
+    _DDNS_CONTROL_RE,
+    _DDNS_ALLOWED_HOSTNAMES,
+    _SSH_PUBKEY_ALGORITHMS,
+    _bech32_decode,
+    _bech32_convertbits_decode,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -84,21 +97,8 @@ NOSTR_NPUB_FILE   = "/var/lib/secrets/nostr_npub"
 NJALLA_SCRIPT     = "/var/lib/njalla/njalla.sh"
 NJALLA_DDNS_URLS_FILE = "/var/lib/njalla/ddns_urls.json"
 
-# Nostr npub validation: "npub1" followed by exactly 58 bech32 characters
-NPUB_RE = re.compile(r"^npub1[023456789acdefghjklmnpqrstuvwxyz]{58}$")
-
-# Accepted SSH public-key algorithms for support sessions
-_SSH_PUBKEY_ALGORITHMS = frozenset([
-    "ssh-ed25519",
-    "ecdsa-sha2-nistp256",
-    "ecdsa-sha2-nistp384",
-    "ecdsa-sha2-nistp521",
-    "sk-ssh-ed25519@openssh.com",
-])
-
-# DDNS URL: HTTPS only, no credentials, no control chars, max 2048 bytes
-_DDNS_URL_MAX_LEN = 2048
-_DDNS_CONTROL_RE  = re.compile(r"[\x00-\x1f\x7f]")
+# Nostr npub validation, SSH pubkey validation, DDNS URL validation, and
+# Nix escaping are imported from security_helpers (single source of truth).
 
 # Systemd service that rewrites the Sovran-managed /etc/hosts loopback block
 SOVRAN_HOSTS_SERVICE = "sovran-hosts-update.service"
@@ -158,6 +158,11 @@ AUTHORIZED_KEYS  = "/root/.ssh/authorized_keys"
 SUPPORT_STATUS_FILE = "/var/lib/secrets/support-session-status"
 
 SUPPORT_KEY_COMMENT = "sovransystemsos-support"
+
+# Maximum duration for a support session in seconds (24 hours).
+# After this time the session is automatically expired on startup and on any
+# support status/wallet operation.
+SUPPORT_SESSION_MAX_SECONDS = 86400  # 24 hours
 
 # Dedicated restricted support user (non-root) for wallet privacy
 SUPPORT_USER              = "sovran-support"
@@ -526,97 +531,6 @@ _DICEWARE_WORDS = [
     "aspen", "birch", "blaze", "bloom", "bluff", "coast", "copper", "crest",
     "dune", "elder", "fjord", "forge", "glade", "glen", "glow", "gulf",
 ]
-
-
-def _nix_escape(value: str) -> str:
-    """Escape *value* for use inside a Nix double-quoted string literal.
-
-    Handles backslashes, double-quotes, newlines, carriage returns, tabs, and
-    Nix-specific anti-quotation sequences (``${...}``).  The returned value is
-    safe to embed as ``"<returned_value>"`` in generated Nix source.
-    """
-    value = value.replace("\\", "\\\\")
-    value = value.replace('"', '\\"')
-    value = value.replace("\n", "\\n")
-    value = value.replace("\r", "\\r")
-    value = value.replace("\t", "\\t")
-    value = value.replace("${", "\\${")
-    return value
-
-
-def _validate_ddns_url(url: str) -> str:
-    """Validate *url* as a safe DDNS update URL and return it normalised.
-
-    Rules:
-    - Must be a valid URL parseable by urllib.parse.
-    - Scheme must be ``https`` (case-insensitive).
-    - No userinfo (credentials must not be embedded in the URL).
-    - No fragment.
-    - No control characters.
-    - Must not exceed ``_DDNS_URL_MAX_LEN`` bytes.
-    - Hostname must be present and not a raw IP address.
-
-    Raises ``ValueError`` with a safe (non-secret) message on failure.
-    """
-    if not url:
-        raise ValueError("DDNS URL must not be empty")
-    if len(url) > _DDNS_URL_MAX_LEN:
-        raise ValueError("DDNS URL exceeds maximum length")
-    if _DDNS_CONTROL_RE.search(url):
-        raise ValueError("DDNS URL contains control characters")
-    try:
-        parsed = urllib.parse.urlparse(url)
-    except Exception:
-        raise ValueError("DDNS URL could not be parsed")
-    if parsed.scheme.lower() != "https":
-        raise ValueError("DDNS URL must use the https scheme")
-    if parsed.username or parsed.password:
-        raise ValueError("DDNS URL must not contain credentials")
-    if parsed.fragment:
-        raise ValueError("DDNS URL must not contain a fragment")
-    hostname = parsed.hostname or ""
-    if not hostname:
-        raise ValueError("DDNS URL must contain a hostname")
-    # Reject raw IP addresses — DDNS providers use hostnames
-    try:
-        ipaddress.ip_address(hostname)
-        raise ValueError("DDNS URL hostname must not be a raw IP address")
-    except ValueError as exc:
-        if "raw IP" in str(exc):
-            raise
-    return url
-
-
-def _validate_ssh_pubkey(key: str) -> str:
-    """Validate *key* as a single OpenSSH public key and return it normalised.
-
-    Accepts only single-line keys with a supported algorithm, valid base64
-    payload, and an optional comment.  Rejects options, multiple lines,
-    control characters, and unsupported algorithms.
-
-    Raises ``ValueError`` with a safe message on failure.
-    """
-    key = key.strip()
-    if not key:
-        raise ValueError("SSH public key must not be empty")
-    if _DDNS_CONTROL_RE.search(key):
-        raise ValueError("SSH public key contains control characters")
-    if "\n" in key or "\r" in key:
-        raise ValueError("SSH public key must be a single line")
-    parts = key.split()
-    if len(parts) < 2:
-        raise ValueError("SSH public key is malformed")
-    algo, b64 = parts[0], parts[1]
-    if algo not in _SSH_PUBKEY_ALGORITHMS:
-        raise ValueError(f"Unsupported SSH key algorithm: {algo!r}")
-    # Validate base64 payload
-    try:
-        decoded = base64.b64decode(b64, validate=True)
-    except Exception:
-        raise ValueError("SSH public key payload is not valid base64")
-    if len(decoded) < 20:
-        raise ValueError("SSH public key payload is too short")
-    return key
 
 
 def _generate_diceware_password() -> str:
@@ -1987,8 +1901,20 @@ def _write_hub_overrides(features: dict, nostr_npub: str | None, timezone: str |
             return
         content = content[:last_brace] + "\n" + hub_block + content[last_brace:]
 
-    with open(CUSTOM_NIX, "w") as f:
-        f.write(content)
+    # Atomic write: write to a temp file next to custom.nix then rename so the
+    # file is never left in a partially-written state if the process is killed.
+    nix_dir = os.path.dirname(CUSTOM_NIX) or "."
+    fd, tmp_path = tempfile.mkstemp(dir=nix_dir, prefix=".custom_nix_tmp")
+    try:
+        with os.fdopen(fd, "w") as f:
+            f.write(content)
+        os.replace(tmp_path, CUSTOM_NIX)
+    except Exception:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+        raise
 
 
 def _migrate_strip_deprecated_features() -> None:
@@ -2055,11 +1981,42 @@ def _is_sshd_feature_enabled() -> bool:
 
 def _is_support_active() -> bool:
     """Check if a per-session support key is currently installed."""
+    _expire_support_if_stale()
     try:
         with open(SUPPORT_USER_AUTH_KEYS, "r") as f:
             return bool(f.read().strip())
     except FileNotFoundError:
         return False
+
+
+def _expire_support_if_stale() -> bool:
+    """If an active support session has passed its expiry time, disable it.
+
+    Returns ``True`` if a session was expired, ``False`` otherwise.
+    This is called automatically from ``_is_support_active()`` and from
+    startup, so expiry is enforced even if the user never calls
+    ``/api/support/disable``.
+    """
+    try:
+        with open(SUPPORT_STATUS_FILE, "r") as f:
+            info = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return False
+    expires_at = info.get("expires_at")
+    if expires_at is None:
+        # Legacy session without expiry: treat as expired after
+        # SUPPORT_SESSION_MAX_SECONDS from when it was enabled.
+        enabled_at = info.get("enabled_at", 0)
+        if enabled_at and (time.time() - enabled_at) > SUPPORT_SESSION_MAX_SECONDS:
+            _log_support_audit("SUPPORT_EXPIRED", "legacy session without expires_at exceeded max duration")
+            _disable_support()
+            return True
+        return False
+    if time.time() >= expires_at:
+        _log_support_audit("SUPPORT_EXPIRED", f"session expired at {expires_at:.0f}")
+        _disable_support()
+        return True
+    return False
 
 
 def _get_support_session_info() -> dict:
@@ -2212,6 +2169,75 @@ def _get_wallet_unlock_info() -> dict:
         return {}
 
 
+# The exact legacy fleet-wide support key comment used in old deployments.
+# This is the only key that the upgrade migration will remove from root's
+# authorized_keys.  All other keys (admin keys, etc.) are preserved.
+_LEGACY_ROOT_SUPPORT_KEY_COMMENT = "sovransystemsos-support"
+
+
+def _remove_legacy_root_support_key() -> bool:
+    """One-time upgrade migration: remove the old fleet-wide support key from root.
+
+    Reads ``/root/.ssh/authorized_keys``, removes only lines whose comment
+    field exactly matches ``_LEGACY_ROOT_SUPPORT_KEY_COMMENT``, and writes the
+    file back atomically.  All other keys and blank/comment lines are
+    preserved unchanged.
+
+    Returns ``True`` if the file was updated, ``False`` if unchanged or absent.
+    """
+    try:
+        with open(AUTHORIZED_KEYS, "r") as f:
+            lines = f.readlines()
+    except FileNotFoundError:
+        return False
+    except OSError:
+        return False
+
+    kept: list[str] = []
+    removed_count = 0
+    for line in lines:
+        stripped = line.rstrip("\n")
+        # A key line has at least 2 whitespace-separated fields; the optional
+        # third field is the comment.  We only remove lines where the comment
+        # matches exactly — no substring matching.
+        parts = stripped.split()
+        if len(parts) >= 3 and parts[2] == _LEGACY_ROOT_SUPPORT_KEY_COMMENT:
+            removed_count += 1
+            _log_support_audit(
+                "LEGACY_ROOT_KEY_REMOVED",
+                f"removed legacy fleet key with comment={_LEGACY_ROOT_SUPPORT_KEY_COMMENT!r}",
+            )
+        else:
+            kept.append(line)
+
+    if removed_count == 0:
+        return False
+
+    # Atomic write: write to tmp then rename
+    try:
+        auth_dir = os.path.dirname(AUTHORIZED_KEYS)
+        fd, tmp = tempfile.mkstemp(dir=auth_dir or ".", prefix=".authorized_keys_tmp")
+        try:
+            with os.fdopen(fd, "w") as f:
+                f.writelines(kept)
+            os.chmod(tmp, 0o600)
+            os.replace(tmp, AUTHORIZED_KEYS)
+        except Exception:
+            try:
+                os.unlink(tmp)
+            except OSError:
+                pass
+            raise
+    except OSError:
+        return False
+
+    _log_support_audit(
+        "LEGACY_ROOT_KEY_CLEANUP_COMPLETE",
+        f"removed={removed_count} keys_retained={len(kept)}",
+    )
+    return True
+
+
 def _enable_support(pubkey: str) -> bool:
     """Install a per-session SSH public key for the restricted support user.
 
@@ -2248,6 +2274,7 @@ def _enable_support(pubkey: str) -> bool:
         session_info = {
             "enabled_at": time.time(),
             "enabled_at_human": time.strftime("%Y-%m-%d %H:%M:%S %Z"),
+            "expires_at": time.time() + SUPPORT_SESSION_MAX_SECONDS,
             "use_restricted_user": use_restricted_user,
             "wallet_protected": use_restricted_user,
             "acl_applied": acl_applied,
@@ -4296,8 +4323,8 @@ async def api_features_toggle(req: FeatureToggleRequest):
         if req.feature == "haven":
             npub = (req.extra or {}).get("nostr_npub", "").strip()
             if npub:
-                if not NPUB_RE.fullmatch(npub):
-                    raise HTTPException(status_code=400, detail="Invalid Nostr npub (must be npub1 followed by 58 bech32 characters)")
+                if not _validate_npub(npub):
+                    raise HTTPException(status_code=400, detail="Invalid Nostr npub (must be npub1 followed by 58 bech32 characters with valid checksum)")
                 nostr_npub = npub
             elif not nostr_npub:
                 raise HTTPException(status_code=400, detail="nostr_npub is required for Haven")
@@ -4313,8 +4340,8 @@ async def api_features_toggle(req: FeatureToggleRequest):
     # Persist any extra fields (nostr_npub)
     new_npub = (req.extra or {}).get("nostr_npub", "").strip()
     if new_npub:
-        if not NPUB_RE.fullmatch(new_npub):
-            raise HTTPException(status_code=400, detail="Invalid Nostr npub (must be npub1 followed by 58 bech32 characters)")
+        if not _validate_npub(new_npub):
+            raise HTTPException(status_code=400, detail="Invalid Nostr npub (must be npub1 followed by 58 bech32 characters with valid checksum)")
         nostr_npub = new_npub
         try:
             os.makedirs(os.path.dirname(NOSTR_NPUB_FILE), exist_ok=True)
@@ -4437,6 +4464,79 @@ def _validate_safe_name(name: str) -> bool:
 
 _NJALLA_HEADER_SENTINEL = "# SOVRAN_NJALLA_HEADER"
 
+# Narrow regex matching only the exact curl DDNS pattern written by old Hub
+# versions: curl <https://njal.la/...> with optional flags but NO semicolons,
+# shell expansions, backticks, or pipe characters.  Anything else is rejected.
+_LEGACY_NJALLA_CURL_RE = re.compile(
+    r'^curl\s+(?:--silent\s+)?(?:--max-time\s+\d+\s+)?(?:--fail\s+)?'
+    r'(https://(?:www\.)?njal\.la/(?:[^\s;|`$\x00-\x1f]|\$\{IP\})+)$'
+)
+
+
+def _migrate_legacy_njalla_script() -> None:
+    """Safely migrate legacy curl DDNS lines from ``njalla.sh`` to JSON store.
+
+    Reads ``njalla.sh`` without executing or sourcing it.  Parses only the
+    exact narrow curl-pattern lines written by old Hub versions.  Any line
+    that does not match the narrow pattern (including potential injected
+    commands) is silently discarded — never executed or logged.
+
+    URLs extracted from matching lines are validated through
+    ``_validate_ddns_url()`` (HTTPS only, njal.la allowlist) before being
+    added to ``ddns_urls.json``.
+
+    After migration the script is archived with permissions 0o000 so it can
+    no longer be executed by cron or any other mechanism.  If the script does
+    not exist or the JSON store already has entries, this is a no-op.
+    """
+    try:
+        with open(NJALLA_SCRIPT, "r") as f:
+            content = f.read()
+    except FileNotFoundError:
+        return
+    except OSError:
+        return
+
+    existing_urls = _load_ddns_urls()
+
+    new_urls: list[str] = []
+    for raw_line in content.splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        # Only match the exact IP-lookup pattern (not a DDNS curl line)
+        if line.startswith("IP=") or line.startswith("#!/"):
+            continue
+        m = _LEGACY_NJALLA_CURL_RE.match(line)
+        if not m:
+            # Unrecognised line — discard silently, do NOT log (may contain tokens)
+            continue
+        raw_url = m.group(1)
+        # Replace the bare ${IP} placeholder used in older scripts
+        url_to_validate = raw_url.replace("${IP}", "127.0.0.1")
+        try:
+            # Validate without the IP so host/scheme/path checks work; the
+            # placeholder is restored before storing.
+            _validate_ddns_url(url_to_validate)
+        except ValueError:
+            continue  # Silently discard invalid / non-njalla URLs
+        if raw_url not in existing_urls and raw_url not in new_urls:
+            new_urls.append(raw_url)
+
+    if new_urls:
+        combined = existing_urls + new_urls
+        _save_ddns_urls(combined)
+        _log_support_audit(
+            "NJALLA_MIGRATION",
+            f"migrated {len(new_urls)} DDNS URLs from legacy script",
+        )
+
+    # Archive the script: remove executable bit so cron can no longer run it.
+    try:
+        os.chmod(NJALLA_SCRIPT, 0o000)
+    except OSError:
+        pass
+
 
 def _ensure_njalla_script() -> None:
     """Create the base njalla.sh (shebang + public-IP lookup) if it is missing.
@@ -4553,7 +4653,7 @@ def _run_njalla_ddns() -> None:
             # Replace the placeholder with the validated IP (safe string replacement)
             url = raw_url.replace("${IP}", public_ip) if public_ip else raw_url
             subprocess.run(
-                ["curl", "--silent", "--max-time", "15", "--fail", url],
+                ["curl", "--silent", "--max-time", "15", "--fail", "--no-location", url],
                 timeout=20, check=False,
                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
             )
@@ -6166,6 +6266,18 @@ async def _startup_domain_reachability():
     async with _domain_reachability_task_lock:
         if _domain_reachability_task is None or _domain_reachability_task.done():
             _domain_reachability_task = asyncio.create_task(_background_domain_reachability_checker())
+
+
+@app.on_event("startup")
+async def _startup_security_migrations():
+    """Run one-time security upgrade migrations on every server start."""
+    loop = asyncio.get_event_loop()
+    # Migrate legacy njalla.sh DDNS lines to JSON store and archive the script
+    await loop.run_in_executor(None, _migrate_legacy_njalla_script)
+    # Remove the legacy fleet-wide support key from /root/.ssh/authorized_keys
+    await loop.run_in_executor(None, _remove_legacy_root_support_key)
+    # Expire any support session that has passed its deadline
+    await loop.run_in_executor(None, _expire_support_if_stale)
 
 
 @app.on_event("shutdown")

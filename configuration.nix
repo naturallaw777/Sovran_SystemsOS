@@ -192,12 +192,10 @@ backup	/etc/nix-bitcoin-secrets/	localhost/
   };
 
   # ── Cron ───────────────────────────────────────────────────
-  services.cron = {
-    enable = true;
-    systemCronJobs = [
-      "*/15 * * * * root /run/current-system/sw/bin/bash /var/lib/njalla/njalla.sh"
-    ];
-  };
+  # The legacy njalla.sh root cron job has been replaced by the systemd timer
+  # defined in modules/core/njalla.nix (sovran-ddns-update.timer).  Root-shell
+  # cron execution of njalla.sh is no longer used.
+  services.cron.enable = false;
 
   # ── Tor ────────────────────────────────────────────────────
   services.tor = { enable = true; client.enable = true; torsocks.enable = true; };
