@@ -260,7 +260,10 @@ in {
       };
       users.groups.${cfg.btcpayserver.group} = {};
 
-      nix-bitcoin.secrets.bitcoin-rpcpassword-btcpayserver.user = cfg.btcpayserver.user;
+      nix-bitcoin.secrets = {
+        bitcoin-rpcpassword-btcpayserver.user = cfg.btcpayserver.user;
+        bitcoin-HMAC-btcpayserver.user = cfg.bitcoind.user;
+      };
       nix-bitcoin.generateSecretsCmds.btcpayserver = ''
         makeBitcoinRPCPassword btcpayserver
       '';
