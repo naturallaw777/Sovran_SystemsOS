@@ -58,6 +58,12 @@ let
   btcpayConfig = builtins.readFile btcpayConfigPath;
 in
 assert lib.assertMsg
+  (config.users.users.${config.services.btcpayserver.user}.home == config.services.btcpayserver.dataDir)
+  "btcpayserver user home must match btcpayserver dataDir";
+assert lib.assertMsg
+  (config.users.users.${config.services.nbxplorer.user}.home == config.services.nbxplorer.dataDir)
+  "nbxplorer user home must match nbxplorer dataDir";
+assert lib.assertMsg
   (config.nix-bitcoin.secrets.bitcoin-HMAC-btcpayserver.user == config.services.bitcoind.user)
   "bitcoin-HMAC-btcpayserver must be owned by bitcoind";
 assert lib.assertMsg

@@ -196,6 +196,7 @@ in {
       users.users.${cfg.nbxplorer.user} = {
         isSystemUser = true;
         group = cfg.nbxplorer.group;
+        home = cfg.nbxplorer.dataDir;
       };
       users.groups.${cfg.nbxplorer.group} = {};
     })
@@ -295,6 +296,7 @@ in {
       users.users.${cfg.btcpayserver.user} = {
         isSystemUser = true;
         group = cfg.btcpayserver.group;
+        home = cfg.btcpayserver.dataDir;
         extraGroups = optional (cfg.btcpayserver.lightningBackend == "lnd") config.services.lnd.group;
       };
       users.groups.${cfg.btcpayserver.group} = {};
