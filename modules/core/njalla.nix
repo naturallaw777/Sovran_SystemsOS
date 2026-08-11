@@ -76,7 +76,7 @@ sys.path.insert(0, '/etc/sovran')
 try:
     from security_helpers import _validate_ddns_url
 except ImportError:
-    sys.exit(0)  # validator not available — skip silently
+    sys.exit(1)  # validator missing — fail so systemd logs the misconfiguration
 
 URLS_FILE = "/var/lib/njalla/ddns_urls.json"
 
@@ -116,7 +116,7 @@ for raw_url in urls:
             timeout=20, check=False,
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
         )
-    except (ValueError, Exception):
+    except Exception:
         pass
 PYEOF
     chmod 0500 /var/lib/sovran/ddns-update.py
