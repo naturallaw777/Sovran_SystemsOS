@@ -110,12 +110,26 @@ function renderSupportInactive() {
     '</div>',
     '<div class="support-steps"><div class="support-steps-title">What happens:</div><ol>',
       '<li>A restricted <code>sovran-support</code> user is created with limited access</li>',
-      '<li>Our SSH key is added only to that restricted account</li>',
+      '<li>Support\'s SSH key is added only to that restricted account — not to root</li>',
       '<li>Wallet files are locked via access controls — not visible to support</li>',
       '<li>You control if and when wallet access is granted (time-limited)</li>',
       '<li>All session events are logged for your audit</li>',
+      '<li>Access expires automatically after 24 hours</li>',
     '</ol></div>',
+    '<div class="support-key-section">',
+      '<label class="support-key-label" for="support-ssh-pubkey">',
+        '<strong>Paste the support SSH public key provided by Sovran Systems:</strong>',
+      '</label>',
+      '<textarea id="support-ssh-pubkey" class="support-key-input" rows="3" ',
+        'placeholder="ssh-ed25519 AAAA… support-session" ',
+        'spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off"></textarea>',
+      '<p class="support-key-hint">',
+        'The key must start with <code>ssh-ed25519</code> or <code>ecdsa-sha2-nistp256</code>. ',
+        'Do not paste your own private key — only paste the one-time public key sent by Sovran Systems support.',
+      '</p>',
+    '</div>',
     '<button class="btn support-btn-enable" id="btn-support-enable">Enable Support Access</button>',
+    '<p id="support-key-error" class="support-key-error" style="display:none;color:#c0392b;margin-top:8px;"></p>',
     '<p class="support-fine-print">You can revoke access at any time. When you end the session, you\'ll be able to disable SSH to return to the default secure state.</p>',
     '</div>',
   ].join("");
@@ -227,16 +241,43 @@ function renderSupportRemoved(verified) {
 
 async function enableSupport() {
   var btn = document.getElementById("btn-support-enable");
+  var errEl = document.getElementById("support-key-error");
+  var textarea = document.getElementById("support-ssh-pubkey");
+  if (errEl) { errEl.style.display = "none"; errEl.textContent = ""; }
+
+  var sshKey = textarea ? textarea.value.trim() : "";
+  if (!sshKey) {
+    if (errEl) { errEl.textContent = "Please paste the SSH public key provided by Sovran Systems support."; errEl.style.display = "block"; }
+    return;
+  }
+  // Client-side pre-validation: key must start with a known algorithm prefix
+  var validPrefixes = ["ssh-ed25519 ", "ecdsa-sha2-nistp256 ", "ecdsa-sha2-nistp384 ", "ecdsa-sha2-nistp521 ", "sk-ssh-ed25519@openssh.com "];
+  var hasValidPrefix = validPrefixes.some(function(p) { return sshKey.startsWith(p); });
+  if (!hasValidPrefix) {
+    if (errEl) { errEl.textContent = "Invalid key format. The key must start with ssh-ed25519 or ecdsa-sha2-nistp256. Do not paste a private key."; errEl.style.display = "block"; }
+    return;
+  }
+  if (sshKey.indexOf("\n") !== -1) {
+    if (errEl) { errEl.textContent = "The key must be a single line. Please check the pasted value."; errEl.style.display = "block"; }
+    return;
+  }
+
   if (btn) { btn.disabled = true; btn.textContent = "Enabling…"; }
   try {
-    await apiFetch("/api/support/enable", { method: "POST" });
+    await apiFetch("/api/support/enable", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ssh_public_key: sshKey }),
+    });
     var status = await apiFetch("/api/support/status");
     _supportStatus = status;
     _supportEnabledAt = status.enabled_at;
     renderSupportActive(status);
   } catch (err) {
     if (btn) { btn.disabled = false; btn.textContent = "Enable Support Access"; }
-    alert("Failed to enable support access. Please try again.");
+    var detail = (err && err.detail) ? err.detail : "Failed to enable support access. Please check the key and try again.";
+    if (errEl) { errEl.textContent = detail; errEl.style.display = "block"; }
+    else { alert(detail); }
   }
 }
 
