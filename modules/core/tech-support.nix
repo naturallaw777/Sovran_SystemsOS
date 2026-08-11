@@ -43,17 +43,24 @@
   ];
 
   # ── Scoped sudo rules for support staff ───────────────────────────────────
-  # Grants only the minimum privileges needed for a support session.
-  # Support staff cannot stop/disable/mask services or access wallet files.
+  # Grants only the minimum privileges needed for diagnostic support.
+  # Editing Nix configuration and running nixos-rebuild are intentionally
+  # excluded: combining those two permissions provides a trivial path to
+  # arbitrary root code execution.  Systemctl access is limited to a small
+  # allowlist of named service restart operations.
   security.sudo.extraRules = [
     {
       users = [ "sovran-support" ];
       commands = [
-        { command = "/run/current-system/sw/bin/nano /etc/nixos/custom.nix";        options = [ "NOPASSWD" ]; }
-        { command = "/run/current-system/sw/bin/nano /etc/nixos/configuration.nix"; options = [ "NOPASSWD" ]; }
-        { command = "/run/current-system/sw/bin/nixos-rebuild switch --flake /etc/nixos"; options = [ "NOPASSWD" ]; }
-        { command = "/run/current-system/sw/bin/systemctl restart *";               options = [ "NOPASSWD" ]; }
-        { command = "/run/current-system/sw/bin/journalctl *";                      options = [ "NOPASSWD" ]; }
+        { command = "/run/current-system/sw/bin/systemctl restart sovran-hub.service";  options = [ "NOPASSWD" ]; }
+        { command = "/run/current-system/sw/bin/systemctl restart caddy.service";       options = [ "NOPASSWD" ]; }
+        { command = "/run/current-system/sw/bin/systemctl restart bitcoind.service";    options = [ "NOPASSWD" ]; }
+        { command = "/run/current-system/sw/bin/systemctl restart lnd.service";         options = [ "NOPASSWD" ]; }
+        { command = "/run/current-system/sw/bin/systemctl status sovran-hub.service";   options = [ "NOPASSWD" ]; }
+        { command = "/run/current-system/sw/bin/systemctl status caddy.service";        options = [ "NOPASSWD" ]; }
+        { command = "/run/current-system/sw/bin/systemctl status bitcoind.service";     options = [ "NOPASSWD" ]; }
+        { command = "/run/current-system/sw/bin/systemctl status lnd.service";          options = [ "NOPASSWD" ]; }
+        { command = "/run/current-system/sw/bin/journalctl *";                          options = [ "NOPASSWD" ]; }
       ];
     }
   ];

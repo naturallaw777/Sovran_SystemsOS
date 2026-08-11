@@ -82,6 +82,23 @@ HUB_END     = "  # ── End Hub Managed ────────────�
 DOMAINS_DIR = "/var/lib/domains"
 NOSTR_NPUB_FILE   = "/var/lib/secrets/nostr_npub"
 NJALLA_SCRIPT     = "/var/lib/njalla/njalla.sh"
+NJALLA_DDNS_URLS_FILE = "/var/lib/njalla/ddns_urls.json"
+
+# Nostr npub validation: "npub1" followed by exactly 58 bech32 characters
+NPUB_RE = re.compile(r"^npub1[023456789acdefghjklmnpqrstuvwxyz]{58}$")
+
+# Accepted SSH public-key algorithms for support sessions
+_SSH_PUBKEY_ALGORITHMS = frozenset([
+    "ssh-ed25519",
+    "ecdsa-sha2-nistp256",
+    "ecdsa-sha2-nistp384",
+    "ecdsa-sha2-nistp521",
+    "sk-ssh-ed25519@openssh.com",
+])
+
+# DDNS URL: HTTPS only, no credentials, no control chars, max 2048 bytes
+_DDNS_URL_MAX_LEN = 2048
+_DDNS_CONTROL_RE  = re.compile(r"[\x00-\x1f\x7f]")
 
 # Systemd service that rewrites the Sovran-managed /etc/hosts loopback block
 SOVRAN_HOSTS_SERVICE = "sovran-hosts-update.service"
@@ -123,7 +140,7 @@ LOGIN_FAIL_WINDOW = 60.0  # rolling window (seconds) for counting failures
 LOGIN_FAIL_MAX    = 10    # max failures in window before extra delay
 
 # Public paths that are accessible without a valid session
-_AUTH_EXEMPT_PATHS = {"/login", "/api/login", "/api/updates/status", "/api/rebuild/status", "/auto-login", "/api/ping", "/api/reboot"}
+_AUTH_EXEMPT_PATHS = {"/login", "/api/login", "/auto-login", "/api/ping"}
 # Prefixes for static assets required by the login page
 _AUTH_EXEMPT_PREFIXES = (
     "/static/css/",
@@ -139,9 +156,6 @@ SECURITY_BANNER_DISMISSED_FLAG = "/var/lib/sovran/security-banner-dismissed"
 SUPPORT_KEY_FILE = "/root/.ssh/sovran_support_authorized"
 AUTHORIZED_KEYS  = "/root/.ssh/authorized_keys"
 SUPPORT_STATUS_FILE = "/var/lib/secrets/support-session-status"
-
-# Sovran Systems tech support public key
-SOVRAN_SUPPORT_PUBKEY = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPxPF2Qm11FQxC20wydKtlmn/Bo07YnDda3b9/CyXxQP free@nixos"
 
 SUPPORT_KEY_COMMENT = "sovransystemsos-support"
 
@@ -512,6 +526,97 @@ _DICEWARE_WORDS = [
     "aspen", "birch", "blaze", "bloom", "bluff", "coast", "copper", "crest",
     "dune", "elder", "fjord", "forge", "glade", "glen", "glow", "gulf",
 ]
+
+
+def _nix_escape(value: str) -> str:
+    """Escape *value* for use inside a Nix double-quoted string literal.
+
+    Handles backslashes, double-quotes, newlines, carriage returns, tabs, and
+    Nix-specific anti-quotation sequences (``${...}``).  The returned value is
+    safe to embed as ``"<returned_value>"`` in generated Nix source.
+    """
+    value = value.replace("\\", "\\\\")
+    value = value.replace('"', '\\"')
+    value = value.replace("\n", "\\n")
+    value = value.replace("\r", "\\r")
+    value = value.replace("\t", "\\t")
+    value = value.replace("${", "\\${")
+    return value
+
+
+def _validate_ddns_url(url: str) -> str:
+    """Validate *url* as a safe DDNS update URL and return it normalised.
+
+    Rules:
+    - Must be a valid URL parseable by urllib.parse.
+    - Scheme must be ``https`` (case-insensitive).
+    - No userinfo (credentials must not be embedded in the URL).
+    - No fragment.
+    - No control characters.
+    - Must not exceed ``_DDNS_URL_MAX_LEN`` bytes.
+    - Hostname must be present and not a raw IP address.
+
+    Raises ``ValueError`` with a safe (non-secret) message on failure.
+    """
+    if not url:
+        raise ValueError("DDNS URL must not be empty")
+    if len(url) > _DDNS_URL_MAX_LEN:
+        raise ValueError("DDNS URL exceeds maximum length")
+    if _DDNS_CONTROL_RE.search(url):
+        raise ValueError("DDNS URL contains control characters")
+    try:
+        parsed = urllib.parse.urlparse(url)
+    except Exception:
+        raise ValueError("DDNS URL could not be parsed")
+    if parsed.scheme.lower() != "https":
+        raise ValueError("DDNS URL must use the https scheme")
+    if parsed.username or parsed.password:
+        raise ValueError("DDNS URL must not contain credentials")
+    if parsed.fragment:
+        raise ValueError("DDNS URL must not contain a fragment")
+    hostname = parsed.hostname or ""
+    if not hostname:
+        raise ValueError("DDNS URL must contain a hostname")
+    # Reject raw IP addresses — DDNS providers use hostnames
+    try:
+        ipaddress.ip_address(hostname)
+        raise ValueError("DDNS URL hostname must not be a raw IP address")
+    except ValueError as exc:
+        if "raw IP" in str(exc):
+            raise
+    return url
+
+
+def _validate_ssh_pubkey(key: str) -> str:
+    """Validate *key* as a single OpenSSH public key and return it normalised.
+
+    Accepts only single-line keys with a supported algorithm, valid base64
+    payload, and an optional comment.  Rejects options, multiple lines,
+    control characters, and unsupported algorithms.
+
+    Raises ``ValueError`` with a safe message on failure.
+    """
+    key = key.strip()
+    if not key:
+        raise ValueError("SSH public key must not be empty")
+    if _DDNS_CONTROL_RE.search(key):
+        raise ValueError("SSH public key contains control characters")
+    if "\n" in key or "\r" in key:
+        raise ValueError("SSH public key must be a single line")
+    parts = key.split()
+    if len(parts) < 2:
+        raise ValueError("SSH public key is malformed")
+    algo, b64 = parts[0], parts[1]
+    if algo not in _SSH_PUBKEY_ALGORITHMS:
+        raise ValueError(f"Unsupported SSH key algorithm: {algo!r}")
+    # Validate base64 payload
+    try:
+        decoded = base64.b64decode(b64, validate=True)
+    except Exception:
+        raise ValueError("SSH public key payload is not valid base64")
+    if len(decoded) < 20:
+        raise ValueError("SSH public key payload is too short")
+    return key
 
 
 def _generate_diceware_password() -> str:
@@ -1847,11 +1952,11 @@ def _write_hub_overrides(features: dict, nostr_npub: str | None, timezone: str |
         else:
             lines.append(f"  sovran_systemsOS.features.{feat_id} = lib.mkForce {val};")
     if nostr_npub:
-        lines.append(f'  sovran_systemsOS.nostr_npub = lib.mkForce "{nostr_npub}";')
+        lines.append(f'  sovran_systemsOS.nostr_npub = lib.mkForce "{_nix_escape(nostr_npub)}";')
     if timezone:
-        lines.append(f'  time.timeZone = lib.mkForce "{timezone}";')
+        lines.append(f'  time.timeZone = lib.mkForce "{_nix_escape(timezone)}";')
     if locale:
-        lines.append(f'  i18n.defaultLocale = lib.mkForce "{locale}";')
+        lines.append(f'  i18n.defaultLocale = lib.mkForce "{_nix_escape(locale)}";')
     hub_block = (
         HUB_BEGIN + "\n"
         + "\n".join(lines) + ("\n" if lines else "")
@@ -1949,19 +2054,10 @@ def _is_sshd_feature_enabled() -> bool:
 # ── Tech Support helpers ──────────────────────────────────────────
 
 def _is_support_active() -> bool:
-    """Check if the support key is currently in authorized_keys or support user's authorized_keys."""
-    # Check support user's authorized_keys first
+    """Check if a per-session support key is currently installed."""
     try:
         with open(SUPPORT_USER_AUTH_KEYS, "r") as f:
-            if SUPPORT_KEY_COMMENT in f.read():
-                return True
-    except FileNotFoundError:
-        pass
-    # Fall back to root authorized_keys
-    try:
-        with open(AUTHORIZED_KEYS, "r") as f:
-            content = f.read()
-        return SUPPORT_KEY_COMMENT in content
+            return bool(f.read().strip())
     except FileNotFoundError:
         return False
 
@@ -2116,12 +2212,16 @@ def _get_wallet_unlock_info() -> dict:
         return {}
 
 
-def _enable_support() -> bool:
-    """Add the Sovran support public key to the restricted support user's authorized_keys.
+def _enable_support(pubkey: str) -> bool:
+    """Install a per-session SSH public key for the restricted support user.
 
-    Falls back to root's authorized_keys if the support user cannot be created.
+    The key is written only to the ``sovran-support`` account's
+    ``authorized_keys``; root's ``authorized_keys`` is never modified.
     Applies POSIX ACLs to wallet directories to prevent access by the support
     user without explicit user consent.
+
+    Args:
+        pubkey: A validated Ed25519/ECDSA OpenSSH public key string (single line).
     """
     try:
         use_restricted_user = _ensure_support_user()
@@ -2129,7 +2229,7 @@ def _enable_support() -> bool:
         if use_restricted_user:
             os.makedirs(SUPPORT_USER_SSH_DIR, mode=0o700, exist_ok=True)
             with open(SUPPORT_USER_AUTH_KEYS, "w") as f:
-                f.write(SOVRAN_SUPPORT_PUBKEY + "\n")
+                f.write(pubkey.strip() + "\n")
             os.chmod(SUPPORT_USER_AUTH_KEYS, 0o600)
             try:
                 pw = pwd.getpwnam(SUPPORT_USER)
@@ -2138,23 +2238,9 @@ def _enable_support() -> bool:
             except Exception:
                 pass
         else:
-            # Fallback: add key to root's authorized_keys
-            os.makedirs("/root/.ssh", mode=0o700, exist_ok=True)
-            with open(SUPPORT_KEY_FILE, "w") as f:
-                f.write(SOVRAN_SUPPORT_PUBKEY + "\n")
-            os.chmod(SUPPORT_KEY_FILE, 0o600)
-
-            existing = ""
-            try:
-                with open(AUTHORIZED_KEYS, "r") as f:
-                    existing = f.read()
-            except FileNotFoundError:
-                pass
-
-            if SUPPORT_KEY_COMMENT not in existing:
-                with open(AUTHORIZED_KEYS, "a") as f:
-                    f.write(SOVRAN_SUPPORT_PUBKEY + "\n")
-                os.chmod(AUTHORIZED_KEYS, 0o600)
+            # Support user could not be created; fail closed rather than
+            # falling back to root's authorized_keys.
+            return False
 
         acl_applied = _apply_wallet_acls() if use_restricted_user else False
         wallet_paths = _get_existing_wallet_paths()
@@ -2182,7 +2268,7 @@ def _enable_support() -> bool:
 
 
 def _disable_support() -> bool:
-    """Remove the Sovran support public key and revoke all wallet access."""
+    """Remove the per-session support key and revoke all wallet access."""
     try:
         # Remove from support user's authorized_keys
         try:
@@ -2190,18 +2276,7 @@ def _disable_support() -> bool:
         except FileNotFoundError:
             pass
 
-        # Remove from root's authorized_keys (fallback / legacy)
-        try:
-            with open(AUTHORIZED_KEYS, "r") as f:
-                lines = f.readlines()
-            filtered = [l for l in lines if SUPPORT_KEY_COMMENT not in l]
-            with open(AUTHORIZED_KEYS, "w") as f:
-                f.writelines(filtered)
-            os.chmod(AUTHORIZED_KEYS, 0o600)
-        except FileNotFoundError:
-            pass
-
-        # Remove the dedicated key file
+        # Remove the dedicated key file (legacy path, best-effort)
         try:
             os.remove(SUPPORT_KEY_FILE)
         except FileNotFoundError:
@@ -2229,19 +2304,14 @@ def _disable_support() -> bool:
 
 
 def _verify_support_removed() -> bool:
-    """Verify the support key is truly gone from all authorized_keys files."""
+    """Verify the support key is truly gone from the support user's authorized_keys."""
     try:
         with open(SUPPORT_USER_AUTH_KEYS, "r") as f:
-            if SUPPORT_KEY_COMMENT in f.read():
+            if f.read().strip():
                 return False
     except FileNotFoundError:
         pass
-    try:
-        with open(AUTHORIZED_KEYS, "r") as f:
-            content = f.read()
-        return SUPPORT_KEY_COMMENT not in content
-    except FileNotFoundError:
-        return True  # No file = no key = removed
+    return True
 
 
 # ── Routes ───────────────────────────────────────────────────────
@@ -3855,10 +3925,24 @@ async def api_support_status():
     }
 
 
+class SupportEnableRequest(BaseModel):
+    ssh_public_key: str
+
+
 @app.post("/api/support/enable")
-async def api_support_enable():
-    """Add the Sovran support SSH key to allow remote tech support.
-    Requires the sshd feature to be enabled first."""
+async def api_support_enable(req: SupportEnableRequest):
+    """Install a per-session SSH public key for the restricted support account.
+
+    The caller must supply a validated Ed25519 or ECDSA public key.  The key
+    is installed only for the ``sovran-support`` restricted user; root's
+    ``authorized_keys`` is never modified.  SSH must be enabled first.
+    """
+    # Validate the submitted public key before doing anything else
+    try:
+        validated_key = _validate_ssh_pubkey(req.ssh_public_key)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=f"Invalid SSH public key: {exc}")
+
     loop = asyncio.get_event_loop()
 
     # Gate: SSH feature must be enabled before support can be activated
@@ -3869,7 +3953,7 @@ async def api_support_enable():
             detail="SSH must be enabled first. Please enable SSH Remote Access, then try again.",
         )
 
-    ok = await loop.run_in_executor(None, _enable_support)
+    ok = await loop.run_in_executor(None, _enable_support, validated_key)
     if not ok:
         raise HTTPException(status_code=500, detail="Failed to enable support access")
     return {"ok": True, "message": "Support access enabled"}
@@ -4212,6 +4296,8 @@ async def api_features_toggle(req: FeatureToggleRequest):
         if req.feature == "haven":
             npub = (req.extra or {}).get("nostr_npub", "").strip()
             if npub:
+                if not NPUB_RE.fullmatch(npub):
+                    raise HTTPException(status_code=400, detail="Invalid Nostr npub (must be npub1 followed by 58 bech32 characters)")
                 nostr_npub = npub
             elif not nostr_npub:
                 raise HTTPException(status_code=400, detail="nostr_npub is required for Haven")
@@ -4227,6 +4313,8 @@ async def api_features_toggle(req: FeatureToggleRequest):
     # Persist any extra fields (nostr_npub)
     new_npub = (req.extra or {}).get("nostr_npub", "").strip()
     if new_npub:
+        if not NPUB_RE.fullmatch(new_npub):
+            raise HTTPException(status_code=400, detail="Invalid Nostr npub (must be npub1 followed by 58 bech32 characters)")
         nostr_npub = new_npub
         try:
             os.makedirs(os.path.dirname(NOSTR_NPUB_FILE), exist_ok=True)
@@ -4402,22 +4490,71 @@ def _ensure_njalla_script() -> None:
         pass
 
 
+def _load_ddns_urls() -> list[str]:
+    """Return the list of validated DDNS update URLs from the JSON store."""
+    try:
+        with open(NJALLA_DDNS_URLS_FILE, "r") as f:
+            data = json.load(f)
+        if isinstance(data, list):
+            return [u for u in data if isinstance(u, str)]
+    except (OSError, json.JSONDecodeError):
+        pass
+    return []
+
+
+def _save_ddns_urls(urls: list[str]) -> None:
+    """Persist the list of DDNS update URLs to the JSON store (atomic write)."""
+    njalla_dir = os.path.dirname(NJALLA_DDNS_URLS_FILE)
+    if njalla_dir:
+        os.makedirs(njalla_dir, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(dir=njalla_dir, prefix=".ddns_urls_tmp")
+    try:
+        with os.fdopen(fd, "w") as f:
+            json.dump(urls, f)
+        os.replace(tmp, NJALLA_DDNS_URLS_FILE)
+    except Exception:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
+
+
 def _run_njalla_ddns() -> None:
-    """Run the Njal.la DDNS script immediately (best-effort).
+    """Update Njal.la DDNS records immediately (best-effort).
+
+    Resolves the current public IP once, then invokes ``curl`` directly as a
+    subprocess for each stored DDNS update URL.  No shell interpolation is
+    performed and no user-controlled value is interpreted as shell syntax.
 
     Called when a domain/DDNS entry is saved and when a DDNS-backed feature
     is enabled, so DNS is refreshed right away instead of waiting for the
-    15-minute cron job (see configuration.nix).
+    15-minute cron job (see modules/core/njalla.nix).
     """
-    if not os.path.isfile(NJALLA_SCRIPT):
+    urls = _load_ddns_urls()
+    if not urls:
         return
+    # Resolve current public IP (best-effort; skip if unavailable)
     try:
-        subprocess.run(
-            ["bash", NJALLA_SCRIPT], timeout=30, check=False,
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        ip_result = subprocess.run(
+            ["dig", "@resolver4.opendns.com", "myip.opendns.com", "+short", "-4"],
+            capture_output=True, text=True, timeout=10, check=False,
         )
+        public_ip = ip_result.stdout.strip()
     except Exception:
-        pass
+        public_ip = ""
+
+    for raw_url in urls:
+        try:
+            # Replace the placeholder with the resolved IP (safe string replacement)
+            url = raw_url.replace("${IP}", public_ip) if public_ip else raw_url
+            subprocess.run(
+                ["curl", "--silent", "--max-time", "15", "--fail", url],
+                timeout=20, check=False,
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            )
+        except Exception:
+            pass
 
 
 def _reload_caddy_for_domain_change() -> None:
@@ -4550,25 +4687,29 @@ async def api_domains_set(req: DomainSetRequest):
 
     if req.ddns_url:
         ddns_url = req.ddns_url.strip()
-        # Strip leading "curl " if present
+        # Strip leading "curl " if user pasted the full command from Njalla's UI
         if ddns_url.lower().startswith("curl "):
             ddns_url = ddns_url[5:].strip()
         # Strip surrounding quotes
         if len(ddns_url) >= 2 and ddns_url[0] in ('"', "'") and ddns_url[-1] == ddns_url[0]:
             ddns_url = ddns_url[1:-1]
-        # Replace trailing &auto with &a=${IP}
+        # Replace trailing &auto with the IP placeholder used by _run_njalla_ddns
         if ddns_url.endswith("&auto"):
             ddns_url = ddns_url[:-5] + "&a=${IP}"
-        # Append curl line to njalla.sh, creating the base script first if
-        # needed so the shebang/IP lookup are present for this run and cron.
-        _ensure_njalla_script()
-        with open(NJALLA_SCRIPT, "a") as f:
-            f.write(f'curl "{ddns_url}"\n')
+        # Validate URL strictly — reject injection attempts before persisting
         try:
-            os.chmod(NJALLA_SCRIPT, 0o755)
+            ddns_url = _validate_ddns_url(ddns_url)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=f"Invalid DDNS URL: {exc}")
+        # Persist the URL in the JSON store (never in executable shell source)
+        existing_urls = _load_ddns_urls()
+        if ddns_url not in existing_urls:
+            existing_urls.append(ddns_url)
+        try:
+            _save_ddns_urls(existing_urls)
         except OSError:
             pass
-        # Run njalla.sh immediately to update DNS
+        # Run DDNS update immediately
         _run_njalla_ddns()
 
     # Regenerate the server-local /etc/hosts loopback entries so the newly
