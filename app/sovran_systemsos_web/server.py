@@ -149,7 +149,6 @@ SESSION_MAX_AGE         = 86400  # 24 hours
 # Sessions are persisted here so logins survive a restart of the Hub service.
 # nixos-rebuild switch restarts sovran-hub-web.service during activation (its
 # unit definition changes with every feature toggle — e.g. the Bitcoin
-# Knots → Core switch changes services.bitcoind.package, which is on the Hub's
 # PATH).  Without persistence the browser session dies mid-rebuild, the
 # /api/rebuild/status polling starts receiving 401s and the rebuild modal
 # hangs forever showing "Applying changes…".  The file lives in
@@ -319,18 +318,6 @@ FEATURE_REGISTRY = [
         "port_requirements": [],
     },
     {
-        "id": "bitcoin-core",
-        "name": "Bitcoin Core",
-        "description": "Only one Bitcoin node implementation can be active: Bitcoin Knots + BIP110 (default) or Bitcoin Core. Enabling this replaces Knots + BIP110 with Bitcoin Core. Your timechain data is preserved.",
-        "category": "bitcoin",
-        "needs_domain": False,
-        "domain_name": None,
-        "needs_ddns": False,
-        "extra_fields": [],
-        "conflicts_with": [],
-        "port_requirements": [],
-    },
-    {
         "id": "sshd",
         "name": "SSH Remote Access",
         "description": "Enable SSH for remote terminal access. Required for Tech Support. Disabled by default for security — enable only when needed.",
@@ -363,7 +350,7 @@ FEATURE_REGISTRY = [
 
 # Feature ids that have been removed/deprecated. The Hub must never write these
 # back into custom.nix, and should strip any it finds (see startup migration).
-DEPRECATED_FEATURE_IDS: set[str] = {"bip110"}
+DEPRECATED_FEATURE_IDS: set[str] = {"bitcoin-core"}
 
 # Map feature IDs to their systemd units in config.json
 FEATURE_SERVICE_MAP = {
@@ -371,7 +358,6 @@ FEATURE_SERVICE_MAP = {
     "haven": "haven-relay.service",
     "element-calling": "livekit.service",
     "mempool": "mempool.service",
-    "bitcoin-core": None,
     "btcpay-web": "btcpayserver.service",
     "nwc-wallets": "albyhub.service",
     "sshd": "sshd.service",
@@ -426,9 +412,7 @@ SERVICE_DOMAIN_MAP: dict[str, str] = {
 }
 
 # For features that share a unit, disambiguate by icon field
-FEATURE_ICON_MAP = {
-    "bitcoin-core": "bitcoin-core",
-}
+FEATURE_ICON_MAP: dict[str, str] = {}
 
 ROLE_LABELS = {
     "server_plus_desktop": "Server + Desktop",
@@ -447,7 +431,7 @@ ROLE_CATEGORIES: dict[str, set[str] | None] = {
 ROLE_FEATURES: dict[str, set[str] | None] = {
     "server_plus_desktop": None,
     "desktop":             {"rdp", "sshd"},
-    "node":                {"rdp", "bitcoin-core", "mempool", "btcpay-web", "nwc-wallets", "sshd"},
+    "node":                {"rdp", "mempool", "btcpay-web", "nwc-wallets", "sshd"},
 }
 
 SERVICE_DESCRIPTIONS: dict[str, str] = {
@@ -2080,7 +2064,7 @@ def _is_feature_enabled_in_config(feature_id: str) -> bool | None:
         return False  # Default off in Node role; only on via explicit hub toggle
     unit = FEATURE_SERVICE_MAP.get(feature_id)
     if unit is None:
-        return None  # bitcoin-core — can't determine from config
+        return None
     cfg = load_config()
     for svc in cfg.get("services", []):
         if svc.get("unit") == unit:
@@ -2823,21 +2807,11 @@ BITCOIN_DATADIR = "/run/media/Second_Drive/BTCEcoandBackup/Bitcoin_Node"
 _btc_sync_cache: tuple[float, dict | None] = (0.0, None)
 _BTC_SYNC_CACHE_TTL = 5  # seconds
 
-_btc_version_cache: tuple[float, dict | None] = (0.0, None)
 _BTC_VERSION_CACHE_TTL = 60  # seconds — version doesn't change at runtime
 
 # Cache for ``bitcoind --version`` output (available even before RPC is ready)
 _btcd_version_cache: tuple[float, str | None] = (0.0, None)
 
-# Cache for ``bitcoin-cli getdeploymentinfo`` output (BIP-110 live status)
-_btc_deployment_cache: tuple[float, dict | None] = (0.0, None)
-
-# Bitcoin Knots exposes BIP-110 as the `reduced_data` versionbits deployment
-# (RDTS, bit 4) in getdeploymentinfo. See Knots src/deploymentinfo.cpp,
-# src/kernel/chainparams.cpp, and doc/bips.md.
-BIP110_DEPLOYMENT_NAMES = {"reduced_data", "rdts", "bip110", "uasf-bip110"}
-BIP110_VERSIONBITS_BIT = 4
-BIP110_SUBVERSION_MARKERS = {"bip110", "uasf-bip110", "reduced_data", "rdts"}
 
 
 # ── Generic service version detection (NixOS store path) ─────────
@@ -2963,213 +2937,12 @@ def _get_service_version(unit: str) -> str | None:
     return version
 
 
-def _parse_bitcoin_subversion(subversion: str) -> str:
-    """Parse a subversion string like '/Bitcoin Knots:27.1.0/' into 'v27.1.0'.
-
-    Examples:
-      '/Bitcoin Knots:27.1.0/'          → 'v27.1.0'
-      '/Satoshi:27.0.0/'                → 'v27.0.0'
-      '/Bitcoin Knots:27.1.0(bip110)/'  → 'v27.1.0 (bip110)'
-    Falls back to the raw subversion string if parsing fails.
-    """
-    m = re.search(r":(\d+\.\d+(?:\.\d+)*)", subversion)
-    if m:
-        ver = "v" + m.group(1)
-        if "(bip110)" in subversion.lower():
-            ver += " (bip110)"
-        return ver
-    return subversion
-
-
-def _get_bitcoin_version_info() -> dict | None:
-    """Call bitcoin-cli getnetworkinfo and return parsed JSON, or None on error.
-
-    Results are cached for _BTC_VERSION_CACHE_TTL seconds since the version
-    does not change while the service is running.
-    """
-    global _btc_version_cache
-    now = time.monotonic()
-    cached_at, cached_val = _btc_version_cache
-    if now - cached_at < _BTC_VERSION_CACHE_TTL:
-        return cached_val
-
-    try:
-        result = subprocess.run(
-            ["bitcoin-cli", f"-datadir={BITCOIN_DATADIR}", "getnetworkinfo"],
-            capture_output=True,
-            text=True,
-            # This is a dashboard hint; do not make an unavailable RPC delay
-            # the entire service tile response.
-            timeout=3,
-        )
-        if result.returncode != 0:
-            _btc_version_cache = (now, None)
-            return None
-        info = json.loads(result.stdout)
-        _btc_version_cache = (now, info)
-        return info
-    except Exception:
-        _btc_version_cache = (now, None)
-        return None
-
-
-def _get_bitcoin_deployment_info() -> dict | None:
-    """Call bitcoin-cli getdeploymentinfo and return parsed JSON, or None on error.
-
-    Results are cached for _BTC_VERSION_CACHE_TTL seconds.  Never raises.
-    """
-    global _btc_deployment_cache
-    now = time.monotonic()
-    cached_at, cached_val = _btc_deployment_cache
-    if now - cached_at < _BTC_VERSION_CACHE_TTL:
-        return cached_val
-
-    try:
-        result = subprocess.run(
-            ["bitcoin-cli", f"-datadir={BITCOIN_DATADIR}", "getdeploymentinfo"],
-            capture_output=True,
-            text=True,
-            # BIP-110 is supplementary tile metadata; an RPC timeout must not
-            # block the dashboard from rendering.
-            timeout=3,
-        )
-        if result.returncode != 0:
-            _btc_deployment_cache = (now, None)
-            return None
-        info = json.loads(result.stdout)
-        _btc_deployment_cache = (now, info)
-        return info
-    except Exception:
-        _btc_deployment_cache = (now, None)
-        return None
-
-
-def _get_bip110_status() -> dict:
-    """Return a dict describing the live BIP-110 deployment/signaling state.
-
-    The returned struct has four stable keys::
-
-        {
-          "supported": bool,   # node build is BIP-110-capable
-          "signaling": bool,   # node is actively signaling / locked-in / active
-          "state": str,        # "active" | "locked_in" | "signaling" |
-                               # "not_signaling" | "unsupported" | "unknown"
-          "source": str,       # "getdeploymentinfo" | "subversion" | "none"
-        }
-
-    Resolution order (authoritative → fallback → honest unknown):
-
-    1. ``getdeploymentinfo`` (authoritative) — scan ``deployments`` for BIP-110.
-       Bitcoin Knots currently exposes BIP-110 as ``reduced_data`` (RDTS, bit 4;
-       see Knots deploymentinfo.cpp / chainparams.cpp / doc/bips.md), so matching
-       first uses known deployment names, then falls back to versionbits bit 4.
-
-    2. Subversion fallback — if getdeploymentinfo is unavailable or yields no
-       recognisable BIP-110 entry, inspect the ``subversion`` field from
-       ``getnetworkinfo``.  A case-insensitive match for known BIP-110 markers
-       (including "bip110", "uasf-bip110", "reduced_data", "rdts") is treated as
-       "signaling".
-
-    3. Unknown — if the node is entirely unreachable or neither source is
-       conclusive, return state="unknown", signaling=False, source="none".
-    """
-    _unknown: dict = {"supported": False, "signaling": False, "state": "unknown", "source": "none"}
-
-    def _deployment_bit(entry: dict) -> int | None:
-        bip9 = entry.get("bip9", {}) or {}
-        bip8 = entry.get("bip8", {}) or {}
-        bit = bip9.get("bit")
-        if bit is None:
-            bit = bip8.get("bit")
-        if bit is None:
-            bit = entry.get("bit")
-        return bit
-
-    # ── 1. getdeploymentinfo (authoritative) ──────────────────────────
-    deploy_info = _get_bitcoin_deployment_info()
-    if deploy_info is not None:
-        deployments = deploy_info.get("deployments", {})
-        if isinstance(deployments, dict):
-            matched_entry: dict | None = None
-
-            # Primary match: known deployment names (case-insensitive exact match)
-            for key, entry in deployments.items():
-                if not isinstance(entry, dict):
-                    continue
-                key_lower = key.lower()
-                if key_lower not in BIP110_DEPLOYMENT_NAMES:
-                    continue
-                matched_entry = entry
-                break
-
-            # Secondary match: versionbits bit (fallback only)
-            if matched_entry is None:
-                for _, entry in deployments.items():
-                    if not isinstance(entry, dict):
-                        continue
-                    if _deployment_bit(entry) != BIP110_VERSIONBITS_BIT:
-                        continue
-                    matched_entry = entry
-                    break
-
-            if matched_entry is not None:
-                entry = matched_entry
-
-                # bip9 / bip8 status field
-                bip9 = entry.get("bip9", {}) or {}
-                bip8 = entry.get("bip8", {}) or {}
-                status = (
-                    bip9.get("status")
-                    or bip8.get("status")
-                    or entry.get("status")
-                    or ""
-                ).lower()
-                active = entry.get("active", False)
-
-                if active or status == "active":
-                    return {"supported": True, "signaling": True, "state": "active", "source": "getdeploymentinfo"}
-                if status == "locked_in":
-                    return {"supported": True, "signaling": True, "state": "locked_in", "source": "getdeploymentinfo"}
-                if status in ("started", "defined"):
-                    # Check whether deployment is currently signaling in this period.
-                    stats = bip9.get("statistics") or bip8.get("statistics") or {}
-                    # Some Knots outputs expose only ``count`` (not explicit signaling bool),
-                    # so treat count>0 as a conservative signaling indicator for this period.
-                    count = stats.get("count")
-                    signaling = bool(
-                        stats.get("signaling")
-                        or stats.get("signalling")
-                        or (isinstance(count, int) and count > 0)
-                    )
-                    if signaling:
-                        return {"supported": True, "signaling": True, "state": "signaling", "source": "getdeploymentinfo"}
-                    return {"supported": True, "signaling": False, "state": "not_signaling", "source": "getdeploymentinfo"}
-                if status == "failed":
-                    return {"supported": True, "signaling": False, "state": "not_signaling", "source": "getdeploymentinfo"}
-                # Entry found but status unrecognised — node supports BIP-110 but state unclear
-                return {"supported": True, "signaling": False, "state": "unknown", "source": "getdeploymentinfo"}
-
-    # ── 2. Subversion fallback ─────────────────────────────────────────
-    net_info = _get_bitcoin_version_info()
-    if net_info is not None:
-        subversion = net_info.get("subversion", "") or ""
-        sv_lower = subversion.lower()
-        if any(marker in sv_lower for marker in BIP110_SUBVERSION_MARKERS):
-            return {"supported": True, "signaling": True, "state": "signaling", "source": "subversion"}
-        # Node is reachable via RPC but no BIP-110 marker found anywhere
-        return {"supported": False, "signaling": False, "state": "unsupported", "source": "subversion"}
-
-    # ── 3. Node unreachable / RPC not ready ───────────────────────────
-    return _unknown
 
 
 def _get_bitcoind_version() -> str | None:
     """Run ``bitcoind --version`` and return the raw version string, or None on error.
 
     Parses the first output line to extract the token after "version ".
-    For example: "Bitcoin Knots daemon version v29.3.knots20260508"
-    returns "v29.3.knots20260508".
-
     Works regardless of whether the RPC server is ready (IBD, warmup, etc.).
     Results are cached for 60 seconds (_BTC_VERSION_CACHE_TTL).
     """
@@ -3200,17 +2973,9 @@ def _get_bitcoind_version() -> str | None:
     return None
 
 
-def _format_bitcoin_version(raw_version: str, icon: str = "") -> str:
-    """Format a raw version string from ``bitcoind --version`` for tile display.
-
-    For the BIP110 tile (icon == "bip110") a " (bip110)" tag is appended,
-    since mainline Bitcoin Knots (29.3.knots20260508+) now includes BIP-110
-    and no longer carries a separate ``+bip110-vX.Y.Z`` suffix.
-    """
-    display = raw_version
-    if icon == "bip110" and "(bip110)" not in display.lower():
-        display += " (bip110)"
-    return display
+def _format_bitcoin_version(raw_version: str) -> str:
+    """Format a raw version string from ``bitcoind --version`` for display."""
+    return raw_version
 
 
 def _get_bitcoin_sync_info() -> dict | None:
@@ -3277,19 +3042,6 @@ async def api_bitcoin_version():
         "version": _format_bitcoin_version(raw_ver),
         "raw_version": raw_ver,
     }
-
-
-@app.get("/api/bitcoin/bip110")
-async def api_bitcoin_bip110():
-    """Return live BIP-110 deployment/signaling status from bitcoin-cli.
-
-    Always returns HTTP 200.  When bitcoind is unreachable or the node is mid-IBD
-    the response will contain ``state = "unknown"`` so the UI can render a neutral
-    badge rather than an error toast.
-    """
-    loop = asyncio.get_event_loop()
-    status = await loop.run_in_executor(None, _get_bip110_status)
-    return status
 
 
 @app.get("/api/services")
@@ -3371,15 +3123,10 @@ async def api_services():
     dns_states_future = asyncio.gather(
         *(resolve_domain(domain) for domain in sorted(domain_names))
     )
-    # Bitcoin sync and BIP-110 are supplementary tile metadata.  Fetch each
-    # once, concurrently with the other diagnostics, instead of doing duplicate
-    # RPC calls inside both bitcoind tile coroutines.
+    # Bitcoin sync is supplementary tile metadata. Fetch it once alongside
+    # the other diagnostics instead of duplicating RPC calls per tile.
     has_enabled_bitcoin = any(
         entry.get("unit") == "bitcoind.service" and enabled
-        for entry, enabled in effective_entries
-    )
-    has_enabled_bip110 = any(
-        entry.get("icon") == "bip110" and enabled
         for entry, enabled in effective_entries
     )
     bitcoin_sync_future = (
@@ -3387,23 +3134,16 @@ async def api_services():
         if has_enabled_bitcoin
         else asyncio.sleep(0, result=None)
     )
-    bip110_future = (
-        loop.run_in_executor(None, _get_bip110_status)
-        if has_enabled_bip110
-        else asyncio.sleep(0, result=None)
-    )
     (
         active_states,
         port_states,
         dns_states,
         bitcoin_sync_info,
-        bip110_status,
     ) = await asyncio.gather(
         active_states_future,
         port_states_future,
         dns_states_future,
         bitcoin_sync_future,
-        bip110_future,
     )
     listening_ports, firewall_ports = port_states
     resolved_domains = dict(dns_states)
@@ -3559,11 +3299,9 @@ async def api_services():
         if unit == "bitcoind.service" and enabled:
             raw_ver = await loop.run_in_executor(None, _get_bitcoind_version)
             if raw_ver is not None:
-                btc_ver = _format_bitcoin_version(raw_ver, icon=icon)
+                btc_ver = _format_bitcoin_version(raw_ver)
                 service_data["bitcoin_version"] = btc_ver  # backwards compat
                 service_data["version"] = btc_ver
-            if icon == "bip110" and bip110_status is not None:
-                service_data["bip110"] = bip110_status
         # ── Generic version for all services (Nix store path) ──────────
         if enabled and unit and "version" not in service_data:
             ver = await loop.run_in_executor(None, _get_service_version, unit)
@@ -3840,11 +3578,9 @@ async def api_service_detail(unit: str, icon: str | None = None):
         loop = asyncio.get_event_loop()
         raw_ver = await loop.run_in_executor(None, _get_bitcoind_version)
         if raw_ver is not None:
-            btc_ver = _format_bitcoin_version(raw_ver, icon=icon)
+            btc_ver = _format_bitcoin_version(raw_ver)
             service_detail["bitcoin_version"] = btc_ver  # backwards compat
             service_detail["version"] = btc_ver
-        if icon == "bip110":
-            service_detail["bip110"] = await loop.run_in_executor(None, _get_bip110_status)
     # ── Generic version for all services (Nix store path) ──────────
     if enabled and unit and "version" not in service_detail:
         ver = await loop.run_in_executor(None, _get_service_version, unit)
@@ -6325,8 +6061,7 @@ async def _startup_recover_stale_status():
 
 @app.on_event("startup")
 async def _startup_migrate_deprecated_features():
-    """Strip deprecated feature lines (e.g. bip110) from the Hub Managed section
-    of custom.nix so they are never re-written and do not cause stale warnings."""
+    """Strip deprecated feature lines from the Hub Managed section of custom.nix."""
     loop = asyncio.get_event_loop()
     await loop.run_in_executor(None, _migrate_strip_deprecated_features)
 

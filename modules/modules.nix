@@ -35,7 +35,6 @@
     ./nwc-wallets.nix
     ./element-calling.nix
     ./mempool.nix
-    ./bitcoin-core.nix
     ./rdp.nix
     ./sshd.nix
   ];

@@ -403,10 +403,7 @@ function handleFeatureToggle(feat, newEnabled) {
     openPortRequirementsModal(feat.name, ports, proceedAfterPortCheck);
   }
 
-  if (feat.id === "bitcoin-core") {
-    var confirmMsg = "Only one Bitcoin node implementation can be active. Enabling Bitcoin Core will replace Bitcoin Knots + BIP110 as the active node. Your timechain data will be preserved — you will not need to re-download the timechain. Continue?";
-    openFeatureConfirm(confirmMsg, proceedAfterConflictCheck);
-  } else if (conflictNames.length > 0) {
+  if (conflictNames.length > 0) {
     openFeatureConfirm("This will disable " + conflictNames.join(", ") + ". Continue?", proceedAfterConflictCheck);
   } else {
     proceedAfterConflictCheck();

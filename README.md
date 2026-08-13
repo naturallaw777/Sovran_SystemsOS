@@ -73,8 +73,7 @@ Sovran_SystemsOS solves both with one operating system:
 - **Buy and sell Bitcoin peer-to-peer** with Bisq and Bisq 2. No central
   company holds user funds, and no exchange account stands between buyers and
   sellers.
-- **Verify your own Bitcoin** with a full node: [Bitcoin
-  Knots](https://bitcoinknots.org) and
+- **Verify your own Bitcoin** with a full node: [Bitcoin Core](https://bitcoin.org) and
   [Electrs](https://github.com/romanz/electrs), so your wallets connect to
   *your* node instead of a stranger's.
 - **Use Lightning** with [LND](https://github.com/lightningnetwork/lnd) and
@@ -150,13 +149,13 @@ presents and manages the features available on your system.
 
 ### Your money — Bitcoin sovereignty
 
-- Bitcoin Knots, Electrs, and Tor integration
+- Bitcoin Core, Electrs, and Tor integration
 - LND and Ride The Lightning, with [Alby Hub](https://albyhub.com) for Nostr
   Wallet Connect (NWC) connections
 - BTCPay Server
 - Sparrow Wallet, Bisq, and Bisq 2, with automatic wallet-to-node connections
 - Optional: a self-hosted [Mempool](https://github.com/mempool/mempool)
-  explorer, or Bitcoin Core in place of Knots
+  explorer
 
 Run your own Bitcoin infrastructure. Verify your own money. Trust no one.
 
@@ -202,7 +201,7 @@ Bitcoin and self-hosting infrastructure runs on the machine.
 | Mode | Best for | What you get |
 |---|---|---|
 | **Desktop** | Everyday users and computers with modest hardware | Sparrow, Bisq, and Bisq 2 for self-custody and peer-to-peer Bitcoin use |
-| **Node** | People ready to verify and operate their own Bitcoin infrastructure | Everything in Desktop, plus the full Bitcoin stack: Bitcoin Knots, Electrs, LND, Ride The Lightning, BTCPay Server, and wallet-to-node connections |
+| **Node** | People ready to verify and operate their own Bitcoin infrastructure | Everything in Desktop, plus the full Bitcoin stack: Bitcoin Core, Electrs, LND, Ride The Lightning, BTCPay Server, and wallet-to-node connections |
 | **Server + Desktop** | Bitcoiners who want the same sovereignty over their communications, cloud, passwords, and web services | The complete Node stack, plus the private self-hosted services |
 
 **Desktop: start with your keys.** Desktop is not a reduced or Bitcoin-free
@@ -688,7 +687,6 @@ rebuilds the machine into the selected declarative state.
 | Shared credentials | `modules/credentials.nix` |
 | Bitcoin and Lightning stack | `modules/bitcoinecosystem.nix` |
 | Automatic wallet-to-node connections | `modules/wallet-autoconnect.nix` |
-| Optional Bitcoin Core in place of Knots | `modules/bitcoin-core.nix` |
 | Alby Hub and Nostr Wallet Connect (NWC) on LND | `modules/nwc-wallets.nix`, `packages/albyhub/` |
 | Matrix Synapse | `modules/synapse.nix` |
 | Optional Element audio and video calling via LiveKit | `modules/element-calling.nix` |
@@ -777,7 +775,6 @@ This work helps make it possible for Sovran_SystemsOS to deliver self-custody an
 
 Sovran_SystemsOS also depends on the work of the developers and communities behind:
 
-- [Bitcoin Knots](https://github.com/bitcoinknots/bitcoin)
 - [Bitcoin Core](https://github.com/bitcoin/bitcoin)
 - [Sparrow Wallet](https://github.com/sparrowwallet/sparrow)
 - [Bisq](https://github.com/bisq-network/bisq)

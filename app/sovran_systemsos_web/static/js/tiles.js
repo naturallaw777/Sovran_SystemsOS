@@ -4,14 +4,6 @@
 // Keyed by tileId: { progress: float, timestamp: ms }
 var _btcSyncPrev = {};
 
-// ── BIP-110 badge helper ──────────────────────────────────────────
-
-function _renderBip110Badge(bip110) {
-  if (!bip110) return '';
-  var state = bip110.state || 'unknown';
-  var cfg = BIP110_BADGE_CONFIG[state] || BIP110_BADGE_CONFIG.unknown;
-  return '<div class="tile-bip110-badge ' + cfg.cls + '" title="' + escHtml(cfg.title) + '">' + escHtml(cfg.label) + '</div>';
-}
 
 function _firstElementFromHtml(html) {
   var tmp = document.createElement("div");
@@ -175,8 +167,7 @@ function buildTile(svc) {
     return tile;
   }
 
-  var bip110Badge = (svc.icon === 'bip110') ? _renderBip110Badge(svc.bip110) : '';
-  tile.innerHTML = '<img class="tile-icon" src="/static/icons/' + escHtml(svc.icon) + '.svg" alt="' + escHtml(svc.name) + '" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'"><div class="tile-icon-fallback" style="display:none">?</div><div class="tile-name">' + escHtml(svc.name) + '</div>' + bip110Badge + '<div class="tile-status"><span class="status-dot ' + sc + '"></span><span class="status-text">' + st + '</span></div>';
+  tile.innerHTML = '<img class="tile-icon" src="/static/icons/' + escHtml(svc.icon) + '.svg" alt="' + escHtml(svc.name) + '" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'"><div class="tile-icon-fallback" style="display:none">?</div><div class="tile-name">' + escHtml(svc.name) + '</div><div class="tile-status"><span class="status-dot ' + sc + '"></span><span class="status-text">' + st + '</span></div>';
 
   tile.style.cursor = "pointer";
   tile.addEventListener("click", function() {
@@ -244,23 +235,6 @@ function updateTiles(services) {
       var text = tile.querySelector(".status-text");
       if (dot) dot.className = "status-dot " + sc;
       if (text) text.textContent = st;
-      // Update BIP-110 badge for bip110 tiles
-      if (svc.icon === 'bip110') {
-        var badgeHtml = _renderBip110Badge(svc.bip110);
-        var badgeEl = tile.querySelector(".tile-bip110-badge");
-        if (badgeEl) {
-          // Replace existing badge in-place
-          var newBadge = _firstElementFromHtml(badgeHtml);
-          if (newBadge) { badgeEl.replaceWith(newBadge); } else { badgeEl.remove(); }
-        } else if (badgeHtml) {
-          // Insert badge after the service name
-          var anchorEl = tile.querySelector(".tile-name");
-          if (anchorEl) {
-            var newBadgeEl = _firstElementFromHtml(badgeHtml);
-            if (newBadgeEl) anchorEl.insertAdjacentElement("afterend", newBadgeEl);
-          }
-        }
-      }
     }
   }
 }

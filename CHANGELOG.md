@@ -10,7 +10,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
-- Fix Bitcoin Knots → Bitcoin Core switch hanging in the Hub UI
   - Sessions are now persisted to `/var/lib/secrets/hub-sessions.json` so the
     browser login survives the Hub service restart that `nixos-rebuild switch`
     performs during activation. Previously the in-memory session store was
@@ -243,7 +242,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Integrated Sparrow Wallet, Bisq, and Bisq 2
 - Comprehensive Sovran Hub for service management
 - NixOS-based operating system with privacy and sovereignty focus
-- Support for Bitcoin Knots + BIP110, Electrs, LND, Ride The Lightning, BTCPay Server, and more
+- Support for Bitcoin Core, Electrs, LND, Ride The Lightning, BTCPay Server, and more
 - Server + Desktop hybrid mode with Matrix, Nextcloud, VaultWarden, and other self-hosted services
 - Automated installer with graphical GNOME desktop
 - Tor integration and onion services for all major components
