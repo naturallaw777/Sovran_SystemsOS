@@ -704,20 +704,6 @@ async function openServiceDetailModal(unit, name, icon) {
       '</div>' +
       '</div>');
 
-    // Section B2: BIP-110 live status (bip110 tile only)
-    if (icon === 'bip110' && data.bip110) {
-      var bip110 = data.bip110;
-      var bip110State = bip110.state || 'unknown';
-      var bip110Cfg = BIP110_BADGE_CONFIG[bip110State] || BIP110_BADGE_CONFIG.unknown;
-      var bip110Source = bip110.source ? ' <span class="bip110-source-label">(source: ' + escHtml(bip110.source) + ')</span>' : '';
-      html += '<div class="svc-detail-section">' +
-        '<div class="svc-detail-section-title">BIP-110 Deployment Status</div>' +
-        '<div class="bip110-status-row">' +
-          '<span class="tile-bip110-badge ' + bip110Cfg.cls + '" title="' + escHtml(bip110Cfg.title) + '">' + escHtml(bip110Cfg.label) + '</span>' +
-          bip110Source +
-        '</div>' +
-        '</div>';
-    }
 
     // Section C: Domain diagnostics (domain services)
     if (data.needs_domain) {
@@ -901,9 +887,7 @@ async function openServiceDetailModal(unit, name, icon) {
       var addonBtnCls      = feat.enabled ? "btn btn-close-modal" : "btn btn-primary";
 
       // Section title: use a more specific label for mutually-exclusive Bitcoin node features
-      var addonSectionTitle = (feat.id === "bitcoin-core")
-        ? "\u20BF Bitcoin Node Selection"
-        : "\uD83D\uDD27 Addon Feature";
+      var addonSectionTitle = "\uD83D\uDD27 Addon Feature";
 
       // Description: prefer the feature's own description over a generic fallback
       var addonDesc = feat.description

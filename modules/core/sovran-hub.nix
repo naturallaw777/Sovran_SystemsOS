@@ -37,12 +37,9 @@ let
         { label = "How to Connect"; value = "1. Install an RDP client (e.g. Remmina, Microsoft Remote Desktop)\n2. Create a new RDP connection\n3. Enter the Address above as the host\n4. Enter the Username and Password above"; }
       ]; }
     ]
-    # ── Bitcoin Base (node implementations) ────────────────────
+    # ── Bitcoin Base ────────────────────────────────────────────
     ++ lib.optionals cfg.services.bitcoin [
-      { name = "Bitcoin Knots + BIP110"; unit = "bitcoind.service"; type = "system"; icon = "bip110";        enabled = cfg.services.bitcoin && !cfg.features.bitcoin-core; category = "bitcoin-base"; credentials = [
-        { label = "Tor Address — Access from anywhere via Tor Browser"; file = "/var/lib/tor/onion/bitcoind/hostname"; prefix = "http://"; }
-      ]; }
-      { name = "Bitcoin Core";           unit = "bitcoind.service"; type = "system"; icon = "bitcoin-core";  enabled = cfg.features.bitcoin-core;  category = "bitcoin-base"; credentials = [
+      { name = "Bitcoin Core"; unit = "bitcoind.service"; type = "system"; icon = "bitcoin-core"; enabled = cfg.services.bitcoin; category = "bitcoin-base"; credentials = [
         { label = "Tor Address — Access from anywhere via Tor Browser"; file = "/var/lib/tor/onion/bitcoind/hostname"; prefix = "http://"; }
       ]; }
     ]
@@ -132,7 +129,7 @@ let
     "caddy.service" = if pkgs ? caddy then pkgs.caddy.version else "2.8.4";
     "tor.service" = if pkgs ? tor then pkgs.tor.version else "0.4.8.12";
     "gnome-remote-desktop.service" = if pkgs ? gnome-remote-desktop then pkgs.gnome-remote-desktop.version else "46.0";
-    "bitcoind.service" = if pkgs ? bitcoind-knots then pkgs.bitcoind-knots.version else (if pkgs ? bitcoind then pkgs.bitcoind.version else "27.1.0");
+    "bitcoind.service" = if pkgs ? bitcoind then pkgs.bitcoind.version else "27.1.0";
     "electrs.service" = if pkgs ? electrs then pkgs.electrs.version else "0.10.6";
     "lnd.service" = if pkgs ? lnd then pkgs.lnd.version else "0.18.0";
     # Keep the fallbacks aligned with the vendored packages used by the
@@ -244,7 +241,7 @@ let
     # Stream output straight into $LOG (tee'd by the exec redirect above) so
     # the Hub UI shows live progress.  Capturing the output in a variable
     # kept the log empty for the entire build+activation, which made long
-    # rebuilds (e.g. the Bitcoin Knots → Core switch) look like a hang.
+    # rebuilds can otherwise look like a hang.
     nixos-rebuild switch --flake /etc/nixos --print-build-logs \
       --option connect-timeout 10 \
       --option stalled-download-timeout 90 \

@@ -133,17 +133,3 @@ async function apiFetch(path, options) {
   }
   return res.json();
 }
-
-
-// ── BIP-110 badge state config ────────────────────────────────────
-// Shared lookup used by tiles.js and service-detail.js.
-// Keys match the "state" values returned by /api/bitcoin/bip110.
-
-var BIP110_BADGE_CONFIG = {
-  active:        { cls: 'tile-bip110-badge--active',       label: 'Active',         title: 'BIP-110 is active on this node' },
-  locked_in:     { cls: 'tile-bip110-badge--locked_in',    label: 'Locked In',      title: 'BIP-110 is locked in and will activate shortly' },
-  signaling:     { cls: 'tile-bip110-badge--signaling',    label: 'Signaling',      title: 'Node is signaling readiness for BIP-110' },
-  not_signaling: { cls: 'tile-bip110-badge--not_signaling',label: 'Not Signaling',  title: 'Node supports BIP-110 but is not signaling this period' },
-  unsupported:   { cls: 'tile-bip110-badge--unsupported',  label: 'Not Supported',  title: 'This node build does not include BIP-110' },
-  unknown:       { cls: 'tile-bip110-badge--unknown',      label: '\u2014',          title: 'Status unavailable (node syncing or RPC not ready)' }
-};

@@ -62,11 +62,6 @@ let
         description = ''
           The package providing bitcoind binaries.
 
-          You can use this option to select other bitcoind-compatible implementations.
-          Example:
-          ```nix
-          services.bitcoind.package = pkgs.bitcoind-knots;
-          ```
         '';
       };
       extraConfig = mkOption {
