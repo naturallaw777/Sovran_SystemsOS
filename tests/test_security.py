@@ -365,6 +365,65 @@ class TestAuthExemptPaths(unittest.TestCase):
         self.assertIn("/api/ping", self._get_exempt_paths())
 
 
+class TestFrontendAuthRecovery(unittest.TestCase):
+    """Expired browser sessions must not leave the Hub polling forever."""
+
+    @classmethod
+    def setUpClass(cls):
+        path = os.path.join(
+            _REPO_ROOT, "app", "sovran_systemsos_web", "static", "js", "helpers.js"
+        )
+        with open(path, encoding="utf-8") as f:
+            cls.helpers = f.read()
+
+    def test_api_fetch_redirects_unauthorized_response_to_login(self):
+        self.assertRegex(self.helpers, r"res\.status\s*===\s*401")
+        self.assertIn('window.location.replace("/login")', self.helpers)
+
+    def test_unauthorized_response_does_not_use_local_auto_login(self):
+        # Remote clients must still authenticate with the Hub password.
+        self.assertNotIn('window.location.replace("/auto-login")', self.helpers)
+
+
+class TestManualLogoutPersistence(unittest.TestCase):
+    """Explicit logout must take precedence over desktop auto-login."""
+
+    @classmethod
+    def setUpClass(cls):
+        path = os.path.join(_REPO_ROOT, "app", "sovran_systemsos_web", "server.py")
+        with open(path, encoding="utf-8") as f:
+            cls.server = f.read()
+
+    def _between(self, start, end):
+        return self.server.split(start, 1)[1].split(end, 1)[0]
+
+    def test_auto_login_honors_manual_logout_cookie(self):
+        route = self._between(
+            '@app.get("/auto-login")',
+            "class LoginRequest",
+        )
+        self.assertIn("request.cookies.get(MANUAL_LOGOUT_COOKIE_NAME)", route)
+        self.assertIn('RedirectResponse(url="/login"', route)
+
+    def test_logout_sets_persistent_manual_logout_cookie(self):
+        route = self._between(
+            '@app.post("/api/logout")',
+            "def _get_sovran_version",
+        )
+        self.assertIn("key=MANUAL_LOGOUT_COOKIE_NAME", route)
+        self.assertIn("max_age=MANUAL_LOGOUT_MAX_AGE", route)
+        self.assertIn("httponly=True", route)
+
+    def test_password_login_clears_manual_logout_cookie(self):
+        route = self._between(
+            '@app.post("/api/login")',
+            '@app.post("/api/logout")',
+        )
+        self.assertIn(
+            "response.delete_cookie(key=MANUAL_LOGOUT_COOKIE_NAME)", route
+        )
+
+
 # ---------------------------------------------------------------------------
 # Persistent session store
 # ---------------------------------------------------------------------------
