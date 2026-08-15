@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.1.1] - 2026-08-15
+
+### Added
+- Update release-stable.sh
+- Enhance release script with preflight checks and metadata
+- Migrate dock/folder/mime entries from brave to brave-origin on upgrade
+- Skip Brave Origin startup dialog in Hub launcher
+- Switch default browser to Brave Origin (brave-origin)
+- Add Bitcoin Core Tor IBD gossip control
+- Replace Bitcoin Knots with Bitcoin Core
+
+### Fixed
+- Persistent browser profile so logout survives window reopen
+- Recover from expired sessions and preserve logout
+- Prevent Bitcoin Core switch from hanging the Hub UI
+
+### Documentation
+- Update README ISO download links to v1.1.0
+[1.1.1]: https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS/releases/tag/v1.1.1
+
+
 ## [Unreleased]
 
 ### Changed
