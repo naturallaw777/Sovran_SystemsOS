@@ -44,6 +44,35 @@ let
       fi
     fi
 
+    # ── Brave Origin migration (existing installs upgrading from `brave`) ──
+    # The old package's brave-browser.desktop no longer exists, so GNOME drops
+    # it from the dock and the Browsers folder.  Swap the id in place, but only
+    # when the stale value is still present (never touch user customizations).
+    if [ -f "$USER_DB" ]; then
+      FAVS="$(${pkgs.dconf}/bin/dconf read /org/gnome/shell/favorite-apps 2>/dev/null || true)"
+      if [ -n "$FAVS" ]; then
+        NEW_FAVS="''${FAVS//brave-browser.desktop/brave-origin.desktop}"
+        if [ "$NEW_FAVS" != "$FAVS" ]; then
+          ${pkgs.dconf}/bin/dconf write /org/gnome/shell/favorite-apps "$NEW_FAVS"
+        fi
+      fi
+
+      BROWSER_APPS="$(${pkgs.dconf}/bin/dconf read /org/gnome/desktop/app-folders/folders/Browsers/apps 2>/dev/null || true)"
+      if [ -n "$BROWSER_APPS" ]; then
+        NEW_BROWSER_APPS="''${BROWSER_APPS//brave-browser.desktop/brave-origin.desktop}"
+        if [ "$NEW_BROWSER_APPS" != "$BROWSER_APPS" ]; then
+          ${pkgs.dconf}/bin/dconf write /org/gnome/desktop/app-folders/folders/Browsers/apps "$NEW_BROWSER_APPS"
+        fi
+      fi
+    fi
+
+    # A previous fresh install wrote the user's mimeapps.list with the old id;
+    # XDG gives it precedence over the new system-wide default, so rewrite it.
+    MIME_LIST="$HOME/.config/mimeapps.list"
+    if [ -f "$MIME_LIST" ] && ${pkgs.gnugrep}/bin/grep -q 'brave-browser\.desktop' "$MIME_LIST"; then
+      ${pkgs.gnused}/bin/sed -i 's/brave-browser\.desktop/brave-origin.desktop/g' "$MIME_LIST"
+    fi
+
     # Already applied — skip
     if [ -f "$STAMP" ]; then
       exit 0

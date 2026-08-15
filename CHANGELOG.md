@@ -15,6 +15,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     favorite, Browsers app-folder entry, `xdg.mime.defaultApplications`, and
     the `$BROWSER` session variable now all point at Brave Origin, and the
     Sovran Hub launcher runs it.
+  - On installs upgrading from the old Brave package, the desktop theme init
+    now migrates `brave-browser.desktop` → `brave-origin.desktop` in the dock
+    favorites, the Browsers app folder, and the user's `mimeapps.list`, so
+    the dock icon and default-browser handler survive the switch without a
+    manual re-pin.
 
 ### Fixed
   - The Hub launcher now uses a persistent per-user browser profile
