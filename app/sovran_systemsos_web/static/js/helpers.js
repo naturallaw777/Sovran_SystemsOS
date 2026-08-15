@@ -111,8 +111,19 @@ function formatDuration(seconds) {
 
 // ── Fetch wrappers ────────────────────────────────────────────────
 
+// Avoid issuing multiple redirects when several startup requests discover an
+// expired session at the same time.
+let _authRedirectInProgress = false;
+
 async function apiFetch(path, options) {
   const res = await fetch(path, options || {});
+  if (res.status === 401) {
+    if (!_authRedirectInProgress) {
+      _authRedirectInProgress = true;
+      window.location.replace("/login");
+    }
+    throw new Error("Unauthenticated");
+  }
   if (!res.ok) {
     let detail = res.status + " " + res.statusText;
     try {

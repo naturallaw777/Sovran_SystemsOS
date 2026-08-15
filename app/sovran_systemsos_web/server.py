@@ -142,9 +142,13 @@ AUTOLAUNCH_DISABLE_FLAG = "/var/lib/sovran/hub-autolaunch-disabled"
 FREE_PASSWORD_FILE      = "/var/lib/secrets/free-password"
 FREE_PASSWORD_FILE_WEB  = "/var/lib/secrets/free-password-web"
 MIGRATION_NEWPASS_FILE  = "/var/lib/secrets/free-password-migration-newpass"
-HUB_SESSION_SECRET_FILE = "/var/lib/secrets/hub-session-secret"
-SESSION_COOKIE_NAME     = "hub_session"
-SESSION_MAX_AGE         = 86400  # 24 hours
+HUB_SESSION_SECRET_FILE  = "/var/lib/secrets/hub-session-secret"
+SESSION_COOKIE_NAME      = "hub_session"
+MANUAL_LOGOUT_COOKIE_NAME = "hub_manual_logout"
+SESSION_MAX_AGE          = 86400  # 24 hours
+# Chromium limits persistent cookies to roughly 400 days. This marker only
+# suppresses desktop auto-login until the next successful password login.
+MANUAL_LOGOUT_MAX_AGE    = 400 * 86400
 
 # Sessions are persisted here so logins survive a restart of the Hub service.
 # nixos-rebuild switch restarts sovran-hub-web.service during activation (its
@@ -2517,6 +2521,10 @@ async def auto_login_redirect(request: Request):
     client_ip = request.client.host if request.client else "unknown"
     if client_ip not in ("127.0.0.1", "::1"):
         raise HTTPException(status_code=403, detail="Forbidden")
+    # An explicit logout must take precedence over the desktop launcher's
+    # localhost auto-login, including after the Hub window is closed/reopened.
+    if request.cookies.get(MANUAL_LOGOUT_COOKIE_NAME) == "1":
+        return RedirectResponse(url="/login", status_code=303)
     token = _create_session()
     response = RedirectResponse(url="/", status_code=303)
     response.set_cookie(
@@ -2553,17 +2561,27 @@ async def api_login(req: LoginRequest, request: Request):
         samesite="lax",
         secure=False,  # LAN-only appliance; no TLS on the Hub port
     )
+    # A successful password login explicitly reverses a prior manual logout.
+    response.delete_cookie(key=MANUAL_LOGOUT_COOKIE_NAME)
     return response
 
 
 @app.post("/api/logout")
 async def api_logout(request: Request):
-    """Clear the session cookie and destroy the server-side session."""
+    """Destroy the session and prevent desktop auto-login until password login."""
     token = request.cookies.get(SESSION_COOKIE_NAME)
     if token:
         _destroy_session(token)
     response = JSONResponse({"ok": True})
     response.delete_cookie(key=SESSION_COOKIE_NAME)
+    response.set_cookie(
+        key=MANUAL_LOGOUT_COOKIE_NAME,
+        value="1",
+        max_age=MANUAL_LOGOUT_MAX_AGE,
+        httponly=True,
+        samesite="lax",
+        secure=False,  # LAN-only appliance; no TLS on the Hub port
+    )
     return response
 
 

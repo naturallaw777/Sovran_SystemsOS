@@ -10,6 +10,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+  - The Hub now redirects to the login page when an API request finds an
+    expired browser session, instead of leaving the dashboard tile grid in a
+    loading state while `/api/services` continues returning 401 every five
+    seconds.
+  - Explicitly logging out now suppresses the desktop launcher's local
+    auto-login after the Hub window is closed and reopened. A successful
+    password login clears that preference.
   - Sessions are now persisted to `/var/lib/secrets/hub-sessions.json` so the
     browser login survives the Hub service restart that `nixos-rebuild switch`
     performs during activation. Previously the in-memory session store was
