@@ -17,10 +17,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     Sovran Hub launcher runs it.
 
 ### Fixed
-  - The Hub launcher now passes `--skip-origin-startup-dialog` to Brave
-    Origin so its one-time "Proceed with Origin for free on Linux" onboarding
-    screen doesn't reappear (and block auto-login) on every launch, since the
-    Hub runs with a throwaway profile.
+  - The Hub launcher now uses a persistent per-user browser profile
+    (`$XDG_STATE_HOME/sovran-hub-browser`) instead of a throwaway `/tmp`
+    profile that was deleted on exit. The throwaway profile wiped the
+    `hub_manual_logout` marker cookie on every close, so `/auto-login`
+    silently logged the user straight back in after they signed out and
+    reopened the Hub window. The persistent profile makes explicit logout
+    stick (until the next password login) while still skipping Brave Origin's
+    one-time startup dialog.
   - The Hub now redirects to the login page when an API request finds an
     expired browser session, instead of leaving the dashboard tile grid in a
     loading state while `/api/services` continues returning 401 every five

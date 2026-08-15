@@ -424,6 +424,41 @@ class TestManualLogoutPersistence(unittest.TestCase):
         )
 
 
+class TestHubBrowserProfilePersistence(unittest.TestCase):
+    """The desktop launcher must keep a persistent browser profile.
+
+    The hub_manual_logout marker (and the session cookie) are stored in this
+    profile. If the launcher used an ephemeral /tmp profile that it deleted on
+    exit, closing and reopening the Hub window would wipe the marker and
+    /auto-login would silently log the user back in without a password.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        path = os.path.join(
+            _REPO_ROOT, "modules", "core", "sovran-hub.nix"
+        )
+        with open(path, encoding="utf-8") as f:
+            cls.wrapper = f.read()
+
+    def test_profile_is_not_under_tmp(self):
+        # The profile must live in a persistent per-user location, not /tmp.
+        self.assertNotIn("/tmp/sovran-hub-brave", self.wrapper)
+
+    def test_profile_is_not_deleted_on_exit(self):
+        # There must be no trap that removes the user-data-dir on exit.
+        self.assertNotRegex(self.wrapper, r"rm\s+-rf\s+.*HUB_DATA")
+        self.assertNotIn("trap '", self.wrapper)
+
+    def test_profile_is_persistent_per_user_location(self):
+        self.assertIn("sovran-hub-browser", self.wrapper)
+        # It should honour XDG_STATE_HOME (standard, persistent per-user dir).
+        self.assertIn("XDG_STATE_HOME", self.wrapper)
+
+    def test_launcher_still_uses_user_data_dir(self):
+        self.assertIn("--user-data-dir=", self.wrapper)
+
+
 # ---------------------------------------------------------------------------
 # Persistent session store
 # ---------------------------------------------------------------------------
