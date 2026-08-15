@@ -40,7 +40,7 @@ let
     # ── Bitcoin Base ────────────────────────────────────────────
     ++ lib.optionals cfg.services.bitcoin [
       { name = "Bitcoin Core"; unit = "bitcoind.service"; type = "system"; icon = "bitcoin-core"; enabled = cfg.services.bitcoin; category = "bitcoin-base"; credentials = [
-        { label = "Tor Address — Access from anywhere via Tor Browser"; file = "/var/lib/tor/onion/bitcoind/hostname"; prefix = "http://"; }
+        { label = "Tor Bitcoin P2P Address — Reachable only through Tor"; file = "/var/lib/tor/onion/bitcoind/hostname"; suffix = ":8333"; }
       ]; }
     ]
     # ── Bitcoin Apps (services on top of the node) ─────────────
@@ -122,6 +122,9 @@ let
       role             = activeRole;
       services         = monitoredServices;
       feature_manager  = true;
+      feature_states   = {
+        bitcoin-tor-gossip = cfg.features.bitcoin-tor-gossip;
+      };
       sovran_version   = sovranVersion;
     });
 

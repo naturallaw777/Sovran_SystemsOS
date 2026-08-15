@@ -4,6 +4,11 @@ lib.mkIf config.sovran_systemsOS.services.bitcoin {
 
   services.bitcoind = {
     enable = true;
+    # Keep the normal loopback P2P socket available for local clients such as
+    # Bisq. Because `address` defaults to 127.0.0.1 this does not expose a
+    # clearnet or LAN listener. When the existing bitcoind onion service is
+    # enabled, this also creates its Tor-tagged loopback target on port 8334.
+    listen = true;
     package = pkgs.bitcoind;
     dataDir = "/run/media/Second_Drive/BTCEcoandBackup/Bitcoin_Node";
     txindex = true;
@@ -16,7 +21,13 @@ lib.mkIf config.sovran_systemsOS.services.bitcoin {
     '';
   };
 
-  nix-bitcoin.onionServices.bitcoind.enable = true;
+  nix-bitcoin.onionServices.bitcoind = {
+    enable = true;
+    # This is a locally vendored option namespace, not an upstream dependency.
+    # The onion listener remains available to peers that already know it;
+    # advertising its address through Bitcoin peer gossip is opt-in in the Hub.
+    public = config.sovran_systemsOS.features.bitcoin-tor-gossip;
+  };
   nix-bitcoin.onionServices.electrs.enable = true;
   nix-bitcoin.onionServices.rtl.enable = true;
 

@@ -318,6 +318,27 @@ FEATURE_REGISTRY = [
         "port_requirements": [],
     },
     {
+        "id": "bitcoin-tor-gossip",
+        "name": "Advertise Tor IBD Node",
+        "description": "Advertise this Bitcoin Core node's onion address through Bitcoin peer gossip so more Tor-capable nodes can discover it and request blocks.",
+        "details": [
+            "Your Tor IBD listener remains available whether or not advertising is enabled.",
+            "Enabling this announces only the node's .onion P2P address; it does not publish your home IP address.",
+            "Other Tor nodes can discover your node and request historical blocks while performing Initial Block Download (IBD).",
+            "No clearnet port or router port forwarding is opened.",
+            "Serving additional IBD peers can use significant upload bandwidth.",
+        ],
+        "category": "bitcoin",
+        "modal_only": True,
+        "needs_domain": False,
+        "domain_name": None,
+        "needs_ddns": False,
+        "extra_fields": [],
+        "conflicts_with": [],
+        "requires": ["bitcoin-service"],
+        "port_requirements": [],
+    },
+    {
         "id": "sshd",
         "name": "SSH Remote Access",
         "description": "Enable SSH for remote terminal access. Required for Tech Support. Disabled by default for security — enable only when needed.",
@@ -358,6 +379,7 @@ FEATURE_SERVICE_MAP = {
     "haven": "haven-relay.service",
     "element-calling": "livekit.service",
     "mempool": "mempool.service",
+    "bitcoin-tor-gossip": None,
     "btcpay-web": "btcpayserver.service",
     "nwc-wallets": "albyhub.service",
     "sshd": "sshd.service",
@@ -431,7 +453,7 @@ ROLE_CATEGORIES: dict[str, set[str] | None] = {
 ROLE_FEATURES: dict[str, set[str] | None] = {
     "server_plus_desktop": None,
     "desktop":             {"rdp", "sshd"},
-    "node":                {"rdp", "mempool", "btcpay-web", "nwc-wallets", "sshd"},
+    "node":                {"rdp", "bitcoin-tor-gossip", "mempool", "btcpay-web", "nwc-wallets", "sshd"},
 }
 
 SERVICE_DESCRIPTIONS: dict[str, str] = {
@@ -2058,14 +2080,24 @@ def _migrate_strip_deprecated_features() -> None:
 # ── Feature status helpers ─────────────────────────────────────────
 
 def _is_feature_enabled_in_config(feature_id: str) -> bool | None:
-    """Check if a feature's service appears as enabled in the running config.json.
-    Returns True/False if found, None if the feature has no mapped service."""
+    """Check whether a feature is enabled in the evaluated Hub configuration.
+
+    Most features map directly to a systemd service. Modal-only settings are
+    represented separately in ``config.json``. Returns ``None`` only when no
+    evaluated state is available.
+    """
     if feature_id == "btcpay-web":
         return False  # Default off in Node role; only on via explicit hub toggle
+
+    cfg = load_config()
+
+    if feature_id == "bitcoin-tor-gossip":
+        state = cfg.get("feature_states", {}).get(feature_id)
+        return bool(state) if state is not None else None
+
     unit = FEATURE_SERVICE_MAP.get(feature_id)
     if unit is None:
         return None
-    cfg = load_config()
     for svc in cfg.get("services", []):
         if svc.get("unit") == unit:
             return svc.get("enabled", False)
@@ -3546,6 +3578,37 @@ async def api_service_detail(unit: str, icon: str | None = None):
                 "port_requirements": feat_meta.get("port_requirements", []),
             }
 
+    # Modal-only settings related to this service. These are intentionally not
+    # rendered as standalone feature cards: the user encounters them in the
+    # context where their consequences are easiest to understand.
+    related_features: list[dict] = []
+    if icon == "bitcoin-core":
+        related_id = "bitcoin-tor-gossip"
+        related_meta = next((f for f in FEATURE_REGISTRY if f["id"] == related_id), None)
+        if related_meta is not None:
+            if related_id in overrides:
+                related_enabled = bool(overrides[related_id])
+            else:
+                config_state = _is_feature_enabled_in_config(related_id)
+                related_enabled = bool(config_state) if config_state is not None else False
+            related_features.append({
+                "id": related_id,
+                "name": related_meta["name"],
+                "description": related_meta["description"],
+                "details": related_meta.get("details", []),
+                "category": related_meta["category"],
+                "enabled": related_enabled,
+                "available": bool(enabled),
+                "needs_domain": False,
+                "domain_configured": True,
+                "domain_name": None,
+                "needs_ddns": False,
+                "extra_fields": [],
+                "conflicts_with": related_meta.get("conflicts_with", []),
+                "requires": related_meta.get("requires", []),
+                "port_requirements": [],
+            })
+
     service_detail: dict = {
         "name": entry.get("name", ""),
         "unit": unit,
@@ -3568,6 +3631,7 @@ async def api_service_detail(unit: str, icon: str | None = None):
         "external_ip": external_ip,
         "internal_ip": internal_ip,
         "feature": feature_entry,
+        "related_features": related_features,
     }
     if sync_ibd is not None:
         service_detail["sync_ibd"] = sync_ibd
@@ -4190,8 +4254,10 @@ async def api_features():
 
     role = load_config().get("role", "server_plus_desktop")
     allowed_features = ROLE_FEATURES.get(role)
-    registry = FEATURE_REGISTRY if allowed_features is None else [
-        f for f in FEATURE_REGISTRY if f["id"] in allowed_features
+    registry = [
+        f for f in FEATURE_REGISTRY
+        if not f.get("modal_only")
+        and (allowed_features is None or f["id"] in allowed_features)
     ]
 
     features = []
@@ -4265,6 +4331,22 @@ async def api_features_toggle(req: FeatureToggleRequest):
     features, nostr_npub, cur_tz, cur_locale = await loop.run_in_executor(None, _read_hub_overrides)
 
     if req.enabled:
+        # Onion-address advertising is only meaningful while the Bitcoin Core
+        # service is enabled. The control is shown in that service's modal, but
+        # enforce the dependency server-side as well.
+        if req.feature == "bitcoin-tor-gossip":
+            bitcoin_core_enabled = any(
+                svc.get("unit") == "bitcoind.service"
+                and svc.get("icon") == "bitcoin-core"
+                and bool(svc.get("enabled", False))
+                for svc in load_config().get("services", [])
+            )
+            if not bitcoin_core_enabled:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Enable the Bitcoin service before advertising its Tor IBD service.",
+                )
+
         # Element-calling requires matrix domain
         if req.feature == "element-calling":
             if not os.path.exists(os.path.join(DOMAINS_DIR, "matrix")):

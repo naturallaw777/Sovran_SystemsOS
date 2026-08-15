@@ -918,6 +918,54 @@ async function openServiceDetailModal(unit, name, icon) {
         '</div>');
     }
 
+    // Section G: Contextual feature options. The Tor IBD advertising control is
+    // deliberately shown only inside the Bitcoin Core modal so its bandwidth
+    // and privacy implications are explained before the user enables it.
+    var relatedFeatures = Array.isArray(data.related_features) ? data.related_features : [];
+    relatedFeatures.forEach(function(optionFeat) {
+      // Keep the shared feature state current for the standard rebuild flow.
+      if (!_featuresData) {
+        _featuresData = { features: [optionFeat], ssl_email_configured: false };
+      } else {
+        var optionIndex = _featuresData.features.findIndex(function(f) { return f.id === optionFeat.id; });
+        if (optionIndex >= 0) _featuresData.features[optionIndex] = optionFeat;
+        else _featuresData.features.push(optionFeat);
+      }
+
+      var detailsHtml = "";
+      if (Array.isArray(optionFeat.details) && optionFeat.details.length > 0) {
+        detailsHtml = '<ul class="svc-detail-option-list">' +
+          optionFeat.details.map(function(detail) {
+            return '<li>' + escHtml(detail) + '</li>';
+          }).join("") +
+          '</ul>';
+      }
+
+      var optionAvailable = optionFeat.available !== false;
+      var optionStatusLabel = optionFeat.enabled ? "Advertising enabled \u2713" : "Not advertised";
+      var optionStatusCls = optionFeat.enabled ? "addon-status--on" : "addon-status--off";
+      var optionButtonLabel = optionFeat.enabled ? "Stop Advertising" : "Advertise Onion Address";
+      var optionButtonCls = optionFeat.enabled ? "btn btn-close-modal" : "btn btn-primary";
+      if (!optionAvailable) {
+        optionStatusLabel = "Bitcoin Core is not enabled";
+        optionButtonLabel = "Enable Bitcoin Core First";
+        optionButtonCls = "btn btn-close-modal";
+      }
+
+      addSetup('<div class="svc-detail-section svc-detail-option-card">' +
+        '<div class="svc-detail-section-title">Tor IBD Service Advertising</div>' +
+        '<p class="svc-detail-desc">' + escHtml(optionFeat.description || "") + '</p>' +
+        detailsHtml +
+        '<div class="svc-detail-option-privacy">' +
+          '<strong>Tor-only:</strong> This setting advertises the onion service. It does not open a clearnet port, expose your home IP address, or require router port forwarding.' +
+        '</div>' +
+        '<div class="svc-detail-addon-row">' +
+          '<span class="svc-detail-addon-status ' + optionStatusCls + '">' + escHtml(optionStatusLabel) + '</span>' +
+          '<button class="' + optionButtonCls + ' svc-detail-related-feature-btn" data-feature-id="' + escHtml(optionFeat.id) + '"' + (!optionAvailable ? ' disabled' : '') + '>' + escHtml(optionButtonLabel) + '</button>' +
+        '</div>' +
+        '</div>');
+    });
+
     if ((effectiveEnabled || data.enabled) && unit !== "phpfpm-nextcloud.service" && unit !== "phpfpm-wordpress.service") {
       addSetup('<div class="svc-detail-section svc-detail-restart-section">' +
         '<div class="svc-detail-section-title">Troubleshooting</div>' +
@@ -977,6 +1025,18 @@ async function openServiceDetailModal(unit, name, icon) {
         });
       }
     }
+
+    var relatedFeatureButtons = $credsBody.querySelectorAll(".svc-detail-related-feature-btn");
+    relatedFeatureButtons.forEach(function(button) {
+      button.addEventListener("click", function() {
+        if (button.disabled) return;
+        var featureId = button.getAttribute("data-feature-id");
+        var relatedFeat = relatedFeatures.find(function(f) { return f.id === featureId; });
+        if (!relatedFeat) return;
+        closeCredsModal();
+        handleFeatureToggle(relatedFeat, !relatedFeat.enabled);
+      });
+    });
 
     var restartBtn = document.getElementById("svc-detail-restart-btn");
     var restartResult = document.getElementById("svc-detail-restart-result");

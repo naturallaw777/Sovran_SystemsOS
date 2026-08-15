@@ -342,8 +342,11 @@ async function performFeatureToggle(featId, enabled, extra) {
 function handleFeatureToggle(feat, newEnabled) {
   if (!newEnabled) {
     // Disable: ask confirmation
+    var disableMessage = (feat.id === "bitcoin-tor-gossip")
+      ? "This will stop advertising your Bitcoin Core onion address to other peers. Nodes that already know the address can still connect through Tor, and no clearnet port will be opened. The system will rebuild. Continue?"
+      : "This will disable " + feat.name + ". The system will rebuild. Continue?";
     openFeatureConfirm(
-      "This will disable " + feat.name + ". The system will rebuild. Continue?",
+      disableMessage,
       function() { performFeatureToggle(feat.id, false, {}); }
     );
     return;
@@ -403,7 +406,10 @@ function handleFeatureToggle(feat, newEnabled) {
     openPortRequirementsModal(feat.name, ports, proceedAfterPortCheck);
   }
 
-  if (conflictNames.length > 0) {
+  if (feat.id === "bitcoin-tor-gossip") {
+    var torGossipConfirmMsg = "This will advertise your Bitcoin Core .onion P2P address through Bitcoin peer gossip. More Tor-capable nodes may discover your node and request historical blocks during IBD, which can use significant upload bandwidth. Your home IP remains hidden and no clearnet port or router forwarding is opened. Continue?";
+    openFeatureConfirm(torGossipConfirmMsg, proceedAfterConflictCheck);
+  } else if (conflictNames.length > 0) {
     openFeatureConfirm("This will disable " + conflictNames.join(", ") + ". Continue?", proceedAfterConflictCheck);
   } else {
     proceedAfterConflictCheck();
