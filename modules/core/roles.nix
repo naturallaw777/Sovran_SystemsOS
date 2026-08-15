@@ -45,6 +45,7 @@
       haven = lib.mkEnableOption "Haven NOSTR relay";
       mempool = lib.mkEnableOption "Bitcoin Mempool Explorer";
       element-calling = lib.mkEnableOption "Element Video and Audio Calling";
+      bitcoin-tor-gossip = lib.mkEnableOption "Advertise the Bitcoin Core onion service through Bitcoin peer gossip";
       # Compatibility shim for Hub-managed settings from releases where Core
       # was an optional replacement for the default node. Core is now always
       # selected when the Bitcoin service is enabled.

@@ -33,6 +33,7 @@
         haven = lib.mkForce false;
         mempool = lib.mkForce false;
         element-calling = lib.mkForce false;
+        bitcoin-tor-gossip = lib.mkForce false;
         "nwc-wallets" = lib.mkForce false;
       };
 
