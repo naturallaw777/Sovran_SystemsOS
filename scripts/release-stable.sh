@@ -20,6 +20,11 @@
 
 set -euo pipefail
 
+# Always operate from the repository root, regardless of the caller's cwd.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+cd "$REPO_ROOT"
+
 # Colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -90,10 +95,80 @@ suggest_next_version() {
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Step 0: Fetch everything
+# Step 0: Preflight and fetch everything
 # ─────────────────────────────────────────────────────────────────────────────
-echo -e "${BLUE}Step 0: Fetching latest from all remotes...${NC}"
-git fetch --all --tags 2>/dev/null || true
+echo -e "${BLUE}Step 0: Running release preflight...${NC}"
+
+# A release must start from an exact, committed, reproducible tree. This also
+# prevents release metadata generated below from being mixed with local work.
+if [[ -n "$(git status --porcelain)" ]]; then
+    echo -e "${RED}Error: the working tree is not clean. Commit, stash, or remove local changes first.${NC}" >&2
+    git status --short >&2
+    exit 1
+fi
+
+for remote in "$GITHUB_REMOTE" "$GITEA_REMOTE"; do
+    if ! git remote | grep -q -x "$remote"; then
+        echo -e "${RED}Error: required remote '$remote' is not configured.${NC}" >&2
+        exit 1
+    fi
+done
+
+for command_name in gh curl; do
+    if ! command -v "$command_name" >/dev/null 2>&1; then
+        echo -e "${RED}Error: required command '$command_name' is not installed.${NC}" >&2
+        exit 1
+    fi
+done
+if ! gh auth status >/dev/null 2>&1; then
+    echo -e "${RED}Error: GitHub CLI is not authenticated. Run 'gh auth login' first.${NC}" >&2
+    exit 1
+fi
+if [[ -z "${GITEA_TOKEN:-}" ]]; then
+    echo
+    read -rsp "Enter your Gitea API token (input hidden): " GITEA_TOKEN
+    echo
+fi
+if [[ -z "${GITEA_TOKEN:-}" ]]; then
+    echo -e "${RED}Error: a GITEA_TOKEN with write:repository scope is required.${NC}" >&2
+    exit 1
+fi
+
+echo -e "  Fetching GitHub (${GITHUB_REMOTE}) and Gitea (${GITEA_REMOTE})..."
+git fetch "$GITHUB_REMOTE" --prune --tags
+git fetch "$GITEA_REMOTE" --prune --tags
+
+GITHUB_MAIN_REF="refs/remotes/${GITHUB_REMOTE}/main"
+GITEA_STAGING_REF="refs/remotes/${GITEA_REMOTE}/staging-dev"
+
+if ! git rev-parse --verify "$GITHUB_MAIN_REF" >/dev/null 2>&1; then
+    echo -e "${RED}Error: cannot resolve GitHub main at ${GITHUB_MAIN_REF}.${NC}" >&2
+    exit 1
+fi
+if ! git rev-parse --verify "$GITEA_STAGING_REF" >/dev/null 2>&1; then
+    echo -e "${RED}Error: cannot resolve Gitea staging-dev at ${GITEA_STAGING_REF}.${NC}" >&2
+    exit 1
+fi
+
+HEAD_COMMIT=$(git rev-parse HEAD)
+GITHUB_MAIN_COMMIT=$(git rev-parse "$GITHUB_MAIN_REF")
+GITEA_STAGING_COMMIT=$(git rev-parse "$GITEA_STAGING_REF")
+
+if [[ "$GITHUB_MAIN_COMMIT" != "$GITEA_STAGING_COMMIT" ]]; then
+    echo -e "${RED}Error: GitHub main and Gitea staging-dev are not synchronized.${NC}" >&2
+    echo "  GitHub main       : $GITHUB_MAIN_COMMIT" >&2
+    echo "  Gitea staging-dev : $GITEA_STAGING_COMMIT" >&2
+    exit 1
+fi
+if [[ "$HEAD_COMMIT" != "$GITHUB_MAIN_COMMIT" ]]; then
+    echo -e "${RED}Error: local HEAD is not the synchronized release candidate.${NC}" >&2
+    echo "  Local HEAD  : $HEAD_COMMIT" >&2
+    echo "  Remote HEAD : $GITHUB_MAIN_COMMIT" >&2
+    echo "Update/check out the synchronized commit, then run the script again." >&2
+    exit 1
+fi
+
+echo -e "  ${GREEN}✓${NC} Clean tree; GitHub main and Gitea staging-dev match local HEAD"
 
 LATEST_TAG=$(get_latest_tag)
 NEXT_VERSION=$(suggest_next_version "$LATEST_TAG")
@@ -116,6 +191,15 @@ fi
 # Strip 'v' if user added it
 VERSION="${VERSION#v}"
 TAG="v${VERSION}"
+
+if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    echo -e "${RED}Error: version must use MAJOR.MINOR.PATCH format (for example, 1.1.1).${NC}" >&2
+    exit 1
+fi
+if git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null; then
+    echo -e "${RED}Error: tag ${TAG} already exists. Refusing to move or overwrite a release tag.${NC}" >&2
+    exit 1
+fi
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Get release message
@@ -207,6 +291,7 @@ RELEASE_NOTES="$(generate_release_notes "$COMMIT_RANGE")"
 
 # Let the user review/edit the generated notes before publishing
 NOTES_FILE="$(mktemp "/tmp/release-notes-${TAG}.XXXXXX.md")"
+trap 'rm -f "$NOTES_FILE"' EXIT
 {
     echo "## Sovran_SystemsOS ${TAG}"
     echo
@@ -246,214 +331,182 @@ if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
 fi
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Step 1: Push tested code to Gitea (stable & staging-dev)
+# Step 1: Prepare and commit all release metadata
 # ─────────────────────────────────────────────────────────────────────────────
 echo
-echo -e "${BLUE}Step 1: Pushing tested code to Gitea (stable & staging-dev)...${NC}"
-if git remote | grep -q -x "${GITEA_REMOTE}"; then
-    git push "${GITEA_REMOTE}" HEAD:stable --force-with-lease || echo -e "  ${YELLOW}⚠ Push to ${GITEA_REMOTE} (stable) failed.${NC}"
-    git push "${GITEA_REMOTE}" HEAD:staging-dev --force-with-lease || echo -e "  ${YELLOW}⚠ Push to ${GITEA_REMOTE} (staging-dev) failed.${NC}"
-else
-    echo -e "  ${YELLOW}⚠ Remote '${GITEA_REMOTE}' not found in git — skipping Gitea push.${NC}"
-fi
+echo -e "${BLUE}Step 1: Preparing release metadata for ${TAG}...${NC}"
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Step 2: Create annotated tag
-# ─────────────────────────────────────────────────────────────────────────────
-echo
-echo -e "${BLUE}Step 2: Creating annotated tag ${TAG}...${NC}"
-git tag -f -a "${TAG}" -m "${RELEASE_MESSAGE}
-
-- Stable release of Sovran_SystemsOS
-- See CHANGELOG.md for full details" || true
-
-if git remote | grep -q -x "${GITEA_REMOTE}"; then
-    git push "${GITEA_REMOTE}" "${TAG}" || echo -e "  ${YELLOW}⚠ Tag push to ${GITEA_REMOTE} failed.${NC}"
-else
-    echo -e "  ${YELLOW}⚠ Remote '${GITEA_REMOTE}' not found in git — skipping Gitea tag push.${NC}"
-fi
-
-if git remote | grep -q -x "${GITHUB_REMOTE}"; then
-    git push "${GITHUB_REMOTE}" "${TAG}" || echo -e "  ${YELLOW}⚠ Tag push to ${GITHUB_REMOTE} failed.${NC}"
-fi
-
-# Update VERSION file for ISO builds
+# VERSION drives ISO naming.
 echo "${VERSION}" > VERSION
-git add VERSION
-git commit -m "chore: bump VERSION to ${TAG} for ISO naming" || true
-echo -e "  ${GREEN}✓${NC} VERSION file updated to ${VERSION}"
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Step 2b: Auto-update README.md ISO download references
-# ─────────────────────────────────────────────────────────────────────────────
-echo
-echo -e "${BLUE}Step 2b: Updating README.md ISO references to ${VERSION}...${NC}"
-
+# Update every versioned ISO filename in README.md.
 README_FILE="README.md"
-if [ -f "$README_FILE" ]; then
-    # Extract the version currently used in the README's ISO filenames,
-    # e.g. "Sovran_SystemsOS-1.0.6.iso" -> "1.0.6"
-    OLD_ISO_VER=$(grep -oE 'Sovran_SystemsOS-[0-9]+\.[0-9]+\.[0-9]+\.iso' "$README_FILE" | head -1 | sed 's/Sovran_SystemsOS-//; s/\.iso//')
-
-    if [ -n "$OLD_ISO_VER" ] && [ "$OLD_ISO_VER" != "$VERSION" ]; then
-        # Portable in-place edit (works with GNU sed and BSD/macOS sed)
-        sed "s/Sovran_SystemsOS-${OLD_ISO_VER}/Sovran_SystemsOS-${VERSION}/g" \
-            "$README_FILE" > "$README_FILE.tmp" && mv "$README_FILE.tmp" "$README_FILE"
-
-        UPDATED=$(grep -c "Sovran_SystemsOS-${VERSION}" "$README_FILE")
-        echo -e "  ${GREEN}✓${NC} README.md: ${OLD_ISO_VER} -> ${VERSION} (${UPDATED} references updated)"
-
-        git add "$README_FILE"
-        git commit -m "docs: update README ISO download links to ${TAG}" || true
-        echo -e "  ${GREEN}✓${NC} Committed README update"
-    else
-        echo -e "  ${YELLOW}⚠${NC} README.md already references ${VERSION} or no versioned ISO links found — skipping"
-    fi
-else
-    echo -e "  ${YELLOW}⚠${NC} README.md not found — skipping"
+if [[ ! -f "$README_FILE" ]]; then
+    echo -e "${RED}Error: ${README_FILE} not found.${NC}" >&2
+    exit 1
+fi
+OLD_ISO_VER=$(grep -oE 'Sovran_SystemsOS-[0-9]+\.[0-9]+\.[0-9]+\.iso' "$README_FILE" \
+    | head -1 | sed 's/Sovran_SystemsOS-//; s/\.iso//')
+if [[ -z "$OLD_ISO_VER" ]]; then
+    echo -e "${RED}Error: no versioned ISO reference found in ${README_FILE}.${NC}" >&2
+    exit 1
+fi
+if [[ "$OLD_ISO_VER" != "$VERSION" ]]; then
+    sed "s/Sovran_SystemsOS-${OLD_ISO_VER}/Sovran_SystemsOS-${VERSION}/g" \
+        "$README_FILE" > "$README_FILE.tmp"
+    mv "$README_FILE.tmp" "$README_FILE"
 fi
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Step 3: Auto-update CHANGELOG.md
-# ─────────────────────────────────────────────────────────────────────────────
-echo
-echo -e "${BLUE}Step 3: Updating ${CHANGELOG_FILE}...${NC}"
-
+# Add the changelog entry before tagging so the tag and stable branch contain it.
 TODAY=$(date +%Y-%m-%d)
-
-# Create new changelog entry from the generated notes (no placeholders)
 NEW_ENTRY="## [${VERSION}] - ${TODAY}
 
 ${RELEASE_NOTES}
 [${VERSION}]: https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS/releases/tag/${TAG}
 "
 
-# Prepend to changelog (after the header)
-if [ -f "$CHANGELOG_FILE" ]; then
-    # Backup
-    cp "$CHANGELOG_FILE" "${CHANGELOG_FILE}.bak"
-
-    # Insert new section after the first --- line
-    awk -v new_entry="$NEW_ENTRY" '
-        BEGIN { printed=0 }
-        /^---$/ && !printed {
-            print
-            print ""
-            print new_entry
-            printed=1
-            next
-        }
-        { print }
-    ' "$CHANGELOG_FILE" > "${CHANGELOG_FILE}.tmp" && mv "${CHANGELOG_FILE}.tmp" "$CHANGELOG_FILE"
-    rm -f "${CHANGELOG_FILE}.bak"
-
-    echo -e "  ${GREEN}✓${NC} CHANGELOG.md updated with new section for ${TAG}"
-else
-    echo -e "  ${YELLOW}⚠${NC} CHANGELOG.md not found — skipping"
+if [[ ! -f "$CHANGELOG_FILE" ]]; then
+    echo -e "${RED}Error: ${CHANGELOG_FILE} not found.${NC}" >&2
+    exit 1
 fi
+awk -v new_entry="$NEW_ENTRY" '
+    BEGIN { printed=0 }
+    /^---$/ && !printed {
+        print
+        print ""
+        print new_entry
+        printed=1
+        next
+    }
+    { print }
+    END { if (!printed) exit 2 }
+' "$CHANGELOG_FILE" > "${CHANGELOG_FILE}.tmp" || {
+    rm -f "${CHANGELOG_FILE}.tmp"
+    echo -e "${RED}Error: could not find the changelog insertion marker.${NC}" >&2
+    exit 1
+}
+mv "${CHANGELOG_FILE}.tmp" "$CHANGELOG_FILE"
 
-# Commit the changelog update
-git add "$CHANGELOG_FILE"
+git add VERSION "$README_FILE" "$CHANGELOG_FILE"
 if git diff --cached --quiet; then
-    echo "  (No changes to commit in changelog)"
-else
-    git commit -m "docs: update CHANGELOG.md for ${TAG}"
-    echo -e "  ${GREEN}✓${NC} Committed changelog update"
-
-    # Ask if user wants to push
-    echo
-    read -rp "Push the changelog commit to GitHub (main) and Gitea (staging-dev) now? (y/N): " push_confirm
-    if [[ "$push_confirm" =~ ^[Yy]$ ]]; then
-        if git remote | grep -q -x "${GITHUB_REMOTE}"; then
-            echo -e "${BLUE}Pushing changelog commit to GitHub main...${NC}"
-            if git push "${GITHUB_REMOTE}" HEAD:main; then
-                echo -e "  ${GREEN}✓${NC} Changelog pushed to GitHub main (${GITHUB_REMOTE})"
-            else
-                echo -e "  ${YELLOW}⚠ Push to GitHub main failed — verify credentials or remote name.${NC}"
-            fi
-        fi
-        if git remote | grep -q -x "${GITEA_REMOTE}"; then
-            echo -e "${BLUE}Pushing changelog commit to Gitea staging-dev...${NC}"
-            if git push "${GITEA_REMOTE}" HEAD:staging-dev; then
-                echo -e "  ${GREEN}✓${NC} Changelog pushed to Gitea staging-dev (${GITEA_REMOTE})"
-            else
-                echo -e "  ${YELLOW}⚠ Push to Gitea staging-dev failed.${NC}"
-            fi
-        fi
-    else
-        echo "  (Changelog commit left local — remember to push later)"
-    fi
+    echo -e "${RED}Error: release preparation produced no changes.${NC}" >&2
+    exit 1
 fi
+git commit -m "chore(release): prepare ${TAG}"
+RELEASE_COMMIT=$(git rev-parse HEAD)
+
+echo -e "  ${GREEN}✓${NC} VERSION, README, and CHANGELOG committed"
+echo -e "  Release commit: ${CYAN}${RELEASE_COMMIT}${NC}"
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Step 4: Create GitHub Release via gh CLI
+# Step 2: Publish the final release commit to every release branch
 # ─────────────────────────────────────────────────────────────────────────────
 echo
-echo -e "${BLUE}Step 4: Creating GitHub Release...${NC}"
+echo -e "${BLUE}Step 2: Publishing the final release commit...${NC}"
 
-if command -v gh &>/dev/null; then
-    title_suffix="${RELEASE_MESSAGE#Sovran_SystemsOS v* — }"
-    title_suffix="${title_suffix#Sovran_SystemsOS * — }"
-    if gh release create "${TAG}" \
-        --repo naturallaw777/Sovran_SystemsOS \
-        --title "${TAG} — ${title_suffix}" \
-        --notes-file "${NOTES_FILE}"; then
-        echo -e "  ${GREEN}✓${NC} GitHub release created successfully"
-    else
-        echo -e "  ${YELLOW}⚠${NC} GitHub release creation failed (check 'gh auth status' or create via web GUI)"
-    fi
-else
-    echo -e "  ${YELLOW}⚠${NC} gh CLI not found — skipping GitHub release (create via GitHub web GUI)"
+# GitHub main and Gitea staging-dev were verified equal during preflight, so
+# these are normal fast-forward pushes. Stable is an intentional promotion and
+# uses a lease to prevent overwriting a branch changed since the fetch.
+git push "$GITHUB_REMOTE" HEAD:main
+git push "$GITEA_REMOTE" HEAD:staging-dev
+git push "$GITEA_REMOTE" HEAD:stable --force-with-lease
+
+# Verify all three branch tips before creating an immutable release tag.
+remote_branch_commit() {
+    local remote="$1"
+    local branch="$2"
+    git ls-remote "$remote" "refs/heads/${branch}" | awk 'NR == 1 { print $1 }'
+}
+
+PUBLISHED_GITHUB=$(remote_branch_commit "$GITHUB_REMOTE" main)
+PUBLISHED_STAGING=$(remote_branch_commit "$GITEA_REMOTE" staging-dev)
+PUBLISHED_STABLE=$(remote_branch_commit "$GITEA_REMOTE" stable)
+if [[ "$PUBLISHED_GITHUB" != "$RELEASE_COMMIT" || \
+      "$PUBLISHED_STAGING" != "$RELEASE_COMMIT" || \
+      "$PUBLISHED_STABLE" != "$RELEASE_COMMIT" ]]; then
+    echo -e "${RED}Error: post-push verification failed; no release tag was created.${NC}" >&2
+    echo "  Expected          : $RELEASE_COMMIT" >&2
+    echo "  GitHub main       : ${PUBLISHED_GITHUB:-missing}" >&2
+    echo "  Gitea staging-dev : ${PUBLISHED_STAGING:-missing}" >&2
+    echo "  Gitea stable      : ${PUBLISHED_STABLE:-missing}" >&2
+    exit 1
 fi
+echo -e "  ${GREEN}✓${NC} GitHub main, Gitea staging-dev, and Gitea stable all match"
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Step 5: Create Gitea Release via API
+# Step 3: Tag the final release commit and publish the tag
 # ─────────────────────────────────────────────────────────────────────────────
 echo
-echo -e "${BLUE}Step 5: Creating Gitea Release via API...${NC}"
+echo -e "${BLUE}Step 3: Creating annotated tag ${TAG} on ${RELEASE_COMMIT}...${NC}"
+git tag -a "$TAG" -m "${RELEASE_MESSAGE}
 
-# ── Gitea Token Handling ─────────────────────────────────────────────────────
-if [[ -z "${GITEA_TOKEN:-}" ]]; then
-    echo
-    echo -e "${YELLOW}GITEA_TOKEN is not set.${NC}"
-    read -rsp "Enter your Gitea API token (input will be hidden): " GITEA_TOKEN
-    echo
-    if [[ -z "$GITEA_TOKEN" ]]; then
-        echo -e "  ${YELLOW}⚠${NC} No token provided — skipping Gitea release"
-        GITEA_TOKEN=""
-    fi
+- Stable release of Sovran_SystemsOS
+- See CHANGELOG.md for full details" "$RELEASE_COMMIT"
+
+git push "$GITHUB_REMOTE" "$TAG"
+git push "$GITEA_REMOTE" "$TAG"
+
+# For an annotated tag, ^{} resolves the commit referenced by the tag object.
+remote_tag_commit() {
+    local remote="$1"
+    git ls-remote "$remote" "refs/tags/${TAG}^{}" | awk 'NR == 1 { print $1 }'
+}
+GITHUB_TAG_COMMIT=$(remote_tag_commit "$GITHUB_REMOTE")
+GITEA_TAG_COMMIT=$(remote_tag_commit "$GITEA_REMOTE")
+if [[ "$GITHUB_TAG_COMMIT" != "$RELEASE_COMMIT" || "$GITEA_TAG_COMMIT" != "$RELEASE_COMMIT" ]]; then
+    echo -e "${RED}Error: published tag verification failed.${NC}" >&2
+    exit 1
+fi
+echo -e "  ${GREEN}✓${NC} ${TAG} points to the final release commit on GitHub and Gitea"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Step 4: Create GitHub release via gh CLI
+# ─────────────────────────────────────────────────────────────────────────────
+echo
+echo -e "${BLUE}Step 4: Creating GitHub release...${NC}"
+
+title_suffix="${RELEASE_MESSAGE#Sovran_SystemsOS v* — }"
+title_suffix="${title_suffix#Sovran_SystemsOS * — }"
+gh release create "$TAG" \
+    --repo naturallaw777/Sovran_SystemsOS \
+    --title "${TAG} — ${title_suffix}" \
+    --notes-file "$NOTES_FILE"
+echo -e "  ${GREEN}✓${NC} GitHub release created successfully"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Step 5: Create Gitea release via API
+# ─────────────────────────────────────────────────────────────────────────────
+echo
+echo -e "${BLUE}Step 5: Creating Gitea release via API...${NC}"
+
+GITEA_REPO="Sovran_Systems/Sovran_SystemsOS"
+
+# Build JSON safely because release notes may contain quotes and newlines.
+if command -v jq >/dev/null 2>&1; then
+    PAYLOAD=$(jq -n \
+        --arg tag "$TAG" \
+        --arg name "$TAG — Stable Release" \
+        --arg body "$RELEASE_BODY" \
+        '{tag_name: $tag, name: $name, body: $body, draft: false, prerelease: false}')
+else
+    PAYLOAD=$(python3 -c "import json,sys; print(json.dumps({'tag_name': sys.argv[1], 'name': sys.argv[1] + ' — Stable Release', 'body': open(sys.argv[2]).read(), 'draft': False, 'prerelease': False}))" "$TAG" "$NOTES_FILE")
 fi
 
-if [[ -n "${GITEA_TOKEN:-}" ]]; then
-    GITEA_REPO="Sovran_Systems/Sovran_SystemsOS"
+RESPONSE_FILE=$(mktemp "/tmp/gitea-release-${TAG}.XXXXXX.json")
+HTTP_STATUS=$(curl -sS -o "$RESPONSE_FILE" -w '%{http_code}' -X POST \
+    -H "Authorization: token ${GITEA_TOKEN}" \
+    -H "Content-Type: application/json" \
+    -d "$PAYLOAD" \
+    "${GITEA_API_URL}/repos/${GITEA_REPO}/releases")
 
-    # Build JSON payload safely (release body may contain quotes/newlines)
-    if command -v jq &>/dev/null; then
-        PAYLOAD=$(jq -n \
-            --arg tag "${TAG}" \
-            --arg name "${TAG} — Stable Release" \
-            --arg body "${RELEASE_BODY}" \
-            '{tag_name: $tag, name: $name, body: $body, draft: false, prerelease: false}')
-    else
-        PAYLOAD=$(python3 -c "import json,sys; print(json.dumps({'tag_name': sys.argv[1], 'name': sys.argv[1] + ' — Stable Release', 'body': open(sys.argv[2]).read(), 'draft': False, 'prerelease': False}))" "${TAG}" "${NOTES_FILE}")
-    fi
-
-    RESPONSE=$(curl -s -X POST \
-        -H "Authorization: token ${GITEA_TOKEN}" \
-        -H "Content-Type: application/json" \
-        -d "${PAYLOAD}" \
-        "${GITEA_API_URL}/repos/${GITEA_REPO}/releases" 2>/dev/null || echo "")
-
-    if echo "$RESPONSE" | grep -q '"id"'; then
-        echo -e "  ${GREEN}✓${NC} Gitea release created successfully"
-    elif echo "$RESPONSE" | grep -q "write:repository"; then
-        echo -e "  ${YELLOW}⚠${NC} Gitea token scope issue: your token requires the 'write:repository' scope (currently has write:package)."
-        echo "     To fix: In Gitea, navigate to Settings → Applications → Manage Access Tokens and generate a token with 'write:repository'."
-    else
-        echo -e "  ${YELLOW}⚠${NC} Gitea release creation failed or already exists"
-        echo "     Response: $RESPONSE"
-    fi
+if [[ "$HTTP_STATUS" != "201" ]]; then
+    echo -e "${RED}Error: Gitea release creation failed (HTTP ${HTTP_STATUS}).${NC}" >&2
+    cat "$RESPONSE_FILE" >&2
+    rm -f "$RESPONSE_FILE"
+    exit 1
 fi
+rm -f "$RESPONSE_FILE"
+echo -e "  ${GREEN}✓${NC} Gitea release created successfully"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Final Summary
@@ -468,8 +521,7 @@ echo "  • Build the installer ISO:"
 echo "    nix build .#nixosConfigurations.sovran_systemsos-iso.config.system.build.isoImage"
 echo "  • Package, verify, and upload ISO to CDN:"
 echo "    ./scripts/upload-cdn.sh --upload"
-echo "  • Review and enhance the new section in CHANGELOG.md"
-echo "  • Push changes: git push ${GITHUB_REMOTE} HEAD:main && git push ${GITEA_REMOTE} HEAD:staging-dev"
+echo "  • Verify the ISO download and checksum from the public CDN"
 echo "  • Verify releases on both GitHub and Gitea"
 echo
 echo -e "${CYAN}Tag created: ${TAG}${NC}"
