@@ -67,13 +67,28 @@ echo
 # ─────────────────────────────────────────────────────────────────────────────
 # Helper: Get latest tag
 # ─────────────────────────────────────────────────────────────────────────────
+# GitHub release tags are fetched into a private namespace instead of
+# refs/tags/. GitHub and Gitea contain some same-named historical tags that
+# point to different objects; sharing refs/tags/ would make either fetch fail
+# with "would clobber existing tag".
+GITHUB_TAG_NAMESPACE="refs/release-tags/github"
+
 get_latest_tag() {
     local exclude="${1:-}"
-    if [[ -n "$exclude" ]]; then
-        git tag --list 'v*' --sort=-version:refname | grep -v -x -E "v?${exclude#v}|${exclude}" | head -1 || echo ""
-    else
-        git tag --list 'v*' --sort=-version:refname | head -1 || echo ""
-    fi
+    local tag
+
+    while IFS= read -r tag; do
+        if [[ -n "$exclude" && "$tag" == "v${exclude#v}" ]]; then
+            continue
+        fi
+        printf '%s\n' "$tag"
+        return 0
+    done < <(git for-each-ref \
+        --sort=-version:refname \
+        --format='%(refname:strip=3)' \
+        "${GITHUB_TAG_NAMESPACE}/v*")
+
+    return 0
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -135,8 +150,12 @@ if [[ -z "${GITEA_TOKEN:-}" ]]; then
 fi
 
 echo -e "  Fetching GitHub (${GITHUB_REMOTE}) and Gitea (${GITEA_REMOTE})..."
-git fetch "$GITHUB_REMOTE" --prune --tags
-git fetch "$GITEA_REMOTE" --prune --tags
+# Never fetch either host's tags into refs/tags/. Historical tags with the same
+# name differ between the hosts, and Git correctly refuses to clobber them.
+git fetch "$GITHUB_REMOTE" --prune --no-tags
+git fetch "$GITEA_REMOTE" --prune --no-tags
+git fetch "$GITHUB_REMOTE" --prune --no-tags \
+    "+refs/tags/*:${GITHUB_TAG_NAMESPACE}/*"
 
 GITHUB_MAIN_REF="refs/remotes/${GITHUB_REMOTE}/main"
 GITEA_STAGING_REF="refs/remotes/${GITEA_REMOTE}/staging-dev"
@@ -196,8 +215,16 @@ if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
     echo -e "${RED}Error: version must use MAJOR.MINOR.PATCH format (for example, 1.1.1).${NC}" >&2
     exit 1
 fi
-if git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null; then
-    echo -e "${RED}Error: tag ${TAG} already exists. Refusing to move or overwrite a release tag.${NC}" >&2
+remote_has_tag() {
+    local remote="$1"
+    [[ -n "$(git ls-remote --tags "$remote" "refs/tags/${TAG}" "refs/tags/${TAG}^{}")" ]]
+}
+
+if git show-ref --verify --quiet "refs/tags/${TAG}" || \
+   git show-ref --verify --quiet "${GITHUB_TAG_NAMESPACE}/${TAG}" || \
+   remote_has_tag "$GITHUB_REMOTE" || remote_has_tag "$GITEA_REMOTE"; then
+    echo -e "${RED}Error: tag ${TAG} already exists locally or on a remote.${NC}" >&2
+    echo "Refusing to move or overwrite an existing release tag." >&2
     exit 1
 fi
 
@@ -277,16 +304,21 @@ generate_release_notes() {
     printf '%s' "$notes"
 }
 
-# Build the notes from commits since the previous tag (exclude the target tag if already present)
+# Build notes from the previous canonical GitHub tag. Use its private ref so a
+# conflicting local or Gitea tag with the same name cannot select the wrong
+# commit.
 PREV_TAG=$(get_latest_tag "$TAG")
-if [[ -n "$PREV_TAG" ]] && git rev-parse -q --verify "$PREV_TAG" >/dev/null; then
-    COMMIT_RANGE="${PREV_TAG}..HEAD"
+PREV_TAG_REF="${GITHUB_TAG_NAMESPACE}/${PREV_TAG}"
+if [[ -n "$PREV_TAG" ]] && git rev-parse -q --verify "$PREV_TAG_REF" >/dev/null; then
+    COMMIT_RANGE="${PREV_TAG_REF}..HEAD"
+    COMMIT_RANGE_DISPLAY="${PREV_TAG}..HEAD"
 else
     COMMIT_RANGE="HEAD"
+    COMMIT_RANGE_DISPLAY="HEAD"
 fi
 
 echo
-echo -e "${BLUE}Generating draft release notes from ${COMMIT_RANGE}...${NC}"
+echo -e "${BLUE}Generating draft release notes from ${COMMIT_RANGE_DISPLAY}...${NC}"
 RELEASE_NOTES="$(generate_release_notes "$COMMIT_RANGE")"
 
 # Let the user review/edit the generated notes before publishing
