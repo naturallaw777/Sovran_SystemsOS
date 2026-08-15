@@ -61,11 +61,11 @@ let
     mkdir -p "$HOME/.config"
     cat > "$HOME/.config/mimeapps.list" << EOF
 [Default Applications]
-text/html=brave-browser.desktop
-x-scheme-handler/http=brave-browser.desktop
-x-scheme-handler/https=brave-browser.desktop
-x-scheme-handler/about=brave-browser.desktop
-x-scheme-handler/unknown=brave-browser.desktop
+text/html=brave-origin.desktop
+x-scheme-handler/http=brave-origin.desktop
+x-scheme-handler/https=brave-origin.desktop
+x-scheme-handler/about=brave-origin.desktop
+x-scheme-handler/unknown=brave-origin.desktop
 EOF
 
     ${pkgs.dconf}/bin/dconf load / << EOF
@@ -104,7 +104,7 @@ search-filter-time-type='last_modified'
 [org/gnome/shell]
 disabled-extensions=['just-perfection-desktop@just-perfection']
 enabled-extensions=['appindicatorsupport@rgcjonas.gmail.com', 'dash-to-dock-cosmic-@halfmexicanhalfamazing@gmail.com', 'Vitals@CoreCoding.com', 'dash-to-dock@micxgx.gmail.com', 'pop-shell@system76.com', 'date-menu-formatter@marcinjakubowski.github.com', 'light-style@gnome-shell-extensions.gcampax.github.com']
-favorite-apps=['brave-browser.desktop', 'org.gnome.Settings.desktop', 'org.gnome.Nautilus.desktop', 'sovran-hub.desktop', 'org.gnome.Software.desktop', 'org.gnome.Geary.desktop', 'org.gnome.Contacts.desktop', 'org.gnome.Calendar.desktop', 'sparrow.desktop', 'Bisq.desktop', 'bisq2.desktop']
+favorite-apps=['brave-origin.desktop', 'org.gnome.Settings.desktop', 'org.gnome.Nautilus.desktop', 'sovran-hub.desktop', 'org.gnome.Software.desktop', 'org.gnome.Geary.desktop', 'org.gnome.Contacts.desktop', 'org.gnome.Calendar.desktop', 'sparrow.desktop', 'Bisq.desktop', 'bisq2.desktop']
 welcome-dialog-last-shown-version='48.4'
 
 [org/gnome/desktop/app-folders]
@@ -112,7 +112,7 @@ folder-children=['Browsers', 'Office', 'Terminal', 'Chat', 'Bitcoin', 'Media', '
 
 [org/gnome/desktop/app-folders/folders/Browsers]
 name='Browsers'
-apps=['brave-browser.desktop', 'firefox.desktop', 'org.gnome.Epiphany.desktop']
+apps=['brave-origin.desktop', 'firefox.desktop', 'org.gnome.Epiphany.desktop']
 
 [org/gnome/desktop/app-folders/folders/Office]
 name='Office'
@@ -269,7 +269,7 @@ in
         ];
 
         favorite-apps = [
-          "brave-browser.desktop"
+          "brave-origin.desktop"
           "org.gnome.Settings.desktop"
           "org.gnome.Nautilus.desktop"
           "sovran-hub.desktop"
@@ -292,7 +292,7 @@ in
       "org/gnome/desktop/app-folders/folders/Browsers" = {
         name = "Browsers";
         apps = [
-          "brave-browser.desktop"
+          "brave-origin.desktop"
           "firefox.desktop"
           "org.gnome.Epiphany.desktop"
         ];
@@ -433,13 +433,13 @@ in
   ];
 
   xdg.mime.defaultApplications = {
-    "text/html" = "brave-browser.desktop";
-    "x-scheme-handler/http" = "brave-browser.desktop";
-    "x-scheme-handler/https" = "brave-browser.desktop";
-    "x-scheme-handler/about" = "brave-browser.desktop";
-    "x-scheme-handler/unknown" = "brave-browser.desktop";
+    "text/html" = "brave-origin.desktop";
+    "x-scheme-handler/http" = "brave-origin.desktop";
+    "x-scheme-handler/https" = "brave-origin.desktop";
+    "x-scheme-handler/about" = "brave-origin.desktop";
+    "x-scheme-handler/unknown" = "brave-origin.desktop";
   };
 
-  environment.sessionVariables.BROWSER = "brave-browser";
+  environment.sessionVariables.BROWSER = "brave-origin";
 
 }

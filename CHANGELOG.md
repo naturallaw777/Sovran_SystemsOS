@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+  - Replaced Brave Browser with Brave Origin (the new `brave-origin` nixpkgs
+    package) as the desktop's default browser: installed package, dock
+    favorite, Browsers app-folder entry, `xdg.mime.defaultApplications`, and
+    the `$BROWSER` session variable now all point at Brave Origin, and the
+    Sovran Hub launcher runs it.
+
 ### Fixed
   - The Hub now redirects to the login page when an API request finds an
     expired browser session, instead of leaving the dashboard tile grid in a
