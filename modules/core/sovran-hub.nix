@@ -292,7 +292,11 @@ let
     trap '[ -n "$HUB_DATA" ] && rm -rf "$HUB_DATA"' EXIT INT TERM
     export BAMF_DESKTOP_FILE_HINT="/run/current-system/sw/share/applications/sovran-hub.desktop"
     export GIO_LAUNCHED_DESKTOP_FILE="/run/current-system/sw/share/applications/sovran-hub.desktop"
+    # The Hub launches with a throwaway profile, so Brave Origin's one-time
+    # "Proceed with Origin for free on Linux" onboarding dialog would reappear
+    # on every launch and block the auto-login.  Skip it (Linux-only switch).
     brave-origin --app=http://localhost:8937/auto-login \
+          --skip-origin-startup-dialog \
           --class=sovran-hub \
           --user-data-dir="$HUB_DATA" \
           --password-store=basic \

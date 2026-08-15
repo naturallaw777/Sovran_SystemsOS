@@ -17,6 +17,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     Sovran Hub launcher runs it.
 
 ### Fixed
+  - The Hub launcher now passes `--skip-origin-startup-dialog` to Brave
+    Origin so its one-time "Proceed with Origin for free on Linux" onboarding
+    screen doesn't reappear (and block auto-login) on every launch, since the
+    Hub runs with a throwaway profile.
   - The Hub now redirects to the login page when an API request finds an
     expired browser session, instead of leaving the dashboard tile grid in a
     loading state while `/api/services` continues returning 401 every five
