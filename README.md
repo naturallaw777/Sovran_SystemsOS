@@ -185,7 +185,7 @@ hardware you control.
 ### Your desktop
 
 - [GNOME](https://www.gnome.org) desktop
-- [Brave](https://brave.com) and
+- [Brave Origin](https://brave.com/origin/) and
   [Firefox](https://www.mozilla.org/firefox) browsers
 - File management, email, calendar, and office applications
 - System monitoring and administration tools

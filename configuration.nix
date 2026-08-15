@@ -145,7 +145,7 @@
     ranger fastfetch gedit openssl pwgen
     aspell aspellDicts.en lm_sensors
     hunspell hunspellDicts.en_US
-    synadm brave dua
+    synadm brave-origin dua
     gparted pv unzip parted screen zenity
     libargon2 gnome-terminal libreoffice-fresh
     dig firefox wp-cli axel

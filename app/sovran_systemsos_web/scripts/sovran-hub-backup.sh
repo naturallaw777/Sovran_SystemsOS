@@ -491,6 +491,8 @@ if [[ -d /home ]]; then
     --exclude='.config/chromium/*/Code Cache/' \
     --exclude='.config/BraveSoftware/Brave-Browser/*/Cache/' \
     --exclude='.config/BraveSoftware/Brave-Browser/*/Code Cache/' \
+    --exclude='.config/BraveSoftware/Brave-Origin/*/Cache/' \
+    --exclude='.config/BraveSoftware/Brave-Origin/*/Code Cache/' \
     --exclude='.local/share/baloo/' \
     --exclude='.thumbnails/' \
     --exclude='.xsession-errors' \
