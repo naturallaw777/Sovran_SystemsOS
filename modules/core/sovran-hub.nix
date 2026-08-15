@@ -282,19 +282,29 @@ let
     fi
   '';
 
-  # ── Brave Origin launcher wrapper: stable profile dir so Wayland app_id is
-  #    deterministic and GNOME Shell can match the window to the .desktop
-  #    entry (fixes generic gear icon appearing in the dock).
+  # ── Brave Origin launcher wrapper: a *persistent* per-user profile dir.
+  #    It must NOT be wiped on exit: the Hub's logout marker cookie
+  #    (hub_manual_logout) and the session cookie live in this profile.
+  #    Launching from a fresh/ephemeral profile every time throws away the
+  #    marker, so /auto-login would mint a new session and silently log the
+  #    user straight back in after they signed out and reopened the window.
+  #    A stable directory also keeps the Wayland app_id deterministic so
+  #    GNOME Shell can match the window to the .desktop entry (dock icon).
   hub-brave-wrapper = pkgs.writeShellScript "sovran-hub-brave.sh" ''
     export PATH="${lib.makeBinPath [ pkgs.brave-origin pkgs.coreutils ]}:$PATH"
-    HUB_DATA="/tmp/sovran-hub-brave-$(id -u)"
+    # Per-user, persistent browser state. $XDG_STATE_HOME keeps it out of the
+    # way of backups and survives reboots and window close/reopen.
+    if [ -n "$XDG_STATE_HOME" ]; then
+      HUB_DATA="$XDG_STATE_HOME/sovran-hub-browser"
+    else
+      HUB_DATA="$HOME/.local/state/sovran-hub-browser"
+    fi
     mkdir -p "$HUB_DATA"
-    trap '[ -n "$HUB_DATA" ] && rm -rf "$HUB_DATA"' EXIT INT TERM
     export BAMF_DESKTOP_FILE_HINT="/run/current-system/sw/share/applications/sovran-hub.desktop"
     export GIO_LAUNCHED_DESKTOP_FILE="/run/current-system/sw/share/applications/sovran-hub.desktop"
-    # The Hub launches with a throwaway profile, so Brave Origin's one-time
-    # "Proceed with Origin for free on Linux" onboarding dialog would reappear
-    # on every launch and block the auto-login.  Skip it (Linux-only switch).
+    # With a persistent profile Brave Origin's one-time "Proceed with Origin
+    # for free on Linux" onboarding dialog only appears once; keep skipping it
+    # anyway so it can never block auto-login (Linux-only switch).
     brave-origin --app=http://localhost:8937/auto-login \
           --skip-origin-startup-dialog \
           --class=sovran-hub \
