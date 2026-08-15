@@ -26,7 +26,7 @@ are ready.
 [Verify the Download](https://downloads.sovransystems.com/Sovran_SystemsOS-1.1.1.iso.sha256) ·
 [Build from Source](#build-from-source)
 
-<img src="assets/desktop-screenshot.png" alt="Sovran_SystemsOS private Bitcoin desktop" width="800" />
+<img src="assets/desktop-screenshot.webp" alt="Sovran_SystemsOS private Bitcoin desktop" width="800" />
 
 *Bitcoin sovereignty from the first boot.*
 
@@ -280,6 +280,10 @@ From one place, the Hub helps you:
 - Manage service domains and credentials
 - Reach your Bitcoin tools, private cloud, and communications
 - Perform supported system operations without everyday terminal commands
+
+<img src="assets/sovran-hub-screenshot.webp" alt="The Sovran Hub dashboard" width="800" />
+
+*The Sovran Hub: manage your private infrastructure from one place.*
 
 ### Example home setup
 
