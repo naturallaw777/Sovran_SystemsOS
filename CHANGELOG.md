@@ -43,6 +43,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     manual re-pin.
 
 ### Fixed
+  - Zeus Connect QR in the Hub was invalid: the LND-only `lndconnect`
+    wrapper used flags Zeus/`lndconnect` do not understand (`--cert`,
+    `--macaroon`), read a non-existent onion path (`free/lnd.onion`),
+    and collided with LND's P2P hidden service. The wrapper now matches
+    the nix-bitcoin contract — dedicated `lnd-rest` onion on port 8080,
+    `--nocert` over Tor, admin macaroon in the URI — so scanning the Hub
+    QR in Zeus works again.
   - The Hub launcher now uses a persistent per-user browser profile
     (`$XDG_STATE_HOME/sovran-hub-browser`) instead of a throwaway `/tmp`
     profile that was deleted on exit. The throwaway profile wiped the

@@ -47,29 +47,44 @@ EOF
   systemd.services.zeus-connect-setup = {
     description = "Save Zeus lndconnect URL";
     wantedBy = [ "multi-user.target" ];
-    after = [ "lnd.service" ];
+    after = [ "lnd.service" "onion-addresses.service" ];
+    wants = [ "lnd.service" "onion-addresses.service" ];
     serviceConfig = {
       Type = "oneshot";
       RemainAfterExit = true;
     };
-    path = [ pkgs.coreutils "/run/current-system/sw" ];
+    # sudo is required: the lndconnect wrapper re-execs as the lnd user so it
+    # can read admin.macaroon (not group-readable).
+    path = [ pkgs.coreutils pkgs.gnugrep pkgs.sudo "/run/current-system/sw" ];
     script = ''
       SECRET_FILE="/var/lib/secrets/zeus-connect-url"
       mkdir -p /var/lib/secrets
 
+      # LND may still be creating the wallet / macaroon, and the dedicated
+      # lnd-rest onion hostname is published by onion-addresses.service.
       URL=""
-      if command -v lndconnect >/dev/null 2>&1; then
-        URL=$(lndconnect --url 2>/dev/null || true)
-      elif command -v lnconnect-clnrest >/dev/null 2>&1; then
-        URL=$(lnconnect-clnrest --url 2>/dev/null || true)
-      fi
+      ATTEMPTS=0
+      while [ "$ATTEMPTS" -lt 60 ]; do
+        if command -v lndconnect >/dev/null 2>&1; then
+          URL=$(lndconnect --url 2>/dev/null | tr -d '\r' | tail -n 1 || true)
+        fi
+        # Zeus LND REST over Tor: lndconnect://<v3-onion>:8080?macaroon=...
+        if echo "$URL" | grep -q '^lndconnect://' \
+           && echo "$URL" | grep -q '\.onion' \
+           && echo "$URL" | grep -q 'macaroon='; then
+          break
+        fi
+        URL=""
+        ATTEMPTS=$((ATTEMPTS + 1))
+        sleep 2
+      done
 
       if [ -n "$URL" ]; then
-        echo "$URL" > "$SECRET_FILE"
+        printf '%s\n' "$URL" > "$SECRET_FILE"
         chmod 600 "$SECRET_FILE"
         echo "Zeus connect URL saved."
       else
-        echo "No lndconnect URL available yet."
+        echo "No valid lndconnect URL available yet."
       fi
     '';
   };

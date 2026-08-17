@@ -487,9 +487,9 @@ SERVICE_DESCRIPTIONS: dict[str, str] = {
         "Sovran_SystemsOS makes running a production-grade payment gateway as simple as flipping a switch."
     ),
     "zeus-connect-setup.service": (
-        "Connect the Zeus mobile wallet to your Lightning node via LND REST. Send and receive "
+        "Connect the Zeus mobile wallet to your Lightning node via LND REST over Tor. Send and receive "
         "Lightning payments from your phone using a direct node connection. "
-        "Scan the QR code to add your node to Zeus — this gives full node admin access."
+        "Scan the QR code to add your node to Zeus, then enable Use Tor — this gives full node admin access."
     ),
     "mempool.service": (
         "Your own blockchain explorer and mempool visualizer. Monitor transactions, "
@@ -1532,31 +1532,38 @@ def _evaluate_domain_checklist(
 
 def _generate_qr_png_bytes(data: str, scale: int = 6, margin: int = 2) -> bytes | None:
     """Generate a QR code PNG and return the raw bytes.
-    Uses qrencode CLI (available on the system via credentials.nix)."""
-    try:
-        result = subprocess.run(
-            ["qrencode", "-o", "-", "-t", "PNG", "-s", str(scale), "-m", str(margin), "-l", "H", data],
-            capture_output=True, timeout=10,
-        )
-        if result.returncode == 0 and result.stdout:
-            return result.stdout
-    except Exception:
-        pass
+    Uses qrencode CLI (available on the system via credentials.nix).
+
+    High error-correction (H) is preferred for short payloads. Long
+    lndconnect URIs can exceed version-40 capacity at H, so fall back to
+    quartile then low ECC — otherwise the Hub shows an empty Zeus QR.
+    """
+    for ecc in ("H", "Q", "L"):
+        try:
+            result = subprocess.run(
+                ["qrencode", "-o", "-", "-t", "PNG", "-s", str(scale), "-m", str(margin), "-l", ecc, data],
+                capture_output=True, timeout=10,
+            )
+            if result.returncode == 0 and result.stdout:
+                return result.stdout
+        except Exception:
+            pass
     return None
 
 
 def _generate_qr_svg(data: str, scale: int = 10, margin: int = 4) -> str | None:
     """Generate a QR code SVG document (resolution-independent, ideal if the
     user wants to embed the QR in a website or print it at any size)."""
-    try:
-        result = subprocess.run(
-            ["qrencode", "-o", "-", "-t", "SVG", "-s", str(scale), "-m", str(margin), "-l", "H", data],
-            capture_output=True, timeout=10,
-        )
-        if result.returncode == 0 and result.stdout:
-            return result.stdout.decode("utf-8", errors="replace")
-    except Exception:
-        pass
+    for ecc in ("H", "Q", "L"):
+        try:
+            result = subprocess.run(
+                ["qrencode", "-o", "-", "-t", "SVG", "-s", str(scale), "-m", str(margin), "-l", ecc, data],
+                capture_output=True, timeout=10,
+            )
+            if result.returncode == 0 and result.stdout:
+                return result.stdout.decode("utf-8", errors="replace")
+        except Exception:
+            pass
     return None
 
 
@@ -1680,6 +1687,9 @@ def _resolve_credential(cred: dict) -> dict | None:
             qr_data = _generate_qr_base64(result["value"])
             if qr_data:
                 result["qrcode"] = qr_data
+            else:
+                # Don't hide the URI if we could not render a scannable QR.
+                qronly = False
         if qronly:
             result["qronly"] = True
         return result
@@ -1714,6 +1724,9 @@ def _resolve_credential(cred: dict) -> dict | None:
         qr_data = _generate_qr_base64(value)
         if qr_data:
             result["qrcode"] = qr_data
+        else:
+            # Don't hide the URI if we could not render a scannable QR.
+            qronly = False
 
     if qronly:
         result["qronly"] = True

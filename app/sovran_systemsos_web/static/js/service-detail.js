@@ -11,9 +11,9 @@ function _getZeusConnectGuideHtml() {
       '<div class="nwc-connect-step"><div class="nwc-step-num">2</div><div>Open Zeus and open the <strong>Wallets</strong> screen.</div></div>' +
       '<div class="nwc-connect-step"><div class="nwc-step-num">3</div><div>Tap the <strong>+ (Add Wallet)</strong> button in the top-right corner.</div></div>' +
       '<div class="nwc-connect-step"><div class="nwc-step-num">4</div><div>On <strong>Wallet Configuration</strong>, tap the <strong>scan icon</strong> in the top-right corner, then scan the QR code above.</div></div>' +
-      '<div class="nwc-connect-step"><div class="nwc-step-num">5</div><div>Zeus detects the LND REST QR and fills in the connection details. Review them, then tap <strong>Save Wallet Config</strong>.</div></div>' +
+      '<div class="nwc-connect-step"><div class="nwc-step-num">5</div><div>Zeus detects the LND REST QR and fills in the connection details. Turn <strong>Use Tor</strong> on (the host is a .onion address), then tap <strong>Save Wallet Config</strong>.</div></div>' +
     '</div>' +
-    '<div class="nwc-connect-note"><strong>💡 Note:</strong> This is <em>not</em> the same as the NWC pairing QR shown in Lightning Wallet Connections — that gives your wallet sandboxed, limited access for everyday spending. LND REST connects Zeus directly to your node for full admin control.</div>' +
+    '<div class="nwc-connect-note"><strong>💡 Note:</strong> This is <em>not</em> the same as the NWC pairing QR shown in Lightning Wallet Connections — that gives your wallet sandboxed, limited access for everyday spending. LND REST connects Zeus directly to your node for full admin control. The QR uses your dedicated LND REST Tor address (no TLS cert) so Zeus can scan and connect over Tor.</div>' +
   '</div>';
 }
 
