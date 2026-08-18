@@ -151,6 +151,7 @@
     dig firefox wp-cli axel
     lk-jwt-service livekit-libwebrtc livekit
     matrix-synapse age onlyoffice-desktopeditors
+    tor-browser
   ];
 
   # ── Shell ──────────────────────────────────────────────────
