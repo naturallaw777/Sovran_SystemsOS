@@ -284,7 +284,9 @@ let
   nbLib = config.nix-bitcoin.lib;
   secretsDir = config.nix-bitcoin.secretsDir;
 
-  i2pSAM = config.services.i2pd.proto.sam;
+  # nixpkgs 26.11 moved i2pd's protocol configuration from
+  # `services.i2pd.proto` to the RFC42-style `services.i2pd.settings`.
+  i2pSAM = config.services.i2pd.settings.sam;
 
   configFile = builtins.toFile "bitcoin.conf" ''
     # We're already logging via journald
@@ -374,7 +376,11 @@ in {
 
     services.i2pd = mkIf (cfg.i2p != false) {
       enable = true;
-      proto.sam.enable = true;
+      settings.sam = {
+        enabled = true;
+        address = "127.0.0.1";
+        port = 7656;
+      };
     };
 
     systemd.tmpfiles.rules = [
