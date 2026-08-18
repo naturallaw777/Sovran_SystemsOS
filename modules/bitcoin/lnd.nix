@@ -150,7 +150,7 @@ let
   nbLib = config.nix-bitcoin.lib;
   secretsDir = config.nix-bitcoin.secretsDir;
   runAsUser = config.nix-bitcoin.runAsUserCmd;
-  lndinit = "${(pkgs.callPackage ../../packages/lndinit {})}/bin/lndinit";
+  lndinit = "${pkgs.lndinit}/bin/lndinit";
 
   bitcoind = config.services.bitcoind;
 
