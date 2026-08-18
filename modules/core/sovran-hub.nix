@@ -160,8 +160,10 @@ let
 
     LOG="/var/log/sovran-hub-update.log"
     STATUS="/var/log/sovran-hub-update.status"
+    GENERATION="/var/log/sovran-hub-update.generation"
 
     echo "RUNNING" > "$STATUS"
+    rm -f "$GENERATION"
     : > "$LOG"
     exec > >(tee -a "$LOG") 2>&1
 
@@ -195,6 +197,10 @@ let
       BOOT_RC=$?
       if [ "$BOOT_RC" -ne 0 ]; then
         echo "[ERROR] nixos-rebuild boot failed"
+        RC=1
+      elif ! readlink -f /nix/var/nix/profiles/system > "$GENERATION"; then
+        echo "[ERROR] update was built but its staged generation could not be recorded"
+        rm -f "$GENERATION"
         RC=1
       fi
       echo ""

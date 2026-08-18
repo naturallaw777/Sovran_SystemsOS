@@ -271,10 +271,19 @@ async function checkUpdates() {
   try {
     var data = await apiFetch("/api/updates/check");
     var hasUpdates = !!data.available;
+    var updateStatus = data.status || "idle";
     var sidebarUpdateBtn = document.getElementById("sidebar-btn-update");
     var sidebarUpdateHint = document.getElementById("sidebar-update-hint");
     if (sidebarUpdateBtn) {
-      if (hasUpdates) {
+      if (updateStatus === "reboot_required") {
+        sidebarUpdateBtn.style.borderColor = "#e5a50a";
+        sidebarUpdateBtn.style.backgroundColor = "rgba(229, 165, 10, 0.10)";
+        if (sidebarUpdateHint) sidebarUpdateHint.textContent = "Restart required";
+      } else if (updateStatus === "running") {
+        sidebarUpdateBtn.style.borderColor = "#3584e4";
+        sidebarUpdateBtn.style.backgroundColor = "rgba(53, 132, 228, 0.10)";
+        if (sidebarUpdateHint) sidebarUpdateHint.textContent = "Update in progress…";
+      } else if (hasUpdates) {
         sidebarUpdateBtn.style.borderColor = "#2ec27e";
         sidebarUpdateBtn.style.backgroundColor = "rgba(46, 194, 126, 0.08)";
         if (sidebarUpdateHint) sidebarUpdateHint.textContent = "Updates available!";

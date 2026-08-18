@@ -144,3 +144,22 @@ async function apiFetch(path, options) {
   }
   return res.json();
 }
+
+async function apiFetchWithTimeout(path, options, timeoutMs) {
+  var controller = new AbortController();
+  var fetchOptions = Object.assign({}, options || {});
+  fetchOptions.signal = controller.signal;
+  var timer = setTimeout(function() { controller.abort(); }, timeoutMs);
+  try {
+    return await apiFetch(path, fetchOptions);
+  } catch (err) {
+    if (controller.signal.aborted) {
+      var timeoutError = new Error("Request timed out");
+      timeoutError.name = "TimeoutError";
+      throw timeoutError;
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
+}

@@ -6,6 +6,16 @@
 if ($btnCloseModal) $btnCloseModal.addEventListener("click", closeUpdateModal);
 if ($btnReboot) $btnReboot.addEventListener("click", doReboot);
 if ($btnSave) $btnSave.addEventListener("click", saveErrorReport);
+if ($btnRetryUpdate) $btnRetryUpdate.addEventListener("click", retryUpdateStatus);
+
+// Browser timers and requests may be suspended while an RDP session/tab is in
+// the background. Reconcile immediately when the user returns instead of
+// waiting for the next interval.
+window.addEventListener("focus", resumeUpdateStatusAfterInterruption);
+window.addEventListener("online", resumeUpdateStatusAfterInterruption);
+document.addEventListener("visibilitychange", function() {
+  if (document.visibilityState === "visible") resumeUpdateStatusAfterInterruption();
+});
 if ($credsCloseBtn) $credsCloseBtn.addEventListener("click", closeCredsModal);
 if ($supportCloseBtn) $supportCloseBtn.addEventListener("click", closeSupportModal);
 
@@ -248,6 +258,11 @@ async function init() {
     setInterval(checkUpdates, POLL_INTERVAL_UPDATES);
     loadAutolaunchToggle();
   }
+
+  // If the page was reloaded or the RDP/browser session resumed during an
+  // update, reopen the modal from the persisted backend state. This also
+  // surfaces a completed update that is waiting for its activation reboot.
+  await restoreUpdateModalIfNeeded();
 }
 
 document.addEventListener("DOMContentLoaded", init);

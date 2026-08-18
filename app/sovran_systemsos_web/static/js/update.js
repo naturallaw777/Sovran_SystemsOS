@@ -2,20 +2,45 @@
 
 // ── Update modal ──────────────────────────────────────────────────
 
-function openUpdateModal() {
+async function openUpdateModal() {
   if (!$modal) return;
-  apiFetch("/api/updates/check")
+
+  // Reattach before checking for new updates. This makes a browser reload,
+  // RDP reconnect, or suspended tab recover the authoritative systemd-backed
+  // state instead of starting over or claiming the system is merely up to date.
+  try {
+    var current = await apiFetchWithTimeout(
+      "/api/updates/status?offset=0",
+      { cache: "no-store" },
+      STATUS_POLL_FETCH_TIMEOUT
+    );
+    if (current.running || current.result === "reboot_required") {
+      showExistingUpdate(current);
+      return;
+    }
+  } catch (_) {
+    // The normal start path below has its own visible error handling.
+  }
+
+  apiFetchWithTimeout(
+    "/api/updates/check",
+    { cache: "no-store" },
+    STATUS_POLL_FETCH_TIMEOUT
+  )
     .then(function(data) {
       if (!data.available) {
         stopUpdatePoll();
         _updateLog = "";
         _updateLogOffset = 0;
+        _updateVisibleLogChars = 0;
         _updateFinished = true;
+        _updateStatusUnavailable = false;
         if ($modalLog) $modalLog.textContent = "";
         if ($modalStatus) $modalStatus.textContent = "✓ System is already up to date";
         if ($modalSpinner) $modalSpinner.classList.remove("spinning");
         if ($btnReboot) $btnReboot.style.display = "none";
         if ($btnSave) $btnSave.style.display = "none";
+        if ($btnRetryUpdate) $btnRetryUpdate.style.display = "none";
         if ($btnCloseModal) $btnCloseModal.disabled = false;
         $modal.classList.add("open");
         return;
@@ -27,21 +52,67 @@ function openUpdateModal() {
     });
 }
 
-function _doOpenUpdateModal() {
+function prepareUpdateModal() {
   if (!$modal) return;
+  stopUpdatePoll();
   _updateLog = "";
   _updateLogOffset = 0;
+  _updateVisibleLogChars = 0;
+  _updatePollInFlight = false;
   _serverWasDown = false;
   _updateFinished = false;
+  _updateStatusUnavailable = false;
   _updatePollFailures = 0;
   if ($modalLog) $modalLog.textContent = "";
   if ($modalStatus) $modalStatus.textContent = "Starting update…";
   if ($modalSpinner) $modalSpinner.classList.add("spinning");
   if ($btnReboot) $btnReboot.style.display = "none";
   if ($btnSave) $btnSave.style.display = "none";
+  if ($btnRetryUpdate) $btnRetryUpdate.style.display = "none";
   if ($btnCloseModal) $btnCloseModal.disabled = true;
   $modal.classList.add("open");
+}
+
+function _doOpenUpdateModal() {
+  prepareUpdateModal();
   startUpdate();
+}
+
+function showExistingUpdate(data) {
+  prepareUpdateModal();
+  if (data.log) appendLog(data.log);
+  _updateLogOffset = Number(data.offset) || 0;
+
+  if (data.running) {
+    if ($modalStatus) $modalStatus.textContent = "Updating…";
+    startUpdatePoll();
+    return;
+  }
+
+  _updateFinished = true;
+  if (data.result === "reboot_required") {
+    onUpdateDone("reboot_required");
+  } else if (data.result === "success") {
+    onUpdateDone(true);
+  } else {
+    onUpdateDone(false);
+  }
+}
+
+async function restoreUpdateModalIfNeeded() {
+  if (!$modal || $modal.classList.contains("open")) return;
+  try {
+    var data = await apiFetchWithTimeout(
+      "/api/updates/status?offset=0",
+      { cache: "no-store" },
+      STATUS_POLL_FETCH_TIMEOUT
+    );
+    if (data.running || data.result === "reboot_required") {
+      showExistingUpdate(data);
+    }
+  } catch (_) {
+    // Dashboard startup must remain usable when status cannot be reached.
+  }
 }
 
 function closeUpdateModal() {
@@ -53,21 +124,36 @@ function closeUpdateModal() {
 function appendLog(text) {
   if (!text) return;
   _updateLog += text;
-  if ($modalLog) { $modalLog.textContent += text; $modalLog.scrollTop = $modalLog.scrollHeight; }
+  if ($modalLog) {
+    // Appending a text node avoids reparsing/replacing the complete log on
+    // every two-second poll. Trim only occasionally once the visible log is
+    // large; the complete _updateLog remains available for error reports.
+    if (_updateVisibleLogChars + text.length > UPDATE_VISIBLE_LOG_MAX_CHARS) {
+      var tail = _updateLog.slice(-UPDATE_VISIBLE_LOG_TRIM_CHARS);
+      var notice = "[Earlier update output hidden from this view; it remains in the saved report.]\n\n";
+      $modalLog.textContent = notice + tail;
+      _updateVisibleLogChars = notice.length + tail.length;
+    } else {
+      $modalLog.appendChild(document.createTextNode(text));
+      _updateVisibleLogChars += text.length;
+    }
+    $modalLog.scrollTop = $modalLog.scrollHeight;
+  }
 }
 
 function startUpdate() {
-  fetch("/api/updates/run", { method: "POST" })
-    .then(function(response) {
-      if (!response.ok) return response.text().then(function(t) { throw new Error(t); });
-      return response.json();
-    })
+  apiFetchWithTimeout(
+    "/api/updates/run",
+    { method: "POST" },
+    STATUS_POLL_FETCH_TIMEOUT * 2
+  )
     .then(function(data) {
       if (data.status === "no_updates") {
         if ($modalStatus) $modalStatus.textContent = "✓ System is already up to date";
         if ($modalSpinner) $modalSpinner.classList.remove("spinning");
         if ($btnReboot) $btnReboot.style.display = "none";
         if ($btnSave) $btnSave.style.display = "none";
+        if ($btnRetryUpdate) $btnRetryUpdate.style.display = "none";
         if ($btnCloseModal) $btnCloseModal.disabled = false;
         _updateFinished = true;
         return;
@@ -83,6 +169,7 @@ function startUpdate() {
 }
 
 function startUpdatePoll() {
+  if (_updatePollTimer) clearInterval(_updatePollTimer);
   pollUpdateStatus();
   _updatePollTimer = setInterval(pollUpdateStatus, UPDATE_POLL_INTERVAL);
 }
@@ -92,33 +179,45 @@ function stopUpdatePoll() {
 }
 
 async function pollUpdateStatus() {
-  if (_updateFinished) return;
+  // setInterval does not wait for an async callback. The guard prevents a slow
+  // request from creating overlapping, out-of-order status polls.
+  if (_updateFinished || _updatePollInFlight) return;
+  _updatePollInFlight = true;
   try {
-    var data = await apiFetch("/api/updates/status?offset=" + _updateLogOffset);
+    var data = await apiFetchWithTimeout(
+      "/api/updates/status?offset=" + _updateLogOffset,
+      { cache: "no-store" },
+      STATUS_POLL_FETCH_TIMEOUT
+    );
     _updatePollFailures = 0;
     if (_serverWasDown) {
       _serverWasDown = false;
       if (!data.running) {
-        // The update finished while the server was restarting.  Reset to
-        // offset 0 and re-fetch so the complete log is shown from the top.
+        // The update finished while the server or browser connection was away.
+        // Re-fetch from offset 0 so the final result and complete tail agree.
         _updateLog = "";
         _updateLogOffset = 0;
+        _updateVisibleLogChars = 0;
         if ($modalLog) $modalLog.textContent = "";
         try {
-          var fullData = await apiFetch("/api/updates/status?offset=0");
+          var fullData = await apiFetchWithTimeout(
+            "/api/updates/status?offset=0",
+            { cache: "no-store" },
+            STATUS_POLL_FETCH_TIMEOUT
+          );
           if (fullData.log) appendLog(fullData.log);
           _updateLogOffset = fullData.offset;
-        } catch (e) {
-          // If the re-fetch fails, fall through with whatever we have.
+          data = fullData;
+        } catch (_) {
           if (data.log) appendLog(data.log);
           _updateLogOffset = data.offset;
         }
         if (data.result === "reboot_required") {
-          appendLog("[Server restarted — update completed, reboot required.]\n");
+          appendLog("[Reconnected — update completed, reboot required.]\n");
         } else if (data.result === "success") {
-          appendLog("[Server restarted — update completed successfully.]\n");
+          appendLog("[Reconnected — update completed successfully.]\n");
         } else {
-          appendLog("[Server restarted — update encountered an error.]\n");
+          appendLog("[Reconnected — update encountered an error.]\n");
         }
         _updateFinished = true;
         stopUpdatePoll();
@@ -129,7 +228,7 @@ async function pollUpdateStatus() {
         }
         return;
       }
-      appendLog("[Server reconnected]\n");
+      appendLog("[Update status reconnected]\n");
       if ($modalStatus) $modalStatus.textContent = "Updating…";
     }
     if (data.log) appendLog(data.log);
@@ -146,21 +245,57 @@ async function pollUpdateStatus() {
     }
   } catch (err) {
     _updatePollFailures += 1;
-    // Same guard as the rebuild modal: if polling stays broken long past a
-    // normal Hub restart, reload to re-authenticate and show the real state
-    // instead of spinning forever.
     if (_updatePollFailures >= STATUS_POLL_MAX_FAILURES) {
-      _updateFinished = true;
-      stopUpdatePoll();
-      window.location.reload();
+      showUpdateStatusUnavailable();
       return;
     }
-    if (!_serverWasDown) { _serverWasDown = true; appendLog("\n[Server restarting — waiting for it to come back…]\n"); if ($modalStatus) $modalStatus.textContent = "Server restarting…"; }
+    if (!_serverWasDown) {
+      _serverWasDown = true;
+      appendLog("\n[Update status connection interrupted — retrying…]\n");
+      if ($modalStatus) $modalStatus.textContent = "Reconnecting to update…";
+    }
+  } finally {
+    _updatePollInFlight = false;
+  }
+}
+
+function showUpdateStatusUnavailable() {
+  _updateFinished = true;
+  _updateStatusUnavailable = true;
+  stopUpdatePoll();
+  if ($modalSpinner) $modalSpinner.classList.remove("spinning");
+  if ($modalStatus) $modalStatus.textContent = "Update status unavailable — update may still be running";
+  appendLog("\n[The Hub could not confirm update status. The background update was not stopped. Select Retry Status after reconnecting.]\n");
+  if ($btnRetryUpdate) $btnRetryUpdate.style.display = "inline-flex";
+  if ($btnCloseModal) $btnCloseModal.disabled = false;
+}
+
+function retryUpdateStatus() {
+  if (!$modal) return;
+  _updateFinished = false;
+  _updateStatusUnavailable = false;
+  _updatePollFailures = 0;
+  _serverWasDown = true;
+  if ($modalSpinner) $modalSpinner.classList.add("spinning");
+  if ($modalStatus) $modalStatus.textContent = "Reconnecting to update…";
+  if ($btnRetryUpdate) $btnRetryUpdate.style.display = "none";
+  if ($btnCloseModal) $btnCloseModal.disabled = true;
+  startUpdatePoll();
+}
+
+function resumeUpdateStatusAfterInterruption() {
+  if (!$modal || !$modal.classList.contains("open")) return;
+  if (_updateStatusUnavailable) {
+    retryUpdateStatus();
+  } else if (!_updateFinished) {
+    pollUpdateStatus();
   }
 }
 
 function onUpdateDone(result) {
+  _updateStatusUnavailable = false;
   if ($modalSpinner) $modalSpinner.classList.remove("spinning");
+  if ($btnRetryUpdate) $btnRetryUpdate.style.display = "none";
   if ($btnCloseModal) $btnCloseModal.disabled = false;
   if (result === true) {
     if ($modalStatus) $modalStatus.textContent = "✓ Update complete";
@@ -186,6 +321,7 @@ function saveErrorReport() {
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
+
 
 // ── Reboot ────────────────────────────────────────────────────────
 

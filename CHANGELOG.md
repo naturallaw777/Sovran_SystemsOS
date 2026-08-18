@@ -75,6 +75,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     polling failures instead of hanging indefinitely.
   - Rebuild/update scripts stream `nixos-rebuild` output into the live log
     (it was buffered until completion, making long rebuilds look frozen).
+  - The update modal now reconciles persisted update state after a page/RDP
+    reconnect, bounds every status request with a timeout, prevents overlapping
+    async polls, and reports an explicit "status unavailable" state with a
+    Retry Status action instead of spinning forever. Verbose Nix logs are
+    rendered incrementally and bounded so they cannot stall the browser UI.
+  - Successful staged updates now record the exact NixOS generation. The Hub
+    keeps showing "Restart required" until that generation is active, then
+    clears the marker after reboot (with log-based recovery for older updates).
 
 ---
 

@@ -55,6 +55,7 @@ from .security_helpers import (
     load_session_store,
     save_session_store,
 )
+from .update_state import staged_generation_is_active
 
 logger = logging.getLogger(__name__)
 
@@ -64,9 +65,10 @@ FLAKE_LOCK_PATH = "/etc/nixos/flake.lock"
 FLAKE_INPUT_NAME = "Sovran_Systems"
 GITEA_API_BASE = "https://git.sovransystems.com/api/v1/repos/Sovran_Systems/Sovran_SystemsOS/commits"
 
-UPDATE_LOG    = "/var/log/sovran-hub-update.log"
-UPDATE_STATUS = "/var/log/sovran-hub-update.status"
-UPDATE_UNIT   = "sovran-hub-update.service"
+UPDATE_LOG        = "/var/log/sovran-hub-update.log"
+UPDATE_STATUS     = "/var/log/sovran-hub-update.status"
+UPDATE_GENERATION = "/var/log/sovran-hub-update.generation"
+UPDATE_UNIT       = "sovran-hub-update.service"
 
 REBUILD_LOG    = "/var/log/sovran-hub-rebuild.log"
 REBUILD_STATUS = "/var/log/sovran-hub-rebuild.status"
@@ -1634,15 +1636,6 @@ def _nwc_lnurl_bech32(alias: str, domain: str) -> str:
 
 # ── Update helpers (file-based, no systemctl) ────────────────────
 
-def _read_update_status() -> str:
-    """Read the status file. Returns RUNNING, SUCCESS, REBOOT_REQUIRED, FAILED, or IDLE."""
-    try:
-        with open(UPDATE_STATUS, "r") as f:
-            return f.read().strip()
-    except FileNotFoundError:
-        return "IDLE"
-
-
 def _write_update_status(status: str):
     """Write to the status file."""
     try:
@@ -1650,6 +1643,34 @@ def _write_update_status(status: str):
             f.write(status)
     except OSError:
         pass
+
+
+def _read_update_status() -> str:
+    """Read and reconcile the persistent update status.
+
+    ``REBOOT_REQUIRED`` intentionally survives Hub/browser restarts before the
+    reboot.  Once the staged generation is the running ``/run/current-system``,
+    clear that marker so a completed reboot cannot leave the Hub asking for
+    another reboot forever.  The generation helper can recover older updates
+    from the final nixos-rebuild log line when no explicit marker exists.
+    """
+    try:
+        with open(UPDATE_STATUS, "r") as f:
+            status = f.read().strip()
+    except FileNotFoundError:
+        return "IDLE"
+
+    if status == "REBOOT_REQUIRED" and staged_generation_is_active(
+        UPDATE_GENERATION, UPDATE_LOG
+    ):
+        _write_update_status("IDLE")
+        try:
+            os.remove(UPDATE_GENERATION)
+        except OSError:
+            pass
+        return "IDLE"
+
+    return status
 
 
 def _read_log(offset: int = 0) -> tuple[str, int]:
@@ -3832,9 +3853,15 @@ async def api_ports_health():
 @app.get("/api/updates/check")
 async def api_updates_check():
     loop = asyncio.get_event_loop()
+    status = await loop.run_in_executor(None, _read_update_status)
+    if status in {"RUNNING", "REBOOT_REQUIRED"}:
+        # Avoid a slow remote update check when there is already an operation
+        # the dashboard needs to surface.
+        return {"available": True, "status": status.lower()}
+
     available = await loop.run_in_executor(None, check_for_updates)
     # None means inconclusive (check failed) — report as available so the UI doesn't block
-    return {"available": available is not False}
+    return {"available": available is not False, "status": status.lower()}
 
 
 @app.get("/api/ping")
