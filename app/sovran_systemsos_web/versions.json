@@ -5,7 +5,7 @@
   "bitcoind.service": "27.1.0",
   "electrs.service": "0.10.6",
   "lnd.service": "0.18.0",
-  "rtl.service": "0.15.8",
+  "rtl.service": "0.15.10",
   "btcpayserver.service": "2.4.2",
   "albyhub.service": "1.8.0",
   "mempool.service": "3.2.1",

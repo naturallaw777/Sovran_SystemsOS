@@ -136,9 +136,9 @@ let
     "electrs.service" = if pkgs ? electrs then pkgs.electrs.version else "0.10.6";
     "lnd.service" = if pkgs ? lnd then pkgs.lnd.version else "0.18.0";
     # Keep the fallbacks aligned with the vendored packages used by the
-    # service modules (RTL 0.15.8 and Mempool 3.2.1).  The nixpkgs attrs are
+    # service modules (RTL 0.15.10 and Mempool 3.2.1).  The nixpkgs attrs are
     # optional because these packages are built locally in this repository.
-    "rtl.service" = if pkgs ? clightning-rtl then pkgs.clightning-rtl.version else (if pkgs ? rtl then pkgs.rtl.version else "0.15.8");
+    "rtl.service" = if pkgs ? clightning-rtl then pkgs.clightning-rtl.version else (if pkgs ? rtl then pkgs.rtl.version else "0.15.10");
     # BTCPay Server is intentionally sourced from pkgs.stable by the service
     # module.  Read the configured package here rather than pkgs.btcpayserver
     # (unstable), otherwise the Hub can advertise a version that is not running.
