@@ -33,9 +33,15 @@ lib.mkIf config.sovran_systemsOS.features.element-calling {
     '';
   };
 
-  ####### ENSURE SERVICES START AFTER KEY EXISTS #######
-  systemd.services.livekit.after = [ "livekit-key-setup.service" "livekit-turn-setup.service" ];
-  systemd.services.livekit.wants = [ "livekit-key-setup.service" "livekit-turn-setup.service" ];
+  ####### ENSURE SERVICES START AFTER KEY & NETWORK EXIST #######
+  # Ordering against network-online.target matters: livekit-turn-setup detects
+  # the primary interface from the IPv4 default route. If it runs before the
+  # network is up (no default route yet) it exits 1 and, being a hard
+  # dependency of livekit.service, takes livekit down with it — the Hub then
+  # shows a "failed" red dot until livekit is restarted manually. See the
+  # livekit-turn-setup block for the matching network-online ordering.
+  systemd.services.livekit.after = [ "network-online.target" "livekit-key-setup.service" "livekit-turn-setup.service" ];
+  systemd.services.livekit.wants = [ "network-online.target" "livekit-key-setup.service" "livekit-turn-setup.service" ];
   systemd.services.lk-jwt-service.after = [ "livekit-key-setup.service" ];
   systemd.services.lk-jwt-service.wants = [ "livekit-key-setup.service" ];
 
@@ -114,7 +120,12 @@ EOF
   #     substituted) that the overridden ExecStart loads.
   systemd.services.livekit-turn-setup = {
     description = "Stage TURN cert and generate LiveKit runtime config from domain files";
-    after = [ "caddy.service" "livekit-key-setup.service" ];
+    # Wait for a default IPv4 route before detecting the interface, and for
+    # Caddy to have started (cert generation is async, so also see the retry
+    # loop below). Otherwise on a cold boot this unit can fail / produce empty
+    # certs, which breaks livekit.service (requiredBy) and shows a red dot.
+    after = [ "network-online.target" "caddy.service" "livekit-key-setup.service" ];
+    wants = [ "network-online.target" ];
     before = [ "livekit.service" ];
     requiredBy = [ "livekit.service" ];
     wantedBy = [ "multi-user.target" ];
@@ -133,11 +144,30 @@ EOF
 
       # Copy Caddy's already-issued matrix cert/key into LiveKit's state dir.
       # The ACME CA hostname directory can vary, so glob for the domain dir.
-      CRT=$(find /var/lib/caddy -path "*/$MATRIX/$MATRIX.crt" | head -n1)
-      KEY=$(find /var/lib/caddy -path "*/$MATRIX/$MATRIX.key" | head -n1)
-      cp "$CRT" /var/lib/livekit/turn.crt
-      cp "$KEY" /var/lib/livekit/turn.key
-      chmod 640 /var/lib/livekit/turn.crt /var/lib/livekit/turn.key
+      # Caddy issues ACME certs asynchronously, so on a fresh boot the cert may
+      # not exist yet. Retry (bounded) so we never write an empty turn.crt/key;
+      # otherwise embedded TURN silently breaks until the next livekit restart.
+      CRT=""
+      KEY=""
+      for _ in $(seq 1 30); do
+        CRT=$(find /var/lib/caddy -path "*/$MATRIX/$MATRIX.crt" | head -n1)
+        KEY=$(find /var/lib/caddy -path "*/$MATRIX/$MATRIX.key" | head -n1)
+        if [ -n "$CRT" ] && [ -n "$KEY" ] \
+           && [ -s "$CRT" ] && [ -s "$KEY" ]; then
+          break
+        fi
+        CRT=""
+        KEY=""
+        echo "Waiting for Caddy to issue the $MATRIX ACME certificate..."
+        sleep 2
+      done
+      if [ -z "$CRT" ] || [ -z "$KEY" ]; then
+        echo "ERROR: Caddy ACME certificate for $MATRIX not available after retries; TURN will not be enabled for LiveKit." >&2
+      else
+        cp "$CRT" /var/lib/livekit/turn.crt
+        cp "$KEY" /var/lib/livekit/turn.key
+        chmod 640 /var/lib/livekit/turn.crt /var/lib/livekit/turn.key
+      fi
 
       # Detect the primary network interface from the IPv4 default route.
       # Restricting LiveKit to this single interface prevents it from
