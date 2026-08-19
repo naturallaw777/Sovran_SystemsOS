@@ -83,6 +83,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Successful staged updates now record the exact NixOS generation. The Hub
     keeps showing "Restart required" until that generation is active, then
     clears the marker after reboot (with log-based recovery for older updates).
+  - Pending-reboot state is now derived from NixOS itself — the boot default
+    (`/nix/var/nix/profiles/system`) versus the running `/run/current-system`
+    — instead of from Hub-written marker files. Updates performed from a
+    terminal or support session (which never touch the Hub's status files)
+    previously left a stale `REBOOT_REQUIRED` marker the Hub could never
+    clear, pinning the "Restart required" badge forever even after many
+    reboots. The marker self-heals to `IDLE` on the next status read whenever
+    boot default and running system agree, and recording the informational
+    `.generation` marker can no longer fail an otherwise successful update.
 
 ---
 

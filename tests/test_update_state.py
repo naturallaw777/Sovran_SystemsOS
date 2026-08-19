@@ -17,79 +17,143 @@ if str(_APP_PARENT) not in sys.path:
     sys.path.insert(0, str(_APP_PARENT))
 
 from sovran_systemsos_web.update_state import (  # noqa: E402
-    read_staged_generation,
-    staged_generation_is_active,
+    effective_update_status,
+    reboot_is_pending,
 )
 
 
-GENERATION = (
-    "/nix/store/rmi0g35cd8w60k0ig7pm6kb8kzws8b7x-"
-    "nixos-system-nixos-26.11.20260817.ec2d622"
+# Real store paths observed on the incident machine that prompted this rework.
+RUNNING_GENERATION = (
+    "84rsiqi66nc68jbikd26ms50ap831xf8-nixos-system-nixos-26.11.20260817.ec2d622"
 )
-OTHER_GENERATION = (
-    "/nix/store/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-"
-    "nixos-system-nixos-26.11.20260816.old"
+PREVIOUS_GENERATION = (
+    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-nixos-system-nixos-26.11.20260816.old"
+)
+# What the stale Hub log still claimed was staged: a two-week-old update cycle.
+HUB_LOG_GENERATION = (
+    "yis0saq6p8fhqcaii0h2yzqf0blhdwns-nixos-system-nixos-26.11.20260804.e72e4f2"
 )
 
 
-class TestStagedGenerationState(unittest.TestCase):
+class TestRebootPendingState(unittest.TestCase):
+    """Reboot-pending state is derived from NixOS, not from Hub marker files.
+
+    The system profile (what boots next) is compared against
+    /run/current-system (what is running).  This stays correct no matter
+    which tool performed the update: Hub "Update System", a terminal
+    ``nixos-rebuild``, or an SSH support session.
+    """
+
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         root = Path(self.tmp.name)
-        self.marker = root / "update.generation"
-        self.log = root / "update.log"
+        self.store = root / "store"
+        self.store.mkdir()
+        # /nix/var/nix/profiles/system is a two-hop chain: the diagnostics on
+        # the incident box showed ``system`` -> ``system-148-link`` -> store.
+        self.profile = root / "system"
+        self.profile_entry = root / "system-148-link"
+        # /run/current-system links straight to the running store path.
         self.current = root / "current-system"
 
-    def test_explicit_generation_marker_is_read(self):
-        self.marker.write_text(GENERATION + "\n", encoding="utf-8")
-        self.assertEqual(
-            read_staged_generation(str(self.marker), str(self.log)), GENERATION
+    def _store_dir(self, name: str) -> str:
+        path = self.store / name
+        path.mkdir(exist_ok=True)
+        return str(path)
+
+    def _stage(self, booted: str, running: str) -> None:
+        """Stage ``booted`` as the boot default with ``running`` live."""
+        os.symlink(self._store_dir(booted), self.profile_entry)
+        os.symlink(self.profile_entry, self.profile)
+        os.symlink(self._store_dir(running), self.current)
+
+    def test_hub_update_staged_and_not_yet_rebooted_is_pending(self):
+        self._stage(booted=RUNNING_GENERATION, running=PREVIOUS_GENERATION)
+        self.assertTrue(
+            reboot_is_pending(str(self.profile), str(self.current))
         )
 
-    def test_legacy_updater_generation_is_recovered_from_log_tail(self):
-        self.log.write_text(
-            "building the system configuration...\n"
-            f"Done. The new configuration is {GENERATION}\n"
+    def test_staged_generation_booted_is_no_longer_pending(self):
+        self._stage(booted=RUNNING_GENERATION, running=RUNNING_GENERATION)
+        self.assertFalse(
+            reboot_is_pending(str(self.profile), str(self.current))
+        )
+
+    def test_terminal_switch_needs_no_reboot(self):
+        # nixos-rebuild switch moves the profile AND current-system together.
+        self._stage(booted=RUNNING_GENERATION, running=RUNNING_GENERATION)
+        self.assertFalse(
+            reboot_is_pending(str(self.profile), str(self.current))
+        )
+
+    def test_rollback_leaves_nothing_pending(self):
+        # nixos-rebuild switch --rollback points both at the rollback target.
+        self._stage(booted=PREVIOUS_GENERATION, running=PREVIOUS_GENERATION)
+        self.assertFalse(
+            reboot_is_pending(str(self.profile), str(self.current))
+        )
+
+    def test_unverifiable_state_is_never_a_reboot_demand(self):
+        # No profile and no running system readable: the Hub must not nag
+        # about a reboot it cannot substantiate.
+        self.assertFalse(
+            reboot_is_pending(str(self.profile), str(self.current))
+        )
+
+    def test_stale_hub_marker_clears_after_terminal_updates(self):
+        """The exact incident: terminal-updated machine, frozen Hub marker.
+
+        The user's last Hub update (old updater, weeks prior) left
+        REBOOT_REQUIRED behind.  Every update since ran in a terminal and
+        never touched the Hub's files, so the log still records a staged
+        generation from 2026-08-04 while the machine runs a 2026-08-17
+        build.  With the profile and the running system in agreement, the
+        stale claim must reconcile to IDLE regardless of anything the old
+        marker/log files say.
+        """
+        root = Path(self.tmp.name)
+        log = root / "sovran-hub-update.log"
+        log.write_text(
+            "Done. The new configuration is "
+            f"/nix/store/{HUB_LOG_GENERATION}\n"
             "✓ Update staged successfully\n",
             encoding="utf-8",
         )
-        self.assertEqual(
-            read_staged_generation(str(self.marker), str(self.log)), GENERATION
-        )
-
-    def test_latest_generation_line_wins(self):
-        self.log.write_text(
-            f"Done. The new configuration is {OTHER_GENERATION}\n"
-            f"Done. The new configuration is {GENERATION}\n",
-            encoding="utf-8",
-        )
-        self.assertEqual(
-            read_staged_generation(str(self.marker), str(self.log)), GENERATION
-        )
-
-    def test_invalid_marker_is_ignored(self):
-        self.marker.write_text("/tmp/not-a-generation\n", encoding="utf-8")
-        self.log.write_text("no completed generation\n", encoding="utf-8")
-        self.assertIsNone(read_staged_generation(str(self.marker), str(self.log)))
-
-    def test_staged_generation_is_active_after_reboot(self):
-        self.marker.write_text(GENERATION + "\n", encoding="utf-8")
-        os.symlink(GENERATION, self.current)
-        self.assertTrue(
-            staged_generation_is_active(
-                str(self.marker), str(self.log), str(self.current)
-            )
-        )
-
-    def test_staged_generation_remains_pending_before_reboot(self):
-        self.marker.write_text(GENERATION + "\n", encoding="utf-8")
-        os.symlink(OTHER_GENERATION, self.current)
+        # Deliberately no sovran-hub-update.generation marker: the updater
+        # that produced this state predates the marker feature.
         self.assertFalse(
-            staged_generation_is_active(
-                str(self.marker), str(self.log), str(self.current)
-            )
+            (root / "sovran-hub-update.generation").exists()
         )
+
+        self._stage(booted=RUNNING_GENERATION, running=RUNNING_GENERATION)
+        self.assertEqual(
+            effective_update_status(
+                "REBOOT_REQUIRED", str(self.profile), str(self.current)
+            ),
+            "IDLE",
+        )
+
+    def test_genuine_pending_reboot_claim_survives(self):
+        # A staged generation that has NOT been booted yet: the claim is
+        # true and must keep surfacing until the reboot really happens.
+        self._stage(booted=RUNNING_GENERATION, running=PREVIOUS_GENERATION)
+        self.assertEqual(
+            effective_update_status(
+                "REBOOT_REQUIRED", str(self.profile), str(self.current)
+            ),
+            "REBOOT_REQUIRED",
+        )
+
+    def test_other_statuses_pass_through_unchanged(self):
+        self._stage(booted=RUNNING_GENERATION, running=RUNNING_GENERATION)
+        for status in ("RUNNING", "FAILED", "SUCCESS", "IDLE"):
+            self.assertEqual(
+                effective_update_status(
+                    status, str(self.profile), str(self.current)
+                ),
+                status,
+            )
 
 
 class TestUpdatePollingWiring(unittest.TestCase):

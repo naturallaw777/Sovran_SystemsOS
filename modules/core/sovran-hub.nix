@@ -199,9 +199,11 @@ let
         echo "[ERROR] nixos-rebuild boot failed"
         RC=1
       elif ! readlink -f /nix/var/nix/profiles/system > "$GENERATION"; then
-        echo "[ERROR] update was built but its staged generation could not be recorded"
+        # The marker is informational only.  The Hub derives pending-reboot
+        # state from the NixOS system profile itself, so failing to record
+        # the marker must not fail an otherwise successful update.
+        echo "[WARNING] update succeeded but its staged generation could not be recorded"
         rm -f "$GENERATION"
-        RC=1
       fi
       echo ""
     fi

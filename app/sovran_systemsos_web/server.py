@@ -55,7 +55,7 @@ from .security_helpers import (
     load_session_store,
     save_session_store,
 )
-from .update_state import staged_generation_is_active
+from .update_state import effective_update_status
 
 logger = logging.getLogger(__name__)
 
@@ -1648,11 +1648,14 @@ def _write_update_status(status: str):
 def _read_update_status() -> str:
     """Read and reconcile the persistent update status.
 
-    ``REBOOT_REQUIRED`` intentionally survives Hub/browser restarts before the
-    reboot.  Once the staged generation is the running ``/run/current-system``,
-    clear that marker so a completed reboot cannot leave the Hub asking for
-    another reboot forever.  The generation helper can recover older updates
-    from the final nixos-rebuild log line when no explicit marker exists.
+    ``REBOOT_REQUIRED`` survives Hub/browser restarts before the reboot, but
+    it is a CLAIM about live NixOS state, not the source of truth: the boot
+    default (``/nix/var/nix/profiles/system``) versus the running
+    ``/run/current-system``.  Re-validating on every read keeps the Hub
+    correct when the system was updated from a terminal or support session
+    (which never writes Hub markers), and lets an old marker that predates
+    the reconciliation feature self-heal instead of demanding reboots
+    forever.  The stale marker file is removed once cleared.
     """
     try:
         with open(UPDATE_STATUS, "r") as f:
@@ -1660,15 +1663,14 @@ def _read_update_status() -> str:
     except FileNotFoundError:
         return "IDLE"
 
-    if status == "REBOOT_REQUIRED" and staged_generation_is_active(
-        UPDATE_GENERATION, UPDATE_LOG
-    ):
-        _write_update_status("IDLE")
+    effective = effective_update_status(status)
+    if effective != status:
+        _write_update_status(effective)
         try:
             os.remove(UPDATE_GENERATION)
         except OSError:
             pass
-        return "IDLE"
+        return effective
 
     return status
 
