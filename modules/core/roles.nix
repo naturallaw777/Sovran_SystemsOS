@@ -79,6 +79,41 @@
       };
     };
 
+    # ── Element Calling (video/audio) tuning ──────────────────
+    elementCalling = {
+      fullAccessHomeservers = lib.mkOption {
+        type = lib.types.listOf lib.types.str;
+        default = [ ];
+        example = [ "matrix.peer.example.com" ];
+        description = ''
+          Additional Matrix server_names (beyond this server itself) that may
+          trigger LiveKit room creation on this server's SFU via lk-jwt-service.
+
+          Not needed for the common federated setup: each participant's client
+          always obtains its token from its own homeserver's JWT service and
+          publishes to its own SFU, and the participant who starts a call
+          creates the room on their own SFU — the remote user merely joins
+          (joining does not require full access).
+
+          Only set this for asymmetric cases: e.g. a peer homeserver that has
+          no focus of its own, or calls whose first participant lands on this
+          server's SFU but belongs to the peer.
+        '';
+      };
+      externalIP = lib.mkOption {
+        type = lib.types.nullOr lib.types.str;
+        default = null;
+        example = "203.0.113.10";
+        description = ''
+          Optional pin: force LiveKit to advertise this public IPv4 in its
+          host/TURN ICE candidates. Not required in normal operation — the
+          module auto-detects the public IP at runtime (HTTPS egress
+          detection, falling back to STUN). Set it only to override a
+          mis-detected address (e.g. multi-WAN/VPN setups).
+        '';
+      };
+    };
+
     # ── Domain setup registry ─────────────────────────────────
     domainRequirements = lib.mkOption {
       type = lib.types.listOf (lib.types.submodule {
