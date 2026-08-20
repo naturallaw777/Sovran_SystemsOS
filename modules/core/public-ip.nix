@@ -93,7 +93,11 @@ in
   };
 
   # ── Install the unified detector ──────────────────────────────────────────
-  system.activationScripts.sovranPublicIpInstall = lib.stringAfter [ "users" ] ''
+  # This module declares `options` above, so ALL configuration must go under
+  # the `config` attribute: NixOS forbids mixing bare top-level settings
+  # (like `system.*`) with the `options`/`config` keyword attributes in the
+  # same module. (Fixes: "Module ... has an unsupported attribute `system'".)
+  config.system.activationScripts.sovranPublicIpInstall = lib.stringAfter [ "users" ] ''
     install -d -m 0755 /var/lib/sovran
     cat > /var/lib/sovran/public-ip.py <<'PYEOF'
 #!/usr/bin/env python3
