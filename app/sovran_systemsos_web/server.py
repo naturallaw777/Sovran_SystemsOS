@@ -134,6 +134,7 @@ _SERVICE_DOMAIN_KEYS = frozenset([
 ])
 
 INTERNAL_IP_FILE = "/var/lib/secrets/internal-ip"
+EXTERNAL_IP_FILE = "/var/lib/secrets/external-ip"
 ZEUS_CONNECT_FILE = "/var/lib/secrets/zeus-connect-url"
 
 ONBOARDING_FLAG = "/var/lib/sovran/onboarding-complete"
@@ -947,6 +948,18 @@ def _save_internal_ip(ip: str):
         try:
             os.makedirs(os.path.dirname(INTERNAL_IP_FILE), exist_ok=True)
             with open(INTERNAL_IP_FILE, "w") as f:
+                f.write(ip)
+        except OSError:
+            pass
+
+
+def _save_external_ip(ip: str):
+    """Write the external IP to a file so other services (e.g. LiveKit) can
+    reference it without running their own detection."""
+    if ip and ip != "unavailable":
+        try:
+            os.makedirs(os.path.dirname(EXTERNAL_IP_FILE), exist_ok=True)
+            with open(EXTERNAL_IP_FILE, "w") as f:
                 f.write(ip)
         except OSError:
             pass
@@ -3718,6 +3731,9 @@ async def api_network():
     # Keep the internal-ip file in sync for credential lookups
     _save_internal_ip(internal)
     _cached_external_ip = external
+    # Persist the external IP so other services (e.g. LiveKit) can reuse the
+    # Hub's detection instead of running their own.
+    _save_external_ip(external)
     return {"internal_ip": internal, "external_ip": external}
 
 
@@ -6210,10 +6226,19 @@ async def _startup_migrate_deprecated_features():
 
 async def _background_domain_reachability_checker():
     """Periodically curl configured domains and cache reachability results."""
+    global _cached_external_ip
     await asyncio.sleep(_DOMAIN_REACHABILITY_STARTUP_DELAY)
     consecutive_failures = 0
     while True:
         try:
+            # Keep the persisted external IP fresh (dynamic WAN IPs), so
+            # services like LiveKit can read /var/lib/secrets/external-ip.
+            loop = asyncio.get_event_loop()
+            external = await loop.run_in_executor(None, _get_external_ip)
+            if external != "unavailable":
+                _cached_external_ip = external
+                _save_external_ip(external)
+
             cfg = load_config()
             services = cfg.get("services", [])
 
@@ -6223,7 +6248,6 @@ async def _background_domain_reachability_checker():
                 if unit is not None
             }
 
-            loop = asyncio.get_event_loop()
             overrides, *_ = await loop.run_in_executor(None, _read_hub_overrides)
 
             domains_to_check: list[str] = []

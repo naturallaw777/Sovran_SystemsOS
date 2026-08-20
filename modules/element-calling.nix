@@ -136,7 +136,7 @@ EOF
     unitConfig = {
       ConditionPathExists = "/var/lib/domains/element-calling";
     };
-    path = [ pkgs.coreutils pkgs.findutils pkgs.iproute2 pkgs.gawk pkgs.curl ];
+    path = [ pkgs.coreutils pkgs.findutils pkgs.iproute2 pkgs.gawk ];
     script = ''
       MATRIX=$(cat /var/lib/domains/matrix)
 
@@ -190,37 +190,31 @@ EOF
       # copies under /run/credentials.
       #
       # Determine the public IPv4 to advertise in LiveKit ICE candidates.
-      # Priority:
+      # Remote peers must be able to reach this address, so it must be the
+      # server's public IP — or the router's WAN IP when the server is behind
+      # NAT with port-forwarding. It does not need to be assigned to this box,
+      # and it may be dynamic.
+      #
+      # Reuse the Hub's detection instead of running our own: the Hub already
+      # resolves the external IP (server.py _get_external_ip) and persists it
+      # to /var/lib/secrets/external-ip. Priority:
       #   1. sovran_systemsOS.elementCalling.externalIP (explicit pin, if set)
-      #   2. runtime HTTPS egress detection — the server's own egress IP behind
-      #      NAT. More reliable than STUN for this OS, because Caddy's ACME
-      #      certificate issuance already proves outbound 443/TCP works, while
-      #      STUN's UDP egress is often blocked by ISPs. Returns the same WAN
-      #      IP that STUN would, so existing working setups are unaffected.
+      #   2. /var/lib/secrets/external-ip (written by the Sovran Hub)
       #   3. STUN auto-detection (use_external_ip) as the fallback, with a
       #      warning — this is where broken installs used to silently end up
       #      advertising a private IP, causing "call connects but no video".
       EXTERNAL_IP='${if config.sovran_systemsOS.elementCalling.externalIP != null then config.sovran_systemsOS.elementCalling.externalIP else ""}'
 
       PUBLIC_IP="$EXTERNAL_IP"
-      if [ -z "$PUBLIC_IP" ]; then
-        for SVC in "https://api.ipify.org" "https://checkip.amazonaws.com" "https://ifconfig.me/ip"; do
-          CANDIDATE=$(curl -fsS --max-time 5 "$SVC" 2>/dev/null | tr -d '[:space:]')
-          [ -z "$CANDIDATE" ] && continue
-          # Keep only plausible IPv4 literals (rejects hostnames, IPv6, junk).
-          case "$CANDIDATE" in
-            *[!0-9.]*) continue ;;
-            *) PUBLIC_IP="$CANDIDATE" ;;
-          esac
-          break
-        done
+      if [ -z "$PUBLIC_IP" ] && [ -f /var/lib/secrets/external-ip ]; then
+        PUBLIC_IP=$(tr -d '[:space:]' < /var/lib/secrets/external-ip 2>/dev/null)
       fi
 
       # Reject non-routable addresses (loopback, private, link-local, CGNAT).
       # A detected/pinned address like this must never be advertised.
       if [ -n "$PUBLIC_IP" ] && printf '%s' "$PUBLIC_IP" | grep -qE \
         '^(0\.|127\.|10\.|100\.64\.|169\.254\.|172\.(1[6-9]|2[0-9]|3[01])\.|192\.168\.)'; then
-        echo "WARNING: public IP candidate '$PUBLIC_IP' is not routable; falling back to STUN auto-detection." >&2
+        echo "WARNING: external IP '$PUBLIC_IP' is not routable; falling back to STUN auto-detection." >&2
         PUBLIC_IP=""
       fi
 
@@ -371,6 +365,12 @@ EOF
   # Restart LiveKit / lk-jwt-service when a rebuild regenerates their runtime
   # configs (new domains, externalIP, full-access list), mirroring the domain
   # change flow.
+  # Re-run the config generator and restart LiveKit when a rebuild regenerates
+  # the runtime config, or when the Hub persists a new external IP (dynamic
+  # WAN IPs), so the advertised ICE candidate stays current without a manual
+  # restart. The trigger chain: external-ip change → livekit-turn-setup
+  # re-runs → rewrites livekit.yaml → livekit restarts with the new config.
+  systemd.services.livekit-turn-setup.restartTriggers = [ "/var/lib/secrets/external-ip" ];
   systemd.services.livekit.restartTriggers = [ "/run/livekit/livekit.yaml" ];
   systemd.services.lk-jwt-service.restartTriggers = [ "/run/lk-jwt-service/env" ];
 
@@ -383,10 +383,12 @@ EOF
   #   * the lk-jwt-service being unreachable through Caddy,
   #   * the MatrixRTC transports endpoint being absent (Element X cannot
   #     discover calling and shows MISSING_MATRIX_RTC_TRANSPORT).
-  # The check deliberately queries a public resolver (1.1.1.1) rather than the
-  # system resolver, because this OS installs server-local loopback overrides
-  # for its own domains in /etc/hosts (see modules/core/local-domain-loopback.nix)
-  # — those are expected and fine for server-originated traffic.
+  # The check queries only the operator's own DNS provider (the domain's
+  # authoritative nameservers, resolved via the local resolver) plus the
+  # server's own Caddy and public IP — no third-party resolver or service is
+  # contacted. dig queries resolvers directly, so the /etc/hosts loopback
+  # overrides (modules/core/local-domain-loopback.nix) do not influence the
+  # result.
   systemd.services.element-calling-public-check = {
     description = "Verify Element Calling domain, JWT service and MatrixRTC transports endpoint are publicly reachable";
     after = [ "network-online.target" "caddy.service" "livekit.service" "lk-jwt-service.service" ];
@@ -407,17 +409,33 @@ EOF
 
       echo "── Element Calling public reachability self-check ──"
 
-      # 1) Public DNS (bypassing the /etc/hosts loopback overrides).
-      IPS=$( { dig +short A "$ELEMENT_CALLING" @1.1.1.1 2>/dev/null; dig +short AAAA "$ELEMENT_CALLING" @1.1.1.1 2>/dev/null; } | tr '\n' ' ' )
+      # 1) Authoritative DNS view (bypassing the /etc/hosts loopback
+      #    overrides). Resolve the domain's own nameservers via the local
+      #    resolver, then query those nameservers directly — the only party
+      #    that sees the query is the DNS provider the operator already uses
+      #    for the domain.
+      NS_LIST=$(dig +short NS "$ELEMENT_CALLING" 2>/dev/null | tr '\n' ' ')
+      if [ -n "$NS_LIST" ]; then
+        IPS=""
+        for NSRV in $NS_LIST; do
+          IPS=$( { dig +short A "$ELEMENT_CALLING" "@$NSRV" 2>/dev/null; dig +short AAAA "$ELEMENT_CALLING" "@$NSRV" 2>/dev/null; } | tr '\n' ' ' )
+          [ -n "$IPS" ] && break
+        done
+        echo "Authoritative nameservers for $ELEMENT_CALLING: $NS_LIST"
+      else
+        echo "WARNING: could not resolve nameservers for $ELEMENT_CALLING via the local resolver; using the local resolver's answer instead." >&2
+        IPS=$( { dig +short A "$ELEMENT_CALLING" 2>/dev/null; dig +short AAAA "$ELEMENT_CALLING" 2>/dev/null; } | tr '\n' ' ' )
+      fi
+
       if [ -z "$IPS" ]; then
-        echo "ERROR: $ELEMENT_CALLING has no public A/AAAA records (via 1.1.1.1). Remote peers cannot reach this LiveKit; calls will connect without media." >&2
+        echo "ERROR: no A/AAAA records for $ELEMENT_CALLING at its authoritative nameservers. Remote peers cannot reach this LiveKit; calls will connect without media." >&2
         FAIL=1
       else
         echo "Public DNS for $ELEMENT_CALLING: $IPS"
         for IP in $IPS; do
           case "$IP" in
             0.*|127.*|169.254.*|100.64.*|::1|fe80:*|fc*:*|fd*:*)
-              echo "ERROR: $ELEMENT_CALLING publicly resolves to $IP (loopback/link-local/CGNAT). Remote peers cannot reach it." >&2
+              echo "ERROR: $ELEMENT_CALLING resolves to $IP (loopback/link-local/CGNAT). Remote peers cannot reach it." >&2
               FAIL=1 ;;
           esac
         done
