@@ -21,6 +21,7 @@ import subprocess
 import tempfile
 import threading
 import time
+import sys
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -966,20 +967,30 @@ def _save_external_ip(ip: str):
 
 
 def _get_external_ip() -> str:
-    MAX_IP_LENGTH = 46
-    for url in [
-        "https://api.ipify.org",
-        "https://ifconfig.me/ip",
-        "https://icanhazip.com",
-    ]:
-        try:
-            req = urllib.request.Request(url, method="GET")
-            with urllib.request.urlopen(req, timeout=8) as resp:
-                ip = resp.read().decode().strip()
-                if ip and len(ip) < MAX_IP_LENGTH:
-                    return ip
-        except Exception:
-            continue
+    """Public IP via the shared detector (/var/lib/sovran/public-ip.py).
+
+    The detector owns discovery (STUN -> DNS -> opt-in HTTPS echo), caches the
+    result in /var/lib/secrets/external-ip, and contacts at most one third
+    party per refresh interval. This function only reads the cache and asks
+    the detector to refresh when it is missing or stale — it performs no
+    per-call external queries of its own.
+    """
+    try:
+        r = subprocess.run(
+            [sys.executable, "/var/lib/sovran/public-ip.py", "check"],
+            capture_output=True, text=True, timeout=20,
+        )
+        if r.returncode == 0 and r.stdout.strip():
+            return r.stdout.strip().splitlines()[0]
+    except Exception:
+        pass
+    try:
+        with open(EXTERNAL_IP_FILE) as f:
+            ip = f.read().strip()
+        if ip:
+            return ip
+    except OSError:
+        pass
     return "unavailable"
 
 

@@ -17,6 +17,7 @@
     ./core/no-sleep.nix
     ./core/cpu-performance.nix
     ./core/local-domain-loopback.nix
+    ./core/public-ip.nix
 
     # ── Always on (no flag) ───────────────────────────────────
     ./php.nix

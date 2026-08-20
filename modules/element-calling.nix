@@ -136,9 +136,10 @@ EOF
     unitConfig = {
       ConditionPathExists = "/var/lib/domains/element-calling";
     };
-    path = [ pkgs.coreutils pkgs.findutils pkgs.iproute2 pkgs.gawk ];
+    path = [ pkgs.coreutils pkgs.findutils pkgs.iproute2 pkgs.gawk pkgs.python3 ];
     script = ''
       MATRIX=$(cat /var/lib/domains/matrix)
+      ELEMENT_CALLING=$(cat /var/lib/domains/element-calling)
 
       mkdir -p /run/livekit
 
@@ -195,12 +196,13 @@ EOF
       # NAT with port-forwarding. It does not need to be assigned to this box,
       # and it may be dynamic.
       #
-      # Reuse the Hub's detection instead of running our own: the Hub already
-      # resolves the external IP (server.py _get_external_ip) and persists it
-      # to /var/lib/secrets/external-ip. Priority:
+      # Reuse the shared detector (/var/lib/sovran/public-ip.py — see
+      # modules/core/public-ip.nix) instead of running our own: one script,
+      # one cache, privacy-first (STUN -> DNS -> opt-in HTTPS echo). Priority:
       #   1. sovran_systemsOS.elementCalling.externalIP (explicit pin, if set)
-      #   2. /var/lib/secrets/external-ip (written by the Sovran Hub)
-      #   3. STUN auto-detection (use_external_ip) as the fallback, with a
+      #   2. /var/lib/secrets/external-ip (the shared cache)
+      #   3. run the detector now (it refreshes the cache)
+      #   4. STUN auto-detection (use_external_ip) as the fallback, with a
       #      warning — this is where broken installs used to silently end up
       #      advertising a private IP, causing "call connects but no video".
       EXTERNAL_IP='${if config.sovran_systemsOS.elementCalling.externalIP != null then config.sovran_systemsOS.elementCalling.externalIP else ""}'
@@ -208,6 +210,9 @@ EOF
       PUBLIC_IP="$EXTERNAL_IP"
       if [ -z "$PUBLIC_IP" ] && [ -f /var/lib/secrets/external-ip ]; then
         PUBLIC_IP=$(tr -d '[:space:]' < /var/lib/secrets/external-ip 2>/dev/null)
+      fi
+      if [ -z "$PUBLIC_IP" ] && [ -x /var/lib/sovran/public-ip.py ]; then
+        PUBLIC_IP=$(python3 /var/lib/sovran/public-ip.py check 2>/dev/null | head -n1)
       fi
 
       # Reject non-routable addresses (loopback, private, link-local, CGNAT).
@@ -250,6 +255,15 @@ EOF
         echo "WARNING: could not determine a public IP for LiveKit; using STUN auto-detection. If calls connect without media, check STUN egress or set sovran_systemsOS.elementCalling.externalIP." >&2
       fi
 
+      # Webhooks → lk-jwt-service. The JWT service validates the HMAC
+      # signature against the same key file it issues tokens with, and uses
+      # the events (participant_left / room_finished) to detect abruptly
+      # disconnected participants instead of waiting for the delayed-event
+      # timeout. The URL hits local Caddy via the /etc/hosts loopback
+      # override and is routed to the JWT service by the element-calling
+      # vhost (/livekit/jwt/sfu_webhook → 8073).
+      LK_KEY=$(cut -d: -f1 < ${livekitKeyFile} | tr -d '[:space:]')
+
       cat >> /run/livekit/livekit.yaml <<EOF
 room:
   auto_create: false
@@ -260,6 +274,10 @@ turn:
   udp_port: 3478
   cert_file: /run/credentials/livekit.service/turn-cert
   key_file: /run/credentials/livekit.service/turn-key
+webhook:
+  api_key: $LK_KEY
+  urls:
+    - https://$ELEMENT_CALLING/livekit/jwt/sfu_webhook
 EOF
 
       chmod 644 /run/livekit/livekit.yaml
@@ -267,24 +285,17 @@ EOF
   };
 
   ####### LIVEKIT SERVICE #######
+  # NOTE: the runtime config (rtc ports, TURN, webhook, node_ip) is generated
+  # by livekit-turn-setup and delivered via LoadCredential; the upstream
+  # module's `settings` block is therefore intentionally NOT used (it would
+  # be dead config that silently diverges from what LiveKit actually loads).
+  # The firewall ports are opened explicitly below; openFirewall is left off
+  # so the upstream module does not also open 7880/tcp publicly (Caddy fronts
+  # the SFU on this host).
   services.livekit = {
     enable = true;
-    openFirewall = true;
+    openFirewall = false;
     keyFile = livekitKeyFile;
-    settings = {
-      rtc.use_external_ip = true;
-      rtc.skip_external_ip_validation = true;
-      rtc.tcp_port = 7881;
-      rtc.udp_port = 7882;
-      rtc.port_range_start = 30000;
-      rtc.port_range_end = 40000;
-      room.auto_create = false;
-      turn = {
-        enabled = true;
-        tls_port = 5349;
-        udp_port = 3478;
-      };
-    };
   };
 
   # Override ExecStart to load the runtime-generated config (which carries the
@@ -344,6 +355,10 @@ EOF
       cat > /run/lk-jwt-service/env <<EOF
 LIVEKIT_URL=wss://$ELEMENT_CALLING
 LIVEKIT_FULL_ACCESS_HOMESERVERS=$FULL_ACCESS_HOMESERVERS
+# Re-check, every 60s, that connected participants are still on the SFU;
+# guards against missed SFU webhooks (e.g. an SFU restart) leaving stale
+# call members in Matrix rooms.
+LIVEKIT_SANITY_CHECK_INTERVAL_SECONDS=60
 EOF
 
       chmod 640 /run/lk-jwt-service/env
@@ -355,6 +370,9 @@ EOF
     enable = true;
     port = 8073;
     keyFile = livekitKeyFile;
+    # Required by the upstream module's option type, but overridden at runtime
+    # by EnvironmentFile (/run/lk-jwt-service/env, generated above from the
+    # element-calling domain). Kept as a harmless placeholder.
     livekitUrl = "wss://placeholder.local";
   };
 

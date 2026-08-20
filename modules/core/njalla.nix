@@ -33,7 +33,7 @@
       # /var/lib/njalla/ddns_urls.json.
       NoNewPrivileges    = true;
       ProtectSystem      = "strict";
-      ReadWritePaths     = [ "/var/lib/njalla" ];
+      ReadWritePaths     = [ "/var/lib/njalla" "/var/lib/secrets" ];
       ReadOnlyPaths      = [ "/etc/sovran" ];
       ProtectHome        = true;
       PrivateTmp         = true;
@@ -88,18 +88,31 @@ try:
 except Exception:
     sys.exit(0)  # no URLs configured — nothing to do
 
-# Resolve current public IP once
+# Resolve current public IP via the shared detector — one script, one cache
+# (STUN -> DNS -> opt-in HTTPS echo; see /var/lib/sovran/public-ip.py).
+# The detector refreshes /var/lib/secrets/external-ip, which the Hub and
+# LiveKit read as well, so the whole system shares a single detected value.
 public_ip = ""
 try:
     r = subprocess.run(
-        ["dig", "@resolver4.opendns.com", "myip.opendns.com", "+short", "-4"],
-        capture_output=True, text=True, timeout=10,
+        [sys.executable, "/var/lib/sovran/public-ip.py", "check"],
+        capture_output=True, text=True, timeout=20,
     )
     raw = r.stdout.strip().splitlines()[0] if r.stdout.strip() else ""
     ipaddress.ip_address(raw)  # validates — raises if not a real IP
     public_ip = raw
 except Exception:
     pass
+
+if not public_ip:
+    # Last resort: the shared cache file, if the detector is unavailable.
+    try:
+        with open("/var/lib/secrets/external-ip") as f:
+            raw = f.read().strip()
+        ipaddress.ip_address(raw)
+        public_ip = raw
+    except Exception:
+        pass
 
 if not public_ip:
     sys.exit(0)  # no IP resolved — skip to avoid sending bare ''${IP}
