@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.1.2] - 2026-08-21
+
+### Added
+- Nixpkgs update with Bisq update
+- Unify public-IP detection into one privacy-first script
+- Fix Element X discovery and harden federated calling
+- Nixpkgs update
+- Add tor-browser to the package list
+
+### Changed
+- Use pkgs.lndinit, drop local packages/lndinit
+- Update RTL to 0.15.10
+
+### Fixed
+- Move system.activationScripts under the config attribute
+- Reuse Hub external IP for LiveKit, drop egress service calls
+- Derive Restart required from boot default vs running system
+- Reconcile completed updates after polling stalls
+- Migrate i2pd SAM settings for nixpkgs 26.11
+- Order turn-setup after network-online to fix boot-time red dot
+- Restore a Zeus-scannable LND REST connect QR
+
+### Security
+- Prevent LND admin macaroon exposure in curl argv
+
+### Documentation
+- Update desktop and Sovran Hub screenshots
+[1.1.2]: https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS/releases/tag/v1.1.2
+
+
 ## [1.1.1] - 2026-08-15
 
 ### Added
