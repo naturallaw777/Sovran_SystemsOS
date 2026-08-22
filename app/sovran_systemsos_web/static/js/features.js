@@ -60,6 +60,7 @@ function openDomainSetupModal(feat, onSaved) {
   if ($domainSetupTitle) $domainSetupTitle.textContent = "🌐 Domain Setup — " + feat.name;
 
   var isWalletConnections = (feat.id === "nwc-wallets" || feat.domain_name === "lightning");
+  var isBtcpay = feat.id === "btcpay-web";
 
   var npubField = "";
   if (feat.id === "haven") {
@@ -77,30 +78,30 @@ function openDomainSetupModal(feat, onSaved) {
 
   var nwcWarning = isWalletConnections
     ? '<div class="domain-nwc-warning">' +
-      '<strong>⚠ Lightning Wallet Connections requires its own unique hostname.</strong> ' +
-      'Use a new subdomain such as <code>lightning.yourdomain.com</code>, or a separate domain. ' +
-      'Do not reuse a domain already assigned to Matrix, Nextcloud, WordPress, BTCPay Server, Vaultwarden, Haven, or another Caddy site.' +
+      '<strong>Lightning Wallet Connections needs its own address.</strong> ' +
+      'Use a new address such as <code>lightning.yourdomain.com</code>. Do not use an address already connected to another service.' +
       '</div>'
     : '';
 
-  var domainPlaceholder = isWalletConnections ? "lightning.yourdomain.com" : "myservice.example.com";
-  var domainLabelExample = isWalletConnections ? "lightning.yourdomain.com" : "call.yourdomain.com";
+  var domainPlaceholder = isWalletConnections ? "lightning.yourdomain.com" : (isBtcpay ? "btcpay.yourdomain.com" : "myservice.example.com");
+  var domainLabelExample = isWalletConnections ? "lightning.yourdomain.com" : (isBtcpay ? "btcpay.yourdomain.com" : "call.yourdomain.com");
 
   // Shared instructions (single source of truth: static/js/domain-prereqs.js) —
   // identical wording to the Server + Desktop onboarding wizard and every other
   // domain-based feature, regardless of role (Node / Desktop / Server+Desktop).
-  var hostExample = isWalletConnections ? "lightning" : "call";
+  var hostExample = isWalletConnections ? "lightning" : (isBtcpay ? "btcpay" : "call");
+  var purpose = isBtcpay ? "btcpay" : "";
 
   $domainSetupBody.innerHTML =
     '<div class="domain-setup-intro">' +
     nwcWarning +
-    renderDomainNeedsHtml({ serviceName: feat.name, hostExample: hostExample }) +
+    renderDomainNeedsHtml({ serviceName: feat.name, hostExample: hostExample, purpose: purpose }) +
     renderNjallaStepsHtml({ hostExample: hostExample, pasteHint: "below" }) +
     '<div class="onboarding-port-warn" id="domain-router-box" style="margin-top:12px;"></div>' +
-    '<p style="margin-top:10px;">Below, enter the full domain for this service — a subdomain (e.g. ' + domainLabelExample + ') or a separate domain — and paste its curl command.</p>' +
+    '<p style="margin-top:10px;">Enter the address for this service and paste the update command from Njal.la.</p>' +
     '</div>' +
-    '<div class="domain-field-group"><label class="domain-field-label" for="domain-subdomain-input">Service domain (e.g. ' + domainLabelExample + '):</label><input class="domain-field-input" type="text" id="domain-subdomain-input" placeholder="' + domainPlaceholder + '" /></div>' +
-    '<div class="domain-field-group"><label class="domain-field-label" for="domain-ddns-input">Njal.la Dynamic DNS Update Command:</label><input class="domain-field-input" type="text" id="domain-ddns-input" placeholder="curl &quot;https://njal.la/update/?h=' + domainPlaceholder + '&amp;k=abc123&amp;auto&quot;" /><p class="domain-field-hint">ℹ Paste the full curl command from your Njal.la dashboard\'s Dynamic record</p></div>' +
+    '<div class="domain-field-group"><label class="domain-field-label" for="domain-subdomain-input">Service address (e.g. ' + domainLabelExample + '):</label><input class="domain-field-input" type="text" id="domain-subdomain-input" placeholder="' + domainPlaceholder + '" /></div>' +
+    '<div class="domain-field-group"><label class="domain-field-label" for="domain-ddns-input">Njal.la Update Command:</label><input class="domain-field-input" type="text" id="domain-ddns-input" placeholder="curl &quot;https://njal.la/update/?h=' + domainPlaceholder + '&amp;k=abc123&amp;auto&quot;" /><p class="domain-field-hint">Paste the update command from Njal.la</p></div>' +
     npubField +
     '<div class="domain-field-actions"><button class="btn btn-close-modal" id="domain-setup-cancel-btn">Cancel</button><button class="btn btn-primary" id="domain-setup-save-btn">Save &amp; Enable</button></div>';
 
@@ -169,9 +170,8 @@ function openDomainReconfigureModal(feat, existingDomain, onSaved) {
 
   var nwcWarning = isWalletConnections
     ? '<div class="domain-nwc-warning">' +
-      '<strong>⚠ Lightning Wallet Connections requires its own unique hostname.</strong> ' +
-      'Use a new subdomain such as <code>lightning.yourdomain.com</code>, or a separate domain. ' +
-      'Do not reuse a domain already assigned to Matrix, Nextcloud, WordPress, BTCPay Server, Vaultwarden, Haven, or another Caddy site.' +
+      '<strong>Lightning Wallet Connections needs its own address.</strong> ' +
+      'Use a new address such as <code>lightning.yourdomain.com</code>. Do not use an address already connected to another service.' +
       '</div>'
     : '';
 

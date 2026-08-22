@@ -364,17 +364,12 @@ async function loadStep3() {
       + renderDomainNeedsHtml({ serviceName: null, hostExample: "call" })
       + renderNjallaStepsHtml({ hostExample: "call", pasteHint: "next to its service below" })
       + '</div>';
-    html += '<p class="onboarding-hint">Enter each service\'s full domain — a subdomain (e.g. <code>call.yourdomain.com</code>) or a separate domain (e.g. <code>call.com</code>) — and its Njal.la DDNS curl command.</p>';
+    html += '<p class="onboarding-hint">Enter the address for each service and paste its update command from Njal.la.</p>';
 
     // Router note (the same wording is shown again, per-service, whenever a
     // domain-based feature is enabled, and lives on each service tile afterwards)
     html += '<div class="onboarding-port-warn" style="margin-bottom:16px;">'
-      + renderRouterPortsHtml({
-          internalIp: internalIp,
-          plural: true,
-          includeSsh: true,
-          extraNote: "Element Call needs a few extra ports (some UDP), and you’ll be shown exactly which when you enable it.",
-        })
+      + renderRouterPortsHtml({ internalIp: internalIp })
       + '</div>';
 
     relevantDomains.forEach(function(d) {
@@ -382,20 +377,20 @@ async function loadStep3() {
       html += '<div class="onboarding-domain-group">';
       html += '<label class="onboarding-domain-label">' + escHtml(d.label) + '</label>';
       html += '<input class="onboarding-domain-input domain-field-input" type="text" id="domain-input-' + escHtml(d.name) + '" data-domain="' + escHtml(d.name) + '" placeholder="e.g. ' + escHtml(d.name) + '.yourdomain.com" value="' + escHtml(currentVal) + '" />';
-      html += '<label class="onboarding-domain-label onboarding-domain-label--sub">Njal.la DDNS Curl Command</label>';
+      html += '<label class="onboarding-domain-label onboarding-domain-label--sub">Njal.la Update Command</label>';
       html += '<input class="onboarding-domain-input domain-field-input" type="text" id="ddns-input-' + escHtml(d.name) + '" data-ddns="' + escHtml(d.name) + '" placeholder="curl &quot;https://njal.la/update/?h=...&amp;k=...&amp;auto&quot;" />';
-      html += '<p class="onboarding-hint" style="margin-top:4px;">ℹ Paste the curl URL from your Njal.la dashboard\'s Dynamic record</p>';
+      html += '<p class="onboarding-hint" style="margin-top:4px;">Paste the update command from Njal.la</p>';
       html += '<button type="button" class="btn btn-primary onboarding-domain-save-btn" data-save-domain="' + escHtml(d.name) + '" style="align-self:flex-start;margin-top:8px;font-size:0.82rem;padding:6px 16px;">Save</button>';
       html += '<span class="onboarding-domain-save-status" id="domain-save-status-' + escHtml(d.name) + '" style="font-size:0.82rem;min-height:1.2em;"></span>';
       html += '</div>';
     });
   }
 
-  // SSL email section
+  // Contact email section
   var emailVal = domainValues["sslemail"] || "";
   html += '<div class="onboarding-domain-group onboarding-domain-group--email">';
-  html += '<label class="onboarding-domain-label">📧 SSL Certificate Email</label>';
-  html += '<p class="onboarding-hint onboarding-hint--inline">Let\'s Encrypt uses this for certificate expiry notifications.</p>';
+  html += '<label class="onboarding-domain-label">📧 Email Address</label>';
+  html += '<p class="onboarding-hint onboarding-hint--inline">Used to send important notices about your services.</p>';
   html += '<input class="onboarding-domain-input domain-field-input" type="email" id="ssl-email-input" placeholder="you@example.com" value="' + escHtml(emailVal) + '" />';
   html += '<button type="button" class="btn btn-primary onboarding-domain-save-btn" data-save-email="true" style="align-self:flex-start;margin-top:8px;font-size:0.82rem;padding:6px 16px;">Save</button>';
   html += '<span class="onboarding-domain-save-status" id="domain-save-status-email" style="font-size:0.82rem;min-height:1.2em;"></span>';

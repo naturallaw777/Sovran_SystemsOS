@@ -246,8 +246,8 @@ CATEGORY_ORDER = [
 FEATURE_REGISTRY = [
     {
         "id": "rdp",
-        "name": "Remote Desktop (RDP)",
-        "description": "Access your desktop remotely via RDP client",
+        "name": "Remote Desktop",
+        "description": "Access your desktop from a device on your home network — no router setup needed",
         "category": "infrastructure",
         "needs_domain": False,
         "domain_name": None,
@@ -362,8 +362,8 @@ FEATURE_REGISTRY = [
     },
     {
         "id": "btcpay-web",
-        "name": "BTCPay Server Web Access",
-        "description": "Expose BTCPay Server to the internet via your domain. When disabled, BTCPay Server still runs locally but is not accessible from the web.",
+        "name": "Put BTCPay Server Online",
+        "description": "Let people donate Bitcoin, pay you, or visit your online store. BTCPay Server stays private when this is turned off.",
         "category": "bitcoin",
         "needs_domain": True,
         "domain_name": "btcpayserver",
@@ -545,9 +545,9 @@ SERVICE_DESCRIPTIONS: dict[str, str] = {
         "Addresses on your Sovran_SystemsOS node."
     ),
     "gnome-remote-desktop.service": (
-        "Access your server's full desktop environment from anywhere using any RDP client. "
-        "Manage your system visually without being physically present. "
-        "Sovran_SystemsOS sets up secure remote access with generated credentials — connect and go."
+        "Access your desktop from a device on your home network — no router setup needed. "
+        "Sovran_SystemsOS creates the address, username, and password for you: "
+        "just open an RDP app and connect."
     ),
     "sshd.service": (
         "Secure Shell (SSH) remote access. When enabled, authorized users can connect "
