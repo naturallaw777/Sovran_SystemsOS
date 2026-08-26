@@ -143,7 +143,7 @@ let
     # module.  Read the configured package here rather than pkgs.btcpayserver
     # (unstable), otherwise the Hub can advertise a version that is not running.
     "btcpayserver.service" = lib.getVersion config.services.btcpayserver.package;
-    "albyhub.service" = if pkgs ? albyhub then pkgs.albyhub.version else "1.8.0";
+    "albyhub.service" = if pkgs ? albyhub then pkgs.albyhub.version else "1.24.0";
     "mempool.service" = if pkgs ? mempool then pkgs.mempool.version else "3.2.1";
     "matrix-synapse.service" = if pkgs ? matrix-synapse then pkgs.matrix-synapse.version else "1.115.0";
     "livekit.service" = if pkgs ? livekit then pkgs.livekit.version else "1.5.2";

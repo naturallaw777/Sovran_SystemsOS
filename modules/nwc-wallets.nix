@@ -3,13 +3,8 @@
 let
   albyHubPort = 18080;
   albyHubApiBase = "http://127.0.0.1:${toString albyHubPort}";
-  patchedAlbyHub = pkgs.albyhub.overrideAttrs (old: {
-    patches = (old.patches or []) ++ [
-      ../packages/albyhub/0001-private-route-hints.patch
-      ../packages/albyhub/0002-isolated-invoice-app-id.patch
-      ../packages/albyhub/0003-loopback-bind-host.patch
-    ];
-  });
+  vendoredAlbyHub = pkgs.callPackage ../packages/albyhub {};
+  patchedAlbyHub = vendoredAlbyHub;
 
   lndRpcAddress = lib.attrByPath [ "services" "lnd" "rpcAddress" ] "127.0.0.1" config;
   lndRpcPort = toString (lib.attrByPath [ "services" "lnd" "rpcPort" ] 10009 config);
