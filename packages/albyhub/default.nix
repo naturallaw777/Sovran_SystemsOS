@@ -17,6 +17,14 @@ buildGoModule (finalAttrs: {
 
   vendorHash = "sha256-A4OsntoJUDkvWJxnZFFxw5AjUPmwRl764nQ5FEA2yeo=";
 
+  # Use the Go module cache instead of `go mod vendor`. The
+  # vulpemventures/go-secp256k1-zkp dependency (pulled in transitively) ships
+  # cgo bindings whose C headers live in an `include/` subdirectory; those
+  # non-Go files are stripped by `go mod vendor`, which makes the build fail
+  # with `include/secp256k1_ecdh.h: No such file or directory`. The proxy
+  # tarballs retain the full file set, so the cgo compile succeeds.
+  proxyVendor = true;
+
   patches = [
     ./0001-private-route-hints.patch
     ./0003-loopback-bind-host.patch
