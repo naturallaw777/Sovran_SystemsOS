@@ -4,47 +4,57 @@
 , stdenv
 }:
 
-buildGoModule (finalAttrs: {
+buildGoModule rec {
   pname = "albyhub";
   version = "1.24.0";
 
+  # sovran fork = upstream v1.24.0 + LND-only, no frontend, HOST bind,
+  # always-private route hints (the customization lives in the fork's commits)
   src = fetchFromGitHub {
-    owner = "getAlby";
+    owner = "naturallaw777";
     repo = "hub";
-    tag = "v${finalAttrs.version}";
-    hash = "sha256-IC3rl/9aJ88GgvGfhcJb1/pQb3xIkhYih1hLPJ8itP8=";
+    tag = "sovran-1.24.0";
+    # round 1: copy the "got: sha256-..." from the build error
+    hash = "sha256-PLACEHOLDER-SRC";
   };
 
-  vendorHash = "sha256-A4OsntoJUDkvWJxnZFFxw5AjUPmwRl764nQ5FEA2yeo=";
-
-  # Use the Go module cache instead of `go mod vendor`. The
-  # vulpemventures/go-secp256k1-zkp dependency (pulled in transitively) ships
-  # cgo bindings whose C headers live in an `include/` subdirectory; those
-  # non-Go files are stripped by `go mod vendor`, which makes the build fail
-  # with `include/secp256k1_ecdh.h: No such file or directory`. The proxy
-  # tarballs retain the full file set, so the cgo compile succeeds.
+  # `go mod vendor` strips the secp256k1-zkp cgo headers (include/), so use
+  # the full module cache. Round 2: copy the "got: sha256-..." from the error
   proxyVendor = true;
+  vendorHash = "sha256-PLACEHOLDER-VENDOR";
 
-  patches = [
-    ./0001-private-route-hints.patch
-    ./0003-loopback-bind-host.patch
-    ./0004-lnd-only.patch
-    ./0005-no-frontend.patch
-  ];
+  subPackages = [ "cmd/http" ];
 
-  # LND-only, no-frontend build: the only native dependency needed for
-  # cgo (sqlite3) is the C/C++ runtime from stdenv.cc.cc. No nodejs/yarn
-  # (no frontend), no bark-ffi-go or ldk-node (removed backends).
-  buildInputs = [
-    (lib.getLib stdenv.cc.cc)
-  ];
+  # LND client needs cgo (secp256k1-zkp)
+  buildInputs = [ (lib.getLib stdenv.cc.cc) ];
 
-  subPackages = [
-    "cmd/http"
-  ];
+  # pin module downloads to a hermetic proxy and the local toolchain
+  # (otherwise GOPROXY/GOTOOLCHAIN can leak into the builder env and the
+  # cache comes back incomplete — the original failure)
+  overrideModAttrs = (finalAttrs: previousAttrs: {
+    modBuildPhase = ''
+      runHook preBuild
+
+      export GIT_SSL_CAINFO=$NIX_SSL_CERT_FILE
+      export GOPROXY=https://proxy.golang.org,direct
+      export GOSUMDB=sum.golang.org
+      export GOTOOLCHAIN=local
+
+      mkdir -p "$GOPATH/pkg/mod/cache/download"
+      go mod download all
+
+      export GOPROXY="file://$GOPATH/pkg/mod/cache/download"
+
+      go list ./cmd/http
+
+      mkdir -p vendor
+
+      runHook postBuild
+    '';
+  });
 
   ldflags = [
-    "-X github.com/getAlby/hub/version.Tag=v${finalAttrs.version}"
+    "-X github.com/getAlby/hub/version.Tag=${version}"
     "-s"
     "-w"
   ];
@@ -52,12 +62,4 @@ buildGoModule (finalAttrs: {
   postInstall = ''
     mv $out/bin/http $out/bin/albyhub
   '';
-
-  meta = {
-    description = "Control lightning wallets over nostr";
-    homepage = "https://github.com/getAlBy/hub";
-    license = lib.licenses.asl20;
-    platforms = lib.platforms.linux;
-    mainProgram = "albyhub";
-  };
-})
+}
