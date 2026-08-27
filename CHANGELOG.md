@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.1.3] - 2026-08-27
+
+### Added
+- Sparrow update
+- Nixpkgs update with bisq and bisq2
+- Albyhub: re-harvest hashes for fixed sovran tag
+- Albyhub default.nix hash update
+- Albyhub default.nix fix
+- Albyhub: build from sovran fork tag (LND-only, no frontend)
+- Vendor v1.24.0 LND-only, no-frontend build
+- Ux: simplify domain and router setup guidance
+
+### Fixed
+- Evaluate local vendored package versions directly
+- Use proxyVendor to preserve secp256k1-zkp cgo headers
+[1.1.3]: https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS/releases/tag/v1.1.3
+
+
 ## [1.1.2] - 2026-08-21
 
 ### Added

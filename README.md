@@ -21,9 +21,9 @@ Lightning infrastructure, private cloud, and communications platform when you
 are ready.
 
 [Visit the Website](https://sovransystems.com) ·
-[Download the ISO](https://downloads.sovransystems.com/Sovran_SystemsOS-1.1.2.iso) ·
+[Download the ISO](https://downloads.sovransystems.com/Sovran_SystemsOS-1.1.3.iso) ·
 [Try it safely in a VM](#try-it-first-in-a-virtual-machine) ·
-[Verify the Download](https://downloads.sovransystems.com/Sovran_SystemsOS-1.1.2.iso.sha256) ·
+[Verify the Download](https://downloads.sovransystems.com/Sovran_SystemsOS-1.1.3.iso.sha256) ·
 [Build from Source](#build-from-source)
 
 <img src="assets/desktop-screenshot.webp" alt="Sovran_SystemsOS private Bitcoin desktop" width="800" />
@@ -345,8 +345,8 @@ with an imaging application such as [Balena Etcher](https://etcher.balena.io).
 
 ### 1. Download the ISO and checksum
 
-- [Download Sovran_SystemsOS-1.1.2.iso](https://downloads.sovransystems.com/Sovran_SystemsOS-1.1.2.iso)
-- [Download Sovran_SystemsOS-1.1.2.iso.sha256](https://downloads.sovransystems.com/Sovran_SystemsOS-1.1.2.iso.sha256)
+- [Download Sovran_SystemsOS-1.1.3.iso](https://downloads.sovransystems.com/Sovran_SystemsOS-1.1.3.iso)
+- [Download Sovran_SystemsOS-1.1.3.iso.sha256](https://downloads.sovransystems.com/Sovran_SystemsOS-1.1.3.iso.sha256)
 
 The download may take some time. Do not rename or modify the ISO before
 verifying it, and keep both files in the same folder.
@@ -364,16 +364,16 @@ checksum exactly.
 Open a terminal in the download folder and run:
 
 ```bash
-sha256sum --check Sovran_SystemsOS-1.1.2.iso.sha256
+sha256sum --check Sovran_SystemsOS-1.1.3.iso.sha256
 ```
 
 A successful comparison reports:
 
 ```text
-Sovran_SystemsOS-1.1.2.iso: OK
+Sovran_SystemsOS-1.1.3.iso: OK
 ```
 
-You can also run `sha256sum Sovran_SystemsOS-1.1.2.iso` and compare the output
+You can also run `sha256sum Sovran_SystemsOS-1.1.3.iso` and compare the output
 against the checksum file manually.
 
 </details>
@@ -384,11 +384,11 @@ against the checksum file manually.
 Open Terminal in the download folder and run:
 
 ```bash
-shasum -a 256 Sovran_SystemsOS-1.1.2.iso
+shasum -a 256 Sovran_SystemsOS-1.1.3.iso
 ```
 
 Compare the value shown in Terminal with the value inside
-`Sovran_SystemsOS-1.1.2.iso.sha256`.
+`Sovran_SystemsOS-1.1.3.iso.sha256`.
 
 </details>
 
@@ -398,7 +398,7 @@ Compare the value shown in Terminal with the value inside
 Open PowerShell in the download folder and run:
 
 ```powershell
-Get-FileHash .\Sovran_SystemsOS-1.1.2.iso -Algorithm SHA256
+Get-FileHash .\Sovran_SystemsOS-1.1.3.iso -Algorithm SHA256
 ```
 
 Compare the value under `Hash` with the published checksum.
@@ -413,7 +413,7 @@ match exactly.
 
 1. Download and install [Balena Etcher](https://etcher.balena.io), then
    connect the USB drive.
-2. Choose **Flash from file** and select `Sovran_SystemsOS-1.1.2.iso`.
+2. Choose **Flash from file** and select `Sovran_SystemsOS-1.1.3.iso`.
 3. Choose **Select target**, select the USB drive, and review your selection
    carefully.
 4. Choose **Flash** and wait for the writing and verification process to
@@ -856,7 +856,7 @@ primary location for collaboration. Please read our
 ## Privacy. Sovereignty. Bitcoin.
 
 [Visit Sovran Systems](https://sovransystems.com) ·
-[Download Sovran_SystemsOS](https://downloads.sovransystems.com/Sovran_SystemsOS-1.1.2.iso) ·
+[Download Sovran_SystemsOS](https://downloads.sovransystems.com/Sovran_SystemsOS-1.1.3.iso) ·
 [View the License](LICENSE)
 
 </div>
