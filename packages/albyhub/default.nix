@@ -21,7 +21,7 @@ buildGoModule rec {
   # `go mod vendor` strips the secp256k1-zkp cgo headers (include/), so use
   # the full module cache. Round 2: copy the "got: sha256-..." from the error
   proxyVendor = true;
-  vendorHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+  vendorHash = "sha256-U0NLVV0gH2IERqaGsJwE2f+iZQ35D+czH8mUKXSM4Wc=";
 
   subPackages = [ "cmd/http" ];
 
