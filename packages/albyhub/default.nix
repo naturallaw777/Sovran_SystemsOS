@@ -15,13 +15,13 @@ buildGoModule rec {
     repo = "hub";
     tag = "sovran-1.24.0";
     # round 1: copy the "got: sha256-..." from the build error
-    hash = "sha256-PLACEHOLDER-SRC";
+    hash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
   };
 
   # `go mod vendor` strips the secp256k1-zkp cgo headers (include/), so use
   # the full module cache. Round 2: copy the "got: sha256-..." from the error
   proxyVendor = true;
-  vendorHash = "sha256-PLACEHOLDER-VENDOR";
+  vendorHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
 
   subPackages = [ "cmd/http" ];
 
@@ -62,4 +62,6 @@ buildGoModule rec {
   postInstall = ''
     mv $out/bin/http $out/bin/albyhub
   '';
+
+  meta.mainProgram = "albyhub";
 }
