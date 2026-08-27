@@ -5,11 +5,11 @@
         "nixpkgs": "nixpkgs"
       },
       "locked": {
-        "lastModified": 1787752930,
-        "narHash": "sha256-Cox8rckh6R968lCMJq7BkjHR7DkQKPtR1ugF1CM005c=",
+        "lastModified": 1787839684,
+        "narHash": "sha256-xTafqsVs2/zyGsaCel41QT5Lpbs/rG56Kp+YsmLXL8I=",
         "owner": "emmanuelrosa",
         "repo": "btc-clients-nix",
-        "rev": "05b4f18ead97bd29c5f88dd577820d671df4c87a",
+        "rev": "ef81159876930802ef9861aa5c039cec6886a30f",
         "type": "github"
       },
       "original": {
