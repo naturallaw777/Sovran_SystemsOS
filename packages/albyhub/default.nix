@@ -15,7 +15,7 @@ buildGoModule rec {
     repo = "hub";
     tag = "sovran-1.24.0";
     # round 1: copy the "got: sha256-..." from the build error
-    hash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+    hash = "sha256-5k8lCieOxKvrPh0CTFoAaQzzNTwKFggYz9pqsvexJ7Q=";
   };
 
   # `go mod vendor` strips the secp256k1-zkp cgo headers (include/), so use
