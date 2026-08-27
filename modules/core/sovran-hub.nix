@@ -135,16 +135,12 @@ let
     "bitcoind.service" = if pkgs ? bitcoind then pkgs.bitcoind.version else "27.1.0";
     "electrs.service" = if pkgs ? electrs then pkgs.electrs.version else "0.10.6";
     "lnd.service" = if pkgs ? lnd then pkgs.lnd.version else "0.18.0";
-    # Keep the fallbacks aligned with the vendored packages used by the
-    # service modules (RTL 0.15.10 and Mempool 3.2.1).  The nixpkgs attrs are
-    # optional because these packages are built locally in this repository.
-    "rtl.service" = if pkgs ? clightning-rtl then pkgs.clightning-rtl.version else (if pkgs ? rtl then pkgs.rtl.version else "0.15.10");
-    # BTCPay Server is intentionally sourced from pkgs.stable by the service
-    # module.  Read the configured package here rather than pkgs.btcpayserver
-    # (unstable), otherwise the Hub can advertise a version that is not running.
+    # Evaluate locally vendored packages directly so we don't accidentally
+    # pick up older/different versions from upstream nixpkgs.
+    "rtl.service" = (pkgs.callPackage ../../packages/rtl { fetchNodeModules = pkgs.callPackage ../../packages/build-support/fetch-node-modules.nix {}; }).version;
     "btcpayserver.service" = lib.getVersion config.services.btcpayserver.package;
-    "albyhub.service" = if pkgs ? albyhub then pkgs.albyhub.version else "1.24.0";
-    "mempool.service" = if pkgs ? mempool then pkgs.mempool.version else "3.2.1";
+    "albyhub.service" = (pkgs.callPackage ../../packages/albyhub {}).version;
+    "mempool.service" = (pkgs.callPackage ../../packages/mempool { fetchNodeModules = pkgs.callPackage ../../packages/build-support/fetch-node-modules.nix {}; }).version;
     "matrix-synapse.service" = if pkgs ? matrix-synapse then pkgs.matrix-synapse.version else "1.115.0";
     "livekit.service" = if pkgs ? livekit then pkgs.livekit.version else "1.5.2";
     "vaultwarden.service" = if pkgs ? vaultwarden then pkgs.vaultwarden.version else "1.32.0";
