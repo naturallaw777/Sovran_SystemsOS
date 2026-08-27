@@ -63,5 +63,16 @@ buildGoModule rec {
     mv $out/bin/http $out/bin/albyhub
   '';
 
+   preFixup = ''
+    # Go's external linker bakes the sandbox build dir into the RPATH;
+    # rewrite it to the real store paths before the fixup audit
+    patchelf --set-rpath ${
+      lib.makeLibraryPath [
+        (lib.getLib stdenv.cc.cc)
+        (lib.getLib stdenv.cc.libc)
+      ]
+    } $out/bin/albyhub
+  '';
+
   meta.mainProgram = "albyhub";
 }
