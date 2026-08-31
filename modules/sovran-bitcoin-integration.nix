@@ -113,6 +113,12 @@ in {
   # Sovran_Bitcoin's albyhub.nix and lnurl.nix handle the base services.
   # This section wires the Hub's web app environment so the Hub can
   # display NWC status and the nwc-wallet CLI works from the Hub shell.
+  
+  services.sovran-lnurl = lib.mkIf cfg.features."nwc-wallets" {
+  # The Hub writes the Lightning Address domain to this file.
+    domainFile = "/var/lib/domains/lightning";
+  };
+  
   systemd.services.sovran-hub-web.environment = lib.mkIf cfg.features."nwc-wallets"
     hubNwcEnvironment;
 
