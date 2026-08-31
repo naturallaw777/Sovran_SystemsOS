@@ -58,7 +58,7 @@ in {
   services.bitcoind = lib.mkIf cfg.services.bitcoin {
     dataDir = "/run/media/Second_Drive/BTCEcoandBackup/Bitcoin_Node";
     # The OS always enables the bitcoind wallet — the Hub and BTCPay need it.
-    disableWallet = lib.mkForce false;
+    disablewallet = lib.mkForce false;
   };
 
   services.electrs = lib.mkIf cfg.services.bitcoin {
