@@ -27,17 +27,12 @@ def _literal_assignment(source: str, name: str):
 
 
 class TestBitcoinTorGossipNixWiring(unittest.TestCase):
-    def test_bitcoind_loopback_listener_is_always_enabled(self):
-        ecosystem = _read("modules", "bitcoinecosystem.nix")
-        self.assertIn("listen = true;", ecosystem)
-        self.assertIn("peerbloomfilters=1", ecosystem)
-
-    def test_gossip_is_opt_in(self):
-        ecosystem = _read("modules", "bitcoinecosystem.nix")
-        self.assertIn(
-            "public = config.sovran_systemsOS.features.bitcoin-tor-gossip;",
-            ecosystem,
-        )
+    def test_integration_layer_maps_tor_gossip_option(self):
+        """The integration layer must bridge sovran_systemsOS.features.bitcoin-tor-gossip
+        to sovran-bitcoin.bitcoindTorGossip."""
+        integration = _read("modules", "sovran-bitcoin-integration.nix")
+        self.assertIn("bitcoindTorGossip", integration)
+        self.assertIn("bitcoin-tor-gossip", integration)
 
     def test_hub_option_and_evaluated_state_are_declared(self):
         roles = _read("modules", "core", "roles.nix")

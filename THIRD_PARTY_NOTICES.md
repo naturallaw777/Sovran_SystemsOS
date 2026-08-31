@@ -2,10 +2,13 @@
 
 ## nix-bitcoin
 
-Portions of `modules/bitcoin/` and selected package definitions were adapted
-from [fort-nix/nix-bitcoin](https://github.com/fort-nix/nix-bitcoin), commit
+The Bitcoin and Lightning modules were originally adapted from
+[fort-nix/nix-bitcoin](https://github.com/fort-nix/nix-bitcoin), commit
 [`360e30fee5ba32f9fecc89bc35628195d9d2dbbe`](https://github.com/fort-nix/nix-bitcoin/commit/360e30fee5ba32f9fecc89bc35628195d9d2dbbe).
-The current Sovran build does not import or fetch nix-bitcoin.
+They now live in the standalone
+[Sovran_Bitcoin](https://github.com/naturallaw777/Sovran_Bitcoin) repository
+and are consumed by Sovran_SystemsOS as a flake input. The current Sovran build
+does not import or fetch nix-bitcoin.
 
 MIT License
 

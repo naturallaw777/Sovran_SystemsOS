@@ -135,12 +135,13 @@ let
     "bitcoind.service" = if pkgs ? bitcoind then pkgs.bitcoind.version else "27.1.0";
     "electrs.service" = if pkgs ? electrs then pkgs.electrs.version else "0.10.6";
     "lnd.service" = if pkgs ? lnd then pkgs.lnd.version else "0.18.0";
-    # Evaluate locally vendored packages directly so we don't accidentally
-    # pick up older/different versions from upstream nixpkgs.
-    "rtl.service" = (pkgs.callPackage ../../packages/rtl { fetchNodeModules = pkgs.callPackage ../../packages/build-support/fetch-node-modules.nix {}; }).version;
+    # Vendored packages come from the Sovran_Bitcoin flake overlay
+    # (pkgs.sovran-bitcoin.*).  Evaluate them directly so the Hub shows
+    # the exact versions this system ships.
+    "rtl.service" = pkgs.sovran-bitcoin.rtl.version;
     "btcpayserver.service" = lib.getVersion config.services.btcpayserver.package;
-    "albyhub.service" = (pkgs.callPackage ../../packages/albyhub {}).version;
-    "mempool.service" = (pkgs.callPackage ../../packages/mempool { fetchNodeModules = pkgs.callPackage ../../packages/build-support/fetch-node-modules.nix {}; }).version;
+    "albyhub.service" = pkgs.sovran-bitcoin.albyhub.version;
+    "mempool.service" = pkgs.sovran-bitcoin.mempool-backend.version;
     "matrix-synapse.service" = if pkgs ? matrix-synapse then pkgs.matrix-synapse.version else "1.115.0";
     "livekit.service" = if pkgs ? livekit then pkgs.livekit.version else "1.5.2";
     "vaultwarden.service" = if pkgs ? vaultwarden then pkgs.vaultwarden.version else "1.32.0";

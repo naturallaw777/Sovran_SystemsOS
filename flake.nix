@@ -6,9 +6,12 @@
 		nixvim.url = "github:nix-community/nixvim";
 		btc-clients.url = "github:emmanuelrosa/btc-clients-nix";
 		nixpkgs-stable.url = "github:nixos/nixpkgs/nixos-26.05";
+
+		# Bitcoin / Lightning stack — standalone flake, consumed as a module.
+		sovran-bitcoin.url = "github:naturallaw777/Sovran_Bitcoin";
 	};
 
-	outputs = { self, nixpkgs, nixvim, btc-clients, nixpkgs-stable, ... }:
+	outputs = { self, nixpkgs, nixvim, btc-clients, nixpkgs-stable, sovran-bitcoin, ... }:
 
 	let
 		overlay-stable = final: prev: {
@@ -33,7 +36,8 @@
 			modules = [
 				{ nixpkgs.hostPlatform = "x86_64-linux"; nixpkgs.overlays = [ overlay-stable ]; }
 				./iso/common.nix
-				./modules/bitcoin
+				sovran-bitcoin.nixosModules.default
+				./modules/sovran-bitcoin-integration.nix
 				nixvim.nixosModules.nixvim
 			];
 		};
@@ -44,7 +48,8 @@
 					nixpkgs.overlays = [ overlay-stable ];
 				})
 				./configuration.nix
-				./modules/bitcoin
+				sovran-bitcoin.nixosModules.default
+				./modules/sovran-bitcoin-integration.nix
 				nixvim.nixosModules.nixvim
 			];
 			config = {
@@ -60,17 +65,9 @@
 			pkgs = import nixpkgs {
 				system = "x86_64-linux";
 			};
-			fetchNodeModules =
-				pkgs.callPackage ./packages/build-support/fetch-node-modules.nix {};
-			mempoolPkgs =
-				pkgs.callPackage ./packages/mempool { inherit fetchNodeModules; };
 		in {
-			bitcoin-btcpay-hardening = import ./tests/bitcoin-btcpay-hardening.nix {
-				inherit nixpkgs overlay-stable;
-			};
-			mempool-backend = mempoolPkgs.mempool-backend;
-			mempool-frontend = mempoolPkgs.mempool-frontend;
-			rtl = pkgs.callPackage ./packages/rtl { inherit fetchNodeModules; };
+			# Bitcoin hardening and package checks now live in the Sovran_Bitcoin flake.
+			# Run them with: nix build github:naturallaw777/Sovran_Bitcoin#checks.x86_64-linux
 		};
 	};
 }

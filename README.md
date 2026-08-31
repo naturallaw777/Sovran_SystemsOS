@@ -510,13 +510,15 @@ setup, supported hardware, and Royal Membership.
 
 ## For developers
 
-Sovran_SystemsOS combines [NixOS](https://nixos.org), an in-repository
-Bitcoin and Lightning stack, desktop packages from
+Sovran_SystemsOS combines [NixOS](https://nixos.org), the standalone
+[Sovran_Bitcoin](https://github.com/naturallaw777/Sovran_Bitcoin) flake for
+Bitcoin and Lightning, desktop packages from
 [btc-clients-nix](https://github.com/emmanuelrosa/btc-clients-nix), and the
-Sovran Hub. The Bitcoin modules under `modules/bitcoin/` were adapted from
-[nix-bitcoin](https://github.com/fort-nix/nix-bitcoin) and are now maintained
-here. Builds no longer import or fetch nix-bitcoin. Legacy `nix-bitcoin.*`
-option names and `/etc/nix-bitcoin-secrets` remain for compatibility.
+Sovran Hub. The Bitcoin and Lightning modules live in the Sovran_Bitcoin
+repository and are consumed as a flake input. OS-specific Bitcoin customizations
+(Second_Drive paths, operator user, Hub integration) are bridged by
+`modules/sovran-bitcoin-integration.nix`. Legacy `nix-bitcoin.*` option names
+and `/etc/nix-bitcoin-secrets` remain for compatibility.
 
 ### Development workflow
 
@@ -536,8 +538,9 @@ option names and `/etc/nix-bitcoin-secrets` remain for compatibility.
 
 - [NixOS](https://nixos.org) and [Nix flakes](https://nixos.wiki/wiki/Flakes)
   for declarative, pinned system configuration
-- `modules/bitcoin/` for the in-repository Bitcoin and Lightning stack
-- `packages/` for Sovran-maintained package definitions and patches
+- [Sovran_Bitcoin](https://github.com/naturallaw777/Sovran_Bitcoin) for the
+  Bitcoin and Lightning stack (consumed as a flake input)
+- `modules/sovran-bitcoin-integration.nix` for OS-specific Bitcoin overrides
 - [btc-clients-nix](https://github.com/emmanuelrosa/btc-clients-nix) for the
   Sparrow, Bisq, and Bisq 2 packages
 - [Python](https://www.python.org) and [FastAPI](https://fastapi.tiangolo.com)
@@ -628,12 +631,11 @@ sudo nixos-rebuild switch --rollback
 | `flake.lock` | Pins dependencies for reproducible builds |
 | `configuration.nix` | Base host, boot, desktop, user, security, backup, and system configuration |
 | `modules/` | Core modules, self-hosted services, and optional features |
-| `modules/bitcoin/` | In-repository Bitcoin and Lightning service modules |
+| `modules/sovran-bitcoin-integration.nix` | OS-specific Bitcoin overrides (Second_Drive, operator, Hub wiring) |
 | `modules/core/` | Roles, Hub integration, Caddy, desktop, support, and other core behavior |
 | `app/` | Sovran Hub backend, templates, static assets, scripts, and web interface |
 | `scripts/` | Automated release, build, and CDN upload utility scripts |
 | `iso/` | Installer configuration, installer code, and installer assets |
-| `packages/` | Sovran-maintained package definitions and patches |
 | `tests/` | Security and Nix integration checks |
 | `assets/` | Documentation images |
 | `custom.template.nix` | Template for local features and service overrides |
@@ -689,14 +691,12 @@ rebuilds the machine into the selected declarative state.
 |---|---|
 | Core platform: roles, Hub, desktop integration, Caddy, domains, support, remote deployment | `modules/core/` |
 | Shared credentials | `modules/credentials.nix` |
-| Bitcoin and Lightning stack | `modules/bitcoinecosystem.nix` |
+| Bitcoin and Lightning stack | [Sovran_Bitcoin](https://github.com/naturallaw777/Sovran_Bitcoin) flake input + `modules/sovran-bitcoin-integration.nix` |
 | Automatic wallet-to-node connections | `modules/wallet-autoconnect.nix` |
-| Alby Hub and Nostr Wallet Connect (NWC) on LND | `modules/nwc-wallets.nix`, `packages/albyhub/` |
 | Matrix Synapse | `modules/synapse.nix` |
 | Optional Element audio and video calling via LiveKit | `modules/element-calling.nix` |
 | Optional Haven Nostr relay | `modules/haven.nix` |
 | Nextcloud, Vaultwarden, WordPress | `modules/nextcloud.nix`, `modules/vaultwarden.nix`, `modules/wordpress.nix`, `modules/php.nix` |
-| Optional Mempool explorer | `modules/mempool.nix` |
 | Optional remote desktop and public SSH | `modules/rdp.nix`, `modules/sshd.nix` |
 
 Feature availability and defaults may change as Sovran_SystemsOS develops.

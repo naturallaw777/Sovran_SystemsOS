@@ -334,33 +334,6 @@ class TestSshPubkeyValidation(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
-# LND macaroon command-line safety
-# ---------------------------------------------------------------------------
-
-class TestLndMacaroonCommandLineSafety(unittest.TestCase):
-    """The LND admin macaroon must never be exposed in curl's argv."""
-
-    @classmethod
-    def setUpClass(cls):
-        path = os.path.join(_REPO_ROOT, "modules", "bitcoin", "lnd.nix")
-        with open(path, encoding="utf-8") as f:
-            cls.lnd_module = f.read()
-
-    def test_admin_macaroon_not_interpolated_into_header_argument(self):
-        self.assertNotIn(
-            '-H "Grpc-Metadata-macaroon: $(',
-            self.lnd_module,
-        )
-
-    def test_admin_macaroon_header_is_passed_via_file_descriptor(self):
-        self.assertIn("adminMacaroonHex=$(", self.lnd_module)
-        self.assertIn(
-            """-H @<(printf 'Grpc-Metadata-macaroon: %s\\n' "$adminMacaroonHex")""",
-            self.lnd_module,
-        )
-
-
-# ---------------------------------------------------------------------------
 # Auth-exempt paths
 # ---------------------------------------------------------------------------
 

@@ -35,12 +35,14 @@ external networks and are outside a “fully offline” model.
 The local Hub currently uses HTTP. Authentication does not encrypt local network
 traffic, so use a trusted LAN and avoid public or guest Wi-Fi.
 
-### In-repository Bitcoin stack
+### Bitcoin stack
 
-Bitcoin and Lightning modules are maintained under `modules/bitcoin/`. They were
-adapted from nix-bitcoin, but Sovran builds do not import or fetch nix-bitcoin.
-The `nix-bitcoin.*` option namespace and `/etc/nix-bitcoin-secrets` path remain
-only for upgrade compatibility.
+Bitcoin and Lightning modules are maintained in the standalone
+[Sovran_Bitcoin](https://github.com/naturallaw777/Sovran_Bitcoin) repository
+and consumed as a flake input. OS-specific customizations (Second_Drive paths,
+operator user, Hub integration) are bridged by
+`modules/sovran-bitcoin-integration.nix`. The `nix-bitcoin.*` option namespace
+and `/etc/nix-bitcoin-secrets` path remain only for upgrade compatibility.
 
 ### Supply chain and integrity
 

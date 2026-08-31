@@ -1,8 +1,8 @@
 """Regression tests for the Hub Zeus Connect QR.
 
-The LND-only rewrite of modules/bitcoin/lndconnect.nix shipped a wrapper
-that Zeus cannot use. These tests lock the contract the Hub QR depends on
-without needing lnd / tor / qrencode at test time.
+The Zeus Connect setup service (modules/wallet-autoconnect.nix) and the Hub QR
+encoding are tested here.  The lndconnect wrapper itself is now part of the
+Sovran_Bitcoin flake — its contract tests live in that repository.
 """
 
 import os
@@ -15,41 +15,6 @@ _REPO_ROOT = os.path.normpath(os.path.join(os.path.dirname(__file__), ".."))
 def _read(relpath: str) -> str:
     with open(os.path.join(_REPO_ROOT, relpath), encoding="utf-8") as fh:
         return fh.read()
-
-
-class TestLndconnectWrapper(unittest.TestCase):
-    """The system `lndconnect` wrapper must emit a Zeus-scannable URI."""
-
-    @classmethod
-    def setUpClass(cls):
-        cls.src = _read("modules/bitcoin/lndconnect.nix")
-
-    def test_uses_official_lndconnect_flags(self):
-        self.assertIn("--adminmacaroonpath=", self.src)
-        self.assertIn("--configfile=/dev/null", self.src)
-        self.assertIn("--nocert", self.src)
-        self.assertIn("--tlscertpath=", self.src)
-
-    def test_does_not_pass_unknown_short_flags(self):
-        # The broken rewrite called `lndconnect --cert … --macaroon …`.
-        # Those flags do not exist; Zeus then never got a valid URI.
-        self.assertIsNone(re.search(r"--cert=", self.src))
-        self.assertIsNone(re.search(r"--macaroon=", self.src))
-
-    def test_uses_dedicated_lnd_rest_onion(self):
-        self.assertIn("lnd-rest", self.src)
-        self.assertIn('onionServices.lnd-rest', self.src)
-        # Must not collide with the LND P2P onion named `lnd`.
-        self.assertNotIn("onionServices.lnd =", self.src)
-        self.assertNotIn('onionService = "${operatorName}/lnd"', self.src)
-
-    def test_reads_onion_from_onion_addresses_dir(self):
-        self.assertIn("onionAddresses.dataDir", self.src)
-        self.assertNotIn("/var/lib/tor/onion/${onionService}/hostname", self.src)
-
-    def test_omits_tls_cert_over_tor(self):
-        # Onion host + embedded localhost cert = Zeus rejects the QR.
-        self.assertIn('then "--nocert"', self.src)
 
 
 class TestZeusConnectSetup(unittest.TestCase):

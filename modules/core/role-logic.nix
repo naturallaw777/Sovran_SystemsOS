@@ -3,7 +3,7 @@
 {
   config = lib.mkMerge [
 
-    # Vendored nix-bitcoin is always imported via modules/vendor/nix-bitcoin/modules.nix.
+    # The Sovran_Bitcoin flake module is always imported (see flake.nix).
     # This default satisfies the secrets assertion so Desktop-Only systems evaluate
     # without enabling any Bitcoin services.
     {
