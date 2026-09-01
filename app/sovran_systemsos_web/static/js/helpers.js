@@ -88,7 +88,7 @@ function renderPortForwardGuideHtml(ports, opts) {
     '<ul class="port-req-steps">' +
       '<li>Set the <strong>internal (private) port</strong> and the <strong>external (public) port</strong> to the <strong>same number</strong>.</li>' +
       '<li>Match the <strong>protocol</strong> exactly — a rule set to TCP will not pass UDP traffic. Where the table says <strong>TCP + UDP</strong>, create both rules (or pick &ldquo;Both&rdquo;/&ldquo;TCP/UDP&rdquo; if your router offers it).</li>' +
-      '<li>For a range such as <strong>30000-40000</strong>, use your router&rsquo;s port-range fields — start 30000, end 40000 — rather than one rule per port.</li>' +
+      '<li>For a range such as <strong>40000-40099</strong>, use your router&rsquo;s port-range fields — start 40000, end 40099 — rather than one rule per port.</li>' +
     '</ul>' +
     '<table class="' + tableClass + '">' +
       '<thead><tr><th>Port(s)</th><th>Protocol</th><th>Used for</th></tr></thead>' +

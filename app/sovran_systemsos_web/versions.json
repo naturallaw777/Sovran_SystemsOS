@@ -10,7 +10,7 @@
   "albyhub.service": "1.24.0",
   "mempool.service": "3.2.1",
   "matrix-synapse.service": "1.115.0",
-  "livekit.service": "1.5.2",
+  "livekit.service": "1.13.6",
   "vaultwarden.service": "1.32.0",
   "haven-relay.service": "0.1.0"
 }

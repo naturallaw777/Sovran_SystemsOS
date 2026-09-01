@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased]
+
+### Changed
+- Element Calling: pin LiveKit to 1.13.6 and advertise the LAN interface
+  (rtc.advertise_internal_ip) so Wi-Fi callers get a local ICE candidate and
+  calls no longer depend on router NAT hairpin
+- Element Calling: use a single UDP media mux (7882); move the TURN relay to
+  40000-40099 and remove the unreachable 5349 TURN/TLS listener
+- Hub: update Element Calling router-port guidance to the new port set
+
+### Fixed
+- Element Calling: TURN relay could not deliver media to the SFU on routers
+  without NAT loopback (turn.allow_restricted_peer_cidrs now permits the LAN
+  subnet derived from the primary interface)
+
 ## [1.1.3] - 2026-08-27
 
 ### Added

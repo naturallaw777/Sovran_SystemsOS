@@ -1112,7 +1112,7 @@ def _get_firewall_allowed_ports() -> dict[str, set[int]]:
         )
         if proc.returncode == 0:
             for line in proc.stdout.splitlines():
-                # e.g. ACCEPT tcp  -- ... dpt:443  or  dpts:7882:7894
+                # e.g. ACCEPT tcp  -- ... dpt:443  or  dpts:40000:40099
                 m = re.search(r'(tcp|udp).*dpts?:(\d+)(?::(\d+))?', line)
                 if m:
                     proto_match = m.group(1)
@@ -1170,7 +1170,7 @@ def _resolve_all_addresses_cached(domain: str) -> list[str]:
 
 
 def _port_range_to_ints(port_str: str) -> list[int]:
-    """Convert a port string like ``"443"``, ``"30000-40000"`` to a list of ints."""
+    """Convert a port string like ``"443"``, ``"40000-40099"`` to a list of ints."""
     port_str = port_str.strip()
     if re.match(r'^\d+$', port_str):
         return [int(port_str)]
