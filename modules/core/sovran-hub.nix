@@ -405,6 +405,9 @@ DESKTOP
 import os, sys
 base = os.path.join("$out", "lib", "sovran-hub-web")
 sys.path.insert(0, base)
+# Canonical NWC implementation — single source of truth from the
+# Sovran_Bitcoin flake (imported directly by server.py).
+sys.path.insert(0, os.path.join("${pkgs.sovran-bitcoin.nwc}", "lib", "sovran-nwc"))
 os.environ["SOVRAN_HUB_CONFIG"] = os.path.join(base, "config.json")
 os.environ["SOVRAN_HUB_VERSIONS"] = os.path.join(base, "versions.json")
 os.environ["SOVRAN_HUB_ICONS"]  = os.path.join("$out", "share", "sovran-hub", "icons")
@@ -418,26 +421,9 @@ uvicorn.run(
 LAUNCHER
       chmod +x $out/bin/sovran-hub-web
 
-      cat > $out/bin/nwc-wallet <<LAUNCHER
-#!${pkgs.python3}/bin/python3
-import os, sys
-base = os.path.join("$out", "lib", "sovran-hub-web")
-sys.path.insert(0, base)
-from sovran_systemsos_web.nwc_wallet_cli import main
-sys.exit(main())
-LAUNCHER
-      chmod +x $out/bin/nwc-wallet
-
-      cat > $out/bin/nwc-lnurl <<LAUNCHER
-#!${pkgs.python3}/bin/python3
-import os, sys
-base = os.path.join("$out", "lib", "sovran-hub-web")
-sys.path.insert(0, base)
-from sovran_systemsos_web.nwc_lnurl_service import main
-main()
-LAUNCHER
-      chmod +x $out/bin/nwc-lnurl
-
+      # nwc-wallet / nwc-lnurl binaries are no longer shipped here: the
+      # Sovran_Bitcoin flake provides them (env-wrapped nwc-wallet via
+      # albyhub.nix, nwc-lnurl.service via lnurl.nix) — single source of truth.
       runHook postInstall
     '';
 

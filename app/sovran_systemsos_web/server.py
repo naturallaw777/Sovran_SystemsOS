@@ -39,7 +39,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from .config import load_config, load_versions
 from . import systemctl as sysctl
-from . import nwc_hub_manager as _nwc_mgr
+from sovran_nwc import nwc_hub_manager as _nwc_mgr
 from . import support_ops as _support_ops
 from .security_helpers import (
     _nix_escape,
