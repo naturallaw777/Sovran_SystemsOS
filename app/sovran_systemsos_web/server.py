@@ -291,11 +291,10 @@ FEATURE_REGISTRY = [
         "port_requirements": [
             {"port": "80",          "protocol": "TCP",     "description": "HTTP (redirect to HTTPS)"},
             {"port": "443",         "protocol": "TCP",     "description": "HTTPS (domain)"},
-            {"port": "7881",        "protocol": "TCP",     "description": "LiveKit WebRTC signalling"},
-            {"port": "7882",        "protocol": "UDP",     "description": "LiveKit media (UDP mux)"},
-            {"port": "5349",        "protocol": "TCP",     "description": "TURN over TLS"},
-            {"port": "3478",        "protocol": "UDP",     "description": "TURN (STUN/relay)"},
-            {"port": "30000-40000", "protocol": "TCP/UDP", "description": "TURN relay (WebRTC)"},
+            {"port": "7881",        "protocol": "TCP",     "description": "WebRTC media (TCP fallback)"},
+            {"port": "7882",        "protocol": "UDP",     "description": "WebRTC media (UDP)"},
+            {"port": "3478",        "protocol": "UDP",     "description": "TURN relay + STUN"},
+            {"port": "40000-40099", "protocol": "UDP",     "description": "TURN relay (WebRTC media)"},
         ],
     },
     {
@@ -395,11 +394,10 @@ FEATURE_SERVICE_MAP = {
 
 # Port requirements for service tiles (keyed by unit name or icon)
 _PORTS_ELEMENT_CALLING = [
-    {"port": "7881",        "protocol": "TCP",     "description": "LiveKit WebRTC signalling"},
-    {"port": "7882",        "protocol": "UDP",     "description": "LiveKit media (UDP mux)"},
-    {"port": "5349",        "protocol": "TCP",     "description": "TURN over TLS"},
-    {"port": "3478",        "protocol": "UDP",     "description": "TURN (STUN/relay)"},
-    {"port": "30000-40000", "protocol": "TCP/UDP", "description": "TURN relay (WebRTC)"},
+    {"port": "7881",        "protocol": "TCP",     "description": "WebRTC media (TCP fallback)"},
+    {"port": "7882",        "protocol": "UDP",     "description": "WebRTC media (UDP)"},
+    {"port": "3478",        "protocol": "UDP",     "description": "TURN relay + STUN"},
+    {"port": "40000-40099", "protocol": "UDP",     "description": "TURN relay (WebRTC media)"},
 ]
 
 # Units whose port requirements exist purely so the user can forward them in

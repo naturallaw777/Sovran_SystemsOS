@@ -185,6 +185,14 @@ EOF
       fi
       echo "Detected primary network interface: $IFACE"
 
+      # Derive the LAN subnet this box sits on so the embedded TURN relay
+      # is allowed to hand media to LiveKit's LAN host candidate (see the
+      # allow_restricted_peer_cidrs block below). Computed from the primary
+      # interface's own address, so it always matches the subnet the LAN
+      # clients (phones on Wi-Fi) actually live on.
+      LAN_CIDR=$(ip -4 -o addr show dev "$IFACE" | awk '{print $4}' | grep -vE '^(127\.|169\.254\.)' | head -n1 | python3 -c 'import sys, ipaddress; s = sys.stdin.read().strip(); print(str(ipaddress.ip_network(s, strict=False)) if s else "")' 2>/dev/null)
+      echo "Derived LAN CIDR for TURN relay: ${LAN_CIDR:-<none>}"
+
       # Generate the full LiveKit config the daemon will load. turn.domain and
       # rtc.interfaces.includes are only known at runtime, so they are
       # substituted here. The cert/key paths point at the LoadCredential-staged
@@ -229,10 +237,9 @@ port: 7880
 rtc:
   use_external_ip: false
   node_ip: $PUBLIC_IP
+  advertise_internal_ip: true
   tcp_port: 7881
   udp_port: 7882
-  port_range_start: 30000
-  port_range_end: 40000
   interfaces:
     includes:
       - $IFACE
@@ -244,10 +251,9 @@ port: 7880
 rtc:
   use_external_ip: true
   skip_external_ip_validation: true
+  advertise_internal_ip: true
   tcp_port: 7881
   udp_port: 7882
-  port_range_start: 30000
-  port_range_end: 40000
   interfaces:
     includes:
       - $IFACE
@@ -264,16 +270,37 @@ EOF
       # vhost (/livekit/jwt/sfu_webhook → 8073).
       LK_KEY=$(cut -d: -f1 < ${livekitKeyFile} | tr -d '[:space:]')
 
+      # TURN/TLS is intentionally not configured (no tls_port): LiveKit
+      # advertises turns:<domain>:443 to clients regardless of tls_port, so
+      # a 5349 TURN/TLS listener would be unreachable and only adds attack
+      # surface. The staged cert/key stay for a future TURN/TLS-on-443
+      # (Caddy layer4 SNI) setup.
       cat >> /run/livekit/livekit.yaml <<EOF
 room:
   auto_create: false
 turn:
   enabled: true
   domain: $MATRIX
-  tls_port: 5349
   udp_port: 3478
+  relay_range_start: 40000
+  relay_range_end: 40099
   cert_file: /run/credentials/livekit.service/turn-cert
   key_file: /run/credentials/livekit.service/turn-key
+EOF
+
+      # By default the embedded TURN relay refuses to send media to
+      # private/loopback peers. That would force its final hop to the
+      # public/WAN IP (hairpin NAT) — exactly what breaks calls on routers
+      # without NAT loopback. Allow the LAN subnet so the relay can deliver
+      # directly to LiveKit's LAN host candidate instead.
+      if [ -n "$LAN_CIDR" ]; then
+        cat >> /run/livekit/livekit.yaml <<EOF
+  allow_restricted_peer_cidrs:
+    - $LAN_CIDR
+EOF
+      fi
+
+      cat >> /run/livekit/livekit.yaml <<EOF
 webhook:
   api_key: $LK_KEY
   urls:
@@ -315,10 +342,14 @@ EOF
     "turn-key:/var/lib/livekit/turn.key"
   ];
 
-  networking.firewall.allowedTCPPorts = [ 5349 7881 ];
+  # 5349/TCP (TURN/TLS) is deliberately absent — see livekit-turn-setup. RTC
+  # media uses the single UDP mux (7882); the 30000-40000 range is gone so
+  # media is no longer spread across 10000 ports. The TURN relay allocation
+  # range (40000-40099) is kept separate from the media mux.
+  networking.firewall.allowedTCPPorts = [ 7881 ];
   networking.firewall.allowedUDPPorts = [ 3478 7882 ];
   networking.firewall.allowedUDPPortRanges = [
-    { from = 30000; to = 40000; } # LiveKit internal TURN relay range
+    { from = 40000; to = 40099; } # LiveKit embedded TURN relay allocation range
   ];
 
   ####### JWT SERVICE RUNTIME CONFIG #######
