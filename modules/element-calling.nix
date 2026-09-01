@@ -191,7 +191,7 @@ EOF
       # interface's own address, so it always matches the subnet the LAN
       # clients (phones on Wi-Fi) actually live on.
       LAN_CIDR=$(ip -4 -o addr show dev "$IFACE" | awk '{print $4}' | grep -vE '^(127\.|169\.254\.)' | head -n1 | python3 -c 'import sys, ipaddress; s = sys.stdin.read().strip(); print(str(ipaddress.ip_network(s, strict=False)) if s else "")' 2>/dev/null)
-      echo "Derived LAN CIDR for TURN relay: ${LAN_CIDR:-<none>}"
+      if [ -n "$LAN_CIDR" ]; then echo "Derived LAN CIDR for TURN relay: $LAN_CIDR"; else echo "Derived LAN CIDR for TURN relay: <none>"; fi
 
       # Generate the full LiveKit config the daemon will load. turn.domain and
       # rtc.interfaces.includes are only known at runtime, so they are
