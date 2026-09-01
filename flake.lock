@@ -169,11 +169,11 @@
         "nixpkgs-stable": "nixpkgs-stable_2"
       },
       "locked": {
-        "lastModified": 1788191399,
-        "narHash": "sha256-2m3eeQvPGPjcegG1+C1LnfjQ5DGJTra9Aw2RFThzT1A=",
+        "lastModified": 1788225336,
+        "narHash": "sha256-ixw/ChkLWWrLOzoiSa9n1g2g5KDIVkedC6eYFCba+gA=",
         "owner": "naturallaw777",
         "repo": "Sovran_Bitcoin",
-        "rev": "f4e86564418bee335fd230387f07abb9c6632f65",
+        "rev": "37caecaa3f3666231c8ec82a9a9a0df53fa40910",
         "type": "github"
       },
       "original": {
