@@ -19,6 +19,24 @@
 				system = prev.stdenv.hostPlatform.system;
 				config.allowUnfree = true;
 			};
+
+			# Pin LiveKit to 1.13.6: element-calling.nix sets
+			# rtc.advertise_internal_ip, which gives LAN callers a host candidate
+			# so calls work on Wi-Fi without the router needing NAT-hairpin. That
+			# flag is only honoured when node_ip is set manually from LiveKit
+			# v1.13.6 (mediatransportutil f234b53); nixpkgs-unstable currently
+			# ships 1.13.5. Remove this override once nixpkgs-unstable reaches
+			# >= 1.13.6.
+			livekit = prev.livekit.overrideAttrs (old: {
+				version = "1.13.6";
+				src = prev.fetchFromGitHub {
+					owner = "livekit";
+					repo = "livekit";
+					rev = "v1.13.6";
+					hash = "sha256-sUAx6ooeEUUqot5xuZv7xiQa3DdRFVULteTwYgFUzCI=";
+				};
+				vendorHash = "sha256-nOGSmoNuQQm/sIVI1HojsiS4GkbhA68uYMQ6X7d4a5Q=";
+			});
 		};
 	in
 	{
