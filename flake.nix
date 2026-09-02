@@ -55,7 +55,6 @@
 				{ nixpkgs.hostPlatform = "x86_64-linux"; nixpkgs.overlays = [ overlay-stable ]; }
 				./iso/common.nix
 				sovran-bitcoin.nixosModules.default
-				./modules/sovran-bitcoin-integration.nix
 				nixvim.nixosModules.nixvim
 			];
 		};
