@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.1.4] - 2026-09-02
+
+### Added
+- Element-calling: fix Nix string interpolation of LAN_CIDR echo
+- Docs/hub: update Element Calling port guidance to the new port set
+- Element-calling: fix Wi-Fi calls and tighten media/TURN ports
+- Flake: pin LiveKit to 1.13.6 for rtc.advertise_internal_ip support
+
+### Changed
+- Updated nixpkgs
+- Updated sovran-bitcon
+- Dedupe NWC tooling — use Sovran_Bitcoin's sovran-nwc
+- Update sovran-bitcoin flake input
+- Extract bitcoin stack into Sovran_Bitcoin flake input
+
+### Fixed
+- Set lnurl domainFile for Hub-managed Lightning Address domain
+- Correct disablewallet casing
+- Fixed typo
+[1.1.4]: https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS/releases/tag/v1.1.4
+
+
 ## [Unreleased]
 
 ### Changed
