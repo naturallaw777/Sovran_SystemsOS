@@ -147,7 +147,7 @@
     hunspell hunspellDicts.en_US
     synadm brave-origin dua
     gparted pv unzip parted screen zenity
-    libargon2 gnome-terminal libreoffice-fresh
+    libargon2 gnome-terminal libreoffice-stable
     dig firefox wp-cli axel
     lk-jwt-service livekit-libwebrtc livekit
     matrix-synapse age onlyoffice-desktopeditors
