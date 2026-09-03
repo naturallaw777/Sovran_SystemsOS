@@ -150,6 +150,61 @@ let
     "haven-relay.service" = if pkgs ? haven-relay then pkgs.haven-relay.version else (if pkgs ? haven then pkgs.haven.version else "0.1.0");
   });
 
+  # Shared shell prelude used by both the update and rebuild wrapper scripts.
+  # A flake/package fetch that is interrupted (network blip, reboot
+  # mid-download, disk filled, hiccup on the remote) can leave a truncated
+  # tarball or partial git clone in Nix's download caches. Nix then reuses the
+  # corrupt archive on every retry and dies with "cannot read file from
+  # tarball: Truncated tar archive detected" — a failure that is NOT fixed by
+  # simply re-running, but IS fixed by clearing the fetch caches. run_step runs
+  # a command and, on the first failure that matches a download/cache
+  # signature, clears the caches and retries once. Real config errors never
+  # match, so they still fail loudly. Each sourcing script must define $LOG.
+  nix-self-heal-prelude = ''
+    transient_failure() {
+      grep -Eqi 'truncated tar|unexpected end of (file|archive)|unexpected eof|corrupt(ed)? (archive|nar|download|file)|could not (fetch|download)|download.*(failed|interrupted)|timed out|timeout|connection (reset|refused|timed out)|network is unreachable|temporary failure in name resolution|checksum mismatch|hash mismatch|nar hash|unable to download|store path.*is not valid|cannot read file from tarball|into the git cache' "$LOG"
+    }
+
+    clear_fetch_caches() {
+      echo "[SELF-HEAL] Clearing stale Nix download caches and verifying the Nix store…"
+      # Re-fetchable caches only; /nix/store generations and the running system
+      # are never touched here.
+      rm -rf /root/.cache/nix/tarballs /root/.cache/nix/vcs-cache /root/.cache/nix/git* /root/.cache/nix/flakes 2>/dev/null || true
+      # Fast closure-level repair only. A full --check-contents scan hashes
+      # every store path and can take tens of minutes on a big node; the cache
+      # clear above is the actual fix for truncated/corrupt downloads.
+      nix-store --verify --repair >/dev/null 2>&1 || true
+      echo "[SELF-HEAL] Caches cleared; retrying…"
+      echo ""
+    }
+
+    # run_step LABEL CMD [ARGS...] — run a build step; on a transient
+    # fetch/cache failure, heal once and retry. Returns the command exit code
+    # but leaves error messaging to the caller.
+    run_step() {
+      label="$1"; shift
+      rc=1
+      for try in 1 2; do
+        if [ "$try" -eq 2 ]; then
+          echo "── $label — retry after cache repair ──"
+        fi
+        "$@"
+        rc=$?
+        if [ "$rc" -eq 0 ]; then
+          return 0
+        fi
+        if [ "$try" -eq 1 ] && transient_failure; then
+          echo ""
+          echo "[SELF-HEAL] $label failed on a download/cache error (see above)."
+          clear_fetch_caches
+          continue
+        fi
+        return "$rc"
+      done
+      return "$rc"
+    }
+  '';
+
   # ── Update wrapper script ──────────────────────────────────────
   update-script = pkgs.writeShellScript "sovran-hub-update.sh" ''
     set -uo pipefail
@@ -171,12 +226,14 @@ let
 
     RC=0
 
+    ${nix-self-heal-prelude}
+
     echo "── Step 1/3: nix flake update ────────────────────"
-    if ! nix flake update --flake /etc/nixos --print-build-logs \
+    if ! run_step "nix flake update" nix flake update --flake /etc/nixos --print-build-logs \
           --option connect-timeout 10 \
           --option stalled-download-timeout 90 \
           --option download-attempts 7 \
-          --option fallback true 2>&1; then
+          --option fallback true; then
       echo "[ERROR] nix flake update failed"
       RC=1
     fi
@@ -186,21 +243,21 @@ let
       echo "── Step 2/3: nixos-rebuild boot (stage next reboot) ──"
       # Stream output straight into $LOG (see rebuild-script) so the Hub UI
       # shows live progress instead of an empty log during long builds.
-      nixos-rebuild boot --flake /etc/nixos --print-build-logs \
-        --option connect-timeout 10 \
-        --option stalled-download-timeout 90 \
-        --option download-attempts 7 \
-        --option fallback true
-      BOOT_RC=$?
-      if [ "$BOOT_RC" -ne 0 ]; then
+      if run_step "nixos-rebuild boot" nixos-rebuild boot --flake /etc/nixos --print-build-logs \
+          --option connect-timeout 10 \
+          --option stalled-download-timeout 90 \
+          --option download-attempts 7 \
+          --option fallback true; then
+        if ! readlink -f /nix/var/nix/profiles/system > "$GENERATION"; then
+          # The marker is informational only.  The Hub derives pending-reboot
+          # state from the NixOS system profile itself, so failing to record
+          # the marker must not fail an otherwise successful update.
+          echo "[WARNING] update succeeded but its staged generation could not be recorded"
+          rm -f "$GENERATION"
+        fi
+      else
         echo "[ERROR] nixos-rebuild boot failed"
         RC=1
-      elif ! readlink -f /nix/var/nix/profiles/system > "$GENERATION"; then
-        # The marker is informational only.  The Hub derives pending-reboot
-        # state from the NixOS system profile itself, so failing to record
-        # the marker must not fail an otherwise successful update.
-        echo "[WARNING] update succeeded but its staged generation could not be recorded"
-        rm -f "$GENERATION"
       fi
       echo ""
     fi
@@ -245,12 +302,15 @@ let
     echo "  Sovran_SystemsOS Rebuild — $(date)"
     echo "══════════════════════════════════════════════════"
     echo ""
+
+    ${nix-self-heal-prelude}
+
     echo "── Rebuilding system configuration ──────────────"
     # Stream output straight into $LOG (tee'd by the exec redirect above) so
     # the Hub UI shows live progress.  Capturing the output in a variable
     # kept the log empty for the entire build+activation, which made long
     # rebuilds can otherwise look like a hang.
-    nixos-rebuild switch --flake /etc/nixos --print-build-logs \
+    run_step "nixos-rebuild switch" nixos-rebuild switch --flake /etc/nixos --print-build-logs \
       --option connect-timeout 10 \
       --option stalled-download-timeout 90 \
       --option download-attempts 7 \
@@ -266,11 +326,11 @@ let
       echo ""
       echo "  ✓ Build succeeded — a reboot is required to apply this rebuild"
       echo "  (Critical system components changed; running nixos-rebuild boot instead)"
-      if nixos-rebuild boot --flake /etc/nixos --print-build-logs \
+      if run_step "nixos-rebuild boot" nixos-rebuild boot --flake /etc/nixos --print-build-logs \
            --option connect-timeout 10 \
            --option stalled-download-timeout 90 \
            --option download-attempts 7 \
-           --option fallback true 2>&1; then
+           --option fallback true; then
         echo "REBOOT_REQUIRED" > "$STATUS"
       else
         echo "[ERROR] nixos-rebuild boot also failed"
@@ -278,6 +338,7 @@ let
         exit 1
       fi
     else
+      echo "[ERROR] nixos-rebuild switch failed"
       echo ""
       echo "══════════════════════════════════════════════════"
       echo "  ✗ Rebuild failed — see errors above"

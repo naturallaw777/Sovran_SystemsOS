@@ -7,6 +7,7 @@ if ($btnCloseModal) $btnCloseModal.addEventListener("click", closeUpdateModal);
 if ($btnReboot) $btnReboot.addEventListener("click", doReboot);
 if ($btnSave) $btnSave.addEventListener("click", saveErrorReport);
 if ($btnRetryUpdate) $btnRetryUpdate.addEventListener("click", retryUpdateStatus);
+if ($btnRetryRun) $btnRetryRun.addEventListener("click", retryUpdateRun);
 
 // Browser timers and requests may be suspended while an RDP session/tab is in
 // the background. Reconcile immediately when the user returns instead of

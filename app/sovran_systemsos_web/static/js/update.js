@@ -14,7 +14,10 @@ async function openUpdateModal() {
       { cache: "no-store" },
       STATUS_POLL_FETCH_TIMEOUT
     );
-    if (current.running || current.result === "reboot_required") {
+    if (current.running || current.result === "reboot_required" || current.result === "failed") {
+      // An in-progress update, a staged update awaiting reboot, or a prior
+      // failed update — reattach to the persisted systemd/log state instead of
+      // starting over or wrongly reporting "up to date".
       showExistingUpdate(current);
       return;
     }
@@ -41,6 +44,7 @@ async function openUpdateModal() {
         if ($btnReboot) $btnReboot.style.display = "none";
         if ($btnSave) $btnSave.style.display = "none";
         if ($btnRetryUpdate) $btnRetryUpdate.style.display = "none";
+        if ($btnRetryRun) $btnRetryRun.style.display = "none";
         if ($btnCloseModal) $btnCloseModal.disabled = false;
         $modal.classList.add("open");
         return;
@@ -69,6 +73,7 @@ function prepareUpdateModal() {
   if ($btnReboot) $btnReboot.style.display = "none";
   if ($btnSave) $btnSave.style.display = "none";
   if ($btnRetryUpdate) $btnRetryUpdate.style.display = "none";
+  if ($btnRetryRun) $btnRetryRun.style.display = "none";
   if ($btnCloseModal) $btnCloseModal.disabled = true;
   $modal.classList.add("open");
 }
@@ -154,6 +159,7 @@ function startUpdate() {
         if ($btnReboot) $btnReboot.style.display = "none";
         if ($btnSave) $btnSave.style.display = "none";
         if ($btnRetryUpdate) $btnRetryUpdate.style.display = "none";
+        if ($btnRetryRun) $btnRetryRun.style.display = "none";
         if ($btnCloseModal) $btnCloseModal.disabled = false;
         _updateFinished = true;
         return;
@@ -283,6 +289,16 @@ function retryUpdateStatus() {
   startUpdatePoll();
 }
 
+// Re-run a failed (or never-applied) update from scratch.  The backend always
+// allows this after a FAILED attempt even though flake.lock may already be
+// advanced (the previous build never staged a bootable generation).
+function retryUpdateRun() {
+  if ($btnRetryRun) $btnRetryRun.style.display = "none";
+  if ($btnSave) $btnSave.style.display = "none";
+  if ($btnReboot) $btnReboot.style.display = "none";
+  _doOpenUpdateModal();
+}
+
 function resumeUpdateStatusAfterInterruption() {
   if (!$modal || !$modal.classList.contains("open")) return;
   if (_updateStatusUnavailable) {
@@ -304,9 +320,10 @@ function onUpdateDone(result) {
     if ($modalStatus) $modalStatus.textContent = "✓ Update complete — restart required";
     if ($btnReboot) $btnReboot.style.display = "inline-flex";
   } else {
-    if ($modalStatus) $modalStatus.textContent = "✗ Update failed";
+    if ($modalStatus) $modalStatus.textContent = "✗ Update failed — your system was not changed. Run the update again or save the error report for support.";
+    if ($btnRetryRun) $btnRetryRun.style.display = "inline-flex";
     if ($btnSave) $btnSave.style.display = "inline-flex";
-    if ($btnReboot) $btnReboot.style.display = "inline-flex";
+    if ($btnReboot) $btnReboot.style.display = "none";
   }
 }
 

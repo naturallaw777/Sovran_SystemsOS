@@ -908,11 +908,68 @@ def _get_remote_rev(branch=None):
     return None
 
 
+def _parse_version(text):
+    """Return a (major, minor, patch) tuple from a VERSION string, or None."""
+    try:
+        match = re.search(r"(\d+)\.(\d+)\.(\d+)", str(text))
+        if match:
+            return tuple(int(g) for g in match.groups())
+    except Exception:
+        pass
+    return None
+
+
+def _get_remote_version(branch=None):
+    """Read VERSION on the tracked branch, e.g. the stable release version."""
+    try:
+        ref = branch or "stable"
+        url = (
+            "https://git.sovransystems.com/api/v1/repos/"
+            "Sovran_Systems/Sovran_SystemsOS/raw/VERSION?ref="
+            + urllib.parse.quote(ref)
+        )
+        req = urllib.request.Request(url, method="GET")
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            return _parse_version(resp.read().decode())
+    except Exception:
+        pass
+    return None
+
+
 def check_for_updates() -> bool | None:
+    """Whether an update is available.
+
+    Primary signal: the flake lock's pinned Sovran_Systems rev differs from
+    the remote branch head.  BUT a failed update rewrites ``flake.lock`` (the
+    ``nix flake update`` step) without staging a generation (the
+    ``nixos-rebuild boot`` step failed), so after a failure the lock and the
+    remote agree while the *running* system is still on the old version.  In
+    that case the rev comparison alone reports a false "up to date" and hides
+    the failed update from the dashboard.
+
+    Backstop: compare the running Hub version against the branch VERSION.
+    A newer released version while running an older one means the update did
+    not apply (build failed, reboot skipped, generation rolled back) and must
+    be offered again.
+    """
     locked_rev, branch = _get_locked_info()
     remote_rev = _get_remote_rev(branch)
     if locked_rev and remote_rev:
-        return locked_rev != remote_rev
+        rev_differs = locked_rev != remote_rev
+        if rev_differs:
+            return True
+        # Revs match — make sure the pinned (failed) rev isn't masking an
+        # older *running* system.
+        running_ver = _parse_version(_get_sovran_version())
+        remote_ver = _get_remote_version(branch)
+        if running_ver and remote_ver and remote_ver > running_ver:
+            return True
+        return False
+    # Couldn't compare revs — fall back to the version backstop.
+    running_ver = _parse_version(_get_sovran_version())
+    remote_ver = _get_remote_version(branch)
+    if running_ver and remote_ver:
+        return remote_ver > running_ver
     return None  # inconclusive — couldn't read lock or reach remote
 
 
@@ -3885,6 +3942,11 @@ async def api_updates_check():
         # Avoid a slow remote update check when there is already an operation
         # the dashboard needs to surface.
         return {"available": True, "status": status.lower()}
+    if status == "FAILED":
+        # The last update did not complete (build failed).  Keep offering the
+        # update so the user can re-run it rather than silently landing on a
+        # false "up to date".
+        return {"available": True, "status": "failed"}
 
     available = await loop.run_in_executor(None, check_for_updates)
     # None means inconclusive (check failed) — report as available so the UI doesn't block
@@ -3962,8 +4024,15 @@ async def api_updates_run():
         except OSError:
             pass
 
+    # Re-read status: a prior failed update leaves flake.lock advanced even
+    # though no generation was staged, so the rev-based check below can say
+    # "no updates" even though the system is still old.  A failed update must
+    # always be re-runnable to recover.
+    persisted_status = await loop.run_in_executor(None, _read_update_status)
+    last_failed = persisted_status == "FAILED"
+
     available = await loop.run_in_executor(None, check_for_updates)
-    if available is False:  # only block when positively confirmed no updates
+    if available is False and not last_failed:  # only block when positively confirmed no updates
         # Clear stale status/log so they don't contaminate future modal opens.
         _write_update_status("IDLE")
         try:

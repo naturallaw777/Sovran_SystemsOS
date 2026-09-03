@@ -53,6 +53,7 @@ const $modalLog       = document.getElementById("modal-log");
 const $btnReboot      = document.getElementById("btn-reboot");
 const $btnSave        = document.getElementById("btn-save-report");
 const $btnRetryUpdate = document.getElementById("btn-retry-update-status");
+const $btnRetryRun    = document.getElementById("btn-retry-update");
 const $btnCloseModal  = document.getElementById("btn-close-modal");
 
 const $rebootOverlay  = document.getElementById("reboot-overlay");
