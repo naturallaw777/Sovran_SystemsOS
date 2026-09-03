@@ -67,7 +67,7 @@ function renderPortForwardGuideHtml(ports, opts) {
   var noteClass  = opts.noteClass  || "port-req-hint";
   var ipHtml = opts.internalIp
     ? '<code class="port-req-internal-ip">' + escHtml(opts.internalIp) + '</code>'
-    : 'this computer&rsquo;s <strong>internal IP</strong> (shown as &ldquo;Internal IP&rdquo; at the top of the Hub dashboard)';
+    : 'this computer&rsquo;s <strong>internal IP</strong>';
 
   var rows = (ports || []).map(function(p) {
     return '<tr>' +
@@ -78,26 +78,17 @@ function renderPortForwardGuideHtml(ports, opts) {
   }).join("");
 
   var forWhat = opts.serviceName
-    ? 'For <strong>' + escHtml(opts.serviceName) + '</strong> to be reachable from outside your home network, open'
-    : 'Open';
+    ? 'To make <strong>' + escHtml(opts.serviceName) + '</strong> reachable from outside your home, forward these ports to ' + ipHtml + ':'
+    : 'Forward these ports to ' + ipHtml + ':';
 
-  return '<p class="' + introClass + '">' +
-      forWhat + ' the ports below in your router&rsquo;s <strong>port forwarding</strong> settings ' +
-      'and point them at ' + ipHtml + '.' +
+  return '<p class="' + introClass + '">' + forWhat + '</p>' +
+    '<p class="port-req-steps" style="margin-top:6px;margin-bottom:10px;font-size:0.92em;color:#555;">' +
+      'Set the internal and external port to the <strong>same number</strong>. Match <strong>TCP</strong> or <strong>UDP</strong> exactly. For ranges like <strong>40000-40099</strong>, use your router&rsquo;s range fields (start 40000, end 40099).' +
     '</p>' +
-    '<ul class="port-req-steps">' +
-      '<li>Set the <strong>internal (private) port</strong> and the <strong>external (public) port</strong> to the <strong>same number</strong>.</li>' +
-      '<li>Match the <strong>protocol</strong> exactly — a rule set to TCP will not pass UDP traffic. Where the table says <strong>TCP + UDP</strong>, create both rules (or pick &ldquo;Both&rdquo;/&ldquo;TCP/UDP&rdquo; if your router offers it).</li>' +
-      '<li>For a range such as <strong>40000-40099</strong>, use your router&rsquo;s port-range fields — start 40000, end 40099 — rather than one rule per port.</li>' +
-    '</ul>' +
     '<table class="' + tableClass + '">' +
       '<thead><tr><th>Port(s)</th><th>Protocol</th><th>Used for</th></tr></thead>' +
       '<tbody>' + rows + '</tbody>' +
-    '</table>' +
-    '<p class="' + noteClass + '">' +
-      '📱 <strong>How to confirm it worked:</strong> forwarding happens on your router, so it can only be verified from outside your network. ' +
-      'Turn Wi-Fi off on your phone and open the service over mobile data — if it loads, your ports are open.' +
-    '</p>';
+    '</table>';
 }
 
 function formatDuration(seconds) {
