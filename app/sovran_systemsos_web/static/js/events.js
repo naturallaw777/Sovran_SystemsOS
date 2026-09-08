@@ -4,6 +4,8 @@
 
 // if ($updateBtn) $updateBtn.addEventListener("click", openUpdateModal); // moved to sidebar in tiles.js
 if ($btnCloseModal) $btnCloseModal.addEventListener("click", closeUpdateModal);
+if ($btnCheckAgain) $btnCheckAgain.addEventListener("click", function() { openUpdateModal(); });
+if ($updateCloseBtn) $updateCloseBtn.addEventListener("click", closeUpdateModal);
 if ($btnReboot) $btnReboot.addEventListener("click", doReboot);
 if ($btnSave) $btnSave.addEventListener("click", saveErrorReport);
 if ($btnRetryUpdate) $btnRetryUpdate.addEventListener("click", retryUpdateStatus);
@@ -28,6 +30,7 @@ if ($logoutBtn) $logoutBtn.addEventListener("click", function () {
 
 // Rebuild modal
 if ($rebuildClose) $rebuildClose.addEventListener("click", closeRebuildModal);
+if ($rebuildCloseHdr) $rebuildCloseHdr.addEventListener("click", closeRebuildModal);
 if ($rebuildReboot) $rebuildReboot.addEventListener("click", doReboot);
 if ($rebuildSave) $rebuildSave.addEventListener("click", saveRebuildErrorReport);
 if ($rebuildModal) $rebuildModal.addEventListener("click", function(e) { if (e.target === $rebuildModal) closeRebuildModal(); });

@@ -272,6 +272,7 @@ async function loadNetwork() {
 async function checkUpdates() {
   try {
     var data = await apiFetch("/api/updates/check");
+    if (typeof markUpdateChecked === "function") markUpdateChecked();
     var hasUpdates = !!data.available;
     var updateStatus = data.status || "idle";
     var sidebarUpdateBtn = document.getElementById("sidebar-btn-update");
@@ -280,20 +281,20 @@ async function checkUpdates() {
       if (updateStatus === "failed") {
         // Last update errored and did not apply — surface it as a persistent
         // red banner that re-opens the failed run with a "Retry Update" action.
-        sidebarUpdateBtn.style.borderColor = "#e01b24";
-        sidebarUpdateBtn.style.backgroundColor = "rgba(224, 27, 36, 0.10)";
+        sidebarUpdateBtn.style.borderColor = "#f66151";
+        sidebarUpdateBtn.style.backgroundColor = "rgba(246, 97, 81, 0.10)";
         if (sidebarUpdateHint) sidebarUpdateHint.textContent = "Update failed — click to retry";
       } else if (updateStatus === "reboot_required") {
-        sidebarUpdateBtn.style.borderColor = "#e5a50a";
-        sidebarUpdateBtn.style.backgroundColor = "rgba(229, 165, 10, 0.10)";
+        sidebarUpdateBtn.style.borderColor = "#e9b64a";
+        sidebarUpdateBtn.style.backgroundColor = "rgba(233, 182, 74, 0.10)";
         if (sidebarUpdateHint) sidebarUpdateHint.textContent = "Restart required";
       } else if (updateStatus === "running") {
-        sidebarUpdateBtn.style.borderColor = "#3584e4";
-        sidebarUpdateBtn.style.backgroundColor = "rgba(53, 132, 228, 0.10)";
+        sidebarUpdateBtn.style.borderColor = "#78aeed";
+        sidebarUpdateBtn.style.backgroundColor = "rgba(120, 174, 237, 0.10)";
         if (sidebarUpdateHint) sidebarUpdateHint.textContent = "Update in progress…";
       } else if (hasUpdates) {
-        sidebarUpdateBtn.style.borderColor = "#2ec27e";
-        sidebarUpdateBtn.style.backgroundColor = "rgba(46, 194, 126, 0.08)";
+        sidebarUpdateBtn.style.borderColor = "#3ecf8e";
+        sidebarUpdateBtn.style.backgroundColor = "rgba(62, 207, 142, 0.10)";
         if (sidebarUpdateHint) sidebarUpdateHint.textContent = "Updates available!";
       } else {
         sidebarUpdateBtn.style.borderColor = "";

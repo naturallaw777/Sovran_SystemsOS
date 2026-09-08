@@ -257,18 +257,36 @@
   <!-- Update modal -->
   <div class="modal-overlay" id="update-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title-text">
     <div class="modal-dialog">
-      <div class="modal-header">
-        <span class="modal-title" id="modal-title-text">Sovran_SystemsOS Update</span>
-        <div class="modal-spinner" id="modal-spinner"></div>
-        <span class="modal-status" id="modal-status">Updating…</span>
+      <div class="upd-header">
+        <span class="widget-chip chip-sovran upd-chip"><svg class="upd-chip-svg"><use href="#g-refresh"/></svg></span>
+        <span class="upd-title-wrap">
+          <span class="upd-title" id="modal-title-text">Sovran_SystemsOS Update</span>
+          <span class="upd-sub">
+            <span class="ver-chip">Sovran_SystemsOS v{{ sovran_version }}</span>
+            <span class="upd-pill" id="upd-pill"></span>
+            <span class="modal-spinner" id="modal-spinner"></span>
+          </span>
+        </span>
+        <button class="creds-close-btn" id="update-close-btn" title="Close">✕</button>
       </div>
-      <div class="modal-log" id="modal-log" aria-live="polite"></div>
+      <div class="modal-body-scroll">
+        <div class="sysmodal-card">
+          <div class="sysmodal-card-title"><svg><use href="#g-server"/></svg>System Details</div>
+          <div class="sysstep"><div class="sysnum">1</div><div class="sysstep-x"><div class="sysstep-t">Current version</div><div class="sysval"><span class="sysval-text">{{ sovran_version }}</span></div></div></div>
+          <div class="sysstep"><div class="sysnum">2</div><div class="sysstep-x"><div class="sysstep-t">Release channel</div><div class="sysval"><span class="sysval-text">stable</span></div></div></div>
+          <div class="sysstep"><div class="sysnum">3</div><div class="sysstep-x"><div class="sysstep-t">Last checked</div><div class="sysval"><span class="sysval-text" id="upd-last-checked">—</span></div></div></div>
+        </div>
+        <div class="update-status-msg" id="modal-status">Checking for updates…</div>
+        <div class="modal-log" id="modal-log" aria-live="polite"></div>
+      </div>
       <div class="modal-footer">
         <button class="btn btn-save" id="btn-save-report" style="display:none">Save Error Report</button>
         <button class="btn btn-save" id="btn-retry-update-status" style="display:none">Retry Status</button>
         <button class="btn btn-reboot" id="btn-retry-update" style="display:none">Retry Update</button>
         <button class="btn btn-reboot" id="btn-reboot" style="display:none">Restart Entire System</button>
+        <span class="modal-footer-spacer"></span>
         <button class="btn btn-close-modal" id="btn-close-modal" disabled>Close</button>
+        <button class="btn btn-primary" id="btn-check-again"><svg><use href="#g-refresh"/></svg>Check again</button>
       </div>
     </div>
   </div>
@@ -362,15 +380,26 @@
   <!-- Rebuild Modal -->
   <div class="modal-overlay" id="rebuild-modal" role="dialog" aria-modal="true" aria-labelledby="rebuild-modal-title">
     <div class="modal-dialog">
-      <div class="modal-header">
-        <span class="modal-title" id="rebuild-modal-title">Sovran_SystemsOS Rebuild</span>
-        <div class="modal-spinner" id="rebuild-spinner"></div>
-        <span class="modal-status" id="rebuild-status">Rebuilding…</span>
+      <div class="upd-header">
+        <span class="widget-chip chip-sovran upd-chip"><svg class="upd-chip-svg"><use href="#g-server"/></svg></span>
+        <span class="upd-title-wrap">
+          <span class="upd-title" id="rebuild-modal-title">Sovran_SystemsOS Rebuild</span>
+          <span class="upd-sub">
+            <span class="ver-chip">Sovran_SystemsOS v{{ sovran_version }}</span>
+            <span class="upd-pill" id="rebuild-pill"></span>
+            <span class="modal-spinner" id="rebuild-spinner"></span>
+          </span>
+        </span>
+        <button class="creds-close-btn" id="rebuild-close-hdr" title="Close">✕</button>
       </div>
-      <div class="modal-log" id="rebuild-log" aria-live="polite"></div>
+      <div class="modal-body-scroll">
+        <div class="update-status-msg" id="rebuild-status">Rebuilding…</div>
+        <div class="modal-log" id="rebuild-log" aria-live="polite" style="display:none"></div>
+      </div>
       <div class="modal-footer">
         <button class="btn btn-save" id="rebuild-save-report" style="display:none">Save Error Report</button>
         <button class="btn btn-reboot" id="rebuild-reboot-btn" style="display:none">Restart Entire System</button>
+        <span class="modal-footer-spacer"></span>
         <button class="btn btn-close-modal" id="rebuild-close-btn" disabled>Close</button>
       </div>
     </div>

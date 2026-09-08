@@ -2,8 +2,87 @@
 
 // ── Update modal ──────────────────────────────────────────────────
 
+// ── Update dialog presentation (pill, status line, last-checked) ──
+
+var _updateLastCheckTs = 0;
+
+function markUpdateChecked() {
+  _updateLastCheckTs = Date.now();
+}
+
+function _updateLastCheckedText() {
+  if (!$updLastChecked) return;
+  if (!_updateLastCheckTs) { $updLastChecked.textContent = "—"; return; }
+  var s = Math.floor((Date.now() - _updateLastCheckTs) / 1000);
+  if (s < 30) { $updLastChecked.textContent = "just now"; return; }
+  var m = Math.floor(s / 60);
+  if (m < 60) { $updLastChecked.textContent = m + (m === 1 ? " minute ago" : " minutes ago"); return; }
+  var h = Math.floor(m / 60);
+  $updLastChecked.textContent = h + (h === 1 ? " hour ago" : " hours ago");
+}
+
+function setUpdatePill(state) {
+  if (!$updPill) return;
+  var cls = "upd-pill";
+  var html;
+  if (state === "checking") {
+    cls += " st-loading"; html = '<span class="status-dot loading pulse"></span>Checking…';
+  } else if (state === "uptodate") {
+    cls += " st-active"; html = '<span class="status-dot active"></span>Up to date';
+  } else if (state === "complete") {
+    cls += " st-active"; html = '<span class="status-dot active"></span>Update complete';
+  } else if (state === "reboot") {
+    cls += " st-needs-attention"; html = '<span class="status-dot needs-attention pulse"></span>Restart required';
+  } else if (state === "failed") {
+    cls += " st-failed"; html = '<span class="status-dot failed"></span>Update failed';
+  } else if (state === "unavailable") {
+    cls += " st-needs-attention"; html = '<span class="status-dot needs-attention pulse"></span>Status unknown';
+  } else {
+    cls += " st-loading"; html = '<span class="status-dot loading pulse"></span>Updating…';
+  }
+  $updPill.className = cls;
+  $updPill.innerHTML = html;
+}
+
+// Single place that reflects update state in the dialog: status message
+// text + color, header pill, and the Close / Check again availability.
+function _setUpdateStatus(text) {
+  if ($modalStatus) $modalStatus.textContent = text;
+  var state;
+  if (text.charAt(0) === "✗") state = "failed";
+  else if (text.indexOf("restart required") !== -1) state = "reboot";
+  else if (text.charAt(0) === "✓") state = (text.indexOf("already up to date") !== -1) ? "uptodate" : "complete";
+  else if (text.indexOf("unavailable") !== -1) state = "unavailable";
+  else if (text.indexOf("Checking") === 0) state = "checking";
+  else state = "updating";
+  if ($modalStatus) {
+    var msg = "update-status-msg";
+    if (state === "failed") $modalStatus.className = msg + " st-err";
+    else if (state === "reboot" || state === "unavailable") $modalStatus.className = msg + " st-warn";
+    else if (state === "uptodate" || state === "complete") $modalStatus.className = msg + " st-ok";
+    else $modalStatus.className = msg;
+    // In the up-to-date state the green console line already says it —
+    // the mockup shows it exactly once.
+    $modalStatus.style.display = (state === "uptodate") ? "none" : "";
+  }
+  setUpdatePill(state);
+  var interactive = (state !== "updating");
+  if ($updateCloseBtn) $updateCloseBtn.disabled = !interactive;
+  if ($btnCheckAgain) {
+    $btnCheckAgain.disabled = (state === "checking" || state === "updating");
+    $btnCheckAgain.style.display = interactive ? "inline-flex" : "none";
+  }
+  _updateLastCheckedText();
+}
+
 async function openUpdateModal() {
   if (!$modal) return;
+
+  // Open immediately in a checking state; the status/check requests below
+  // fill in the real result (mockup: auto-check on open).
+  $modal.classList.add("open");
+  if ($modalLog) $modalLog.innerHTML = '<span class="dim">Checking for updates…</span>';
+  _setUpdateStatus("Checking for updates…");
 
   // Reattach before checking for new updates. This makes a browser reload,
   // RDP reconnect, or suspended tab recover the authoritative systemd-backed
@@ -31,6 +110,7 @@ async function openUpdateModal() {
     STATUS_POLL_FETCH_TIMEOUT
   )
     .then(function(data) {
+      markUpdateChecked();
       if (!data.available) {
         stopUpdatePoll();
         _updateLog = "";
@@ -38,8 +118,8 @@ async function openUpdateModal() {
         _updateVisibleLogChars = 0;
         _updateFinished = true;
         _updateStatusUnavailable = false;
-        if ($modalLog) $modalLog.textContent = "";
-        if ($modalStatus) $modalStatus.textContent = "✓ System is already up to date";
+        if ($modalLog) $modalLog.innerHTML = '<span class="ok">✓ System is already up to date</span>';
+        _setUpdateStatus("✓ System is already up to date");
         if ($modalSpinner) $modalSpinner.classList.remove("spinning");
         if ($btnReboot) $btnReboot.style.display = "none";
         if ($btnSave) $btnSave.style.display = "none";
@@ -68,7 +148,7 @@ function prepareUpdateModal() {
   _updateStatusUnavailable = false;
   _updatePollFailures = 0;
   if ($modalLog) $modalLog.textContent = "";
-  if ($modalStatus) $modalStatus.textContent = "Starting update…";
+  _setUpdateStatus("Starting update…");
   if ($modalSpinner) $modalSpinner.classList.add("spinning");
   if ($btnReboot) $btnReboot.style.display = "none";
   if ($btnSave) $btnSave.style.display = "none";
@@ -89,7 +169,7 @@ function showExistingUpdate(data) {
   _updateLogOffset = Number(data.offset) || 0;
 
   if (data.running) {
-    if ($modalStatus) $modalStatus.textContent = "Updating…";
+    _setUpdateStatus("Updating…");
     startUpdatePoll();
     return;
   }
@@ -154,7 +234,8 @@ function startUpdate() {
   )
     .then(function(data) {
       if (data.status === "no_updates") {
-        if ($modalStatus) $modalStatus.textContent = "✓ System is already up to date";
+        if ($modalLog) $modalLog.innerHTML = '<span class="ok">✓ System is already up to date</span>';
+        _setUpdateStatus("✓ System is already up to date");
         if ($modalSpinner) $modalSpinner.classList.remove("spinning");
         if ($btnReboot) $btnReboot.style.display = "none";
         if ($btnSave) $btnSave.style.display = "none";
@@ -165,7 +246,7 @@ function startUpdate() {
         return;
       }
       if (data.status === "already_running") appendLog("[Update already in progress, attaching…]\n\n");
-      if ($modalStatus) $modalStatus.textContent = "Updating…";
+      _setUpdateStatus("Updating…");
       startUpdatePoll();
     })
     .catch(function(err) {
@@ -235,7 +316,7 @@ async function pollUpdateStatus() {
         return;
       }
       appendLog("[Update status reconnected]\n");
-      if ($modalStatus) $modalStatus.textContent = "Updating…";
+      _setUpdateStatus("Updating…");
     }
     if (data.log) appendLog(data.log);
     _updateLogOffset = data.offset;
@@ -258,7 +339,7 @@ async function pollUpdateStatus() {
     if (!_serverWasDown) {
       _serverWasDown = true;
       appendLog("\n[Update status connection interrupted — retrying…]\n");
-      if ($modalStatus) $modalStatus.textContent = "Reconnecting to update…";
+      _setUpdateStatus("Reconnecting to update…");
     }
   } finally {
     _updatePollInFlight = false;
@@ -270,7 +351,7 @@ function showUpdateStatusUnavailable() {
   _updateStatusUnavailable = true;
   stopUpdatePoll();
   if ($modalSpinner) $modalSpinner.classList.remove("spinning");
-  if ($modalStatus) $modalStatus.textContent = "Update status unavailable — update may still be running";
+  _setUpdateStatus("Update status unavailable — update may still be running");
   appendLog("\n[The Hub could not confirm update status. The background update was not stopped. Select Retry Status after reconnecting.]\n");
   if ($btnRetryUpdate) $btnRetryUpdate.style.display = "inline-flex";
   if ($btnCloseModal) $btnCloseModal.disabled = false;
@@ -283,7 +364,7 @@ function retryUpdateStatus() {
   _updatePollFailures = 0;
   _serverWasDown = true;
   if ($modalSpinner) $modalSpinner.classList.add("spinning");
-  if ($modalStatus) $modalStatus.textContent = "Reconnecting to update…";
+  _setUpdateStatus("Reconnecting to update…");
   if ($btnRetryUpdate) $btnRetryUpdate.style.display = "none";
   if ($btnCloseModal) $btnCloseModal.disabled = true;
   startUpdatePoll();
@@ -314,13 +395,13 @@ function onUpdateDone(result) {
   if ($btnRetryUpdate) $btnRetryUpdate.style.display = "none";
   if ($btnCloseModal) $btnCloseModal.disabled = false;
   if (result === true) {
-    if ($modalStatus) $modalStatus.textContent = "✓ Update complete";
+    _setUpdateStatus("✓ Update complete");
     if ($btnReboot) $btnReboot.style.display = "inline-flex";
   } else if (result === "reboot_required") {
-    if ($modalStatus) $modalStatus.textContent = "✓ Update complete — restart required";
+    _setUpdateStatus("✓ Update complete — restart required");
     if ($btnReboot) $btnReboot.style.display = "inline-flex";
   } else {
-    if ($modalStatus) $modalStatus.textContent = "✗ Update failed — your system was not changed. Run the update again or save the error report for support.";
+    _setUpdateStatus("✗ Update failed — your system was not changed. Run the update again or save the error report for support.");
     if ($btnRetryRun) $btnRetryRun.style.display = "inline-flex";
     if ($btnSave) $btnSave.style.display = "inline-flex";
     if ($btnReboot) $btnReboot.style.display = "none";

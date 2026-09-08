@@ -55,6 +55,10 @@ const $btnSave        = document.getElementById("btn-save-report");
 const $btnRetryUpdate = document.getElementById("btn-retry-update-status");
 const $btnRetryRun    = document.getElementById("btn-retry-update");
 const $btnCloseModal  = document.getElementById("btn-close-modal");
+const $btnCheckAgain  = document.getElementById("btn-check-again");
+const $updateCloseBtn = document.getElementById("update-close-btn");
+const $updPill        = document.getElementById("upd-pill");
+const $updLastChecked = document.getElementById("upd-last-checked");
 
 const $rebootOverlay  = document.getElementById("reboot-overlay");
 const $rebootMainCard = document.getElementById("reboot-main-card");
@@ -80,6 +84,8 @@ const $rebuildLog      = document.getElementById("rebuild-log");
 const $rebuildReboot   = document.getElementById("rebuild-reboot-btn");
 const $rebuildSave     = document.getElementById("rebuild-save-report");
 const $rebuildClose    = document.getElementById("rebuild-close-btn");
+const $rebuildCloseHdr = document.getElementById("rebuild-close-hdr");
+const $rebuildPill     = document.getElementById("rebuild-pill");
 
 // Feature Manager — domain setup modal
 const $domainSetupModal = document.getElementById("domain-setup-modal");

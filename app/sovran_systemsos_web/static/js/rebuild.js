@@ -2,6 +2,35 @@
 
 // ── Rebuild modal ─────────────────────────────────────────────────
 
+// Status line + header pill for the rebuild dialog (same presentation
+// contract as the update dialog's _setUpdateStatus).
+function _setRebuildStatus(text) {
+  if ($rebuildStatus) $rebuildStatus.textContent = text;
+  if ($rebuildPill) {
+    var cls = "upd-pill";
+    var html;
+    if (text.charAt(0) === "✓") {
+      if (text.indexOf("restart required") !== -1) {
+        cls += " st-needs-attention"; html = '<span class="status-dot needs-attention pulse"></span>Restart required';
+      } else {
+        cls += " st-active"; html = '<span class="status-dot active"></span>Done';
+      }
+    } else if (text.charAt(0) === "✗") {
+      cls += " st-failed"; html = '<span class="status-dot failed"></span>Failed';
+    } else {
+      cls += " st-loading"; html = '<span class="status-dot loading pulse"></span>Applying…';
+    }
+    $rebuildPill.className = cls;
+    $rebuildPill.innerHTML = html;
+  }
+  if ($rebuildStatus) {
+    var msg = "update-status-msg";
+    if (text.charAt(0) === "✓") $rebuildStatus.className = (text.indexOf("restart required") !== -1) ? msg + " st-warn" : msg + " st-ok";
+    else if (text.charAt(0) === "✗") $rebuildStatus.className = msg + " st-err";
+    else $rebuildStatus.className = msg;
+  }
+}
+
 function openRebuildModal() {
   if (!$rebuildModal) return;
   _rebuildLog = "";
@@ -13,11 +42,12 @@ function openRebuildModal() {
   if ($rebuildLog) { $rebuildLog.textContent = ""; $rebuildLog.style.display = "none"; }
   var action = _rebuildIsEnabling ? "Enabling" : "Disabling";
   var label = _rebuildFeatureName || "feature";
-  if ($rebuildStatus) $rebuildStatus.textContent = action + " " + label + "…";
+  _setRebuildStatus(action + " " + label + "…");
   if ($rebuildSpinner) $rebuildSpinner.classList.add("spinning");
   if ($rebuildReboot) $rebuildReboot.style.display = "none";
   if ($rebuildSave) $rebuildSave.style.display = "none";
   if ($rebuildClose) $rebuildClose.disabled = true;
+  if ($rebuildCloseHdr) $rebuildCloseHdr.disabled = true;
   $rebuildModal.classList.add("open");
   // Delay first poll slightly to let the rebuild service start and clear stale log
   setTimeout(startRebuildPoll, 1500);
@@ -76,7 +106,7 @@ async function pollRebuildStatus() {
       window.location.reload();
       return;
     }
-    if (!_rebuildServerDown) { _rebuildServerDown = true; if ($rebuildStatus) $rebuildStatus.textContent = "Applying changes…"; }
+    if (!_rebuildServerDown) { _rebuildServerDown = true; _setRebuildStatus("Applying changes…"); }
   } finally {
     _rebuildPollInFlight = false;
   }
@@ -85,15 +115,16 @@ async function pollRebuildStatus() {
 function onRebuildDone(result) {
   if ($rebuildSpinner) $rebuildSpinner.classList.remove("spinning");
   if ($rebuildClose) $rebuildClose.disabled = false;
+  if ($rebuildCloseHdr) $rebuildCloseHdr.disabled = false;
   if (result === true) {
-    if ($rebuildStatus) $rebuildStatus.textContent = "✓ Done";
+    _setRebuildStatus("✓ Done");
     // Auto-reload the page after a short delay so tiles and toggles reflect the new state
     setTimeout(function() { window.location.reload(); }, 1200);
   } else if (result === "reboot_required") {
-    if ($rebuildStatus) $rebuildStatus.textContent = "✓ Done — restart required";
+    _setRebuildStatus("✓ Done — restart required");
     if ($rebuildReboot) $rebuildReboot.style.display = "inline-flex";
   } else {
-    if ($rebuildStatus) $rebuildStatus.textContent = "✗ Something went wrong";
+    _setRebuildStatus("✗ Something went wrong");
     if ($rebuildSave) $rebuildSave.style.display = "inline-flex";
     if ($rebuildReboot) $rebuildReboot.style.display = "inline-flex";
   }
