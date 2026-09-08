@@ -83,6 +83,14 @@
         <path d="M20.6 2.6l-.5 4.9-4.6-1.7z" fill="currentColor" stroke="none"/>
       </g>
     </symbol>
+    <!-- Update System: down arrow into a tray (get / install updates) -->
+    <symbol id="g-update" viewBox="0 0 24 24">
+      <g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 4v10.5"/>
+        <path d="M7.8 10.3L12 14.5l4.2-4.2"/>
+        <path d="M4.5 16.5v2a2.5 2.5 0 0 0 2.5 2.5h10a2.5 2.5 0 0 0 2.5-2.5v-2"/>
+      </g>
+    </symbol>
     <symbol id="g-box" viewBox="0 0 24 24">
       <g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
         <rect x="3.5" y="4" width="17" height="4.4" rx="1.6"/>
@@ -239,7 +247,7 @@
   <div class="modal-overlay" id="update-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title-text">
     <div class="modal-dialog">
       <div class="upd-header">
-        <img src="/static/icons/update.svg" class="upd-icon" alt="Sovran_SystemsOS Update" />
+        <span class="widget-chip chip-sovran upd-chip"><svg class="upd-chip-svg"><use href="#g-update"/></svg></span>
         <span class="upd-title-wrap">
           <span class="upd-title" id="modal-title-text">Sovran_SystemsOS Update</span>
           <span class="upd-sub">

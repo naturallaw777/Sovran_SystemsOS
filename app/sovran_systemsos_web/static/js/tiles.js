@@ -64,7 +64,7 @@ function renderSidebarSupport(supportServices) {
   sidebarUpdateBtn.className = "sidebar-support-btn";
   sidebarUpdateBtn.id = "sidebar-btn-update";
   sidebarUpdateBtn.innerHTML =
-    '<img class="sidebar-support-icon" src="/static/icons/update.svg" alt="Update" style="width:20px;height:20px;">' +
+    '<span class="sidebar-support-icon"><svg><use href="#g-update"/></svg></span>' +
     '<span class="sidebar-support-text">' +
       '<span class="sidebar-support-title">Update System</span>' +
       '<span class="sidebar-support-hint" id="sidebar-update-hint">Check for updates</span>' +
