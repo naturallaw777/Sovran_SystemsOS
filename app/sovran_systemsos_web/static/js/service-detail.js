@@ -718,7 +718,11 @@ async function openServiceDetailModal(unit, name, icon) {
 
     // Section C: Domain diagnostics (domain services)
     if (data.needs_domain) {
-      var steps = data.domain_check_steps || [];
+      // The Hub shows only the domain-active step here; the full DNS and
+      // port diagnostics live in the Systems Operational modal.
+      var steps = (data.domain_check_steps || []).filter(function (s) {
+        return Number(s.step) === 1;
+      });
       var stepsHtml = "";
       steps.forEach(function(step) {
         var iconLabel = "—";
@@ -746,6 +750,17 @@ async function openServiceDetailModal(unit, name, icon) {
         stepsHtml +
         domainActionHtml +
         '</div>');
+
+      // Node-only role: BTCPay Server and Lightning Wallet Connections are
+      // the domain services — surface the router task here. (Desktop + Server
+      // set this up during onboarding; Systems Operational shows it too.)
+      if (typeof _currentRole !== "undefined" && _currentRole === "node" &&
+          (unit === "btcpayserver.service" || unit === "albyhub.service")) {
+        addSetup('<div class="svc-detail-section">' +
+          '<div class="svc-detail-section-title">Ports to Forward in Your Router</div>' +
+          '<div class="onboarding-port-warn" id="svc-node-router-box"></div>' +
+          '</div>');
+      }
 
       if (data.router_ports && data.router_ports.length > 0) {
         var trimmedInternalIp = data.internal_ip ? String(data.internal_ip).trim() : "";
@@ -1004,6 +1019,9 @@ async function openServiceDetailModal(unit, name, icon) {
     $credsBody.innerHTML = html;
     if (isNwc) _nwcWireTabs();
     _attachCopyHandlers($credsBody);
+    if (document.getElementById("svc-node-router-box")) {
+      renderRouterPortsBox("svc-node-router-box");
+    }
     if (_isNwcServiceUnit(unit) && (effectiveEnabled || data.enabled)) {
       await _nwcInitWalletFlow(unit, name, icon);
       var nwcRtlBtn = document.getElementById("nwc-open-rtl-btn");

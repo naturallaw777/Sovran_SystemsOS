@@ -221,9 +221,19 @@
       '</div></div>';
   }
 
+  function isNodeRole() {
+    return (typeof _currentRole !== "undefined" && _currentRole === "node");
+  }
+
+  function hasEnabledDomainService(services) {
+    return DOMAIN_UNITS.some(function (u) {
+      return services.some(function (s) { return s.unit === u && s.enabled; });
+    });
+  }
+
   function whoUsesPorts() {
-    if (typeof _currentRole !== "undefined" && _currentRole === "node") {
-      return 'On this <strong>Bitcoin Node</strong> install, BTCPay Server and Lightning Wallet Connections (LNURL) are the domain services that use these ports.';
+    if (isNodeRole()) {
+      return 'On this <strong>Bitcoin Node</strong> install, <strong>BTCPay Server</strong> and <strong>Lightning Wallet Connections (LNURL)</strong> are the domain services that use these ports.';
     }
     return 'All your domain services share ports 80 and 443 — Matrix, BTCPay Server, VaultWarden, Nextcloud, WordPress, Haven Relay, Lightning Wallet Connections, and Element Calling.';
   }
@@ -253,14 +263,24 @@
       step(3, "Turned off", "", off ? escHtml(offNames.join(", ")) : "None") +
       '</div>';
 
-    /* Router ports — repo wording (domain-prereqs.js / server.py) */
-    html += '<div class="sysmodal-card">' +
-      '<div class="sysmodal-card-title">' + icon("g-wifi") + 'Router — Ports to Forward</div>' +
-      step(1, "Port 80", "TCP — HTTP (redirect to HTTPS)", fwd) +
-      step(2, "Port 443", "TCP — HTTPS", fwd) +
-      '<div class="sysnote"><div class="sysnote-title">' + icon("g-alert") + 'One router task</div>' +
-      '<div class="sysnote-desc">Set the internal and external port to the <strong>same number</strong>. You only need to do this once — all your services share these two ports. Test from your phone on mobile data (your home network may not support hairpin NAT / loopback).</div></div>' +
-      '</div>';
+    /* Router ports — repo wording (domain-prereqs.js / server.py).
+       Node-only role: ports matter only once BTCPay Server or Lightning
+       Wallet Connections (LNURL) is turned on — until then, no router task. */
+    if (isNodeRole() && !hasEnabledDomainService(services)) {
+      html += '<div class="sysmodal-card">' +
+        '<div class="sysmodal-card-title">' + icon("g-wifi") + 'Router</div>' +
+        '<div class="sysnote"><div class="sysnote-title">' + icon("g-check") + 'No router setup needed yet</div>' +
+        '<div class="sysnote-desc">Ports 80 and 443 only need to be forwarded on your router if you turn on <strong>BTCPay Server</strong> or <strong>Lightning Wallet Connections (LNURL)</strong>. If you enable one of them, come back here — this card will show exactly what to do.</div></div>' +
+        '</div>';
+    } else {
+      html += '<div class="sysmodal-card">' +
+        '<div class="sysmodal-card-title">' + icon("g-wifi") + 'Router — Ports to Forward</div>' +
+        step(1, "Port 80", "TCP — HTTP (redirect to HTTPS)", fwd) +
+        step(2, "Port 443", "TCP — HTTPS", fwd) +
+        '<div class="sysnote"><div class="sysnote-title">' + icon("g-alert") + 'One router task</div>' +
+        '<div class="sysnote-desc">Set the internal and external port to the <strong>same number</strong>. You only need to do this once — all your services share these two ports.</div></div>' +
+        '</div>';
+    }
 
     /* Live domain diagnostics (sequential checklist from the backend —
        same data the domain-service modals show) */
@@ -269,10 +289,13 @@
       '<div id="sys-check-steps"><div class="sysfineprint">Checking…</div></div>' +
       '</div>';
 
-    /* Who uses these ports */
-    html += '<div class="sysnote" style="margin-top:14px">' +
-      '<div class="sysnote-title">' + icon("g-antenna") + 'Who uses these ports</div>' +
-      '<div class="sysnote-desc">' + whoUsesPorts() + '</div></div>';
+    /* Who uses these ports (redundant on a Node install with no domain
+       services on — the router note above already covers it) */
+    if (!isNodeRole() || hasEnabledDomainService(services)) {
+      html += '<div class="sysnote" style="margin-top:14px">' +
+        '<div class="sysnote-title">' + icon("g-antenna") + 'Who uses these ports</div>' +
+        '<div class="sysnote-desc">' + whoUsesPorts() + '</div></div>';
+    }
 
     $sysBody.innerHTML = html;
     $sysModal.classList.add("open");
@@ -281,7 +304,7 @@
     var checkCard = document.getElementById("sys-check-card");
     var stepsEl = document.getElementById("sys-check-steps");
     var units = DOMAIN_UNITS.filter(function (u) {
-      return services.some(function (s) { return s.unit === u; });
+      return services.some(function (s) { return s.unit === u && s.enabled; });
     });
     if (!units.length || !checkCard || !stepsEl) return;
     checkCard.style.display = "";

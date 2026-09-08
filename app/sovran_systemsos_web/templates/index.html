@@ -18,26 +18,7 @@
 </head>
 <body>
 
-  <svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true">
-
-    <!-- The Hub logo (verbatim from app/sovran_systemsos_web/static/sovran-hub-icon.svg) -->
-    <symbol id="g-sovran" viewBox="0 0 256 256">
-        <linearGradient id="sv-bg" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#153126"/><stop offset="55%" stop-color="#0F241B"/><stop offset="100%" stop-color="#091C14"/>
-        </linearGradient>
-        <linearGradient id="sv-outer" x1="70" y1="40" x2="190" y2="210" gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stop-color="#42F39A"/><stop offset="45%" stop-color="#28D978"/><stop offset="100%" stop-color="#1AA45D"/>
-        </linearGradient>
-        <linearGradient id="sv-inner" x1="90" y1="60" x2="180" y2="190" gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stop-color="#27C86F"/><stop offset="100%" stop-color="#157E49"/>
-        </linearGradient>
-      <rect width="256" height="256" rx="48" ry="48" fill="url(#sv-bg)"/>
-      <rect x="1.5" y="1.5" width="253" height="253" rx="46.5" ry="46.5" fill="none" stroke="rgba(255,255,255,0.08)"/>
-      <path d="M128 32 A96 96 0 1 1 58 196" fill="none" stroke="url(#sv-outer)" stroke-width="12" stroke-linecap="round"/>
-      <path d="M128 56 A72 72 0 1 1 76 178" fill="none" stroke="url(#sv-inner)" stroke-width="10" stroke-linecap="round"/>
-      <circle cx="128" cy="128" r="8" fill="#F2FFF7"/>
-      <circle cx="128" cy="128" r="18" fill="none" stroke="#7BFFC0" stroke-opacity="0.14" stroke-width="4"/>
-    </symbol>
+  <svg xmlns="http://www.w3.org/2000/svg" width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
 
     <!-- service glyphs -->
     <!-- ═══ Real service logos — extracted verbatim from app/icons/*.svg ═══
@@ -174,7 +155,7 @@
     <!-- ═══ SIDEBAR ═══ -->
     <aside class="sidebar" id="sidebar">
       <div class="brand">
-        <svg class="brand-logo"><use href="#g-sovran"/></svg>
+        <img src="/static/sovran-hub-icon.svg" class="brand-logo" alt="The Hub" />
         <div class="brand-text">
           <div class="brand-title">The <em>Hub</em></div>
           <div class="brand-sub">Sovran_SystemsOS v{{ sovran_version }}</div>

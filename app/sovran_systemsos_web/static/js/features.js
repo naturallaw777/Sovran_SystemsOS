@@ -97,7 +97,6 @@ function openDomainSetupModal(feat, onSaved) {
     nwcWarning +
     renderDomainNeedsHtml({ serviceName: feat.name, hostExample: hostExample, purpose: purpose }) +
     renderNjallaStepsHtml({ hostExample: hostExample, pasteHint: "below" }) +
-    '<div class="onboarding-port-warn" id="domain-router-box" style="margin-top:12px;"></div>' +
     '<p style="margin-top:10px;">Enter the address for this service and paste the update command from Njal.la.</p>' +
     '</div>' +
     '<div class="domain-field-group"><label class="domain-field-label" for="domain-subdomain-input">Service address (e.g. ' + domainLabelExample + '):</label><input class="domain-field-input" type="text" id="domain-subdomain-input" placeholder="' + domainPlaceholder + '" /></div>' +
@@ -144,8 +143,6 @@ function openDomainSetupModal(feat, onSaved) {
 
   $domainSetupModal.classList.add("open");
 
-  // Fill the router port-forwarding box with this computer's LAN IP (best-effort)
-  renderRouterPortsBox("domain-router-box");
 }
 
 function openDomainReconfigureModal(feat, existingDomain, onSaved) {
@@ -193,9 +190,7 @@ function openDomainReconfigureModal(feat, existingDomain, onSaved) {
     '<span style="display:inline-block;margin-top:4px;padding:4px 10px;background:var(--card-color);border:1px solid var(--border-color);border-radius:6px;font-family:monospace;font-size:1em;font-weight:700;">' + escHtml(externalIp) + '</span></li>' +
     '<li>If the IP is wrong or the record is missing, update it</li>' +
     '<li>If you changed the DDNS curl command, paste the updated one below</li>' +
-    '<li>Confirm ports <strong>80</strong> and <strong>443</strong> (TCP) are still forwarded on your router to this computer — see the reminder below:</li>' +
     '</ol>' +
-    '<div class="onboarding-port-warn" id="domain-router-box" style="margin-top:12px;"></div>' +
     '</div>' +
     '<div class="domain-field-group"><label class="domain-field-label" for="domain-subdomain-input">Service domain (e.g. ' + domainLabelExample + '):</label><input class="domain-field-input" type="text" id="domain-subdomain-input" placeholder="' + domainPlaceholder + '" value="' + escHtml(currentDomain) + '" /></div>' +
     '<div class="domain-field-group"><label class="domain-field-label" for="domain-ddns-input">Njal.la Dynamic DNS Update Command:</label><input class="domain-field-input" type="text" id="domain-ddns-input" placeholder="curl &quot;https://njal.la/update/?h=' + domainPlaceholder + '&amp;k=abc123&amp;auto&quot;" /><p class="domain-field-hint">ℹ Paste the full curl command from your Njal.la dashboard\'s Dynamic record</p></div>' +
@@ -241,8 +236,6 @@ function openDomainReconfigureModal(feat, existingDomain, onSaved) {
 
   $domainSetupModal.classList.add("open");
 
-  // Fill the router port-forwarding box with this computer's LAN IP (best-effort)
-  renderRouterPortsBox("domain-router-box");
 }
 
 function closeDomainSetupModal() {
