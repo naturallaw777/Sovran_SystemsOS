@@ -234,10 +234,9 @@ _support_expiry_timer_lock = Lock()
 
 CATEGORY_ORDER = [
     ("infrastructure", "Infrastructure"),
-    ("bitcoin-base",   "Bitcoin Base"),
-    ("bitcoin-apps",   "Bitcoin Apps"),
+    ("bitcoin",        "Bitcoin"),
     ("communication",  "Communication"),
-    ("apps",           "Self-Hosted Apps"),
+    ("apps",           "Personal Apps"),
     ("nostr",          "Nostr"),
     ("support",        "Support"),
     ("feature-manager", "Feature Manager"),
@@ -452,7 +451,7 @@ ROLE_LABELS = {
 ROLE_CATEGORIES: dict[str, set[str] | None] = {
     "server_plus_desktop": None,
     "desktop":             {"infrastructure", "support", "feature-manager"},
-    "node":                {"infrastructure", "bitcoin-base", "bitcoin-apps", "support", "feature-manager"},
+    "node":                {"infrastructure", "bitcoin", "support", "feature-manager"},
 }
 
 # Features shown per role (None = show all)

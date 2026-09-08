@@ -23,12 +23,18 @@ const SUPPORT_TIMER_INTERVAL    = 1000;
 
 const CATEGORY_ORDER = [
   "infrastructure",
-  "bitcoin-base",
-  "bitcoin-apps",
+  "bitcoin",
   "communication",
   "apps",
   "nostr",
 ];
+
+/* The service catalog still distinguishes the Bitcoin foundation services
+   from the Bitcoin apps; the Hub shows them as one "Bitcoin" section. */
+const CATEGORY_ALIASES = {
+  "bitcoin-base": "bitcoin",
+  "bitcoin-apps": "bitcoin",
+};
 
 const FEATURE_SUBCATEGORY_LABELS = {
   "infrastructure": "🔧 Infrastructure",

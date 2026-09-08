@@ -25,6 +25,7 @@ function buildTiles(services, categoryLabels) {
       continue;
     }
     var cat = svc.category || "other";
+    if (CATEGORY_ALIASES[cat]) cat = CATEGORY_ALIASES[cat];
     if (!grouped[cat]) grouped[cat] = [];
     grouped[cat].push(svc);
   }

@@ -24,8 +24,7 @@
   var CAT_ICONS = {
     "all":            "g-grid",
     "infrastructure": "g-server",
-    "bitcoin-base":   "g-btc-sym",
-    "bitcoin-apps":   "g-btc-sym",
+    "bitcoin":        "g-btc-sym",
     "communication":  "g-chat",
     "apps":           "g-dots",
     "nostr":          "g-antenna",
@@ -34,8 +33,7 @@
 
   var CAT_FALLBACK_LABELS = {
     "infrastructure": "Infrastructure",
-    "bitcoin-base":   "Bitcoin",
-    "bitcoin-apps":   "Bitcoin Apps",
+    "bitcoin":        "Bitcoin",
     "communication":  "Communication",
     "apps":           "Personal Apps",
     "nostr":          "Nostr",
@@ -75,6 +73,7 @@
     var order = [];
     visibleServices().forEach(function (s) {
       var cat = s.category || "other";
+      if (CATEGORY_ALIASES[cat]) cat = CATEGORY_ALIASES[cat];
       if (!counts[cat]) { counts[cat] = 0; order.push(cat); }
       counts[cat]++;
     });
