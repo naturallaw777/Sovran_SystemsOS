@@ -208,12 +208,6 @@
 
   /* ── Systems Operational modal ───────────────────────────────── */
 
-  function internalIp() {
-    var el = document.getElementById("ip-internal");
-    var v = el ? el.textContent.trim() : "";
-    return (v && v !== "…" && v !== "—") ? v : "";
-  }
-
   function step(n, title, sub, value) {
     return '<div class="sysstep"><div class="sysnum">' + n + '</div><div class="sysstep-x">' +
       '<div class="sysstep-t">' + title + (sub ? ' <span class="sysstep-sub">· ' + sub + '</span>' : '') + '</div>' +
@@ -250,9 +244,6 @@
       else running++;
     });
 
-    var ip = internalIp();
-    var fwd = ip ? ('\u2192 ' + escHtml(ip)) : "forward to this computer";
-
     var html = "";
 
     /* System status */
@@ -263,31 +254,22 @@
       step(3, "Turned off", "", off ? escHtml(offNames.join(", ")) : "None") +
       '</div>';
 
-    /* Router ports — repo wording (domain-prereqs.js / server.py).
-       Node-only role: ports matter only once BTCPay Server or Lightning
-       Wallet Connections (LNURL) is turned on — until then, no router task. */
+    /* Router — a simple open / not-open verdict. How to open the ports is
+       covered during onboarding, so the modal does not repeat instructions.
+       Node-only role: ports only matter once BTCPay Server or Lightning
+       Wallet Connections (LNURL) is turned on. */
     if (isNodeRole() && !hasEnabledDomainService(services)) {
       html += '<div class="sysmodal-card">' +
         '<div class="sysmodal-card-title">' + icon("g-wifi") + 'Router</div>' +
         '<div class="sysnote"><div class="sysnote-title">' + icon("g-check") + 'No router setup needed yet</div>' +
-        '<div class="sysnote-desc">Ports 80 and 443 only need to be forwarded on your router if you turn on <strong>BTCPay Server</strong> or <strong>Lightning Wallet Connections (LNURL)</strong>. If you enable one of them, come back here — this card will show exactly what to do.</div></div>' +
+        '<div class="sysnote-desc">Ports 80 and 443 only need to be forwarded on your router if you turn on <strong>BTCPay Server</strong> or <strong>Lightning Wallet Connections (LNURL)</strong>. If you enable one of them, come back here to check your ports.</div></div>' +
         '</div>';
     } else {
-      html += '<div class="sysmodal-card">' +
-        '<div class="sysmodal-card-title">' + icon("g-wifi") + 'Router — Ports to Forward</div>' +
-        step(1, "Port 80", "TCP — HTTP (redirect to HTTPS)", fwd) +
-        step(2, "Port 443", "TCP — HTTPS", fwd) +
-        '<div class="sysnote"><div class="sysnote-title">' + icon("g-alert") + 'One router task</div>' +
-        '<div class="sysnote-desc">Set the internal and external port to the <strong>same number</strong>. You only need to do this once — all your services share these two ports.</div></div>' +
+      html += '<div class="sysmodal-card" id="sys-ports-card" style="display:none">' +
+        '<div class="sysmodal-card-title">' + icon("g-wifi") + 'Router</div>' +
+        '<div id="sys-ports-status"><div class="sysfineprint">Checking…</div></div>' +
         '</div>';
     }
-
-    /* Live domain diagnostics (sequential checklist from the backend —
-       same data the domain-service modals show) */
-    html += '<div class="sysmodal-card" id="sys-check-card" style="display:none">' +
-      '<div class="sysmodal-card-title">' + icon("g-check") + 'Ports 80 &amp; 443 Check</div>' +
-      '<div id="sys-check-steps"><div class="sysfineprint">Checking…</div></div>' +
-      '</div>';
 
     /* Who uses these ports (redundant on a Node install with no domain
        services on — the router note above already covers it) */
@@ -300,33 +282,32 @@
     $sysBody.innerHTML = html;
     $sysModal.classList.add("open");
 
-    /* Poll the first configured domain service for its live checklist */
-    var checkCard = document.getElementById("sys-check-card");
-    var stepsEl = document.getElementById("sys-check-steps");
+    /* Poll the first configured domain service and reduce its diagnostics
+       to one verdict: the ports are open or they are not. */
+    var portsCard = document.getElementById("sys-ports-card");
+    var portsEl = document.getElementById("sys-ports-status");
     var units = DOMAIN_UNITS.filter(function (u) {
       return services.some(function (s) { return s.unit === u && s.enabled; });
     });
-    if (!units.length || !checkCard || !stepsEl) return;
-    checkCard.style.display = "";
+    if (!units.length || !portsCard || !portsEl) return;
+    portsCard.style.display = "";
 
     apiFetch("/api/service-detail/" + encodeURIComponent(units[0]))
       .then(function (data) {
         var steps = (data && data.domain_check_steps) || [];
-        if (!steps.length) { checkCard.style.display = "none"; return; }
-        var mark = { ok: "\u2705", error: "\u274c", warning: "\u26a0\ufe0f", skipped: "\u23ed\ufe0f" };
-        var html2 = "";
-        steps.forEach(function (st) {
-          var m = mark[st.status] || "\u2014";
-          var detail = escHtml(st.detail || "").replace(/\n/g, "<br>");
-          html2 += '<div class="sysstep"><div class="sysnum">' + st.step + '</div><div class="sysstep-x">' +
-            '<div class="sysstep-t">' + m + " " + escHtml(st.label || "") + '</div>' +
-            (detail ? '<div class="sysstep-t" style="font-weight:400;color:var(--text-2);font-size:0.77rem;margin-top:3px">' + detail + '</div>' : '') +
-            '</div></div>';
+        var portsStep = null;
+        steps.forEach(function (s) {
+          if (Number(s.step) === 3 || /ports?\s*80/i.test(s.label || "")) portsStep = s;
         });
-        stepsEl.innerHTML = html2;
+        if (!portsStep) { portsCard.style.display = "none"; return; }
+        if (portsStep.status === "ok") {
+          portsEl.innerHTML = '<div class="svc-detail-status" style="font-size:0.92rem"><span class="status-dot active"></span>Ports 80 and 443 are open</div>';
+        } else {
+          portsEl.innerHTML = '<div class="svc-detail-status" style="font-size:0.92rem"><span class="status-dot failed"></span>Ports 80 and 443 are not open</div>';
+        }
       })
       .catch(function () {
-        checkCard.style.display = "none";
+        portsCard.style.display = "none";
       });
   }
 

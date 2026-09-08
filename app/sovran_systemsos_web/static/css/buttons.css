@@ -62,22 +62,23 @@ button:disabled {
   background: rgba(255, 255, 255, 0.04);
 }
 
-/* Amber — destructive-ish confirmations (restart, reboot, retry) */
+/* Blue — restart / retry actions (amber reads as an error) */
 .btn-amber,
 .btn-reboot,
 .btn-restart-amber,
 .btn-warning {
-  background: rgba(233, 182, 74, 0.10);
-  border-color: rgba(233, 182, 74, 0.32);
-  color: #f2c45e;
+  background: rgba(120, 174, 237, 0.10);
+  border-color: rgba(120, 174, 237, 0.35);
+  color: #a5cbf2;
 }
 
 .btn-amber:hover:not(:disabled),
 .btn-reboot:hover:not(:disabled),
 .btn-restart-amber:hover:not(:disabled),
 .btn-warning:hover:not(:disabled) {
-  background: rgba(233, 182, 74, 0.18);
-  border-color: rgba(233, 182, 74, 0.5);
+  background: rgba(120, 174, 237, 0.18);
+  border-color: rgba(120, 174, 237, 0.55);
+  color: #c2dcf8;
 }
 
 .btn-danger {
@@ -96,9 +97,9 @@ button:disabled {
 /* ── Header / topbar buttons ────────────────────────────────────── */
 
 .btn-header-reboot {
-  background: rgba(233, 182, 74, 0.10);
-  border: 1px solid rgba(233, 182, 74, 0.32);
-  color: #f2c45e;
+  background: rgba(120, 174, 237, 0.10);
+  border: 1px solid rgba(120, 174, 237, 0.35);
+  color: #a5cbf2;
   font-size: 0.77rem;
   font-weight: 700;
   padding: 6px 14px;
@@ -106,8 +107,8 @@ button:disabled {
 }
 
 .btn-header-reboot:hover:not(:disabled) {
-  background: rgba(233, 182, 74, 0.18);
-  border-color: rgba(233, 182, 74, 0.5);
+  background: rgba(120, 174, 237, 0.18);
+  border-color: rgba(120, 174, 237, 0.55);
 }
 
 .btn-logout {

@@ -725,16 +725,20 @@ async function openServiceDetailModal(unit, name, icon) {
       });
       var stepsHtml = "";
       steps.forEach(function(step) {
-        var iconLabel = "—";
-        if (step.status === "ok") iconLabel = "✅";
-        else if (step.status === "error") iconLabel = "❌";
-        else if (step.status === "warning") iconLabel = "⚠️";
-        else if (step.status === "skipped") iconLabel = "⏭️";
         var detail = escHtml(step.detail || "").replace(/\n/g, "<br>");
-        stepsHtml += '<div class="svc-detail-troubleshoot" style="margin-bottom:10px">' +
-          '<strong>' + iconLabel + ' Step ' + escHtml(String(step.step)) + ': ' + escHtml(step.label || "") + '</strong>' +
-          (detail ? '<div style="margin-top:6px">' + detail + '</div>' : '') +
-          '</div>';
+        if (step.status === "ok") {
+          // Not a checklist anymore — just note that the domain works.
+          stepsHtml += '<div class="svc-detail-status"><span class="status-dot active"></span>Domain is active</div>' +
+            (detail ? '<div class="svc-detail-desc" style="margin-top:6px">' + detail + '</div>' : '');
+        } else {
+          var iconLabel = "❌";
+          if (step.status === "warning") iconLabel = "⚠️";
+          else if (step.status === "skipped") iconLabel = "⏭️";
+          stepsHtml += '<div class="svc-detail-troubleshoot" style="margin-bottom:10px">' +
+            '<strong>' + iconLabel + ' ' + escHtml(step.label || "Domain not configured") + '</strong>' +
+            (detail ? '<div style="margin-top:6px">' + detail + '</div>' : '') +
+            '</div>';
+        }
       });
 
       var domainActionHtml = "";
@@ -746,7 +750,7 @@ async function openServiceDetailModal(unit, name, icon) {
       }
 
       addSetup('<div class="svc-detail-section">' +
-        '<div class="svc-detail-section-title">Domain Diagnostic Checklist</div>' +
+        '<div class="svc-detail-section-title">Domain Status</div>' +
         stepsHtml +
         domainActionHtml +
         '</div>');
