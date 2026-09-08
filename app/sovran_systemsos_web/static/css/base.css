@@ -17,17 +17,17 @@
   color-scheme: dark;
 
   /* ── The Hub palette ─────────────────────────────────────────── */
-  --bg:            #141a16;
-  --surface:       #181f1b;
-  --card:          #1e2621;
-  --card-hover:    #232d27;
-  --elevated:      #212925;
-  --inset:         #121814;
+  --bg:            #17191d;
+  --surface:       #1c1f24;
+  --card:          #23272c;
+  --card-hover:    #292e34;
+  --elevated:      #26292e;
+  --inset:         #121417;
   --border:        rgba(255, 255, 255, 0.07);
   --border-strong: rgba(255, 255, 255, 0.14);
-  --text:          #e3ede7;
-  --text-2:        #a8bcb0;
-  --text-3:        #6e8578;
+  --text:          #e9edec;
+  --text-2:        #a9b0b3;
+  --text-3:        #7a8388;
   --accent:        #3ecf8e;
   --accent-strong: #42f39a;
   --accent-deep:   #1aa45d;
@@ -71,18 +71,6 @@ body {
   -webkit-font-smoothing: antialiased;
   min-height: 100vh;
   overflow: hidden;
-}
-
-/* Soft brand wash so the canvas never reads flat-black */
-body::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  background:
-    radial-gradient(1100px 520px at 16% -12%, rgba(66, 243, 154, 0.04), transparent 60%),
-    radial-gradient(900px 600px at 110% 110%, rgba(26, 169, 110, 0.05), transparent 55%);
-  pointer-events: none;
-  z-index: 0;
 }
 
 button { font-family: inherit; }

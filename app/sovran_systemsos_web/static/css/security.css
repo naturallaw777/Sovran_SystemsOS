@@ -221,7 +221,7 @@
   display: none;
   position: fixed;
   inset: 0;
-  background: radial-gradient(1000px 640px at 50% 18%, #17211c, #0b100d 72%);
+  background: radial-gradient(1000px 640px at 50% 18%, #202429, #0f1113 72%);
   z-index: 1000;
   align-items: center;
   justify-content: center;
