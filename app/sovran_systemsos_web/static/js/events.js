@@ -242,6 +242,7 @@ async function init() {
     }
     var badge = document.getElementById("role-badge");
     if (badge && cfg.role_label) badge.textContent = cfg.role_label;
+    window._roleLabel = cfg.role_label || "";
 
     await refreshServices();
     loadNetwork();

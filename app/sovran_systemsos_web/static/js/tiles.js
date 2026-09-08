@@ -273,6 +273,7 @@ async function loadNetwork() {
 async function checkUpdates() {
   try {
     var data = await apiFetch("/api/updates/check");
+    window._lastUpdateCheck = data;
     if (typeof markUpdateChecked === "function") markUpdateChecked();
     var hasUpdates = !!data.available;
     var updateStatus = data.status || "idle";

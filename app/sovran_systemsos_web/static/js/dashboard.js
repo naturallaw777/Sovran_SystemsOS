@@ -1,23 +1,29 @@
 "use strict";
 
 /* ── The Hub dashboard chrome ──────────────────────────────────────
-   Category navigation, service search, status widgets, and the
-   Systems Operational modal (router ports 80/443 + the live domain
-   diagnostics checklist).
+   Welcome dashboard (default view), category navigation, service
+   search, status cards, and the Systems Operational modal.
 
-   Everything lives in an IIFE so no globals leak into the other
-   Hub scripts; tiles.js calls window.dashboardServicesUpdated()
-   whenever the service list refreshes. */
+   Everything lives in an IIFE so no globals leak into the other Hub
+   scripts; tiles.js calls window.dashboardServicesUpdated() whenever
+   the service list refreshes. */
 
 (function () {
 
   var $nav = document.getElementById("sidebar-nav");
   var $pageTitle = document.getElementById("page-title");
-  var $widgets = document.getElementById("widgets");
   var $search = document.getElementById("search-input");
   var $sysModal = document.getElementById("systems-modal");
   var $sysBody = document.getElementById("systems-body");
+  var $welcome = document.getElementById("welcome-view");
+  var $tilesArea = document.getElementById("tiles-area");
+  var $wcSystems = document.getElementById("wc-systems");
+  var $wcMore = document.getElementById("wc-more");
+  var $greeting = document.getElementById("welcome-greeting");
+  var $welcomeRole = document.getElementById("welcome-role");
+  var $browseBtn = document.getElementById("welcome-browse-btn");
 
+  var _view = "dashboard";   // "dashboard" | "services"
   var _cat = "all";
   var _query = "";
 
@@ -65,7 +71,42 @@
     });
   }
 
-  /* ── Category navigation ─────────────────────────────────────── */
+  /* ── Views ────────────────────────────────────────────────────── */
+
+  function setTitle(t) {
+    if ($pageTitle) $pageTitle.textContent = t;
+  }
+
+  function syncNav() {
+    if (!$nav) return;
+    $nav.querySelectorAll(".nav-item").forEach(function (b) {
+      var isActive;
+      if (b.dataset.cat === "__dash") isActive = (_view === "dashboard");
+      else isActive = (_view === "services" && b.dataset.cat === _cat);
+      b.classList.toggle("active", isActive);
+    });
+  }
+
+  function showDashboard() {
+    _view = "dashboard";
+    _cat = "all";
+    if ($welcome) $welcome.style.display = "";
+    if ($tilesArea) $tilesArea.style.display = "none";
+    setTitle("Dashboard");
+    syncNav();
+  }
+
+  function showServices(cat) {
+    _view = "services";
+    if (cat) _cat = cat;
+    if ($welcome) $welcome.style.display = "none";
+    if ($tilesArea) $tilesArea.style.display = "";
+    setTitle(_cat === "all" ? "All services" : catLabel(_cat));
+    syncNav();
+    applyFilter();
+  }
+
+  /* ── Category navigation ──────────────────────────────────────── */
 
   function renderNav() {
     if (!$nav) return;
@@ -79,7 +120,12 @@
     });
     var total = visibleServices().length;
 
-    var html = '<div class="nav-label">Services</div>';
+    var html = '<div class="nav-label">Menu</div>';
+    html += '<button class="nav-item' + (_view === "dashboard" ? " active" : "") + '" data-cat="__dash" type="button">' +
+      icon("g-home") +
+      '<span class="nav-text">Dashboard</span>' +
+      '</button>';
+    html += '<div class="nav-label">Services</div>';
     html += navItem("all", "All services", total);
     order.forEach(function (cat) {
       html += navItem(cat, catLabel(cat), counts[cat]);
@@ -88,20 +134,14 @@
 
     $nav.querySelectorAll(".nav-item").forEach(function (btn) {
       btn.addEventListener("click", function () {
-        _cat = btn.dataset.cat;
-        $nav.querySelectorAll(".nav-item").forEach(function (b) {
-          b.classList.toggle("active", b === btn);
-        });
-        if ($pageTitle) {
-          $pageTitle.textContent = _cat === "all" ? "Dashboard" : catLabel(_cat);
-        }
-        applyFilter();
+        if (btn.dataset.cat === "__dash") showDashboard();
+        else showServices(btn.dataset.cat);
       });
     });
   }
 
   function navItem(cat, label, count) {
-    return '<button class="nav-item' + (cat === _cat ? " active" : "") + '" data-cat="' + escHtml(cat) + '" type="button">' +
+    return '<button class="nav-item' + (_view === "services" && cat === _cat ? " active" : "") + '" data-cat="' + escHtml(cat) + '" type="button">' +
       icon(CAT_ICONS[cat] || "g-dots") +
       '<span class="nav-text">' + escHtml(label) + '</span>' +
       '<span class="nav-count">' + count + '</span>' +
@@ -113,10 +153,11 @@
     return CAT_FALLBACK_LABELS[cat] || cat;
   }
 
-  /* ── Filtering (category + search, applied together) ─────────── */
+  /* ── Filtering (applies in the services view) ─────────────────── */
 
   function applyFilter() {
-    var area = document.getElementById("tiles-area");
+    if (_view !== "services") return;
+    var area = $tilesArea;
     if (!area) return;
     var q = _query.trim().toLowerCase();
     area.querySelectorAll(".category-section").forEach(function (section) {
@@ -135,50 +176,84 @@
 
   if ($search) {
     $search.addEventListener("input", function () {
+      // Searching implies browsing services — leave the welcome view.
+      if (_view === "dashboard" && $search.value) showServices("all");
       _query = $search.value;
       applyFilter();
     });
   }
 
-  /* ── Status widgets ──────────────────────────────────────────── */
+  if ($browseBtn) {
+    $browseBtn.addEventListener("click", function () { showServices("all"); });
+  }
 
-  function renderWidgets() {
-    if (!$widgets) return;
+  /* ── Welcome header ───────────────────────────────────────────── */
+
+  function updateWelcomeMeta() {
+    if ($greeting) {
+      var h = new Date().getHours();
+      var g;
+      if (h >= 5 && h < 12) g = "Good morning";
+      else if (h >= 12 && h < 17) g = "Good afternoon";
+      else g = "Good evening";
+      $greeting.textContent = g;
+    }
+    if ($welcomeRole) {
+      $welcomeRole.textContent = (typeof window._roleLabel !== "undefined" && window._roleLabel) ? window._roleLabel : "";
+    }
+  }
+
+  /* ── Status cards ─────────────────────────────────────────────── */
+
+  function serviceCounts() {
     var services = visibleServices();
-    if (!services.length) { $widgets.style.display = "none"; return; }
-
     var running = 0, attention = 0, off = 0;
+    var attentionNames = [], offNames = [];
     services.forEach(function (s) {
-      if (!s.enabled) { off++; return; }
+      if (!s.enabled) { off++; offNames.push(s.name); return; }
       var h = s.health || s.status;
-      if (h === "needs_attention" || h === "failed") attention++;
+      if (h === "needs_attention" || h === "failed") { attention++; attentionNames.push(s.name); }
       else running++;
     });
+    return { services: services, running: running, attention: attention, off: off, attentionNames: attentionNames, offNames: offNames };
+  }
 
-    var html = "";
+  function renderWidgets() {
+    if (!$wcSystems) return;
+    var c = serviceCounts();
+    if (!c.services.length) { $wcSystems.innerHTML = ""; if ($wcMore) $wcMore.innerHTML = ""; return; }
 
     /* Systems operational */
-    var sub = '<b>' + running + '</b> running';
-    if (attention) sub += ' · <span class="warn">' + attention + ' needs attention</span>';
-    if (off) sub += ' · ' + off + ' off';
-    var attentionTitle = attention ? "Systems need attention" : "Systems operational";
-    html +=
+    var sub = '<b>' + c.running + '</b> running';
+    if (c.attention) sub += ' · <span class="warn">' + c.attention + ' needs attention</span>';
+    if (c.off) sub += ' · ' + c.off + ' off';
+    var attentionTitle = c.attention ? "Systems need attention" : "Systems operational";
+    $wcSystems.innerHTML =
       '<div class="widget clickable" id="w-systems" role="button" tabindex="0" title="System status and router setup">' +
         '<div class="widget-chip chip-green">' + icon("g-shield-check") + '</div>' +
         '<div class="w-body"><h3>' + attentionTitle + '</h3><div class="sub">' + sub + '</div></div>' +
         '<span class="w-chev">' + icon("g-chev") + '</span>' +
       '</div>';
 
+    var wSys = document.getElementById("w-systems");
+    if (wSys) {
+      wSys.addEventListener("click", openSystemsModal);
+      wSys.addEventListener("keydown", function (e) { if (e.key === "Enter") openSystemsModal(); });
+    }
+
+    if (!$wcMore) return;
+    var more = "";
+
     /* Bitcoin Core sync */
     var btc = null;
-    services.forEach(function (s) {
+    c.services.forEach(function (s) {
       if (s.sync_ibd && s.enabled) btc = s;
     });
     if (btc) {
       var pct = Math.round((btc.sync_progress || 0) * 100);
       var blocks = btc.sync_blocks ? btc.sync_blocks.toLocaleString() : "—";
       var eta = (typeof _calcBtcEta === "function") ? _calcBtcEta(btc.unit + "::" + btc.name, btc.sync_progress || 0) : "";
-      html +=
+      more +=
         '<div class="widget clickable" id="w-btc" role="button" tabindex="0" title="' + escHtml(btc.name) + ' details">' +
           '<div class="widget-chip chip-btc"><img src="/static/icons/' + escHtml(btc.icon) + '.svg" alt="" style="width:46px;height:46px;display:block;object-fit:contain"/></div>' +
           '<div class="w-body"><h3>' + escHtml(btc.name) + ' — syncing timechain</h3>' +
@@ -186,33 +261,49 @@
           '<div class="sub">Block <b>' + blocks + '</b> · ' + pct + '% · <span class="warn">' + escHtml(eta) + '</span></div></div>' +
           '<span class="w-chev">' + icon("g-chev") + '</span>' +
         '</div>';
+    } else {
+      var btcDone = null;
+      c.services.forEach(function (s) { if (s.unit === "bitcoind.service" && s.enabled) btcDone = s; });
+      if (btcDone) {
+        var blk = btcDone.sync_blocks ? btcDone.sync_blocks.toLocaleString() : "";
+        more +=
+          '<div class="widget clickable" id="w-btc" role="button" tabindex="0" title="' + escHtml(btcDone.name) + ' details">' +
+            '<div class="widget-chip chip-btc"><img src="/static/icons/' + escHtml(btcDone.icon) + '.svg" alt="" style="width:46px;height:46px;display:block;object-fit:contain"/></div>' +
+            '<div class="w-body"><h3>' + escHtml(btcDone.name) + '</h3><div class="sub"><span class="good">Fully synced</span>' + (blk ? ' · Block <b>' + blk + '</b>' : '') + '</div></div>' +
+            '<span class="w-chev">' + icon("g-chev") + '</span>' +
+          '</div>';
+      }
     }
 
-    $widgets.innerHTML = html;
-    $widgets.style.display = "";
+    /* Updates */
+    var upd = (typeof window._lastUpdateCheck === "object" && window._lastUpdateCheck) ? window._lastUpdateCheck : null;
+    var hasUpdates = !!(upd && upd.available);
+    more +=
+      '<div class="widget clickable" id="w-updates" role="button" tabindex="0" title="Check for system updates">' +
+        '<div class="widget-chip ' + (hasUpdates ? "chip-amber" : "chip-green") + '">' + icon("g-update") + '</div>' +
+        '<div class="w-body"><h3>' + (hasUpdates ? "Updates available" : "System is up to date") + '</h3>' +
+        '<div class="sub">' + (hasUpdates ? 'Click to review and update' : 'Sovran_SystemsOS keeps itself current') + '</div></div>' +
+        '<span class="w-chev">' + icon("g-chev") + '</span>' +
+      '</div>';
 
-    var wSys = document.getElementById("w-systems");
-    if (wSys) {
-      wSys.addEventListener("click", openSystemsModal);
-      wSys.addEventListener("keydown", function (e) { if (e.key === "Enter") openSystemsModal(); });
-    }
+    $wcMore.innerHTML = more;
+
     var wBtc = document.getElementById("w-btc");
-    if (wBtc && btc) {
-      (function (svc) {
+    if (wBtc) {
+      var svc = btc || btcDone;
+      if (svc) {
         wBtc.addEventListener("click", function () { openServiceDetailModal(svc.unit, svc.name, svc.icon); });
         wBtc.addEventListener("keydown", function (e) { if (e.key === "Enter") openServiceDetailModal(svc.unit, svc.name, svc.icon); });
-      })(btc);
+      }
+    }
+    var wUpd = document.getElementById("w-updates");
+    if (wUpd) {
+      wUpd.addEventListener("click", function () { openUpdateModal(); });
+      wUpd.addEventListener("keydown", function (e) { if (e.key === "Enter") openUpdateModal(); });
     }
   }
 
-  /* ── Systems Operational modal ───────────────────────────────── */
-
-  function step(n, title, sub, value) {
-    return '<div class="sysstep"><div class="sysnum">' + n + '</div><div class="sysstep-x">' +
-      '<div class="sysstep-t">' + title + (sub ? ' <span class="sysstep-sub">· ' + sub + '</span>' : '') + '</div>' +
-      (value ? '<div class="sysval"><span class="sysval-text">' + value + '</span></div>' : '') +
-      '</div></div>';
-  }
+  /* ── Systems Operational modal ────────────────────────────────── */
 
   function isNodeRole() {
     return (typeof _currentRole !== "undefined" && _currentRole === "node");
@@ -231,33 +322,32 @@
     return 'All your domain services share ports 80 and 443 — Matrix, BTCPay Server, VaultWarden, Nextcloud, WordPress, Haven Relay, Lightning Wallet Connections, and Element Calling.';
   }
 
+  function step(n, title, sub, value) {
+    return '<div class="sysstep"><div class="sysnum">' + n + '</div><div class="sysstep-x">' +
+      '<div class="sysstep-t">' + title + (sub ? ' <span class="sysstep-sub">· ' + sub + '</span>' : '') + '</div>' +
+      (value ? '<div class="sysval"><span class="sysval-text">' + value + '</span></div>' : '') +
+      '</div></div>';
+  }
+
   function openSystemsModal() {
     if (!$sysModal || !$sysBody) return;
-    var services = visibleServices();
-    var running = 0, attention = 0, off = 0;
-    var attentionNames = [], offNames = [];
-    services.forEach(function (s) {
-      if (!s.enabled) { off++; offNames.push(s.name); return; }
-      var h = s.health || s.status;
-      if (h === "needs_attention" || h === "failed") { attention++; attentionNames.push(s.name); }
-      else running++;
-    });
+    var c = serviceCounts();
 
     var html = "";
 
     /* System status */
     html += '<div class="sysmodal-card">' +
       '<div class="sysmodal-card-title">' + icon("g-shield-check") + 'System Status</div>' +
-      step(1, "Services running", "", String(running)) +
-      step(2, "Needs attention", "", attention ? escHtml(attentionNames.join(", ")) : "None") +
-      step(3, "Turned off", "", off ? escHtml(offNames.join(", ")) : "None") +
+      step(1, "Services running", "", String(c.running)) +
+      step(2, "Needs attention", "", c.attention ? escHtml(c.attentionNames.join(", ")) : "None") +
+      step(3, "Turned off", "", c.off ? escHtml(c.offNames.join(", ")) : "None") +
       '</div>';
 
     /* Router — a simple open / not-open verdict. How to open the ports is
        covered during onboarding, so the modal does not repeat instructions.
        Node-only role: ports only matter once BTCPay Server or Lightning
        Wallet Connections (LNURL) is turned on. */
-    if (isNodeRole() && !hasEnabledDomainService(services)) {
+    if (isNodeRole() && !hasEnabledDomainService(c.services)) {
       html += '<div class="sysmodal-card">' +
         '<div class="sysmodal-card-title">' + icon("g-wifi") + 'Router</div>' +
         '<div class="sysnote"><div class="sysnote-title">' + icon("g-check") + 'No router setup needed yet</div>' +
@@ -272,7 +362,7 @@
 
     /* Who uses these ports (redundant on a Node install with no domain
        services on — the router note above already covers it) */
-    if (!isNodeRole() || hasEnabledDomainService(services)) {
+    if (!isNodeRole() || hasEnabledDomainService(c.services)) {
       html += '<div class="sysnote" style="margin-top:14px">' +
         '<div class="sysnote-title">' + icon("g-antenna") + 'Who uses these ports</div>' +
         '<div class="sysnote-desc">' + whoUsesPorts() + '</div></div>';
@@ -286,7 +376,7 @@
     var portsCard = document.getElementById("sys-ports-card");
     var portsEl = document.getElementById("sys-ports-status");
     var units = DOMAIN_UNITS.filter(function (u) {
-      return services.some(function (s) { return s.unit === u && s.enabled; });
+      return c.services.some(function (s) { return s.unit === u && s.enabled; });
     });
     if (!units.length || !portsCard || !portsEl) return;
     portsCard.style.display = "";
@@ -329,8 +419,13 @@
 
   window.dashboardServicesUpdated = function () {
     renderNav();
+    updateWelcomeMeta();
     renderWidgets();
     applyFilter();
   };
+
+  // Initial view
+  showDashboard();
+  updateWelcomeMeta();
 
 })();

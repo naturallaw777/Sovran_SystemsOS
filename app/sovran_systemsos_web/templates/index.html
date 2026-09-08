@@ -58,6 +58,13 @@
       </g>
     </symbol>
     <!-- nav + ui symbolic icons -->
+    <symbol id="g-home" viewBox="0 0 24 24">
+      <g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 11.2L12 4.5l8 6.7"/>
+        <path d="M6 10.5v8a1.2 1.2 0 0 0 1.2 1.2h9.6a1.2 1.2 0 0 0 1.2-1.2v-8"/>
+        <path d="M10 19.7v-5.4h4v5.4"/>
+      </g>
+    </symbol>
     <symbol id="g-grid" viewBox="0 0 24 24">
       <g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round">
         <rect x="3.5" y="3.5" width="7.2" height="7.2" rx="2"/><rect x="13.3" y="3.5" width="7.2" height="7.2" rx="2"/>
@@ -179,14 +186,6 @@
       <div id="sidebar-features"></div>
 
       <div class="sidebar-spacer"></div>
-
-      <div class="sidebar-footer">
-        <span class="role-badge" id="role-badge-wrap" title="Sovran_SystemsOS role">
-          <svg width="13" height="13"><use href="#g-shield-check"/></svg>
-          <span id="role-badge">Loading…</span>
-        </span>
-        <div class="host-note">sovransystemsos.local</div>
-      </div>
     </aside>
 
     <!-- ═══ MAIN ═══ -->
@@ -199,13 +198,6 @@
           <input id="search-input" type="text" placeholder="Search services…" autocomplete="off" />
         </div>
 
-        <div class="net-chip" title="Internal IP · External IP">
-          <svg><use href="#g-wifi"/></svg>
-          <span class="int-wrap"><span class="ip-label">LAN</span><span class="ip-value" id="ip-internal">…</span></span>
-          <span class="net-separator">|</span>
-          <span class="ext-wrap"><span class="ip-label">WAN</span><span class="ip-value" id="ip-external">…</span></span>
-        </div>
-
         <div class="top-actions">
           <button class="btn btn-header-reboot" id="btn-header-reboot" title="Restart the entire computer">Reboot</button>
           <button class="btn btn-logout" id="btn-logout" title="Sign out">Sign Out</button>
@@ -213,10 +205,36 @@
       </header>
 
       <main class="content" id="content">
-        <!-- Widgets row (dashboard.js) -->
-        <section class="widgets" id="widgets" style="display:none"></section>
+        <!-- ═══ WELCOME DASHBOARD (default view) ═══ -->
+        <section class="welcome" id="welcome-view">
+          <div class="welcome-bg" aria-hidden="true">
+            <div class="orb orb-a"></div>
+            <div class="orb orb-b"></div>
+            <div class="orb orb-c"></div>
+          </div>
+          <div class="welcome-inner">
+            <div class="welcome-greeting" id="welcome-greeting">Hello</div>
+            <h1 class="welcome-title">Welcome to Your <em>Sovereign</em> Digital &amp; Financial Life</h1>
+            <div class="welcome-meta">Sovran_SystemsOS v{{ sovran_version }}<span class="welcome-meta-sep">·</span><span id="welcome-role"></span></div>
+            <div class="welcome-cards" id="welcome-cards">
+              <div class="welcome-dyn" id="wc-systems"></div>
+              <div class="widget w-network" id="w-network">
+                <div class="widget-chip chip-green"><svg><use href="#g-wifi"/></svg></div>
+                <div class="w-body">
+                  <h3>Network</h3>
+                  <div class="net-row"><span class="net-k">LAN</span><span class="ip-value" id="ip-internal">…</span></div>
+                  <div class="net-row"><span class="net-k">WAN</span><span class="ip-value" id="ip-external">…</span></div>
+                  <div class="sub">sovransystemsos.local</div>
+                </div>
+              </div>
+              <div class="welcome-dyn" id="wc-more"></div>
+            </div>
+            <button class="btn btn-ghost welcome-browse" id="welcome-browse-btn">Browse all services →</button>
+          </div>
+        </section>
 
-        <div id="tiles-area">
+        <!-- ═══ SERVICES GRID ═══ -->
+        <div id="tiles-area" style="display:none">
           <div class="dashboard-loading" role="status" aria-live="polite">
             <span class="dashboard-loading-spinner" aria-hidden="true"></span>
             <span>Loading service status…</span>
@@ -240,6 +258,8 @@
       <div class="creds-body" id="systems-body">
         <p class="creds-loading">Loading…</p>
       </div>
+      <!-- Auto-launch preference (features.js) — moved here from the sidebar -->
+      <div class="sysprefs" id="autolaunch-slot"></div>
     </div>
   </div>
 

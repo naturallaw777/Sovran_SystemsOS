@@ -1505,6 +1505,15 @@
   margin-top: 5px;
 }
 
+.sysprefs {
+  padding: 0 24px 20px;
+  border-top: 1px solid var(--border);
+  margin-top: 16px;
+  padding-top: 14px;
+}
+
+.sysprefs .autolaunch-section .feature-card { padding: 2px 0 0; }
+
 .sysfineprint {
   font-size: 0.72rem;
   color: var(--text-3);

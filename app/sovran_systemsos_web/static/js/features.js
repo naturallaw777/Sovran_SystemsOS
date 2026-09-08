@@ -628,16 +628,16 @@ async function loadAutolaunchToggle() {
 }
 
 function renderAutolaunchToggle(enabled) {
-  // Remove existing section if any
-  var old = $sidebarFeatures.querySelector(".autolaunch-section");
+  // The preference lives in the Systems Operational modal (moved from the sidebar)
+  var slot = document.getElementById("autolaunch-slot");
+  if (!slot) return;
+  var old = slot.querySelector(".autolaunch-section");
   if (old) old.parentNode.removeChild(old);
 
   var section = document.createElement("div");
   section.className = "category-section autolaunch-section";
 
   section.innerHTML =
-    '<div class="section-header">Preferences</div>' +
-    '<hr class="section-divider" />' +
     '<div class="feature-card">' +
       '<div class="feature-card-top">' +
         '<div class="feature-card-info">' +
@@ -651,7 +651,7 @@ function renderAutolaunchToggle(enabled) {
       '</div>' +
     '</div>';
 
-  $sidebarFeatures.appendChild(section);
+  slot.appendChild(section);
 
   var input = document.getElementById("autolaunch-toggle-input");
   var label = document.getElementById("autolaunch-toggle-label");
