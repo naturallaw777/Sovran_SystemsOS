@@ -208,11 +208,12 @@
 
 .welcome {
   position: relative;
-  max-width: 1040px;
-  margin: 0 auto;
-  padding: 44px 8px 24px;
+  /* Full-bleed: cancel .content's padding so the glow reaches
+     every edge of the panel (sidebar border, topbar, viewport). */
+  margin: -26px -30px -70px;
+  padding: 70px 38px 70px;
   overflow: hidden;
-  min-height: 100%;
+  min-height: calc(100% + 96px);
 }
 
 /* Soft drifting glow — calm, GPU-cheap (transforms only) */
@@ -260,6 +261,8 @@
 
 .welcome-inner {
   position: relative;
+  max-width: 1040px;
+  margin: 0 auto;
   animation: welcome-in 0.5s ease both;
 }
 
