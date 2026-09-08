@@ -1,143 +1,196 @@
-/* ── Feature Manager styles ──────────────────────────────────────── */
+/* ── Sidebar: Feature Manager + Preferences ─────────────────────── */
 
-.feature-manager-section {
-  margin-bottom: 32px;
+.category-section.autolaunch-section,
+.category-section.feature-manager-section {
+  margin-bottom: 0;
 }
 
-.feature-subcategory {
-  margin-bottom: 16px;
+/* The old "Preferences" header + hr becomes a small sidebar label.
+   features.js renders: .section-header + hr.section-divider + cards */
+.autolaunch-section .section-header,
+.feature-manager-section .section-header {
+  font-size: 0.66rem;
+  font-weight: 750;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  margin: 0;
+  padding: 14px 10px 7px;
+  display: block;
 }
+
+.autolaunch-section .section-divider,
+.feature-manager-section .section-divider {
+  background: none;
+  height: 0;
+  margin: 0;
+}
+
+.feature-cards-wrap { display: flex; flex-direction: column; }
+
+.feature-subcategory { display: flex; flex-direction: column; }
 
 .feature-subcategory-header {
-  font-size: 0.78rem;
-  font-weight: 700;
+  font-size: 0.66rem;
+  font-weight: 750;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--text-dim);
-  margin-bottom: 8px;
-  padding-left: 4px;
+  color: var(--text-3);
+  padding: 12px 10px 6px;
 }
 
-.feature-cards-wrap {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
+/* Feature card — sidebar preference row with a switch */
 .feature-card {
-  background-color: var(--card-color);
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
-  padding: 14px 16px;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 9px 10px;
+  border-radius: 10px;
+  transition: background 0.15s;
 }
+
+.feature-card:hover { background: rgba(255, 255, 255, 0.05); }
 
 .feature-card-top {
   display: flex;
   align-items: flex-start;
-  gap: 12px;
-  margin-bottom: 8px;
+  gap: 10px;
+  width: 100%;
 }
 
-.feature-card-info {
-  flex: 1;
-  min-width: 0;
-}
+.feature-card-info { min-width: 0; flex: 1; }
 
 .feature-card-name {
-  font-size: 0.9rem;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin-bottom: 4px;
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.3;
 }
 
 .feature-card-desc {
-  font-size: 0.78rem;
-  color: var(--text-secondary);
-  line-height: 1.5;
+  margin-top: 2px;
+  font-size: 0.68rem;
+  color: var(--text-3);
+  line-height: 1.45;
 }
 
 .feature-card-status {
-  font-size: 0.72rem;
-  color: var(--text-dim);
+  font-size: 0.66rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 99px;
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border);
+  color: var(--text-2);
+}
+
+.feature-card-status.status-on {
+  color: var(--accent);
+  background: var(--accent-dim);
+  border-color: rgba(66, 243, 154, 0.3);
+}
+
+.feature-conflict-warning {
+  margin-top: 8px;
+  font-size: 0.68rem;
+  color: var(--amber);
+  line-height: 1.5;
+}
+
+/* Domain badges inside feature cards */
+.feature-domain-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.64rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 99px;
   margin-top: 6px;
 }
+
+.feature-domain-badge.configured {
+  color: var(--accent);
+  background: var(--accent-dim);
+}
+
+.feature-domain-badge.not-configured {
+  color: var(--amber);
+  background: rgba(233, 182, 74, 0.10);
+}
+
+.feature-domain-icon { font-size: 0.8rem; }
+
+.feature-domain-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.66rem;
+  font-weight: 650;
+  margin-top: 5px;
+  color: var(--text-3);
+}
+
+.feature-domain-label--ok { color: var(--accent); }
+.feature-domain-label--warn { color: var(--amber); }
+.feature-domain-label--error { color: var(--red); }
+.feature-domain-label--checking { color: var(--blue); }
+
+/* ── Toggle switch (libadwaita style) ───────────────────────────── */
 
 .feature-toggle {
   position: relative;
   display: inline-block;
-  width: 44px;
-  height: 24px;
+  width: 46px;
+  height: 26px;
   flex-shrink: 0;
+  margin-left: auto;
+  margin-top: 2px;
   cursor: pointer;
 }
 
 .feature-toggle-input {
-  opacity: 0;
-  width: 0;
-  height: 0;
   position: absolute;
+  inset: 0;
+  opacity: 0;
+  margin: 0;
+  cursor: pointer;
 }
 
 .feature-toggle-slider {
   position: absolute;
   inset: 0;
-  background-color: var(--border-color);
-  border-radius: 24px;
-  transition: background-color 0.2s;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid var(--border-strong);
+  transition: 0.2s;
+  pointer-events: none;
 }
 
-.feature-toggle-slider::before {
+.feature-toggle-slider::after {
   content: "";
   position: absolute;
-  width: 18px;
-  height: 18px;
-  left: 3px;
-  top: 3px;
-  background-color: #fff;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
-  transition: transform 0.2s;
+  background: #cfd8d2;
+  transition: 0.2s cubic-bezier(0.3, 0.8, 0.4, 1.2);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
 }
 
-.feature-toggle.active .feature-toggle-slider {
-  background-color: var(--green);
+.feature-toggle-input:checked + .feature-toggle-slider {
+  background: var(--accent);
+  border-color: transparent;
 }
 
-.feature-toggle.active .feature-toggle-slider::before {
-  transform: translateX(20px);
+.feature-toggle-input:checked + .feature-toggle-slider::after {
+  left: 23px;
+  background: #fff;
 }
 
-.feature-domain-badge {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 6px;
-  font-size: 0.78rem;
-}
-
-.feature-domain-icon {
-  flex-shrink: 0;
-}
-
-.feature-domain-label {
-  color: var(--text-secondary);
-}
-
-.feature-domain-label--checking {
-  color: var(--text-dim);
-  font-style: italic;
-}
-
-.feature-domain-label--ok {
-  color: var(--green);
-  font-weight: 600;
-}
-
-.feature-domain-label--warn {
-  color: var(--yellow);
-  font-weight: 600;
-}
-
-.feature-domain-label--error {
-  color: var(--red);
-  font-weight: 600;
+.feature-toggle-input:focus-visible + .feature-toggle-slider {
+  box-shadow: 0 0 0 3px rgba(66, 243, 154, 0.3);
 }

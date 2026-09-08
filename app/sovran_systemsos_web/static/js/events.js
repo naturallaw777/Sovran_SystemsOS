@@ -175,9 +175,9 @@ function showSecurityBanner() {
     '</div>' +
     '<button class="security-banner-dismiss" id="security-banner-dismiss-btn" title="Dismiss">\u2715</button>';
 
-  var mainContent = document.querySelector(".main-content");
-  if (mainContent) {
-    mainContent.insertAdjacentElement("beforebegin", banner);
+  var contentArea = document.querySelector(".content");
+  if (contentArea) {
+    contentArea.insertAdjacentElement("afterbegin", banner);
   } else {
     document.body.insertAdjacentElement("afterbegin", banner);
   }

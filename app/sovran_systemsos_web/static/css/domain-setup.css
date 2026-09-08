@@ -18,7 +18,7 @@ domain-field-label {
 
 domain-field-input {
   width: 100%;
-  background-color: #0c0f0e;
+  background-color: var(--inset);
   color: var(--text-primary);
   border: 1px solid var(--border-color);
   border-radius: 8px;
@@ -75,7 +75,7 @@ domain-field-actions {
 
 .domain-field-input {
   width: 100%;
-  background-color: #0c0f0e;
+  background-color: var(--inset);
   color: var(--text-primary);
   border: 1px solid var(--border-color);
   border-radius: 8px;
@@ -198,21 +198,21 @@ domain-field-actions {
 }
 
 .port-proto-badge--tcp {
-  color: #6dbf8b;
-  background: rgba(109, 191, 139, 0.12);
-  border: 1px solid rgba(109, 191, 139, 0.4);
+  color: var(--accent);
+  background: rgba(66, 243, 154, 0.12);
+  border: 1px solid rgba(66, 243, 154, 0.4);
 }
 
 .port-proto-badge--udp {
-  color: #6aa9e0;
+  color: var(--blue);
   background: rgba(106, 169, 224, 0.12);
   border: 1px solid rgba(106, 169, 224, 0.4);
 }
 
 .port-proto-badge--both {
-  color: #e5a50a;
-  background: rgba(229, 165, 10, 0.12);
-  border: 1px solid rgba(229, 165, 10, 0.45);
+  color: var(--amber);
+  background: rgba(233, 182, 74, 0.12);
+  border: 1px solid rgba(233, 182, 74, 0.45);
 }
 
 .port-proto-note {
@@ -230,7 +230,7 @@ domain-field-actions {
   margin-bottom: 14px;
   padding: 10px 14px;
   background: rgba(255, 180, 0, 0.10);
-  border: 1px solid var(--warning-color, #f59e0b);
+  border: 1px solid var(--warning-color, var(--amber));
   border-radius: 8px;
   font-size: 0.88rem;
   line-height: 1.6;

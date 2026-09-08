@@ -52,6 +52,7 @@ function buildTiles(services, categoryLabels) {
   if ($tilesArea.children.length === 0) {
     $tilesArea.innerHTML = '<div class="empty-state"><p>No services configured.</p></div>';
   }
+  if (typeof window.dashboardServicesUpdated === "function") window.dashboardServicesUpdated();
 }
 
 function renderSidebarSupport(supportServices) {
@@ -62,7 +63,7 @@ function renderSidebarSupport(supportServices) {
   sidebarUpdateBtn.className = "sidebar-support-btn";
   sidebarUpdateBtn.id = "sidebar-btn-update";
   sidebarUpdateBtn.innerHTML =
-    '<img class="sidebar-support-icon" src="/static/icons/update.svg" alt="Update" style="width:1.5rem;height:1.5rem;">' +
+    '<span class="sidebar-support-icon"><svg><use href="#g-refresh"/></svg></span>' +
     '<span class="sidebar-support-text">' +
       '<span class="sidebar-support-title">Update System</span>' +
       '<span class="sidebar-support-hint" id="sidebar-update-hint">Check for updates</span>' +
@@ -75,7 +76,7 @@ function renderSidebarSupport(supportServices) {
     var btn = document.createElement("button");
     btn.className = "sidebar-support-btn";
     btn.innerHTML =
-      '<span class="sidebar-support-icon">🛟</span>' +
+      '<span class="sidebar-support-icon"><svg><use href="#g-lifebuoy"/></svg></span>' +
       '<span class="sidebar-support-text">' +
         '<span class="sidebar-support-title">' + escHtml(svc.name || "Tech Support") + '</span>' +
         '<span class="sidebar-support-hint">Click for help</span>' +
@@ -88,7 +89,7 @@ function renderSidebarSupport(supportServices) {
   var backupBtn = document.createElement("button");
   backupBtn.className = "sidebar-support-btn";
   backupBtn.innerHTML =
-    '<span class="sidebar-support-icon">💾</span>' +
+    '<span class="sidebar-support-icon"><svg><use href="#g-box"/></svg></span>' +
     '<span class="sidebar-support-text">' +
       '<span class="sidebar-support-title">Manual Backup</span>' +
       '<span class="sidebar-support-hint">Back up to external drive</span>' +
@@ -100,7 +101,7 @@ function renderSidebarSupport(supportServices) {
   var securityBtn = document.createElement("button");
   securityBtn.className = "sidebar-support-btn";
   securityBtn.innerHTML =
-    '<span class="sidebar-support-icon">\uD83D\uDEE1</span>' +
+    '<span class="sidebar-support-icon"><svg><use href="#g-shield-check"/></svg></span>' +
     '<span class="sidebar-support-text">' +
       '<span class="sidebar-support-title">Security</span>' +
       '<span class="sidebar-support-hint">Reset &amp; verify system</span>' +
@@ -113,7 +114,7 @@ function renderSidebarSupport(supportServices) {
     var upgradeBtn = document.createElement("button");
     upgradeBtn.className = "sidebar-support-btn";
     upgradeBtn.innerHTML =
-      '<span class="sidebar-support-icon">🚀</span>' +
+      '<span class="sidebar-support-icon"><svg><use href="#g-antenna"/></svg></span>' +
       '<span class="sidebar-support-text">' +
         '<span class="sidebar-support-title">Upgrade to Full Server</span>' +
         '<span class="sidebar-support-hint">Unlock all services</span>' +
@@ -237,6 +238,7 @@ function updateTiles(services) {
       if (text) text.textContent = st;
     }
   }
+  if (typeof window.dashboardServicesUpdated === "function") window.dashboardServicesUpdated();
 }
 
 // ── Service polling ───────────────────────────────────────────────

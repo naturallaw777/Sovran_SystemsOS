@@ -1,473 +1,178 @@
-/* ── Service tile card (status-only) ─────────────────────────────── */
-
-.dashboard-loading {
-  min-height: 180px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  color: var(--text-secondary);
-  font-size: 0.9rem;
-}
-
-.dashboard-loading-spinner {
-  width: 16px;
-  height: 16px;
-  border: 2px solid var(--border-color);
-  border-top-color: var(--accent-color);
-  border-radius: 50%;
-  animation: dashboard-loading-spin 0.8s linear infinite;
-}
-
-@keyframes dashboard-loading-spin {
-  to { transform: rotate(360deg); }
-}
+/* ── Service tiles ──────────────────────────────────────────────── */
 
 .service-tile {
-  width: 160px;
-  min-height: 130px;
-  background-color: var(--card-color);
-  border: 1px solid var(--border-color);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border-radius: var(--radius-card);
-  box-shadow: var(--shadow-card);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  overflow: hidden;
+  padding: 21px 12px 17px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  padding: 20px 12px 18px;
-  gap: 0;
-  transition: box-shadow 0.2s, border-color 0.2s;
-  position: relative;
   cursor: pointer;
+  position: relative;
+  transition: transform 0.18s, border-color 0.18s, background 0.18s, box-shadow 0.18s, opacity 0.18s;
+  animation: tileIn 0.45s cubic-bezier(0.2, 0.8, 0.3, 1) backwards;
+}
+
+@keyframes tileIn {
+  from { opacity: 0; transform: translateY(10px) scale(0.96); }
 }
 
 .service-tile:hover {
+  transform: translateY(-4px);
+  border-color: var(--border-strong);
+  background: var(--card-hover);
   box-shadow: var(--shadow-hover);
-  border-color: var(--accent-color);
 }
 
-.service-tile.disabled {
-  opacity: 0.45;
+.service-tile:active { transform: translateY(-1px) scale(0.985); }
+
+.service-tile:focus-visible {
+  outline: 2px solid rgba(66, 243, 154, 0.45);
+  outline-offset: 2px;
 }
+
+.service-tile.disabled { opacity: 0.55; }
 
 .tile-icon {
-  width: 48px;
-  height: 48px;
+  width: 62px;
+  height: 62px;
+  display: block;
   object-fit: contain;
-  margin-bottom: 10px;
 }
 
 .tile-icon-fallback {
-  width: 48px;
-  height: 48px;
+  width: 62px;
+  height: 62px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: var(--border-color);
-  border-radius: 12px;
-  color: var(--text-dim);
-  font-size: 1.5rem;
-  margin-bottom: 10px;
+  color: var(--text-3);
+  font-size: 1.2rem;
+  font-weight: 700;
 }
 
 .tile-name {
-  font-size: 0.88rem;
-  font-weight: 600;
+  margin-top: 13px;
+  font-size: 0.86rem;
+  font-weight: 650;
   text-align: center;
-  color: var(--text-primary);
-  line-height: 1.3;
-  max-width: 140px;
-  word-break: break-word;
-  hyphens: auto;
-  min-height: 1.3em;
+  line-height: 1.25;
+  min-height: 2.5em;
   display: flex;
   align-items: center;
   justify-content: center;
+  color: var(--text);
+  max-width: 100%;
 }
 
+/* Status pill — dot + label inside a rounded pill */
 .tile-status {
-  font-size: 0.75rem;
-  margin-top: 8px;
-  display: flex;
+  margin-top: 9px;
+  display: inline-flex;
   align-items: center;
-  gap: 5px;
-  color: var(--text-secondary);
+  gap: 6px;
+  font-size: 0.69rem;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 99px;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-2);
 }
 
-.tile-version {
-  font-size: 0.7rem;
-  color: var(--text-dim);
-  margin-top: 2px;
-  text-align: center;
-}
+.status-text { line-height: 1; }
 
 .status-dot {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
+  background: var(--text-3);
   flex-shrink: 0;
-  background-color: var(--grey);
 }
 
-.status-dot.active         { background-color: var(--green); }
-.status-dot.inactive       { background-color: var(--red); }
-.status-dot.loading        { background-color: var(--yellow); animation: pulse-badge 1s infinite; }
-.status-dot.failed         { background-color: var(--red); }
-.status-dot.disabled       { background-color: var(--grey); }
-.status-dot.needs-attention { background-color: var(--yellow); }
-.status-dot.syncing        { background-color: #f5a623; animation: pulse-badge 1.5s infinite; }
-.status-dot.checking-reachability { background-color: var(--accent-color); animation: pulse-badge 1s infinite; }
+.status-dot.active { background: var(--accent); }
+.status-dot.needs-attention { background: var(--amber); }
+.status-dot.failed { background: var(--red); }
+.status-dot.inactive,
+.status-dot.disabled { background: var(--text-3); }
+.status-dot.syncing,
+.status-dot.loading,
+.status-dot.checking-reachability { background: var(--blue); animation: tile-dot-pulse 1.4s ease-in-out infinite; }
+.status-dot.unknown { background: var(--text-3); }
 
-/* ── Bitcoin IBD sync progress bar ──────────────────────────────── */
+@keyframes tile-dot-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+/* Progressive enhancement: tint the whole pill on modern browsers */
+.tile-status:has(.status-dot.active) { background: var(--accent-dim); color: var(--accent); }
+.tile-status:has(.status-dot.needs-attention) { background: rgba(233, 182, 74, 0.10); color: var(--amber); }
+.tile-status:has(.status-dot.failed) { background: rgba(246, 97, 81, 0.10); color: var(--red); }
+.tile-status:has(.status-dot.syncing),
+.tile-status:has(.status-dot.loading),
+.tile-status:has(.status-dot.checking-reachability) { background: rgba(120, 174, 237, 0.10); color: var(--blue); }
+
+.support-status-label {
+  font-size: 0.69rem;
+  font-weight: 700;
+  color: var(--text-2);
+}
+
+/* ── Bitcoin IBD sync tile ──────────────────────────────────────── */
 
 .tile-sync-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
+  margin-top: 12px;
   width: 100%;
-  margin-top: 6px;
+  padding: 0 6px;
 }
 
 .tile-sync-label {
-  font-size: 0.72rem;
-  color: #f5a623;
-  font-weight: 600;
+  font-size: 0.66rem;
+  font-weight: 750;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--amber);
   text-align: center;
-  white-space: nowrap;
 }
 
 .tile-sync-bar-row {
   display: flex;
   align-items: center;
-  gap: 5px;
-  width: 100%;
+  gap: 8px;
+  margin-top: 7px;
 }
 
 .tile-sync-bar-track {
   flex: 1;
-  height: 6px;
-  background-color: var(--border-color);
-  border-radius: 3px;
+  height: 7px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.07);
   overflow: hidden;
 }
 
 .tile-sync-bar-fill {
   height: 100%;
-  background-color: #f5a623;
-  border-radius: 3px;
-  transition: width 0.6s ease;
-  min-width: 2px;
+  border-radius: 99px;
+  background: linear-gradient(90deg, #42f39a, #1aa45d);
+  transition: width 0.6s cubic-bezier(0.3, 0.7, 0.3, 1);
 }
 
 .tile-sync-percent {
-  font-size: 0.72rem;
+  font-family: var(--mono);
+  font-size: 0.7rem;
   font-weight: 700;
-  color: #f5a623;
-  white-space: nowrap;
-  min-width: 2.5em;
-  text-align: right;
+  color: var(--amber);
+  flex-shrink: 0;
 }
 
 .tile-sync-eta {
-  font-size: 0.68rem;
-  color: var(--text-dim);
+  margin-top: 6px;
+  font-family: var(--mono);
+  font-size: 0.66rem;
+  color: var(--text-3);
   text-align: center;
-  white-space: nowrap;
-}
-
-
-/* ── Service detail modal sections ───────────────────────────────── */
-
-.svc-detail-section {
-  margin-bottom: 20px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid var(--border-color);
-}
-
-.svc-detail-section:last-child {
-  border-bottom: none;
-  margin-bottom: 0;
-  padding-bottom: 0;
-}
-
-.svc-detail-section-title {
-  font-size: 0.78rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--text-dim);
-  margin-bottom: 10px;
-}
-
-.svc-detail-desc {
-  font-size: 0.9rem;
-  color: var(--text-secondary);
-  line-height: 1.6;
-}
-
-.svc-detail-status {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-/* ── Service detail: Domain ──────────────────────────────────────── */
-
-.svc-detail-domain-value {
-  font-size: 0.9rem;
-  color: var(--text-primary);
-  font-weight: 600;
-}
-
-.tile-domain-label--ok {
-  color: var(--green);
-  font-weight: 600;
-}
-
-.tile-domain-label--warn {
-  color: var(--yellow);
-  font-weight: 600;
-}
-
-.tile-domain-label--error {
-  color: var(--red);
-  font-weight: 600;
-}
-
-/* ── Service detail: Port table ──────────────────────────────────── */
-
-.svc-detail-port-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.82rem;
-  margin-top: 8px;
-}
-
-.svc-detail-port-table th {
-  text-align: left;
-  color: var(--text-dim);
-  font-weight: 600;
-  font-size: 0.72rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  padding: 6px 10px;
-  border-bottom: 1px solid var(--border-color);
-}
-
-.svc-detail-port-table td {
-  padding: 8px 10px;
-  border-bottom: 1px solid rgba(30, 45, 39, 0.6);
-  color: var(--text-primary);
-}
-
-.svc-detail-port-table tr:last-child td {
-  border-bottom: none;
-}
-
-.svc-detail-port-table-port {
-  font-family: 'JetBrains Mono', 'Fira Code', 'Source Code Pro', monospace;
-  font-weight: 600;
-  color: var(--accent-color);
-}
-
-.svc-detail-port-table-proto {
-  text-transform: uppercase;
-  color: var(--text-secondary);
-}
-
-.svc-detail-port-table-desc {
-  color: var(--text-secondary);
-}
-
-.svc-detail-port-table-status {
-  font-weight: 600;
-}
-
-.port-status-listening { color: var(--green); }
-.port-status-open      { color: var(--yellow); }
-.port-status-closed    { color: var(--red); }
-.port-status-unknown   { color: var(--text-dim); }
-
-/* ── Service detail: Troubleshoot box ────────────────────────────── */
-
-.svc-detail-troubleshoot {
-  margin-top: 12px;
-  padding: 14px 16px;
-  background-color: rgba(229, 165, 10, 0.08);
-  border: 1px solid rgba(229, 165, 10, 0.3);
-  border-radius: 10px;
-  font-size: 0.85rem;
-  color: var(--text-secondary);
-  line-height: 1.6;
-}
-
-.svc-detail-troubleshoot strong {
-  color: var(--yellow);
-}
-
-.svc-detail-troubleshoot ol {
-  margin-top: 8px;
-  padding-left: 20px;
-}
-
-.svc-detail-troubleshoot li {
-  margin-bottom: 4px;
-}
-
-.svc-detail-troubleshoot code {
-  background-color: rgba(94, 173, 138, 0.10);
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-size: 0.82rem;
-  color: var(--accent-color);
-}
-
-.svc-detail-troubleshoot a {
-  color: var(--accent-color);
-  text-decoration: none;
-}
-
-.svc-detail-troubleshoot a:hover {
-  text-decoration: underline;
-}
-
-/* ── Service detail: Domain configure button ─────────────────────── */
-
-.svc-detail-domain-btn {
-  margin-top: 12px;
-}
-
-/* ── Service detail: Addon feature toggle ────────────────────────── */
-
-.svc-detail-addon-row {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  margin-top: 12px;
-}
-
-.svc-detail-addon-status {
-  font-size: 0.88rem;
-  font-weight: 700;
-}
-
-.addon-status--on {
-  color: var(--green);
-}
-
-.addon-status--off {
-  color: var(--text-dim);
-}
-
-.svc-detail-option-card {
-  padding: 16px;
-  background: rgba(94, 173, 138, 0.06);
-  border: 1px solid rgba(94, 173, 138, 0.24);
-  border-radius: 10px;
-}
-
-.svc-detail-option-list {
-  margin: 10px 0 0;
-  padding-left: 20px;
-  color: var(--text-secondary);
-  font-size: 0.84rem;
-  line-height: 1.55;
-}
-
-.svc-detail-option-list li {
-  margin-bottom: 5px;
-}
-
-.svc-detail-option-privacy {
-  margin-top: 12px;
-  padding: 10px 12px;
-  border-left: 3px solid var(--accent-color);
-  background: rgba(94, 173, 138, 0.08);
-  border-radius: 6px;
-  color: var(--text-secondary);
-  font-size: 0.82rem;
-  line-height: 1.5;
-}
-
-.svc-detail-option-privacy strong {
-  color: var(--accent-color);
-}
-
-.svc-detail-related-feature-btn:disabled {
-  cursor: not-allowed;
-  opacity: 0.55;
-}
-
-.feature-conflict-warning {
-  margin-top: 8px;
-  margin-bottom: 8px;
-  padding: 10px 14px;
-  background-color: rgba(229, 165, 10, 0.1);
-  border: 1px solid rgba(229, 165, 10, 0.3);
-  border-radius: 8px;
-  font-size: 0.82rem;
-  color: var(--yellow);
-  font-weight: 600;
-}
-
-.btn-warning {
-  background-color: #d97706;
-  color: #fff;
-}
-
-.btn-warning:hover:not(:disabled) {
-  background-color: #b45309;
-}
-
-.svc-detail-restart-section {
-  border-top: 1px solid var(--border-color);
-  padding-top: 16px;
-}
-
-.svc-detail-restart-btn {
-  margin-top: 8px;
-}
-
-.svc-detail-restart-result {
-  margin-top: 12px;
-  padding: 12px 16px;
-  border-radius: 8px;
-  font-size: 0.88rem;
-  line-height: 1.5;
-  display: none;
-}
-
-.svc-detail-restart-result.success {
-  background-color: rgba(109, 191, 139, 0.12);
-  border: 1px solid var(--green);
-  color: var(--green);
-  display: block;
-}
-
-.svc-detail-restart-result.error {
-  background-color: rgba(239, 68, 68, 0.12);
-  border: 1px solid #ef4444;
-  color: #f87171;
-  display: block;
-}
-
-
-/* ── Desktop launch buttons ──────────────────────────────────────── */
-
-.svc-detail-launch-row {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.svc-detail-launch-btn {
-  font-size: 0.85rem;
-  padding: 8px 18px;
-  cursor: pointer;
 }

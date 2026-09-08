@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Sovran_SystemsOS Hub</title>
+  <title>Sovran_SystemsOS — The Hub</title>
   <link rel="stylesheet" href="/static/css/base.css?v={{ asset_version }}" />
   <link rel="stylesheet" href="/static/css/buttons.css?v={{ asset_version }}" />
   <link rel="stylesheet" href="/static/css/header.css?v={{ asset_version }}" />
@@ -18,50 +18,241 @@
 </head>
 <body>
 
-  <!-- Header bar -->
-  <header class="header-bar">
-    <img src="/static/sovran-hub-icon.svg" alt="Sovran Hub" class="header-logo" />
+  <svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true">
 
-    <div class="title-group">
-      <span class="title">Sovran_SystemsOS Hub</span>
+    <!-- The Hub logo (verbatim from app/sovran_systemsos_web/static/sovran-hub-icon.svg) -->
+    <symbol id="g-sovran" viewBox="0 0 256 256">
+        <linearGradient id="sv-bg" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#153126"/><stop offset="55%" stop-color="#0F241B"/><stop offset="100%" stop-color="#091C14"/>
+        </linearGradient>
+        <linearGradient id="sv-outer" x1="70" y1="40" x2="190" y2="210" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stop-color="#42F39A"/><stop offset="45%" stop-color="#28D978"/><stop offset="100%" stop-color="#1AA45D"/>
+        </linearGradient>
+        <linearGradient id="sv-inner" x1="90" y1="60" x2="180" y2="190" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stop-color="#27C86F"/><stop offset="100%" stop-color="#157E49"/>
+        </linearGradient>
+      <rect width="256" height="256" rx="48" ry="48" fill="url(#sv-bg)"/>
+      <rect x="1.5" y="1.5" width="253" height="253" rx="46.5" ry="46.5" fill="none" stroke="rgba(255,255,255,0.08)"/>
+      <path d="M128 32 A96 96 0 1 1 58 196" fill="none" stroke="url(#sv-outer)" stroke-width="12" stroke-linecap="round"/>
+      <path d="M128 56 A72 72 0 1 1 76 178" fill="none" stroke="url(#sv-inner)" stroke-width="10" stroke-linecap="round"/>
+      <circle cx="128" cy="128" r="8" fill="#F2FFF7"/>
+      <circle cx="128" cy="128" r="18" fill="none" stroke="#7BFFC0" stroke-opacity="0.14" stroke-width="4"/>
+    </symbol>
 
-      <!-- OS Version Badge — styled identically to the version badge in service modals -->
-      <span class="os-version-badge" id="os-version-badge" title="Sovran_SystemsOS Version">v{{ sovran_version }}</span>
+    <!-- service glyphs -->
+    <!-- ═══ Real service logos — extracted verbatim from app/icons/*.svg ═══
+         (internal ids namespaced per icon to avoid collisions) -->
+
+    <!-- symbolic helpers (nav + modal internals) -->
+    <!-- Bitcoin nav icon: the OFFICIAL logo silhouette (paths taken verbatim
+         from app/icons/bitcoin-core.svg) rendered monochrome in currentColor
+         so it matches the symbolic sidebar set -->
+    <symbol id="g-btc-sym" viewBox="-34 -34 580 580">
+      <path fill="currentColor" d="M317.871 7.656c-137.12-34.192-276.024 49.28-310.2 186.44-34.208 137.136 49.256 276.048 186.36 310.24 137.16 34.199 276.063-49.265 310.256-186.408 34.192-137.152-49.264-276.08-186.416-310.272m50.936 211.872c-3.688 24.936-17.512 37.008-35.864 41.24 25.2 13.12 38.024 33.239 25.809 68.12-15.16 43.319-51.176 46.976-99.072 37.912l-11.624 46.584-28.088-7 11.472-45.96a1076 1076 0 0 1-22.384-5.809l-11.512 46.177-28.056-7 11.624-46.673c-6.561-1.68-13.225-3.464-20.024-5.168l-36.552-9.111 13.943-32.152s20.696 5.504 20.416 5.096c7.952 1.969 11.48-3.216 12.872-6.672l18.368-73.64.048-.2 13.104-52.568c.344-5.968-1.712-13.496-13.088-16.336.439-.296-20.4-5.072-20.4-5.072l7.472-30 38.736 9.673-.032.144c5.824 1.448 11.824 2.824 17.937 4.216L245.423 89.2l28.072 7-11.28 45.224c7.536 1.721 15.12 3.456 22.504 5.297l11.2-44.929 28.088 7-11.504 46.145c35.464 12.215 61.401 30.527 56.304 64.591"/>
+      <path fill="currentColor" d="m254.647 174.6-13.983 56.08c15.855 3.951 64.735 20.071 72.656-11.656 8.248-33.096-42.817-40.472-58.673-44.424"/>
+      <path fill="currentColor" d="m233.608 258.984-15.425 61.832c19.04 4.729 77.769 23.584 86.448-11.296 9.072-36.376-51.984-45.784-71.023-50.536"/>
+    </symbol>
+
+    <symbol id="g-chat" viewBox="0 0 24 24">
+      <g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M20 5.5v7a2.5 2.5 0 0 1-2.5 2.5H10l-4 3.2c-.6.5-1 .3-1-.5V5.5A2.5 2.5 0 0 1 7.5 3h10A2.5 2.5 0 0 1 20 5.5z"/>
+        <circle cx="8.7" cy="9.2" r="0.5" fill="currentColor"/><circle cx="12" cy="9.2" r="0.5" fill="currentColor"/><circle cx="15.3" cy="9.2" r="0.5" fill="currentColor"/>
+      </g>
+    </symbol>
+
+    <symbol id="g-antenna" viewBox="0 0 24 24">
+      <g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round">
+        <path d="M5.4 9.9a9.3 9.3 0 0 1 13.2 0"/>
+        <path d="M8.1 12.9a5.6 5.6 0 0 1 7.8 0"/>
+        <circle cx="12" cy="16.6" r="1.5" fill="currentColor" stroke="none"/>
+        <path d="M12 16.6V21"/>
+      </g>
+    </symbol>
+
+    <symbol id="g-lock" viewBox="0 0 24 24">
+      <g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="5.5" y="10.5" width="13" height="9.5" rx="2.6"/>
+        <path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/>
+        <circle cx="12" cy="15" r="1.3" fill="currentColor" stroke="none"/>
+      </g>
+    </symbol>
+    <!-- nav + ui symbolic icons -->
+    <symbol id="g-grid" viewBox="0 0 24 24">
+      <g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round">
+        <rect x="3.5" y="3.5" width="7.2" height="7.2" rx="2"/><rect x="13.3" y="3.5" width="7.2" height="7.2" rx="2"/>
+        <rect x="3.5" y="13.3" width="7.2" height="7.2" rx="2"/><rect x="13.3" y="13.3" width="7.2" height="7.2" rx="2"/>
+      </g>
+    </symbol>
+    <symbol id="g-server" viewBox="0 0 24 24">
+      <g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round">
+        <rect x="3.5" y="3.5" width="17" height="7.4" rx="2"/><rect x="3.5" y="13.1" width="17" height="7.4" rx="2"/>
+        <circle cx="7.2" cy="7.2" r="0.6" fill="currentColor"/><circle cx="7.2" cy="16.8" r="0.6" fill="currentColor"/>
+      </g>
+    </symbol>
+    <symbol id="g-dots" viewBox="0 0 24 24">
+      <g fill="currentColor">
+        <circle cx="5" cy="5" r="1.7"/><circle cx="12" cy="5" r="1.7"/><circle cx="19" cy="5" r="1.7"/>
+        <circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/>
+        <circle cx="5" cy="19" r="1.7"/><circle cx="12" cy="19" r="1.7"/><circle cx="19" cy="19" r="1.7"/>
+      </g>
+    </symbol>
+    <symbol id="g-refresh" viewBox="0 0 24 24">
+      <g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <path d="M20 12a8 8 0 1 1-2.9-6.2"/>
+        <path d="M20.6 2.6l-.5 4.9-4.6-1.7z" fill="currentColor" stroke="none"/>
+      </g>
+    </symbol>
+    <symbol id="g-box" viewBox="0 0 24 24">
+      <g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3.5" y="4" width="17" height="4.4" rx="1.6"/>
+        <path d="M5.2 8.4v9a2.4 2.4 0 0 0 2.4 2.4h8.8a2.4 2.4 0 0 0 2.4-2.4v-9"/>
+        <path d="M10 12.5h4"/>
+      </g>
+    </symbol>
+    <symbol id="g-shield-check" viewBox="0 0 24 24">
+      <g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 2.5 4.5 5.5v6c0 4.6 3.1 8 7.5 9.9 4.4-1.9 7.5-5.3 7.5-9.9v-6z"/>
+        <path d="M8.6 12l2.4 2.4 4.4-4.6"/>
+      </g>
+    </symbol>
+    <symbol id="g-lifebuoy" viewBox="0 0 24 24">
+      <g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+        <circle cx="12" cy="12" r="8.6"/><circle cx="12" cy="12" r="3.6"/>
+        <path d="M6 6l3.2 3.2M18 6l-3.2 3.2M6 18l3.2-3.2M18 18l-3.2-3.2"/>
+      </g>
+    </symbol>
+    <symbol id="g-power" viewBox="0 0 24 24">
+      <g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <path d="M7.2 6.1a7 7 0 1 0 9.6 0"/>
+        <path d="M12 2.8v8.4"/>
+      </g>
+    </symbol>
+    <symbol id="g-logout" viewBox="0 0 24 24">
+      <g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M14 4h4.5A1.5 1.5 0 0 1 20 5.5v13a1.5 1.5 0 0 1-1.5 1.5H14"/>
+        <path d="M4 12h10M10.5 8.5 14 12l-3.5 3.5"/>
+      </g>
+    </symbol>
+    <symbol id="g-search" viewBox="0 0 24 24">
+      <g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <circle cx="11" cy="11" r="6.5"/>
+        <path d="M15.8 15.8 21 21"/>
+      </g>
+    </symbol>
+    <symbol id="g-copy" viewBox="0 0 24 24">
+      <g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="9" y="9" width="11" height="11" rx="2.2"/>
+        <path d="M5.5 15H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v.5"/>
+      </g>
+    </symbol>
+    <symbol id="g-check" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.5l5 5 10-11"/></symbol>
+    <symbol id="g-chev" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" d="M9.5 5.5 16 12l-6.5 6.5"/></symbol>
+    <symbol id="g-x" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M6 6l12 12M18 6 6 18"/></symbol>
+    <symbol id="g-wifi" viewBox="0 0 24 24">
+      <g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round">
+        <path d="M4.5 10.2a11 11 0 0 1 15 0"/>
+        <path d="M7.3 13.3a7 7 0 0 1 9.4 0"/>
+        <circle cx="12" cy="17" r="1.4" fill="currentColor" stroke="none"/>
+      </g>
+    </symbol>
+    <symbol id="g-key" viewBox="0 0 24 24">
+      <g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="7.5" cy="15.5" r="4"/>
+        <path d="M10.4 12.6 20 3M16.2 6.8l2.4 2.4M18.8 4.2l2.2 2.2"/>
+      </g>
+    </symbol>
+    <symbol id="g-alert" viewBox="0 0 24 24">
+      <g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 3.6 22.2 20.4H1.8z"/>
+        <path d="M12 9.8v4.6"/><circle cx="12" cy="17.2" r="0.6" fill="currentColor" stroke="none"/>
+      </g>
+    </symbol>
+</svg>
+
+  <div class="app">
+
+    <!-- ═══ SIDEBAR ═══ -->
+    <aside class="sidebar" id="sidebar">
+      <div class="brand">
+        <svg class="brand-logo"><use href="#g-sovran"/></svg>
+        <div class="brand-text">
+          <div class="brand-title">The <em>Hub</em></div>
+          <div class="brand-sub">Sovran_SystemsOS v{{ sovran_version }}</div>
+        </div>
+      </div>
+
+      <nav id="sidebar-nav" aria-label="Service categories"></nav>
+
+      <div class="nav-label">System</div>
+      <div id="sidebar-support"></div>
+
+      <!-- Feature Manager + Preferences (features.js) -->
+      <div id="sidebar-features"></div>
+
+      <div class="sidebar-spacer"></div>
+
+      <div class="sidebar-footer">
+        <span class="role-badge" id="role-badge-wrap" title="Sovran_SystemsOS role">
+          <svg width="13" height="13"><use href="#g-shield-check"/></svg>
+          <span id="role-badge">Loading…</span>
+        </span>
+        <div class="host-note">sovransystemsos.local</div>
+      </div>
+    </aside>
+
+    <!-- ═══ MAIN ═══ -->
+    <div class="main">
+      <header class="topbar">
+        <div class="page-title" id="page-title">Dashboard</div>
+
+        <div class="search-box">
+          <svg><use href="#g-search"/></svg>
+          <input id="search-input" type="text" placeholder="Search services…" autocomplete="off" />
+        </div>
+
+        <div class="net-chip" title="Internal IP · External IP">
+          <svg><use href="#g-wifi"/></svg>
+          <span class="int-wrap"><span class="ip-label">LAN</span><span class="ip-value" id="ip-internal">…</span></span>
+          <span class="net-separator">|</span>
+          <span class="ext-wrap"><span class="ip-label">WAN</span><span class="ip-value" id="ip-external">…</span></span>
+        </div>
+
+        <div class="top-actions">
+          <button class="btn btn-header-reboot" id="btn-header-reboot" title="Restart the entire computer">Reboot</button>
+          <button class="btn btn-logout" id="btn-logout" title="Sign out">Sign Out</button>
+        </div>
+      </header>
+
+      <main class="content" id="content">
+        <!-- Widgets row (dashboard.js) -->
+        <section class="widgets" id="widgets" style="display:none"></section>
+
+        <div id="tiles-area">
+          <div class="dashboard-loading" role="status" aria-live="polite">
+            <span class="dashboard-loading-spinner" aria-hidden="true"></span>
+            <span>Loading service status…</span>
+          </div>
+        </div>
+      </main>
     </div>
 
-    <div class="header-buttons">
-      <span class="role-badge" id="role-badge">Loading…</span>
-      <button class="btn btn-header-reboot" id="btn-header-reboot" title="Restart the entire computer">Reboot</button>
-      <button class="btn btn-logout" id="btn-logout" title="Sign out">Sign Out</button>
-    </div>
-  </header>
-
-  <!-- IP bar -->
-  <div class="ip-bar">
-    <span>
-      <span class="ip-label">Internal IP:</span>
-      <span class="ip-value" id="ip-internal">…</span>
-    </span>
-    <span class="ip-separator">|</span>
-    <span>
-      <span class="ip-label">External IP:</span>
-      <span class="ip-value" id="ip-external">…</span>
-    </span>
   </div>
 
-  <!-- Service tiles -->
-  <main class="main-content">
-    <aside class="sidebar" id="sidebar">
-      <div id="sidebar-support"></div>
-      <div id="sidebar-features"></div>
-    </aside>
-    <div id="tiles-area">
-      <div class="dashboard-loading" role="status" aria-live="polite">
-        <span class="dashboard-loading-spinner" aria-hidden="true"></span>
-        <span>Loading service status…</span>
+  <!-- ═══ SYSTEMS OPERATIONAL MODAL (dashboard.js) ═══ -->
+  <div class="modal-overlay" id="systems-modal" role="dialog" aria-modal="true" aria-labelledby="systems-modal-title">
+    <div class="creds-dialog">
+      <div class="creds-header">
+        <span class="creds-title" id="systems-modal-title">
+          <span class="widget-chip chip-green" style="width:54px;height:54px;border-radius:16px"><svg style="width:27px;height:27px"><use href="#g-shield-check"/></svg></span>
+          <span>Systems Operational</span>
+        </span>
+        <button class="creds-close-btn" id="systems-close-btn" title="Close">✕</button>
+      </div>
+      <div class="creds-body" id="systems-body">
+        <p class="creds-loading">Loading…</p>
       </div>
     </div>
-  </main>
+  </div>
 
   <!-- Update modal -->
   <div class="modal-overlay" id="update-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title-text">
@@ -256,7 +447,7 @@
   <div class="reboot-overlay" id="reboot-overlay">
     <!-- Normal restarting card -->
     <div class="reboot-card" id="reboot-main-card">
-      <div class="reboot-icon" aria-hidden="true">↻</div>
+      <div class="reboot-icon" aria-hidden="true"></div>
       <h2 class="reboot-title">Restarting Entire System</h2>
       <p class="reboot-message">
         The entire computer is restarting, including the desktop and all hosted services.<br />
@@ -271,7 +462,7 @@
     </div>
     <!-- Error card (shown if restart request fails definitively) -->
     <div class="reboot-card" id="reboot-error-card" style="display:none">
-      <div class="reboot-icon" aria-hidden="true">⚠</div>
+      <div class="reboot-icon" aria-hidden="true"></div>
       <h2 class="reboot-title">Restart could not be started</h2>
       <p class="reboot-message">
         The computer did not begin restarting. No services were intentionally stopped. Please try again.
@@ -316,6 +507,7 @@
   <script src="/static/js/rebuild.js?v={{ asset_version }}"></script>
   <script src="/static/js/features.js?v={{ asset_version }}"></script>
   <script src="/static/js/security.js?v={{ asset_version }}"></script>
+  <script src="/static/js/dashboard.js?v={{ asset_version }}"></script>
   <script src="/static/js/events.js?v={{ asset_version }}"></script>
 </body>
 </html>

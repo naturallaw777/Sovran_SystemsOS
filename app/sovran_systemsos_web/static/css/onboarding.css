@@ -7,7 +7,7 @@
   justify-content: flex-start;
   min-height: 100vh;
   background:
-    radial-gradient(ellipse at top, rgba(94, 173, 138, 0.04) 0%, transparent 50%),
+    radial-gradient(ellipse at top, rgba(62, 207, 142, 0.04) 0%, transparent 50%),
     var(--bg-color);
   padding: 24px 16px 48px;
   overflow-y: auto;
@@ -70,13 +70,13 @@
 .onboarding-step-dot.active {
   background-color: var(--accent-color);
   border-color: var(--accent-color);
-  color: #0A1A10;
+  color: #04220f;
 }
 
 .onboarding-step-dot.completed {
   background-color: var(--green);
   border-color: var(--green);
-  color: #0A1A10;
+  color: #04220f;
 }
 
 .onboarding-step-connector {
@@ -139,7 +139,7 @@
 /* Cards */
 
 .onboarding-card {
-  background-color: rgba(14, 16, 15, 0.65);
+  background-color: rgba(18, 24, 20, 0.65);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   border: 1px solid rgba(255, 255, 255, 0.06);
@@ -184,10 +184,10 @@
   font-size: 0.82rem;
   font-weight: 700;
   color: var(--accent-color);
-  background-color: rgba(94, 173, 138, 0.10);
+  background-color: rgba(62, 207, 142, 0.10);
   padding: 3px 10px;
   border-radius: 20px;
-  border: 1px solid rgba(94, 173, 138, 0.25);
+  border: 1px solid rgba(62, 207, 142, 0.25);
 }
 
 /* Step header */
@@ -371,8 +371,8 @@
 
 .onboarding-port-warn {
   padding: 10px 14px;
-  background-color: rgba(229, 165, 10, 0.1);
-  border: 1px solid rgba(229, 165, 10, 0.35);
+  background-color: rgba(233, 182, 74, 0.1);
+  border: 1px solid rgba(233, 182, 74, 0.35);
   border-radius: 8px;
   font-size: 0.85rem;
   color: var(--yellow);
@@ -409,8 +409,8 @@
 
 .onboarding-creds-notice {
   padding: 12px 16px;
-  background-color: rgba(94, 173, 138, 0.08);
-  border: 1px solid rgba(94, 173, 138, 0.20);
+  background-color: rgba(62, 207, 142, 0.08);
+  border: 1px solid rgba(62, 207, 142, 0.20);
   border-radius: 8px;
   font-size: 0.85rem;
   color: var(--text-secondary);
@@ -503,8 +503,8 @@
   font-size: 0.72rem;
   padding: 2px 8px;
   border-radius: 4px;
-  background-color: rgba(94, 173, 138, 0.08);
-  border: 1px solid rgba(94, 173, 138, 0.20);
+  background-color: rgba(62, 207, 142, 0.08);
+  border: 1px solid rgba(62, 207, 142, 0.20);
   color: var(--accent-color);
   cursor: pointer;
   white-space: nowrap;
@@ -512,7 +512,7 @@
 }
 
 .onboarding-cred-reveal-btn:hover {
-  background-color: rgba(94, 173, 138, 0.15);
+  background-color: rgba(62, 207, 142, 0.15);
 }
 
 /* Completion checklist (Step 5) */
@@ -671,7 +671,7 @@
 }
 
 .onboarding-password-toggle:hover {
-  background-color: rgba(94, 173, 138, 0.10);
+  background-color: rgba(62, 207, 142, 0.10);
   border-color: var(--accent-color);
 }
 
@@ -683,8 +683,8 @@
 
 .onboarding-password-warning {
   padding: 10px 14px;
-  background-color: rgba(229, 165, 10, 0.1);
-  border: 1px solid rgba(229, 165, 10, 0.35);
+  background-color: rgba(233, 182, 74, 0.1);
+  border: 1px solid rgba(233, 182, 74, 0.35);
   border-radius: 8px;
   font-size: 0.85rem;
   color: var(--yellow);
@@ -694,8 +694,8 @@
 
 .onboarding-password-success {
   padding: 12px 16px;
-  background-color: rgba(94, 173, 138, 0.10);
-  border: 1px solid rgba(94, 173, 138, 0.30);
+  background-color: rgba(62, 207, 142, 0.10);
+  border: 1px solid rgba(62, 207, 142, 0.30);
   border-radius: 8px;
   font-size: 0.92rem;
   color: var(--green);
@@ -748,7 +748,7 @@
 }
 
 .reboot-card {
-  background-color: rgba(14, 16, 15, 0.8);
+  background-color: rgba(18, 24, 20, 0.8);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.08);

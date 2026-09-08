@@ -5,34 +5,133 @@ button {
   cursor: pointer;
   border: none;
   outline: none;
-  transition: opacity 0.15s, box-shadow 0.15s, background-color 0.15s;
+  transition: background 0.16s, border-color 0.16s, color 0.16s, transform 0.16s, filter 0.16s, opacity 0.15s;
 }
 
 button:disabled {
-  opacity: 0.45;
+  opacity: 0.55;
   cursor: default;
+  pointer-events: none;
 }
 
 .btn {
-  padding: 7px 16px;
-  border-radius: var(--radius-btn);
-  font-size: 0.88rem;
-  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 99px;
+  padding: 8px 18px;
+  font-size: 0.84rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  border: 1px solid transparent;
+  white-space: nowrap;
 }
 
+.btn svg { width: 15px; height: 15px; }
+.btn:active { transform: scale(0.97); }
+
 .btn-primary {
-  background-color: var(--accent-color);
-  color: #0A1A10;
+  background: linear-gradient(180deg, #3fd68e, #1ea263);
+  color: #04220f;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), 0 6px 18px rgba(35, 199, 124, 0.22);
 }
 
 .btn-primary:hover:not(:disabled) {
-  opacity: 0.88;
+  filter: brightness(1.08);
+  transform: translateY(-1px);
 }
 
-/* Update System button: uses accent green by default */
+.btn-primary:active:not(:disabled) { transform: scale(0.97); }
+
+/* Ghost — the default secondary action (legacy: btn-close-modal / btn-save) */
+.btn-ghost,
+.btn-close-modal,
+.btn-save {
+  background: transparent;
+  border-color: var(--border-strong);
+  color: var(--text-2);
+}
+
+.btn-ghost:hover:not(:disabled),
+.btn-close-modal:hover:not(:disabled),
+.btn-save:hover:not(:disabled) {
+  color: var(--text);
+  border-color: rgba(255, 255, 255, 0.26);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+/* Amber — destructive-ish confirmations (restart, reboot, retry) */
+.btn-amber,
+.btn-reboot,
+.btn-restart-amber,
+.btn-warning {
+  background: rgba(233, 182, 74, 0.10);
+  border-color: rgba(233, 182, 74, 0.32);
+  color: #f2c45e;
+}
+
+.btn-amber:hover:not(:disabled),
+.btn-reboot:hover:not(:disabled),
+.btn-restart-amber:hover:not(:disabled),
+.btn-warning:hover:not(:disabled) {
+  background: rgba(233, 182, 74, 0.18);
+  border-color: rgba(233, 182, 74, 0.5);
+}
+
+.btn-danger {
+  background: rgba(246, 97, 81, 0.10);
+  border-color: rgba(246, 97, 81, 0.35);
+  color: #f8a39b;
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: rgba(246, 97, 81, 0.18);
+  border-color: rgba(246, 97, 81, 0.5);
+}
+
+.btn-sm { padding: 6px 14px; font-size: 0.77rem; }
+
+/* ── Header / topbar buttons ────────────────────────────────────── */
+
+.btn-header-reboot {
+  background: rgba(233, 182, 74, 0.10);
+  border: 1px solid rgba(233, 182, 74, 0.32);
+  color: #f2c45e;
+  font-size: 0.77rem;
+  font-weight: 700;
+  padding: 6px 14px;
+  border-radius: 99px;
+}
+
+.btn-header-reboot:hover:not(:disabled) {
+  background: rgba(233, 182, 74, 0.18);
+  border-color: rgba(233, 182, 74, 0.5);
+}
+
+.btn-logout {
+  background: transparent;
+  border: 1px solid var(--border-strong);
+  color: var(--text-2);
+  font-size: 0.77rem;
+  font-weight: 700;
+  padding: 6px 14px;
+  border-radius: 99px;
+}
+
+.btn-logout:hover {
+  color: var(--text);
+  border-color: rgba(255, 255, 255, 0.26);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+/* ── Update System button (sidebar) ─────────────────────────────── */
+
 .btn-update {
-  background-color: #4A9474;
-  color: #E0F2EA;
+  background: transparent;
+  border: 1px solid var(--border-strong);
+  color: var(--text-2);
   position: relative;
   display: flex;
   align-items: center;
@@ -40,24 +139,22 @@ button:disabled {
 }
 
 .btn-update:hover:not(:disabled) {
-  opacity: 0.88;
+  color: var(--text);
+  border-color: rgba(255, 255, 255, 0.26);
+  background: rgba(255, 255, 255, 0.04);
 }
 
-/* Update System button: brighter green when updates are available */
 .btn-update.has-updates {
-  background-color: #5EAD8A;
-  color: #0A1A10;
-}
-
-.btn-update.has-updates:hover:not(:disabled) {
-  background-color: #78C8A2;
+  background: rgba(66, 243, 154, 0.12);
+  border-color: rgba(66, 243, 154, 0.4);
+  color: var(--accent);
 }
 
 .update-badge {
   display: none;
   width: 10px;
   height: 10px;
-  background-color: var(--yellow);
+  background-color: var(--amber);
   border-radius: 50%;
   animation: pulse-badge 1.4s ease-in-out infinite;
 }
@@ -71,9 +168,11 @@ button:disabled {
   50%       { opacity: 0.5; transform: scale(1.35); }
 }
 
+/* ── Icon buttons ───────────────────────────────────────────────── */
+
 .btn-icon {
   background: none;
-  color: var(--text-secondary);
+  color: var(--text-2);
   padding: 6px;
   border-radius: 50%;
   font-size: 1.1rem;
@@ -81,6 +180,6 @@ button:disabled {
 }
 
 .btn-icon:hover:not(:disabled) {
-  background-color: var(--border-color);
-  color: var(--text-primary);
+  background-color: rgba(255, 255, 255, 0.06);
+  color: var(--text);
 }

@@ -104,7 +104,7 @@
 }
 
 .support-steps code {
-  background-color: rgba(94, 173, 138, 0.10);
+  background-color: rgba(62, 207, 142, 0.10);
   padding: 2px 6px;
   border-radius: 4px;
   font-size: 0.82rem;
@@ -116,7 +116,7 @@
   padding: 12px;
   border-radius: var(--radius-btn);
   background-color: var(--accent-color);
-  color: #0A1A10;
+  color: #04220f;
   font-size: 0.95rem;
   font-weight: 700;
   margin-bottom: 10px;
@@ -146,7 +146,7 @@
   padding: 12px;
   border-radius: var(--radius-btn);
   background-color: var(--accent-color);
-  color: #0A1A10;
+  color: #04220f;
   font-size: 0.95rem;
   font-weight: 700;
   margin-top: 16px;
@@ -168,7 +168,7 @@
 }
 
 .support-btn-auditlog:hover:not(:disabled) {
-  background-color: #1c2a24;
+  background-color: var(--card-hover);
 }
 
 .support-fine-print {
@@ -219,13 +219,13 @@
 }
 
 .support-wallet-protected {
-  background-color: rgba(109, 191, 139, 0.06);
-  border-color: rgba(109, 191, 139, 0.3);
+  background-color: rgba(66, 243, 154, 0.06);
+  border-color: rgba(66, 243, 154, 0.3);
 }
 
 .support-wallet-unlocked {
-  background-color: rgba(229, 165, 10, 0.06);
-  border-color: rgba(229, 165, 10, 0.3);
+  background-color: rgba(233, 182, 74, 0.06);
+  border-color: rgba(233, 182, 74, 0.3);
 }
 
 .support-wallet-warning {
@@ -290,7 +290,7 @@
   padding: 8px 16px;
   border-radius: var(--radius-btn);
   background-color: var(--yellow);
-  color: #0A1A10;
+  color: #04220f;
   font-size: 0.82rem;
   font-weight: 700;
 }
@@ -310,7 +310,7 @@
 }
 
 .support-btn-wallet-lock:hover:not(:disabled) {
-  background-color: #529E7E;
+  background-color: var(--accent);
 }
 
 /* ── Audit log ───────────────────────────────────────────────────── */
@@ -324,7 +324,7 @@
 .support-audit-log {
   max-height: 200px;
   overflow-y: auto;
-  background-color: #0c0f0e;
+  background-color: var(--inset);
   border-radius: 8px;
   padding: 10px 14px;
 }

@@ -696,6 +696,17 @@ async function openServiceDetailModal(unit, name, icon) {
       : (data.health || data.status);
     var sc = statusClass(effectiveHealth);
     var st = statusText(effectiveHealth, effectiveEnabled);
+    if ($credsTitle) {
+      var existingPill = $credsTitle.querySelector(".creds-title-status-pill");
+      if (!existingPill) {
+        var pill = document.createElement("span");
+        pill.className = "creds-title-status-pill";
+        $credsTitle.appendChild(pill);
+        existingPill = pill;
+      }
+      existingPill.className = "creds-title-status-pill st-" + sc;
+      existingPill.textContent = st;
+    }
     addSetup('<div class="svc-detail-section">' +
       '<div class="svc-detail-section-title">Status</div>' +
       '<div class="svc-detail-status">' +

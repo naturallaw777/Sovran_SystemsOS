@@ -1,6 +1,11 @@
 /* Sovran_SystemsOS Hub — Web UI Stylesheet
-   Dark theme — near-black with green accents matching the Sovran Hub icon
-   v8 — Black-forward, green used for accents/borders/highlights only */
+   The Hub redesign — softer dark theme, GNOME 50 / libadwaita surfaces,
+   Sovran green reserved for status and actions.
+
+   Design tokens are defined once here. Legacy variable names from the
+   previous theme are aliased to the new values so every stylesheet
+   (support, security, domain-setup, onboarding, …) re-skins without
+   needing per-rule edits. */
 
 *, *::before, *::after {
   box-sizing: border-box;
@@ -9,22 +14,48 @@
 }
 
 :root {
-  --bg-color:        #080a09;
-  --surface-color:   rgba(14, 16, 15, 0.7);
-  --card-color:      rgba(20, 22, 21, 0.6);
-  --border-color:    rgba(255, 255, 255, 0.06);
-  --text-primary:    #ecf3ef;
-  --text-secondary:  #8aaa9a;
-  --text-dim:        #4a6658;
-  --accent-color:    #5EAD8A;
-  --green:           #6DBF8B;
-  --yellow:          #e5a50a;
-  --red:             #e01b24;
-  --grey:            #5E7A6A;
-  --radius-card:     18px;
-  --radius-btn:      8px;
-  --shadow-card:     0 4px 16px rgba(0, 0, 0, 0.4);
-  --shadow-hover:    0 8px 32px rgba(0, 0, 0, 0.5);
+  color-scheme: dark;
+
+  /* ── The Hub palette ─────────────────────────────────────────── */
+  --bg:            #141a16;
+  --surface:       #181f1b;
+  --card:          #1e2621;
+  --card-hover:    #232d27;
+  --elevated:      #212925;
+  --inset:         #121814;
+  --border:        rgba(255, 255, 255, 0.07);
+  --border-strong: rgba(255, 255, 255, 0.14);
+  --text:          #e3ede7;
+  --text-2:        #a8bcb0;
+  --text-3:        #6e8578;
+  --accent:        #3ecf8e;
+  --accent-strong: #42f39a;
+  --accent-deep:   #1aa45d;
+  --accent-dim:    rgba(66, 243, 154, 0.12);
+  --amber:         #e9b64a;
+  --red:           #f66151;
+  --blue:          #78aeed;
+  --mono:          'JetBrains Mono', 'Fira Code', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --radius-card:   20px;
+  --radius-dialog: 26px;
+  --shadow-card:   0 10px 30px rgba(0, 0, 0, 0.25);
+  --shadow-hover:  0 16px 36px rgba(0, 0, 0, 0.38);
+  --shadow-pop:    0 30px 80px rgba(0, 0, 0, 0.5);
+
+  /* ── Legacy aliases (previous theme) — keep every old sheet working */
+  --bg-color:        var(--bg);
+  --surface-color:   var(--surface);
+  --card-color:      var(--card);
+  --border-color:    var(--border);
+  --text-primary:    var(--text);
+  --text-secondary:  var(--text-2);
+  --text-dim:        var(--text-3);
+  --accent-color:    var(--accent);
+  --green:           var(--accent);
+  --yellow:          var(--amber);
+  --red:             var(--red);
+  --grey:            var(--text-3);
+  --radius-btn:      12px;
 }
 
 html, body {
@@ -32,19 +63,39 @@ html, body {
 }
 
 body {
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  background:
-    radial-gradient(ellipse at top, rgba(94, 173, 138, 0.04) 0%, transparent 50%),
-    var(--bg-color);
-  color: var(--text-primary);
+  font-family: Inter, Cantarell, 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 15px;
   line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
   min-height: 100vh;
-  display: flex;
-  flex-direction: column;
   overflow: hidden;
 }
 
-/* ── Login page ──────────────────────────────────────────────────── */
+/* Soft brand wash so the canvas never reads flat-black */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(1100px 520px at 16% -12%, rgba(66, 243, 154, 0.04), transparent 60%),
+    radial-gradient(900px 600px at 110% 110%, rgba(26, 169, 110, 0.05), transparent 55%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+button { font-family: inherit; }
+
+::selection { background: rgba(66, 243, 154, 0.25); }
+
+/* ── Scrollbars ─────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.10); border-radius: 99px; border: 2px solid transparent; background-clip: padding-box; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.18); background-clip: padding-box; }
+::-webkit-scrollbar-track { background: transparent; }
+
+/* ── Login page ─────────────────────────────────────────────────── */
 
 .login-wrapper {
   display: flex;
@@ -52,86 +103,103 @@ body {
   justify-content: center;
   min-height: 100vh;
   padding: 24px;
+  position: relative;
+  z-index: 1;
 }
 
 .login-card {
-  background-color: rgba(14, 16, 15, 0.75);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 20px;
-  padding: 48px 40px;
   width: 100%;
-  max-width: 400px;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  max-width: 402px;
+  text-align: center;
+  background: var(--elevated);
+  border: 1px solid var(--border-strong);
+  border-radius: 28px;
+  padding: 46px 42px 38px;
+  box-shadow: var(--shadow-pop);
 }
 
 .login-header {
   text-align: center;
-  margin-bottom: 32px;
+  margin-bottom: 26px;
 }
 
 .login-logo {
-  height: 64px;
-  margin-bottom: 16px;
+  width: 78px;
+  height: 78px;
+  margin-bottom: 18px;
+  filter: drop-shadow(0 8px 24px rgba(28, 196, 120, 0.3));
 }
 
 .login-title {
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: var(--text-primary);
+  font-size: 1.3rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+
+.login-title em { font-style: normal; color: var(--accent); }
+
+.login-sub {
+  color: var(--text-2);
+  font-size: 0.85rem;
+  margin: 7px 0 0;
 }
 
 .login-form {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 14px;
 }
 
 .form-group label {
   display: block;
-  font-size: 0.82rem;
-  font-weight: 600;
-  color: var(--text-secondary);
+  font-size: 0.8rem;
+  font-weight: 650;
+  color: var(--text-2);
   margin-bottom: 6px;
+  text-align: left;
 }
 
 .form-group input {
   width: 100%;
-  padding: 10px 14px;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-btn);
-  background-color: var(--card-color);
-  color: var(--text-primary);
+  padding: 11px 16px;
+  border: 1px solid var(--border-strong);
+  border-radius: 14px;
+  background: var(--inset);
+  color: var(--text);
+  font: inherit;
   font-size: 0.92rem;
+  outline: 0;
+  transition: border-color 0.15s, box-shadow 0.15s;
 }
 
 .form-group input:focus {
-  outline: none;
-  border-color: var(--accent-color);
+  border-color: rgba(66, 243, 154, 0.55);
+  box-shadow: 0 0 0 3px rgba(66, 243, 154, 0.13);
 }
 
 .btn-login {
   width: 100%;
   padding: 12px;
-  border-radius: var(--radius-btn);
-  background-color: var(--accent-color);
-  color: #0A1A10;
-  font-size: 0.95rem;
+  border-radius: 99px;
+  background: linear-gradient(180deg, #3fd68e, #1ea263);
+  color: #04220f;
+  font-size: 0.92rem;
   font-weight: 700;
   margin-top: 8px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), 0 6px 18px rgba(35, 199, 124, 0.22);
 }
 
-.btn-login:hover {
-  opacity: 0.88;
+.btn-login:hover:not(:disabled) {
+  filter: brightness(1.08);
 }
 
 .login-error {
-  background-color: rgba(224, 27, 36, 0.12);
-  border: 1px solid var(--red);
-  color: #f87171;
+  background: rgba(246, 97, 81, 0.10);
+  border: 1px solid rgba(246, 97, 81, 0.35);
+  color: #f8a39b;
   padding: 10px 14px;
-  border-radius: 8px;
+  border-radius: 12px;
   font-size: 0.85rem;
   display: none;
 }
