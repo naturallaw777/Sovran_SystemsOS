@@ -823,57 +823,8 @@
 
 /* ── Responsive ─────────────────────────────────────────────────── */
 
-@media (max-width: 768px) {
-  body {
-    overflow: auto;
-  }
-  .main-content {
-    flex-direction: column;
-    overflow: visible;
-  }
-  .sidebar {
-    width: 100%;
-    height: auto;
-    border-right: none;
-    border-bottom: 1px solid var(--border-color);
-    padding: 14px 12px;
-  }
-  #tiles-area {
-    height: auto;
-    overflow-y: visible;
-    padding: 16px 12px 40px;
-  }
-}
-
-@media (max-width: 600px) {
-  .header-bar {
-    padding: 10px 14px;
-    gap: 10px;
-  }
-  .header-bar .title {
-    font-size: 0.95rem;
-  }
-  .ip-bar {
-    gap: 16px;
-    flex-wrap: wrap;
-    padding: 8px 14px;
-  }
-  .tiles-grid {
-    justify-content: center;
-  }
-  .service-tile {
-    width: 140px;
-    min-height: 130px;
-  }
-  .reboot-card {
-    padding: 36px 28px;
-    margin: 0 16px;
-  }
-  .creds-dialog {
-    margin: 0 12px;
-  }
-  .creds-qr-img {
-    width: 200px;
-    height: 200px;
-  }
-}
+/* Legacy pre-redesign narrow-screen rules removed: they targeted the old
+   DOM (.main-content, .header-bar, .ip-bar) and their .sidebar /
+   #tiles-area / .service-tile / .creds-qr-img overrides fought the new
+   responsive layout in layout.css (sidebar icon rail, wrapping topbar).
+   Narrow-viewport behavior now lives in layout.css + header.css. */

@@ -345,13 +345,18 @@
 
     /* Router — a simple open / not-open verdict. How to open the ports is
        covered during onboarding, so the modal does not repeat instructions.
-       Node-only role: ports only matter once BTCPay Server or Lightning
-       Wallet Connections (LNURL) is turned on. */
-    if (isNodeRole() && !hasEnabledDomainService(c.services)) {
+       When no domain service is enabled (a fresh Desktop-only install, a
+       Node with BTCPay/LNURL off, or everything turned off), there is
+       nothing to check on the router — say so instead of listing services
+       this machine does not have. */
+    if (!hasEnabledDomainService(c.services)) {
+      var noRouterDesc = isNodeRole()
+        ? 'Ports 80 and 443 only need to be forwarded on your router if you turn on <strong>BTCPay Server</strong> or <strong>Lightning Wallet Connections (LNURL)</strong>. If you enable one of them, come back here to check your ports.'
+        : 'None of your services need ports forwarded from your router right now. If you turn on a service that uses a domain, come back here to check your ports.';
       html += '<div class="sysmodal-card">' +
         '<div class="sysmodal-card-title">' + icon("g-wifi") + 'Router</div>' +
         '<div class="sysnote"><div class="sysnote-title">' + icon("g-check") + 'No router setup needed yet</div>' +
-        '<div class="sysnote-desc">Ports 80 and 443 only need to be forwarded on your router if you turn on <strong>BTCPay Server</strong> or <strong>Lightning Wallet Connections (LNURL)</strong>. If you enable one of them, come back here to check your ports.</div></div>' +
+        '<div class="sysnote-desc">' + noRouterDesc + '</div></div>' +
         '</div>';
     } else {
       html += '<div class="sysmodal-card" id="sys-ports-card" style="display:none">' +
@@ -360,9 +365,9 @@
         '</div>';
     }
 
-    /* Who uses these ports (redundant on a Node install with no domain
-       services on — the router note above already covers it) */
-    if (!isNodeRole() || hasEnabledDomainService(c.services)) {
+    /* Who uses these ports (only meaningful when a domain service is
+       actually enabled — otherwise the router note above covers it) */
+    if (hasEnabledDomainService(c.services)) {
       html += '<div class="sysnote" style="margin-top:14px">' +
         '<div class="sysnote-title">' + icon("g-antenna") + 'Who uses these ports</div>' +
         '<div class="sysnote-desc">' + whoUsesPorts() + '</div></div>';
