@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.1.5] - 2026-09-09
+
+### Added
+- Hub: don't claim the OS "keeps itself current" on the dashboard
+- Hub: point RTL credentials at /rtl/ and bump dev version to 0.15.12
+- Make dashboard cards uniform and symmetric; stop clipping update text
+- Add boot splash; separate Systems Operational and Security icons
+- Extend welcome dashboard background to the panel edges
+- Add welcome dashboard as default view
+- Monochrome updater glyph; fix oversized dialog header icon
+- Merge Bitcoin categories into one; rename Self-Hosted Apps to Personal Apps
+- Neutral graphite theme; branded updater icon
+- Simplify Systems Operational, reword Domain Status, blue restart buttons
+- Polish pass: sysops wording, QR size, NWC toolbar, logo, diagnostics placement
+- Rework Update System dialog to the approved design; match rebuild dialog
+- Redesign The Hub web UI: softer dark theme, sidebar nav, status widgets
+- Nixpkgs update
+- Switch LibreOffice from fresh to stable version
+- Ui: simplify element-calling port modal — trim verbose steps and remove extra verification task
+
+### Changed
+- Updated nixpkgs
+- Updated Sovran-Bitcoin
+- Updated flake to build through the new sovran-bitcoin input
+
+### Fixed
+- Fix role fit-and-finish: Desktop-only router note, narrow-viewport layout
+- Self-heal truncated/corrupt Nix downloads and keep failed updates retryable
+[1.1.5]: https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS/releases/tag/v1.1.5
+
+
 ## [1.1.4] - 2026-09-02
 
 ### Added
