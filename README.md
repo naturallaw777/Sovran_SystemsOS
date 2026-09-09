@@ -281,9 +281,9 @@ From one place, the Hub helps you:
 - Reach your Bitcoin tools, private cloud, and communications
 - Perform supported system operations without everyday terminal commands
 
-<img src="assets/sovran-hub-screenshot.webp" alt="The Sovran Hub dashboard" width="800" />
+<img src="assets/sovran-hub-screenshot.webp" alt="The Sovran Hub welcome dashboard" width="800" />
 
-*The Sovran Hub: manage your private infrastructure from one place.*
+*The Sovran Hub: your whole system at a glance — Bitcoin, Lightning, and your private apps.*
 
 ### Example home setup
 
