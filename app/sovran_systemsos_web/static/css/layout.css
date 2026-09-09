@@ -358,9 +358,17 @@
 
 .welcome-cards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  grid-template-columns: repeat(2, 1fr);
+  grid-auto-rows: 1fr; /* both rows share the taller height → uniform cards */
   gap: 16px;
   margin-top: 34px;
+}
+
+/* Three cards (Desktop-only role, no Bitcoin card) → one symmetric row */
+@media (min-width: 681px) {
+  .welcome-cards:not(:has(#w-btc)) {
+    grid-template-columns: repeat(3, 1fr);
+  }
 }
 
 /* wrappers whose children become grid items */
@@ -384,7 +392,7 @@
 }
 
 .w-network .ip-value {
-  font-size: 0.82rem;
+  font-size: 0.8rem;
   font-weight: 600;
   color: var(--text);
 }
@@ -408,9 +416,11 @@
   position: relative;
   overflow: hidden;
   min-width: 0;
+  min-height: 88px; /* uniform card height everywhere */
 }
 
 .widget:hover { border-color: var(--border-strong); }
+.widget.clickable:hover { transform: translateY(-1px); }
 
 .widget.clickable { cursor: pointer; }
 .widget.clickable:focus-visible {
@@ -465,11 +475,10 @@
 
 .widget .sub {
   margin-top: 4px;
-  font-size: 0.78rem;
+  font-size: 0.8rem;
+  line-height: 1.45;
   color: var(--text-2);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
 }
 
 .widget .sub b { color: var(--text); font-weight: 650; }
@@ -491,22 +500,6 @@
   transition: width 0.6s cubic-bezier(0.3, 0.7, 0.3, 1);
 }
 
-.w-chev {
-  margin-left: auto;
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  color: var(--text-3);
-  flex-shrink: 0;
-}
-
-.w-chev svg { width: 15px; height: 15px; }
-.widget.clickable:hover .w-chev {
-  color: var(--text-2);
-  background: rgba(255, 255, 255, 0.07);
-}
 
 /* ── Tiles area ─────────────────────────────────────────────────── */
 

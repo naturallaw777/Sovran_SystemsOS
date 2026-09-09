@@ -232,7 +232,6 @@
       '<div class="widget clickable" id="w-systems" role="button" tabindex="0" title="System status and router setup">' +
         '<div class="widget-chip chip-green">' + icon("g-pulse") + '</div>' +
         '<div class="w-body"><h3>' + attentionTitle + '</h3><div class="sub">' + sub + '</div></div>' +
-        '<span class="w-chev">' + icon("g-chev") + '</span>' +
       '</div>';
 
     var wSys = document.getElementById("w-systems");
@@ -259,7 +258,6 @@
           '<div class="w-body"><h3>' + escHtml(btc.name) + ' — syncing timechain</h3>' +
           '<div class="w-bar"><div class="w-bar-fill" style="width:' + pct + '%"></div></div>' +
           '<div class="sub">Block <b>' + blocks + '</b> · ' + pct + '% · <span class="warn">' + escHtml(eta) + '</span></div></div>' +
-          '<span class="w-chev">' + icon("g-chev") + '</span>' +
         '</div>';
     } else {
       var btcDone = null;
@@ -270,20 +268,31 @@
           '<div class="widget clickable" id="w-btc" role="button" tabindex="0" title="' + escHtml(btcDone.name) + ' details">' +
             '<div class="widget-chip chip-btc"><img src="/static/icons/' + escHtml(btcDone.icon) + '.svg" alt="" style="width:46px;height:46px;display:block;object-fit:contain"/></div>' +
             '<div class="w-body"><h3>' + escHtml(btcDone.name) + '</h3><div class="sub"><span class="good">Fully synced</span>' + (blk ? ' · Block <b>' + blk + '</b>' : '') + '</div></div>' +
-            '<span class="w-chev">' + icon("g-chev") + '</span>' +
           '</div>';
       }
     }
 
-    /* Updates */
+    /* Updates — mirror the sidebar's read of the update state, so the card
+       never claims "up to date" while an update failed or needs a restart */
     var upd = (typeof window._lastUpdateCheck === "object" && window._lastUpdateCheck) ? window._lastUpdateCheck : null;
-    var hasUpdates = !!(upd && upd.available);
+    var updStatus = (upd && upd.status) || "idle";
+    var updTitle, updSub, updChip;
+    if (updStatus === "failed") {
+      updTitle = "Update failed"; updSub = "Click to retry the update"; updChip = "chip-amber";
+    } else if (updStatus === "reboot_required") {
+      updTitle = "Restart required"; updSub = "Click to restart and finish the update"; updChip = "chip-amber";
+    } else if (updStatus === "running") {
+      updTitle = "Update in progress"; updSub = "Installing the new system generation"; updChip = "chip-amber";
+    } else if (upd && upd.available) {
+      updTitle = "Updates available"; updSub = "Click to review and update"; updChip = "chip-amber";
+    } else {
+      updTitle = "System is up to date"; updSub = "Sovran_SystemsOS keeps itself current"; updChip = "chip-green";
+    }
     more +=
       '<div class="widget clickable" id="w-updates" role="button" tabindex="0" title="Check for system updates">' +
-        '<div class="widget-chip ' + (hasUpdates ? "chip-amber" : "chip-green") + '">' + icon("g-update") + '</div>' +
-        '<div class="w-body"><h3>' + (hasUpdates ? "Updates available" : "System is up to date") + '</h3>' +
-        '<div class="sub">' + (hasUpdates ? 'Click to review and update' : 'Sovran_SystemsOS keeps itself current') + '</div></div>' +
-        '<span class="w-chev">' + icon("g-chev") + '</span>' +
+        '<div class="widget-chip ' + updChip + '">' + icon("g-update") + '</div>' +
+        '<div class="w-body"><h3>' + updTitle + '</h3>' +
+        '<div class="sub">' + updSub + '</div></div>' +
       '</div>';
 
     $wcMore.innerHTML = more;
