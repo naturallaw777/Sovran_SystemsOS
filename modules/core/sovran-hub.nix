@@ -51,8 +51,8 @@ let
       ]; }
       { name = "LND";                unit = "lnd.service";          type = "system"; icon = "lnd";          enabled = cfg.services.bitcoin;  category = "bitcoin-apps"; credentials = []; }
       { name = "Ride The Lightning"; unit = "rtl.service";          type = "system"; icon = "rtl";          enabled = cfg.services.bitcoin;  category = "bitcoin-apps"; credentials = [
-        { label = "Tor Address — Access from anywhere via Tor Browser"; file = "/var/lib/tor/onion/rtl/hostname"; prefix = "http://"; }
-        { label = "Local Network — Access on your home network only"; file = "/var/lib/secrets/internal-ip"; prefix = "http://"; suffix = ":3051"; }
+        { label = "Tor Address — Access from anywhere via Tor Browser"; file = "/var/lib/tor/onion/rtl/hostname"; prefix = "http://"; suffix = "/rtl/"; }
+        { label = "Local Network — Access on your home network only"; file = "/var/lib/secrets/internal-ip"; prefix = "http://"; suffix = ":3051/rtl/"; }
         { label = "Password"; file = "/etc/nix-bitcoin-secrets/rtl-password"; }
         { label = "How to Access"; value = "• Tor Address: Open in Tor Browser from any device, anywhere in the world\n• Local Network: Open in any browser, but only when connected to your home network"; }
       ]; }
