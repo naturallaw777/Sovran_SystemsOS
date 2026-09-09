@@ -45,7 +45,7 @@ are ready.
 - [What is included](#what-is-included)
 - [Three modes](#three-modes)
 - [Use it your way](#use-it-your-way)
-- [The Sovran Hub](#the-sovran-hub)
+- [The Hub](#the-hub)
 - [Install Sovran_SystemsOS](#install-sovran_systemsos)
 - [For developers](#for-developers)
   - [Development workflow](#development-workflow)
