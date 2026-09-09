@@ -5,7 +5,12 @@
 function openSecurityModal() {
   if ($supportModal) $supportModal.classList.add("open");
   var title = document.getElementById("support-modal-title");
-  if (title) title.textContent = "\uD83D\uDEE1 Security";
+  if (title) title.textContent = "Security";
+  var chip = document.getElementById("support-modal-chip");
+  if (chip) {
+    var use = chip.querySelector("use");
+    if (use) use.setAttribute("href", "#g-shield-check");
+  }
 
   if ($supportBody) {
     $supportBody.innerHTML =

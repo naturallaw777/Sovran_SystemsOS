@@ -259,6 +259,67 @@
   .welcome-inner { animation: none; }
 }
 
+/* ── Boot splash ────────────────────────────────────────────────── */
+/* Covers the shell while the first services/config data loads; the
+   inline script in index.html lifts it (window.__liftAppSplash). */
+#app-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  background: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.45s ease;
+}
+
+#app-splash.done { opacity: 0; pointer-events: none; }
+
+.splash-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 24px;
+}
+
+.splash-ring {
+  position: relative;
+  width: 96px;
+  height: 96px;
+  display: grid;
+  place-items: center;
+  margin-bottom: 8px;
+}
+
+.splash-ring img { width: 60px; height: 60px; opacity: 0.95; }
+
+.splash-ring-arc {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, 0.10);
+  border-top-color: var(--accent);
+  animation: splash-spin 1s linear infinite;
+}
+
+@keyframes splash-spin { to { transform: rotate(360deg); } }
+
+.splash-title {
+  font-size: 1.02rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.splash-sub {
+  font-size: 0.84rem;
+  color: var(--text-3);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .splash-ring-arc { animation-duration: 2.5s; }
+}
+
 .welcome-inner {
   position: relative;
   max-width: 1040px;
@@ -385,6 +446,10 @@
 
 .widget-chip.chip-sovran {
   background: linear-gradient(160deg, #42f39a, #1aa45d);
+}
+
+.widget-chip.chip-neutral {
+  background: linear-gradient(160deg, #2e333a, #23272c);
 }
 
 .w-body { min-width: 0; }

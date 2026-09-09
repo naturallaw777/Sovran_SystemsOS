@@ -5,6 +5,14 @@
 async function openSupportModal() {
   if (!$supportModal) return;
   $supportModal.classList.add("open");
+  // The dialog is shared with Security — always restore its identity
+  var title = document.getElementById("support-modal-title");
+  if (title) title.textContent = "Tech Support";
+  var chip = document.getElementById("support-modal-chip");
+  if (chip) {
+    var use = chip.querySelector("use");
+    if (use) use.setAttribute("href", "#g-lifebuoy");
+  }
   $supportBody.innerHTML = '<p class="creds-loading">Checking support status…</p>';
   try {
     var status = await apiFetch("/api/support/status");

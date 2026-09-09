@@ -244,9 +244,9 @@ async function init() {
     if (badge && cfg.role_label) badge.textContent = cfg.role_label;
     window._roleLabel = cfg.role_label || "";
 
-    await refreshServices();
     loadNetwork();
     checkUpdates();
+    await refreshServices();
 
     setInterval(refreshServices, POLL_INTERVAL_SERVICES);
     setInterval(checkUpdates, POLL_INTERVAL_UPDATES);
@@ -256,9 +256,9 @@ async function init() {
     }
     loadAutolaunchToggle();
   } catch (_) {
-    await refreshServices();
     loadNetwork();
     checkUpdates();
+    await refreshServices();
     setInterval(refreshServices, POLL_INTERVAL_SERVICES);
     setInterval(checkUpdates, POLL_INTERVAL_UPDATES);
     loadAutolaunchToggle();

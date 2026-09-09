@@ -111,6 +111,11 @@
         <path d="M8.6 12l2.4 2.4 4.4-4.6"/>
       </g>
     </symbol>
+    <!-- Systems Operational: activity pulse (system health) — distinct from
+         the Security shield above -->
+    <symbol id="g-pulse" viewBox="0 0 24 24">
+      <path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M3 12h4l3-7 4 14 3-7h4"/>
+    </symbol>
     <symbol id="g-lifebuoy" viewBox="0 0 24 24">
       <g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
         <circle cx="12" cy="12" r="8.6"/><circle cx="12" cy="12" r="3.6"/>
@@ -164,6 +169,41 @@
       </g>
     </symbol>
 </svg>
+
+  <!-- ═══ BOOT SPLASH ═══ covers the shell while the first data loads;
+       dashboard.js lifts it once the welcome cards are rendered -->
+  <div id="app-splash" role="status" aria-live="polite">
+    <div class="splash-card">
+      <div class="splash-ring">
+        <img src="/static/sovran-hub-icon.svg" alt="" width="64" height="64" />
+        <span class="splash-ring-arc" aria-hidden="true"></span>
+      </div>
+      <div class="splash-title">Starting The Hub</div>
+      <div class="splash-sub" id="splash-sub">Gathering your services…</div>
+    </div>
+  </div>
+  <script>
+    (function () {
+      var splash = document.getElementById("app-splash");
+      var sub = document.getElementById("splash-sub");
+      var lifted = false;
+      function lift() {
+        if (lifted || !splash) return;
+        lifted = true;
+        splash.classList.add("done");
+        setTimeout(function () {
+          if (splash && splash.parentNode) splash.parentNode.removeChild(splash);
+        }, 500);
+      }
+      window.__liftAppSplash = lift;
+      // Reassure the user if the backend is slow (e.g. right after a reboot)
+      setTimeout(function () {
+        if (!lifted && sub) sub.textContent = "Still starting\u2026 this can take a moment after a reboot.";
+      }, 8000);
+      // Never trap the user behind the splash
+      setTimeout(lift, 25000);
+    })();
+  </script>
 
   <div class="app">
 
@@ -250,7 +290,7 @@
     <div class="creds-dialog">
       <div class="creds-header">
         <span class="creds-title" id="systems-modal-title">
-          <span class="widget-chip chip-green" style="width:54px;height:54px;border-radius:16px"><svg style="width:27px;height:27px"><use href="#g-shield-check"/></svg></span>
+          <span class="widget-chip chip-green" style="width:54px;height:54px;border-radius:16px"><svg style="width:27px;height:27px"><use href="#g-pulse"/></svg></span>
           <span>Systems Operational</span>
         </span>
         <button class="creds-close-btn" id="systems-close-btn" title="Close">✕</button>
@@ -317,7 +357,10 @@
   <div class="modal-overlay" id="support-modal" role="dialog" aria-modal="true" aria-labelledby="support-modal-title">
     <div class="creds-dialog">
       <div class="creds-header">
-        <span class="creds-title" id="support-modal-title">Tech Support</span>
+        <span class="creds-title">
+          <span class="widget-chip chip-neutral" id="support-modal-chip" style="width:54px;height:54px;border-radius:16px"><svg style="width:27px;height:27px"><use href="#g-lifebuoy"/></svg></span>
+          <span id="support-modal-title">Tech Support</span>
+        </span>
         <button class="creds-close-btn" id="support-close-btn" title="Close">✕</button>
       </div>
       <div class="creds-body" id="support-body">

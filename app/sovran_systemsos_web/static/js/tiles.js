@@ -71,6 +71,8 @@ function renderSidebarSupport(supportServices) {
     '</span>';
   sidebarUpdateBtn.addEventListener("click", function() { openUpdateModal(); });
   $sidebarSupport.appendChild(sidebarUpdateBtn);
+  // checkUpdates may already have run before the sidebar was built
+  applyUpdateSidebarState(window._lastUpdateCheck);
 
   for (var i = 0; i < supportServices.length; i++) {
     var svc = supportServices[i];
@@ -251,6 +253,10 @@ async function refreshServices() {
     var services = await apiFetch("/api/services");
     if (_firstLoad) { buildTiles(services, _categoryLabels); _firstLoad = false; }
     else { updateTiles(services); }
+    // Service data has rendered — the dashboard is ready; lift the boot
+    // splash (no-op once lifted). Note: dashboardServicesUpdated may also
+    // fire from checkUpdates before this resolves, so the lift lives here.
+    if (typeof window.__liftAppSplash === "function") window.__liftAppSplash();
   } catch (err) { console.warn("Failed to fetch services:", err); }
 }
 
@@ -270,39 +276,48 @@ async function loadNetwork() {
 
 // ── Update check ──────────────────────────────────────────────────
 
+// Paint the sidebar Update button from the last known update state.
+// Called after each check AND when the button is (re)built, so the hint
+// is correct regardless of which finishes first at startup.
+function applyUpdateSidebarState(data) {
+  if (!data) return;
+  var sidebarUpdateBtn = document.getElementById("sidebar-btn-update");
+  var sidebarUpdateHint = document.getElementById("sidebar-update-hint");
+  if (!sidebarUpdateBtn) return;
+  var hasUpdates = !!data.available;
+  var updateStatus = data.status || "idle";
+  if (updateStatus === "failed") {
+    // Last update errored and did not apply — surface it as a persistent
+    // red banner that re-opens the failed run with a "Retry Update" action.
+    sidebarUpdateBtn.style.borderColor = "#f66151";
+    sidebarUpdateBtn.style.backgroundColor = "rgba(246, 97, 81, 0.10)";
+    if (sidebarUpdateHint) sidebarUpdateHint.textContent = "Update failed — click to retry";
+  } else if (updateStatus === "reboot_required") {
+    sidebarUpdateBtn.style.borderColor = "#e9b64a";
+    sidebarUpdateBtn.style.backgroundColor = "rgba(233, 182, 74, 0.10)";
+    if (sidebarUpdateHint) sidebarUpdateHint.textContent = "Restart required";
+  } else if (updateStatus === "running") {
+    sidebarUpdateBtn.style.borderColor = "#78aeed";
+    sidebarUpdateBtn.style.backgroundColor = "rgba(120, 174, 237, 0.10)";
+    if (sidebarUpdateHint) sidebarUpdateHint.textContent = "Update in progress…";
+  } else if (hasUpdates) {
+    sidebarUpdateBtn.style.borderColor = "#3ecf8e";
+    sidebarUpdateBtn.style.backgroundColor = "rgba(62, 207, 142, 0.10)";
+    if (sidebarUpdateHint) sidebarUpdateHint.textContent = "Updates available!";
+  } else {
+    sidebarUpdateBtn.style.borderColor = "";
+    sidebarUpdateBtn.style.backgroundColor = "";
+    if (sidebarUpdateHint) sidebarUpdateHint.textContent = "System is up to date";
+  }
+}
+
 async function checkUpdates() {
   try {
     var data = await apiFetch("/api/updates/check");
     window._lastUpdateCheck = data;
     if (typeof markUpdateChecked === "function") markUpdateChecked();
-    var hasUpdates = !!data.available;
-    var updateStatus = data.status || "idle";
-    var sidebarUpdateBtn = document.getElementById("sidebar-btn-update");
-    var sidebarUpdateHint = document.getElementById("sidebar-update-hint");
-    if (sidebarUpdateBtn) {
-      if (updateStatus === "failed") {
-        // Last update errored and did not apply — surface it as a persistent
-        // red banner that re-opens the failed run with a "Retry Update" action.
-        sidebarUpdateBtn.style.borderColor = "#f66151";
-        sidebarUpdateBtn.style.backgroundColor = "rgba(246, 97, 81, 0.10)";
-        if (sidebarUpdateHint) sidebarUpdateHint.textContent = "Update failed — click to retry";
-      } else if (updateStatus === "reboot_required") {
-        sidebarUpdateBtn.style.borderColor = "#e9b64a";
-        sidebarUpdateBtn.style.backgroundColor = "rgba(233, 182, 74, 0.10)";
-        if (sidebarUpdateHint) sidebarUpdateHint.textContent = "Restart required";
-      } else if (updateStatus === "running") {
-        sidebarUpdateBtn.style.borderColor = "#78aeed";
-        sidebarUpdateBtn.style.backgroundColor = "rgba(120, 174, 237, 0.10)";
-        if (sidebarUpdateHint) sidebarUpdateHint.textContent = "Update in progress…";
-      } else if (hasUpdates) {
-        sidebarUpdateBtn.style.borderColor = "#3ecf8e";
-        sidebarUpdateBtn.style.backgroundColor = "rgba(62, 207, 142, 0.10)";
-        if (sidebarUpdateHint) sidebarUpdateHint.textContent = "Updates available!";
-      } else {
-        sidebarUpdateBtn.style.borderColor = "";
-        sidebarUpdateBtn.style.backgroundColor = "";
-        if (sidebarUpdateHint) sidebarUpdateHint.textContent = "System is up to date";
-      }
-    }
+    applyUpdateSidebarState(data);
+    // The welcome dashboard's updates card reads this state
+    if (typeof window.dashboardServicesUpdated === "function") window.dashboardServicesUpdated();
   } catch (_) {}
 }

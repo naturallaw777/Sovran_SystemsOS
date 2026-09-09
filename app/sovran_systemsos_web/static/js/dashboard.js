@@ -230,7 +230,7 @@
     var attentionTitle = c.attention ? "Systems need attention" : "Systems operational";
     $wcSystems.innerHTML =
       '<div class="widget clickable" id="w-systems" role="button" tabindex="0" title="System status and router setup">' +
-        '<div class="widget-chip chip-green">' + icon("g-shield-check") + '</div>' +
+        '<div class="widget-chip chip-green">' + icon("g-pulse") + '</div>' +
         '<div class="w-body"><h3>' + attentionTitle + '</h3><div class="sub">' + sub + '</div></div>' +
         '<span class="w-chev">' + icon("g-chev") + '</span>' +
       '</div>';
@@ -337,7 +337,7 @@
 
     /* System status */
     html += '<div class="sysmodal-card">' +
-      '<div class="sysmodal-card-title">' + icon("g-shield-check") + 'System Status</div>' +
+      '<div class="sysmodal-card-title">' + icon("g-pulse") + 'System Status</div>' +
       step(1, "Services running", "", String(c.running)) +
       step(2, "Needs attention", "", c.attention ? escHtml(c.attentionNames.join(", ")) : "None") +
       step(3, "Turned off", "", c.off ? escHtml(c.offNames.join(", ")) : "None") +
