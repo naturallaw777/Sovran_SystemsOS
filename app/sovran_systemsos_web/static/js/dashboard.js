@@ -285,8 +285,14 @@
       updTitle = "Update in progress"; updSub = "Installing the new system generation"; updChip = "chip-amber";
     } else if (upd && upd.available) {
       updTitle = "Updates available"; updSub = "Click to review and update"; updChip = "chip-amber";
+    } else if (!upd) {
+      /* First check hasn't returned yet — never claim "up to date" before
+         a check has actually completed */
+      updTitle = "Checking for updates"; updSub = "Comparing with the latest Sovran_SystemsOS release"; updChip = "chip-green";
     } else {
-      updTitle = "System is up to date"; updSub = "Sovran_SystemsOS keeps itself current"; updChip = "chip-green";
+      /* Updates are applied by the user, not automatically — the card must
+         not imply the OS updates itself */
+      updTitle = "System is up to date"; updSub = "Last check found no updates · Click to check again"; updChip = "chip-green";
     }
     more +=
       '<div class="widget clickable" id="w-updates" role="button" tabindex="0" title="Check for system updates">' +
