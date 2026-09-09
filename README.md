@@ -264,11 +264,11 @@ infrastructure behind them.
 
 ---
 
-## The Sovran Hub
+## The Hub
 
 ### Your private infrastructure, controlled from any screen.
 
-The Sovran Hub is the command center built into Sovran_SystemsOS. It is both a
+The Hub is the command center built into Sovran_SystemsOS. It is both a
 local desktop application and a private web interface served directly by your
 Sovran_SystemsOS machine. Nothing needs to be installed on the device opening
 the Hub: you only need a modern browser and access to the same local network.
@@ -283,7 +283,7 @@ From one place, the Hub helps you:
 
 <img src="assets/sovran-hub-screenshot.webp" alt="The Sovran Hub welcome dashboard" width="800" />
 
-*The Sovran Hub: your whole system at a glance — Bitcoin, Lightning, and your private apps.*
+*The Hub: your whole system at a glance — Bitcoin, Lightning, and your private apps.*
 
 ### Example home setup
 
@@ -300,7 +300,7 @@ From one place, the Hub helps you:
                     ┌──────────────────────────┐
                     │   Sovran_SystemsOS       │
                     │                          │
-                    │   • Sovran Hub           │
+                    │   • The Hub           │
                     │   • Bitcoin node         │
                     │   • Sparrow Wallet       │
                     │   • Bisq and Bisq 2      │
