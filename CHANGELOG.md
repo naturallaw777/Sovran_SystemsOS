@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.1.6] - 2026-09-15
+
+### Added
+- Rename 'The Sovran Hub' to 'The Hub' in README
+- Rename 'Sovran Hub' to 'The Hub' in README
+
+### Changed
+- Updated nix packages includes the new mempool version
+
+### Documentation
+- Update Sovran Hub screenshot to the v1.1.5 redesign
+[1.1.6]: https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS/releases/tag/v1.1.6
+
+
 ## [1.1.5] - 2026-09-09
 
 ### Added
