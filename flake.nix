@@ -17,6 +17,7 @@
 				system = prev.stdenv.hostPlatform.system;
 				config.allowUnfree = true;
 			};
+		};
 	in
 	{
 		nixosConfigurations.nixos = nixpkgs.lib.nixosSystem {
