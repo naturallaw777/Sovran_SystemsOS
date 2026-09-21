@@ -3,8 +3,20 @@
 lib.mkIf config.sovran_systemsOS.services.nextcloud {
 
   # ── PostgreSQL database ───────────────────────────────────
+  # Cluster-wide tuning (shared_buffers, autovacuum) lives in
+  # configuration.nix so it is shared with Matrix Synapse.
   services.postgresql = {
     enable = true;
+  };
+
+  # ── Redis for Nextcloud distributed cache + file locking ───
+  # Nextcloud does not recommend APCu for memcache.locking in production.
+  # TCP on localhost avoids unix-socket permission juggling with the caddy user.
+  # Scoped to Nextcloud only — Synapse / MariaDB / Bitcoin are unaffected.
+  services.redis.servers.nextcloud = {
+    enable = true;
+    bind = "127.0.0.1";
+    port = 6379;
   };
 
   # ── Auto-generate DB password and initialize ──────────────
@@ -47,14 +59,20 @@ lib.mkIf config.sovran_systemsOS.services.nextcloud {
       if ! psql -U postgres -lqt | cut -d \| -f 1 | grep -qw "nextclouddb"; then
         psql -U postgres -c "CREATE DATABASE nextclouddb WITH OWNER ncusr TEMPLATE template0 LC_COLLATE = 'C' LC_CTYPE = 'C';"
       fi
+
+      # Per-database autovacuum, scoped to nextclouddb only.
+      # The shared matrix-synapse DB keeps the milder cluster defaults.
+      # Fixes Nextcloud 35 pg.dead_tuples warning. Idempotent.
+      psql -U postgres -d nextclouddb -c "ALTER DATABASE nextclouddb SET autovacuum_vacuum_scale_factor = '0.05';"
+      psql -U postgres -d nextclouddb -c "ALTER DATABASE nextclouddb SET autovacuum_analyze_scale_factor = '0.025';"
     '';
   };
 
   # ── Fully automated Nextcloud setup ───────────────────────
   systemd.services.nextcloud-init = {
     description = "Download, extract, and fully configure Nextcloud";
-    after = [ "network-online.target" "postgresql.service" "phpfpm-nextcloud.service" "nextcloud-db-init.service" ];
-    wants = [ "network-online.target" ];
+    after = [ "network-online.target" "postgresql.service" "phpfpm-nextcloud.service" "nextcloud-db-init.service" "redis-nextcloud.service" ];
+    wants = [ "network-online.target" "redis-nextcloud.service" ];
     requires = [ "postgresql.service" "nextcloud-db-init.service" ];
     wantedBy = [ "multi-user.target" ];
 
@@ -150,7 +168,11 @@ lib.mkIf config.sovran_systemsOS.services.nextcloud {
         php $INSTALL_DIR/occ config:system:set default_phone_region --value='US'
         php $INSTALL_DIR/occ config:system:set maintenance_window_start --type=integer --value=1
         php $INSTALL_DIR/occ config:system:set memcache.local --value='\OC\Memcache\APCu'
-        php $INSTALL_DIR/occ config:system:set memcache.locking --value='\OC\Memcache\APCu'
+        php $INSTALL_DIR/occ config:system:set memcache.distributed --value='\OC\Memcache\Redis'
+        php $INSTALL_DIR/occ config:system:set memcache.locking --value='\OC\Memcache\Redis'
+        php $INSTALL_DIR/occ config:system:set redis host --value='127.0.0.1'
+        php $INSTALL_DIR/occ config:system:set redis port --type=integer --value=6379
+        php $INSTALL_DIR/occ config:system:set redis timeout --value='1.5'
         php $INSTALL_DIR/occ config:system:set server_id --value='$SERVER_ID'
         php $INSTALL_DIR/occ background:cron
       "
@@ -245,6 +267,93 @@ Reset:    sudo -u caddy php /var/lib/www/nextcloud/occ user:resetpassword <usern
 CREDS
       chmod 600 "$CREDS_FILE"
     '';
+  };
+
+  # ── Migrate existing installs to Redis locking ────────────
+  # nextcloud-init only runs on fresh installs (ConditionPathExists
+  # !config.php), so pre-existing / pre-Sovran installs would keep
+  # APCu locking forever. This one-shot is idempotent and safe to
+  # re-run on every boot — occ just overwrites the same values.
+  systemd.services.nextcloud-redis-migrate = {
+    description = "Point existing Nextcloud installs at Redis locking";
+    after = [ "postgresql.service" "redis-nextcloud.service" "phpfpm-nextcloud.service" ];
+    wants = [ "redis-nextcloud.service" ];
+    wantedBy = [ "multi-user.target" ];
+    unitConfig = {
+      ConditionPathExists = [
+        "/var/lib/www/nextcloud/occ"
+        "/var/lib/www/nextcloud/config/config.php"
+      ];
+    };
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+    };
+    path = with pkgs; [ coreutils shadow ];
+    script = ''
+      set -euo pipefail
+      INSTALL_DIR="/var/lib/www/nextcloud"
+      # Wait briefly for Redis (TCP localhost:6379).
+      for i in $(seq 1 15); do
+        if (echo > /dev/tcp/127.0.0.1/6379) >/dev/null 2>&1; then
+          break
+        fi
+        sleep 2
+      done
+      /run/wrappers/bin/su -s /bin/sh caddy -c "
+        php $INSTALL_DIR/occ config:system:set memcache.local --value='\OC\Memcache\APCu'
+        php $INSTALL_DIR/occ config:system:set memcache.distributed --value='\OC\Memcache\Redis'
+        php $INSTALL_DIR/occ config:system:set memcache.locking --value='\OC\Memcache\Redis'
+        php $INSTALL_DIR/occ config:system:set redis host --value='127.0.0.1'
+        php $INSTALL_DIR/occ config:system:set redis port --type=integer --value=6379
+        php $INSTALL_DIR/occ config:system:set redis timeout --value='1.5'
+      "
+    '';
+  };
+
+  # ── Recurring DB maintenance (Nextcloud 35 checks) ───────────
+  # nextcloud-init runs db:add-missing-indices exactly once. Upgrades
+  # (e.g. to NC35) and later app installs (Mail, Guests) add tables
+  # like oc_mail_tags / oc_guests_users that then seq-scan forever.
+  # Weekly: VACUUM ANALYZE (dead tuples) + backfill missing indices.
+  # Scoped to nextclouddb only — matrix-synapse is untouched.
+  systemd.services.nextcloud-db-maintenance = {
+    description = "Nextcloud DB maintenance: VACUUM + missing indices";
+    after = [ "postgresql.service" "redis-nextcloud.service" "phpfpm-nextcloud.service" ];
+    wants = [ "postgresql.service" ];
+    unitConfig = {
+      ConditionPathExists = [
+        "/var/lib/www/nextcloud/occ"
+        "/var/lib/www/nextcloud/config/config.php"
+      ];
+    };
+    serviceConfig = {
+      Type = "oneshot";
+    };
+    path = [ config.services.postgresql.package pkgs.coreutils pkgs.shadow ];
+    script = ''
+      set -euo pipefail
+      INSTALL_DIR="/var/lib/www/nextcloud"
+      echo "Vacuuming nextclouddb..."
+      psql -U postgres -d nextclouddb -c "VACUUM (ANALYZE);"
+      echo "Backfilling Nextcloud indices..."
+      /run/wrappers/bin/su -s /bin/sh caddy -c "
+        php $INSTALL_DIR/occ db:add-missing-indices
+        php $INSTALL_DIR/occ db:add-missing-columns
+        php $INSTALL_DIR/occ db:add-missing-primary-keys
+      "
+      echo "Nextcloud DB maintenance complete."
+    '';
+  };
+
+  systemd.timers.nextcloud-db-maintenance = {
+    description = "Weekly Nextcloud DB maintenance";
+    wantedBy = [ "timers.target" ];
+    timerConfig = {
+      OnCalendar = "Sun 03:30";
+      Persistent = true;
+      RandomizedDelaySec = "30m";
+    };
   };
 
   services.cron.systemCronJobs = [

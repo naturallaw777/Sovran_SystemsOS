@@ -165,6 +165,14 @@
   programs.fish = { enable = true; promptInit = "fastfetch"; };
 
   # ── PostgreSQL base ────────────────────────────────────────
+  # Shared cluster for Nextcloud (nextclouddb) + Matrix Synapse.
+  # Sized for the README's Server + Desktop recommendation (32 GB RAM,
+  # 500 GB NVMe OS + 2 TB NVMe timechain). Postgres shares the box with
+  # Bitcoin Core, Electrs, LND, MariaDB, PHP-FPM and GNOME, so
+  # shared_buffers stays below the 25%-of-RAM dedicated-server rule.
+  # Fixes Nextcloud 35 Database checks (pg.cache_hit_ratio,
+  # pg.dead_tuples). Override in custom.nix for other hosts, e.g.:
+  #   services.postgresql.settings.shared_buffers = lib.mkForce "512MB";
   services.postgresql = {
     enable = true;
     authentication = lib.mkForce ''
@@ -172,6 +180,34 @@
       host    all   all   127.0.0.1/32  trust
       host    all   all   ::1/128       trust
     '';
+    settings = {
+      # Memory — fixes low buffer cache hit ratio (stock default is
+      # 128MB shared_buffers). effective_cache_size is only a planner
+      # hint, not an allocation, so it can be generous.
+      # NOTE: changing shared_buffers requires a Postgres restart.
+      shared_buffers = "2GB";
+      effective_cache_size = "12GB";
+      maintenance_work_mem = "512MB";
+      work_mem = "32MB";
+      wal_buffers = "64MB";
+
+      # Checkpoints — spread write bursts out on NVMe. Reload-only.
+      min_wal_size = "1GB";
+      max_wal_size = "4GB";
+      checkpoint_completion_target = 0.9;
+
+      # Autovacuum — the stock 60s naptime can't keep up with
+      # Nextcloud's and Synapse's write-heavy tables (filecache,
+      # activity, jobs, state). Reload-only.
+      autovacuum_naptime = "30s";
+      autovacuum_vacuum_scale_factor = 0.05;
+      autovacuum_analyze_scale_factor = 0.025;
+      autovacuum_max_workers = 4;
+
+      # NVMe planner assumptions (README: NVMe OS + data disks).
+      random_page_cost = "1.1";
+      effective_io_concurrency = 200;
+    };
   };
 
   # ── Backups ────────────────────────────────────────────────
