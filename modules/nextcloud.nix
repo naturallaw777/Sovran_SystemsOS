@@ -60,11 +60,11 @@ lib.mkIf config.sovran_systemsOS.services.nextcloud {
         psql -U postgres -c "CREATE DATABASE nextclouddb WITH OWNER ncusr TEMPLATE template0 LC_COLLATE = 'C' LC_CTYPE = 'C';"
       fi
 
-      # Per-database autovacuum, scoped to nextclouddb only.
-      # The shared matrix-synapse DB keeps the milder cluster defaults.
-      # Fixes Nextcloud 35 pg.dead_tuples warning. Idempotent.
-      psql -U postgres -d nextclouddb -c "ALTER DATABASE nextclouddb SET autovacuum_vacuum_scale_factor = '0.05';"
-      psql -U postgres -d nextclouddb -c "ALTER DATABASE nextclouddb SET autovacuum_analyze_scale_factor = '0.025';"
+      # NOTE: autovacuum GUCs are SIGHUP-context, so they cannot be set
+      # per-database — ALTER DATABASE ... SET rejects them with
+      # 'parameter "..." cannot be changed now'. They are set
+      # cluster-wide in configuration.nix instead, which already covers
+      # both nextclouddb and matrix-synapse.
     '';
   };
 

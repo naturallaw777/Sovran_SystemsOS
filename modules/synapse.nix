@@ -60,35 +60,6 @@ lib.mkIf config.sovran_systemsOS.services.synapse {
     '';
   };
 
-  # ── Per-database Postgres tuning (matrix-synapse only) ─────
-  # Mirrors the nextclouddb tuning: Synapse's state and event tables are
-  # write-heavy and bloat fast under stock autovacuum. Scoped via ALTER
-  # DATABASE so each DB gets what suits it. Idempotent.
-  systemd.services.matrix-synapse-db-tune = {
-    description = "Apply per-database Postgres tuning for Matrix Synapse";
-    after = [ "postgresql.service" ];
-    requires = [ "postgresql.service" ];
-    before = [ "matrix-synapse.service" ];
-    wantedBy = [ "multi-user.target" ];
-    serviceConfig = {
-      Type = "oneshot";
-      RemainAfterExit = true;
-    };
-    path = [ config.services.postgresql.package pkgs.coreutils ];
-    script = ''
-      set -euo pipefail
-      # Wait for ensureDatabases to have created the DB on first boot.
-      for i in $(seq 1 30); do
-        if psql -U postgres -lqt | cut -d \| -f 1 | grep -qw "matrix-synapse"; then
-          break
-        fi
-        sleep 2
-      done
-      psql -U postgres -d matrix-synapse -c "ALTER DATABASE \"matrix-synapse\" SET autovacuum_vacuum_scale_factor = '0.05';"
-      psql -U postgres -d matrix-synapse -c "ALTER DATABASE \"matrix-synapse\" SET autovacuum_analyze_scale_factor = '0.025';"
-    '';
-  };
-
   # ── Generate runtime config from domain files ───────────────
   systemd.services.matrix-synapse-runtime-config = {
     description = "Generate Synapse runtime config from domain files";
