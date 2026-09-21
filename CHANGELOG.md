@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.1.7] - 2026-09-21
+
+### Added
+- Postgresql: drop per-database autovacuum ALTERs (rejected by Postgres)
+- Synapse: performance tuning for 32 GB Server+Desktop hosts
+- Nextcloud, postgresql: fix Nextcloud 35 DB warnings on 32 GB hosts
+- Clean up flake.nix by removing comments and LiveKit override
+
+### Changed
+- Updated nixpkgs
+- Updated to php85 and fixes
+- Updated to proper syntax to prevent build errors.
+- Updated flake lock which contains Bisq 1.10.8 and Bisq2 2.1.13
+[1.1.7]: https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS/releases/tag/v1.1.7
+
+
 ## [1.1.6] - 2026-09-15
 
 ### Added
