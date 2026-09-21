@@ -60,6 +60,35 @@ lib.mkIf config.sovran_systemsOS.services.synapse {
     '';
   };
 
+  # ── Per-database Postgres tuning (matrix-synapse only) ─────
+  # Mirrors the nextclouddb tuning: Synapse's state and event tables are
+  # write-heavy and bloat fast under stock autovacuum. Scoped via ALTER
+  # DATABASE so each DB gets what suits it. Idempotent.
+  systemd.services.matrix-synapse-db-tune = {
+    description = "Apply per-database Postgres tuning for Matrix Synapse";
+    after = [ "postgresql.service" ];
+    requires = [ "postgresql.service" ];
+    before = [ "matrix-synapse.service" ];
+    wantedBy = [ "multi-user.target" ];
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+    };
+    path = [ config.services.postgresql.package pkgs.coreutils ];
+    script = ''
+      set -euo pipefail
+      # Wait for ensureDatabases to have created the DB on first boot.
+      for i in $(seq 1 30); do
+        if psql -U postgres -lqt | cut -d \| -f 1 | grep -qw "matrix-synapse"; then
+          break
+        fi
+        sleep 2
+      done
+      psql -U postgres -d matrix-synapse -c "ALTER DATABASE \"matrix-synapse\" SET autovacuum_vacuum_scale_factor = '0.05';"
+      psql -U postgres -d matrix-synapse -c "ALTER DATABASE \"matrix-synapse\" SET autovacuum_analyze_scale_factor = '0.025';"
+    '';
+  };
+
   # ── Generate runtime config from domain files ───────────────
   systemd.services.matrix-synapse-runtime-config = {
     description = "Generate Synapse runtime config from domain files";
@@ -94,16 +123,23 @@ EOF
   # ── Synapse service ─────────────────────────────────────────
   services.matrix-synapse = {
     enable = true;
+    # cache-memory provides cache-size statistics for the autotuning below
+    # (in addition to the NixOS defaults).
+    extras = [ "systemd" "postgres" "url-preview" "cache-memory" ];
     extraConfigFiles = [
       "/run/matrix-synapse/runtime-config.yaml"
     ];
     settings = {
       database = {
         name = "psycopg2";
+        # Recycle pooled connections less often (fewer reconnects).
+        txn_limit = 10000;
         args = {
           host = "localhost";
           database = "matrix-synapse";
           user = "matrix-synapse";
+          cp_min = 5;
+          cp_max = 15;
         };
       };
       push.include_content = false;
@@ -120,6 +156,32 @@ EOF
       ];
       presence.enabled = true;
       enable_registration = false;
+      # ── Performance (32 GB Server + Desktop) ─────────────────
+      # Synapse trades RAM for fewer Postgres round-trips; most RAM goes
+      # to caches. Stock is global_factor 0.5 + 10K event cache, which
+      # leaves syncs hitting the database on every request.
+      # Deliberately unchanged: presence and URL previews stay enabled —
+      # disabling them is faster but changes user-visible behavior.
+      event_cache_size = "100K";
+      caches = {
+        global_factor = 4.0;
+        expire_caches = true;
+        cache_entry_ttl = "30m";
+        sync_response_cache_duration = "2m";
+        cache_autotuning = {
+          max_cache_memory_usage = "2G";
+          target_cache_memory_usage = "1G";
+          min_cache_ttl = "30s";
+        };
+        per_cache_factors = {
+          # Hot paths for /sync and room joins.
+          get_users_in_room = 3.0;
+          get_current_state_ids = 3.0;
+          get_unread_event_push_actions_by_room_for_user = 5.0;
+        };
+      };
+      # Fewer GC pauses at the cost of a little more memory.
+      gc_thresholds = [ 1500 20 10 ];
       listeners = [
         {
           port = 8008;
