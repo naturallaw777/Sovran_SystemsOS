@@ -202,7 +202,7 @@ Bitcoin and self-hosting infrastructure runs on the machine.
 |---|---|---|
 | **Desktop** | Everyday users and computers with modest hardware | Sparrow, Bisq, and Bisq 2 for self-custody and peer-to-peer Bitcoin use |
 | **Node** | People ready to verify and operate their own Bitcoin infrastructure | Everything in Desktop, plus the full Bitcoin stack: Bitcoin Core, Electrs, LND, Ride The Lightning, BTCPay Server, and wallet-to-node connections |
-| **Server + Desktop** | Bitcoiners who want the same sovereignty over their communications, cloud, passwords, and web services | The complete Node stack, plus the private self-hosted services |
+| **Server + Desktop** | Bitcoiners who want the same sovereignty over their communications, cloud, passwords, and web services | The complete Node stack, plus the private self-hosted services. **Makes your home IP address public:** [read this first](#server--desktop-and-your-home-ip-address) |
 
 **Desktop: start with your keys.** Desktop is not a reduced or Bitcoin-free
 edition. It is a complete, private everyday computer with a clean GNOME
@@ -237,6 +237,66 @@ communications, identity, and services.
 > provider allows port forwarding. Most home routers and providers already
 > support this. If you are unsure, a quick search for your router model and
 > "port forwarding" will usually turn up a step-by-step guide.
+>
+> **This mode also makes your home IP address public.** Read
+> [what that means](#server--desktop-and-your-home-ip-address) before you
+> choose it.
+
+### Server + Desktop and your home IP address
+
+> **⚠️ Server + Desktop makes your home IP address public.**
+> Public services need a domain name that points at your home internet
+> connection. When you finish the guided domain setup, Sovran_SystemsOS puts
+> your home's public IP address in a Dynamic DNS record at
+> [Njal.la](https://njal.la) and keeps it up to date, and you forward ports 80
+> and 443 on your router to this computer. From then on:
+>
+> - **Anyone can look up your domain and see your home IP address.** An IP
+>   address typically reveals your internet provider and your approximate
+>   location, and it ties everything you publish on that domain to your home
+>   connection.
+> - **Domain privacy does not hide it.** Registrar privacy protects the
+>   registrant's identity, not the IP address in your DNS records.
+> - **Your connection is open to the whole internet on those ports.** Scanners
+>   and bots constantly probe public IP addresses, so expect automated probing
+>   and login attempts against every service you publish.
+> - **Your service names are discoverable.** Public HTTPS certificates are
+>   listed in public Certificate Transparency logs, so hostnames such as
+>   `vault.yourdomain.com` can be found, and then resolved to your IP address,
+>   even if you never share them.
+
+Nothing is published until you finish domain setup and port forwarding, but that
+setup is the point of this mode, so assume your IP address will be public.
+**Desktop** publishes nothing. **Node** publishes nothing unless you turn on a
+feature that needs a domain: *Put BTCPay Server Online* or *Lightning Wallet
+Connections*.
+
+**If you do not want your home IP address to be public,** choose Desktop or
+Node. Advanced users can put a VPS, reverse proxy, or tunnel in front of their
+services so DNS points there instead of at their home. Sovran_SystemsOS does not
+set this up for you, and the Hub's domain checks currently expect DNS to point
+at your home IP address.
+
+<details>
+<summary><strong>What happens technically</strong></summary>
+
+- You create a **Dynamic** DNS record at Njal.la and paste its update command
+  into the Hub. The Hub only accepts `njal.la` update URLs.
+- The `sovran-ddns-update` timer asks Njal.la to point your record at the
+  address the request came from. It does this right after you save a domain,
+  two minutes after boot, and then every 15 minutes.
+- Njal.la reports that address back, and Sovran_SystemsOS keeps it for Element
+  calling and the Hub. Nothing else looks up your public IP address: no STUN
+  server, public DNS resolver, or "what is my IP" service is involved. See
+  `modules/core/njalla.nix`.
+- Once a service that needs a domain is turned on, the firewall opens TCP and
+  UDP ports 80 and 443 for Caddy, which requests public HTTPS certificates for
+  the domains you configure. See `modules/core/caddy.nix`.
+- Optional features can need more ports. Element calling, for example, needs
+  TCP 7881 and UDP 3478, 7882, and 40000–40099. The Hub lists the ports each
+  feature needs.
+
+</details>
 
 ---
 
@@ -730,7 +790,9 @@ Sovran_SystemsOS uses layered controls:
 - Separate service users, systemd sandboxing, and loopback bindings where practical
 - Tor enforcement for supported Bitcoin services
 - Restricted, time-limited support access with scoped `sudo`
-- Operator-controlled public service exposure
+- Operator-controlled public service exposure (Server + Desktop
+  [makes your home IP address public](#server--desktop-and-your-home-ip-address)
+  once you set up a domain)
 
 See [`SECURITY.md`](SECURITY.md) for the threat model, limitations, reporting,
 and operator guidance. No operating system can protect funds after recovery

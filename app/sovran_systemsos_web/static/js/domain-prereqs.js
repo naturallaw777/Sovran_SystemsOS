@@ -43,6 +43,11 @@ function renderDomainNeedsHtml(opts) {
       + '<a href="https://njal.la" target="_blank" rel="noopener noreferrer" style="color:var(--accent-color);">Njal.la</a>'
       + " and connecting your services. Just follow the steps below.</p>";
   }
+  // Every variant above ends with a domain that points at the user's home
+  // connection. Say what that publishes (README: "Server + Desktop and your
+  // home IP address").
+  html += "<p>⚠️ <strong>Heads-up:</strong> your domain points at your home internet connection, "
+    + "so anyone can look up your home IP address. Domain privacy does not hide it.</p>";
   return html;
 }
 

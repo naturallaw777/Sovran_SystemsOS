@@ -4,7 +4,7 @@
 
 | Release | Supported |
 |---|:---:|
-| Latest `1.0.x` stable release | Yes |
+| Latest stable release | Yes |
 | `main` / `staging-dev` | Development only |
 | Older than `1.0.0` | No |
 
@@ -35,6 +35,23 @@ external networks and are outside a “fully offline” model.
 The local Hub currently uses HTTP. Authentication does not encrypt local network
 traffic, so use a trusted LAN and avoid public or guest Wi-Fi.
 
+### Public services and your home IP address
+
+Server + Desktop publishes services under your own domain. The Dynamic DNS
+record at Njal.la then points at your home's public IP address, which anyone
+can look up (domain privacy does not hide it), and ports 80 and 443 are open
+to the whole internet. Public HTTPS certificates also list your service
+hostnames in Certificate Transparency logs. Desktop publishes nothing. Node
+publishes nothing unless *Put BTCPay Server Online* or *Lightning Wallet
+Connections* is on. See
+[Server + Desktop and your home IP address](README.md#server--desktop-and-your-home-ip-address)
+for what this means and the alternatives.
+
+Sovran_SystemsOS does not ask a STUN server, public DNS resolver, or “what is
+my IP” service for your address. The DDNS update asks Njal.la to use the
+address the request came from, and the address Njal.la reports back is the one
+Element calling and the Hub use.
+
 ### Bitcoin stack
 
 Bitcoin and Lightning modules are maintained in the standalone
@@ -64,7 +81,8 @@ change both the system and local configuration.
 - Separate service users and systemd sandboxing where supported
 - Administrative service ports bound to loopback where practical
 - Tor enforced for supported Bitcoin traffic and onion services
-- Public web services exposed only when enabled by the operator
+- Public web services exposed only when enabled by the operator (this makes
+  your home IP address public)
 
 Tor reduces network exposure for configured Bitcoin services. It is not a
 guarantee against every IP leak, application bug, or traffic-analysis attack.
