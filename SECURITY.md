@@ -27,67 +27,36 @@ time for a fix and coordinated disclosure.
 
 ### Local-first operation
 
-The Hub and core data run on operator-owned hardware. The Hub is intended for a
-trusted local network and must not be port-forwarded to the internet. Public
-services, DDNS, software updates, and optional third-party relays require
-external networks and are outside a “fully offline” model.
+The Hub and core data run on operator-owned hardware. The Hub is for a trusted
+local network and must not be port-forwarded to the internet. It uses HTTP, so
+authentication does not encrypt local network traffic.
 
-The local Hub currently uses HTTP. Authentication does not encrypt local network
-traffic, so use a trusted LAN and avoid public or guest Wi-Fi.
+The Hub is served on port 8937 and is not fronted by Caddy. 
 
-The Hub is served on port 8937, on its own: Caddy does not front it. Server +
-Desktop and Bitcoin Node Only open that port in the firewall, so other devices
-on your local network reach the Hub at `http://sovransystemsos.local:8937`.
-Forwarding ports 80 and 443 for public services does not put the Hub in front of
-the internet, because the only thing Caddy answers on those ports is the public
-sites.
+Server + Desktop and Bitcoin Node Only (when BTCpayserver and/or LNURL is enabled) open that port in the firewall, so local devices reach the Hubat `http://sovransystemsos.local:8937`. 
 
-On Desktop Only the Hub is not published at all. It is reachable only from the
-machine itself, through the desktop application window on localhost. Desktop
-Only is the role most likely to be used away from home, and a root-capable admin
-UI has no business listening on a coffee-shop network. The firewall there opens
-no TCP port at all; the only port open is UDP 5353, for mDNS.
+On Desktop Only the Hub is not published at all: reachable only from the machine itself, on localhost, with no TCP port
+open in the firewall (UDP 5353 for mDNS only).
+
 `sovran_systemsOS.hub.directPort = true` in `custom.nix` opens port 8937 if you
-do want to reach a Desktop Only Hub from another device.
+want to reach a Desktop Only Hub from another device.
 
-The Hub also checks every client itself, before it shows a login page. It runs
-as root, so it answers only this computer and the local network (loopback,
-private, VPN and link-local addresses) and turns everyone else away, however
-they reached it. The Hub listens on IPv4 only, so IPv6 clients do not reach it
-at all; if that ever changes, global IPv6 addresses would be turned away,
-because a laptop on your network and a stranger on the internet look the same
-by address alone. If your devices use addresses outside the local ranges, list
-their networks in `sovran_systemsOS.hub.extraLanNetworks` in `custom.nix`;
+The Hub checks every client before showing a login page. It runs as root, so it
+answers only loopback, private, VPN and link-local addresses and turns everyone
+else away. The check goes by the address a connection comes from, so it is a
+second lock and not a reason to forward port 8937: don't. Addresses outside the
+local ranges go in `sovran_systemsOS.hub.extraLanNetworks` in `custom.nix`;
 `sovran_systemsOS.hub.lanOnly = false` turns the check off.
-
-The check goes by the address a connection comes from. A router that rewrites
-that address when it forwards a port makes an outsider look local, so the check
-is a second lock and not a reason to forward port 8937: don't.
-
-Ride The Lightning (port 3051) and Mempool (port 60847) listen on loopback only,
-and Caddy is how your local network reaches them. Caddy does not filter them by
-client address: forwarding ports 80 and 443 for public services does not reach
-them, because they answer on ports of their own, which nothing asks you to
-forward. Do not forward 3051 or 60847. If you do, Ride The Lightning still asks
-for its own random password and locks out repeated failures, and Mempool shows
-public blockchain data, but neither should face the internet.
 
 ### Public services and your home IP address
 
-Server + Desktop publishes services under your own domain. The Dynamic DNS
-record at Njal.la then points at your home's public IP address, which anyone
-can look up (domain privacy does not hide it), and ports 80 and 443 are open
-to the whole internet. Public HTTPS certificates also list your service
+Publishing public services on Server + Desktop points a DDNS record at your
+home's public IP address, which anyone can look up, and lists your service
 hostnames in Certificate Transparency logs. Desktop publishes nothing. Node
 publishes nothing unless *Put BTCPay Server Online* or *Lightning Wallet
 Connections* is on. See
 [Server + Desktop and your home IP address](README.md#server--desktop-and-your-home-ip-address)
 for what this means and the alternatives.
-
-Sovran_SystemsOS does not ask a STUN server, public DNS resolver, or “what is
-my IP” service for your address. The DDNS update asks Njal.la to use the
-address the request came from, and the address Njal.la reports back is the one
-Element calling and the Hub use.
 
 ### Bitcoin stack
 
@@ -102,14 +71,11 @@ and `/etc/nix-bitcoin-secrets` path remain only for upgrade compatibility.
 
 `flake.lock` pins flake inputs, and fetched source archives use fixed hashes.
 Builds still depend on pinned Nixpkgs, NixVim, btc-clients-nix, upstream source
-archives, and any configured binary cache. Keeping the Bitcoin modules in this
-repository reduces an external dependency; it does not remove supply-chain
-risk.
+archives, and any configured binary cache.
 
-The Hub integrity check verifies Nix store contents and compares the running
-system with a build from local `/etc/nixos`. It does not authenticate the release
-publisher or protect against an attacker who already controls root and can
-change both the system and local configuration.
+The Hub integrity check verifies Nix store contents against a build from local
+`/etc/nixos`. It does not authenticate the release publisher or protect against
+an attacker who already controls root.
 
 ### Access and service isolation
 
