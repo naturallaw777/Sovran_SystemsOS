@@ -763,13 +763,12 @@ relying on a wallet, and begin with a small amount.
 Sovran_SystemsOS uses layered controls:
 
 - Pinned flake inputs and hash-pinned source archives
-- Bitcoin and Lightning modules maintained in this repository
 - Firewall enabled; SSH Remote Access and remote desktop disabled by default.
   Enabling SSH opens TCP port 22 and the Hub then asks you to forward it
 - Separate service users, systemd sandboxing, and loopback bindings where practical
 - Tor enforcement for supported Bitcoin services
 - Restricted, time-limited support access with scoped `sudo`
-- Operator-controlled public service exposure (Server + Desktop
+- Operator-controlled public service exposure (Server + Desktop Role or Node Role when enabled BTCpayserver and/or Lightning Wallet Connections
   [makes your home IP address public](#server--desktop-and-your-home-ip-address)
   once you set up a domain)
 
