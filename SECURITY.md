@@ -31,13 +31,11 @@ The Hub and core data run on operator-owned hardware. The Hub is for a trusted
 local network and must not be port-forwarded to the internet. It uses HTTP, so
 authentication does not encrypt local network traffic.
 
-The Hub is served on port 8937 and is not fronted by Caddy. 
-
-Server + Desktop and Bitcoin Node Only open that port in the firewall, so local devices reach the Hubat `http://sovransystemsos.local:8937`. 
-
-On Desktop Only the Hub is not published at all: reachable only from the machine itself, on localhost, with no TCP port
+The Hub is served on port 8937 and is not fronted by Caddy. Server + Desktop and
+Bitcoin Node Only open that port in the firewall, so local devices reach the Hub
+at `http://sovransystemsos.local:8937`. On Desktop Only the Hub is not published
+at all: reachable only from the machine itself, on localhost, with no TCP port
 open in the firewall (UDP 5353 for mDNS only).
-
 `sovran_systemsOS.hub.directPort = true` in `custom.nix` opens port 8937 if you
 want to reach a Desktop Only Hub from another device.
 
@@ -60,17 +58,16 @@ for what this means and the alternatives.
 
 ### Bitcoin stack
 
-Bitcoin and Lightning modules are maintained in the standalone
-[Sovran_Bitcoin](https://github.com/naturallaw777/Sovran_Bitcoin) repository
-and consumed as a flake input. OS-specific customizations (Second_Drive paths,
-operator user, Hub integration) are bridged by
-`modules/sovran-bitcoin-integration.nix`. The `nix-bitcoin.*` option namespace
-and `/etc/nix-bitcoin-secrets` path remain only for upgrade compatibility.
+Bitcoin and Lightning modules live in the standalone
+[Sovran_Bitcoin](https://github.com/naturallaw777/Sovran_Bitcoin) repository,
+consumed as a flake input and bridged by
+`modules/sovran-bitcoin-integration.nix`. The `nix-bitcoin.*` namespace and
+`/etc/nix-bitcoin-secrets` path remain only for upgrade compatibility.
 
 ### Supply chain and integrity
 
 `flake.lock` pins flake inputs, and fetched source archives use fixed hashes.
-Builds still depend on pinned Nixpkgs, NixVim, btc-clients-nix, upstream source
+Builds still depend on pinned Nixpkgs and other inputs, upstream source
 archives, and any configured binary cache.
 
 The Hub integrity check verifies Nix store contents against a build from local
@@ -80,22 +77,31 @@ an attacker who already controls root.
 ### Access and service isolation
 
 - Firewall enabled by default
-- Public SSH and remote desktop disabled by default
+- SSH Remote Access and remote desktop disabled by default
 - Separate service users and systemd sandboxing where supported
 - Administrative service ports bound to loopback where practical
 - Tor enforced for supported Bitcoin traffic and onion services
 - Public web services exposed only when enabled by the operator (this makes
   your home IP address public)
 
+SSH Remote Access is the only supported administrative port that faces the
+network, and it is off by default. Enabling it listens on all interfaces and
+opens TCP port 22; the Hub then asks you to forward port 22, which puts SSH on
+the public internet. Key authentication only. Turn it off when you are done.
+
 Tor reduces network exposure for configured Bitcoin services. It is not a
 guarantee against every IP leak, application bug, or traffic-analysis attack.
 
 ### Restricted support access
 
-Support uses a per-session SSH key on the non-root `sovran-support` account.
+Tech Support runs over SSH, and the Hub refuses to start a session until SSH
+Remote Access is enabled (see above). Support uses a per-session SSH key on the
+non-root `sovran-support` account.
+
 Sessions expire after 24 hours and have a small allowlist of `sudo` commands.
 Wallet paths receive deny ACLs unless the operator explicitly removes them.
-Disabling support removes the key and reapplies the ACLs.
+Disabling support removes the key and reapplies the ACLs but leaves SSH
+enabled.
 
 Support events are written to `/var/log/sovran-support-audit.log`. This is a
 local audit log, not a cryptographically tamper-evident record.
