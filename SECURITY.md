@@ -45,7 +45,8 @@ sites.
 On Desktop Only the Hub is not published at all. It is reachable only from the
 machine itself, through the desktop application window on localhost. Desktop
 Only is the role most likely to be used away from home, and a root-capable admin
-UI has no business listening on a coffee-shop network.
+UI has no business listening on a coffee-shop network. The firewall there opens
+no TCP port at all; the only port open is UDP 5353, for mDNS.
 `sovran_systemsOS.hub.directPort = true` in `custom.nix` opens port 8937 if you
 do want to reach a Desktop Only Hub from another device.
 
