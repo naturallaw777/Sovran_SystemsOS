@@ -56,6 +56,7 @@ from .security_helpers import (
     load_session_store,
     save_session_store,
     LoginThrottle,
+    LanPolicy,
     LOGIN_FAIL_DELAY,
     LOGIN_FAIL_MAX_DELAY,
     LOGIN_FAIL_WINDOW,
@@ -821,8 +822,61 @@ class AuthMiddleware(BaseHTTPMiddleware):
         return await call_next(request)
 
 
+# ── Local-network middleware ───────────────────────────────────
+#
+# The Hub runs as root. Whether a packet may reach its port is up to the
+# firewall and the router; this is the second lock, so a port forward or a
+# firewall mistake does not put the login page in front of the internet. It
+# runs before authentication: a client that is not on the local network never
+# sees the login page at all.
+#
+# Built from the Nix-generated config. lan_only defaults to True, so a Hub built
+# without the key still turns off-network clients away rather than failing open.
+_hub_cfg = load_config()
+_lan_policy = LanPolicy(
+    enabled=bool(_hub_cfg.get("lan_only", True)),
+    extra_networks=tuple(_hub_cfg.get("lan_extra_networks") or ()),
+)
+
+
+class LanOnlyMiddleware(BaseHTTPMiddleware):
+    """Refuse clients that are not on this computer or the local network."""
+
+    # Each refused address is logged once, and the list is capped: a scanner
+    # must not be able to fill the journal or the process's memory.
+    _MAX_LOGGED = 256
+
+    def __init__(self, app, policy):
+        super().__init__(app)
+        self._policy = policy
+        self._logged: set = set()
+
+    async def dispatch(self, request: Request, call_next):
+        client_ip = request.client.host if request.client else None
+        if not self._policy.allows(client_ip):
+            self._note_refusal(client_ip)
+            return JSONResponse(
+                {"detail": "Not available from this network"}, status_code=403,
+            )
+        return await call_next(request)
+
+    def _note_refusal(self, client_ip):
+        if client_ip in self._logged or len(self._logged) >= self._MAX_LOGGED:
+            return
+        self._logged.add(client_ip)
+        logger.warning(
+            "Refused a Hub request from %r: not this computer or a local "
+            "network. If that address is yours, add its network to "
+            "sovran_systemsOS.hub.extraLanNetworks.",
+            client_ip,
+        )
+
+
 app.add_middleware(AuthMiddleware)
 app.add_middleware(NoCacheMiddleware)
+# Registered last so it runs outermost: a client that is not on the local
+# network is turned away before authentication is considered at all.
+app.add_middleware(LanOnlyMiddleware, policy=_lan_policy)
 
 _ICONS_DIR = os.environ.get(
     "SOVRAN_HUB_ICONS",

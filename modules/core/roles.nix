@@ -61,6 +61,46 @@
       sshd = lib.mkEnableOption "SSH remote access";
     };
 
+    # ── Hub ───────────────────────────────────────────────────
+    hub = {
+      lanOnly = lib.mkOption {
+        type = lib.types.bool;
+        default = true;
+        description = ''
+          Refuse Hub requests from clients that are not on this computer or on
+          the local network: loopback, private (10.0.0.0/8, 172.16.0.0/12,
+          192.168.0.0/16), VPN/CGNAT (100.64.0.0/10) and link-local addresses,
+          plus anything listed in sovran_systemsOS.hub.extraLanNetworks.
+
+          The Hub runs as root and can display stored credentials and reboot
+          the machine. Whether a packet may reach its port is up to the
+          firewall and your router; this check is the second lock, so that a
+          port forward or a firewall mistake does not put the Hub's login page
+          in front of the internet.
+
+          Set it to false only if this computer sits on a network that hands
+          out public addresses to your own devices and you would rather not
+          list them.
+        '';
+      };
+
+      extraLanNetworks = lib.mkOption {
+        type = lib.types.listOf lib.types.str;
+        default = [ ];
+        example = [ "203.0.113.0/28" ];
+        description = ''
+          Extra networks, in CIDR notation, that the Hub should treat as local
+          in addition to the built-in ranges. Needed only if devices on your
+          local network use addresses outside the private ranges, for example a
+          public IPv4 block your provider routes onto your LAN.
+
+          Keep each entry as narrow as you can: every address inside it is let
+          through. To let everything through, set sovran_systemsOS.hub.lanOnly
+          to false instead; 0.0.0.0/0 and ::/0 are not accepted here.
+        '';
+      };
+    };
+
     # ── Web exposure (controls Caddy vhosts) ──────────────────
     web = {
       btcpayserver = lib.mkOption {

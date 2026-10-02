@@ -115,6 +115,15 @@ let
     else if cfg.roles.node then "node"
     else "server_plus_desktop";
 
+  # IPv4 a.b.c.d[/0-32] or IPv6 [/0-128], and never a /0 (that is "everyone").
+  octet = "(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])";
+  lanNetworkOk = p:
+    (
+      builtins.match "${octet}(\\.${octet}){3}(/(3[0-2]|[12]?[0-9]))?" p != null
+      || builtins.match "[0-9a-fA-F:]*:[0-9a-fA-F:]*(/(12[0-8]|1[01][0-9]|[1-9]?[0-9]))?" p != null
+    )
+    && builtins.match ".*/0" p == null;
+
   generatedConfig = pkgs.writeText "sovran-hub-config.json"
     (builtins.toJSON {
       refresh_interval = 5;
@@ -122,6 +131,9 @@ let
       role             = activeRole;
       services         = monitoredServices;
       feature_manager  = true;
+      # Read by LanOnlyMiddleware in server.py.
+      lan_only          = cfg.hub.lanOnly;
+      lan_extra_networks = cfg.hub.extraLanNetworks;
       feature_states   = {
         bitcoin-tor-gossip = cfg.features.bitcoin-tor-gossip;
       };
@@ -503,6 +515,22 @@ in
   };
 
   config = {
+    # Catch a typo'd network at build time. The Hub ignores an entry it cannot
+    # parse (it must never widen its policy by guessing), so without this the
+    # only symptom would be a client that is refused for no visible reason.
+    assertions = [
+      {
+        assertion = builtins.all lanNetworkOk cfg.hub.extraLanNetworks;
+        message = ''
+          sovran_systemsOS.hub.extraLanNetworks must be a list of IPv4 or IPv6
+          networks in CIDR notation, for example [ "203.0.113.0/28" ]. A /0
+          prefix is not accepted; set sovran_systemsOS.hub.lanOnly = false to
+          let every client through. Got:
+          ${builtins.toJSON cfg.hub.extraLanNetworks}
+        '';
+      }
+    ];
+
     systemd.services.sovran-hub-web = {
       description = "Sovran_SystemsOS Hub Web Interface";
       wantedBy    = [ "multi-user.target" ];

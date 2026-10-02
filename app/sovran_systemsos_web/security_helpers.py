@@ -381,6 +381,83 @@ class LoginThrottle:
             return len(self._failures)
 
 
+# ── Local-network client policy ───────────────────────────────────────────────
+#
+# The Hub runs as root: it can display stored credentials, reboot the machine
+# and rebuild the system. It answers this computer and the local network and
+# nobody else. Whether a packet may reach its port is the firewall's and the
+# router's business; this is the second lock, applied by the application itself
+# so that a port forward, a firewall mistake, or a machine that has a public
+# address does not put the login page in front of the internet.
+#
+# The Hub listens on IPv4 only (see sovran-hub.nix), so IPv6 clients never
+# reach it directly and the IPv6 ranges below only matter if that bind is ever
+# widened. Global IPv6 addresses (2000::/3) are deliberately not listed: a
+# global address belonging to a laptop on the LAN cannot be told apart from a
+# stranger's by the address alone, and allowing the range would let the whole
+# IPv6 internet through.
+LAN_ONLY_IPV4 = (
+    "127.0.0.0/8",     # this computer
+    "10.0.0.0/8",
+    "172.16.0.0/12",
+    "192.168.0.0/16",
+    "100.64.0.0/10",   # Tailscale and other VPN/CGNAT ranges
+    "169.254.0.0/16",  # link-local
+)
+LAN_ONLY_IPV6 = (
+    "::1/128",
+    "fc00::/7",        # unique-local (covers fd00::/8)
+    "fe80::/10",       # link-local
+)
+
+
+class LanPolicy:
+    """Decides whether a client address counts as local.
+
+    ``extra_networks`` are CIDR blocks an operator has declared local in
+    addition to the built-in ranges, of either address family. ``enabled=False``
+    turns the check off entirely; it is the one explicit way to do that.
+    """
+
+    def __init__(self, extra_networks=(), enabled=True):
+        self.enabled = bool(enabled)
+        nets = [ipaddress.ip_network(c, strict=False)
+                for c in LAN_ONLY_IPV4 + LAN_ONLY_IPV6]
+        for cidr in (extra_networks or ()):
+            try:
+                net = ipaddress.ip_network(cidr, strict=False)
+            except ValueError:
+                # A malformed entry must never widen the policy. Ignore it and
+                # stay at the strictest interpretation.
+                continue
+            if net.prefixlen == 0:
+                # 0.0.0.0/0 and ::/0 are "everyone". That is lan_only = false,
+                # and it should be asked for by name, not arrive as a "network".
+                continue
+            nets.append(net)
+        self._nets = tuple(nets)
+
+    def allows(self, ip):
+        """Return True if *ip* may reach the service."""
+        if not self.enabled:
+            return True
+        if not ip:
+            return False
+        try:
+            addr = ipaddress.ip_address(ip)
+        except ValueError:
+            return False
+        # A dual-stack socket reports IPv4 clients as ::ffff:a.b.c.d. The
+        # address that matters is the IPv4 one inside it.
+        if addr.version == 6 and addr.ipv4_mapped is not None:
+            addr = addr.ipv4_mapped
+        return any(addr.version == n.version and addr in n for n in self._nets)
+
+    @property
+    def networks(self):
+        return self._nets
+
+
 # ── Persistent Hub session store ─────────────────────────────────────────────
 
 def load_session_store(path: str) -> dict[str, float]:

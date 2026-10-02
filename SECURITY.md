@@ -41,6 +41,15 @@ network (private, link-local, and VPN addresses), even when ports 80 and 443 are
 forwarded to this computer for public services. Other IPv4 clients get the
 connection closed. IPv6 global addresses are not filtered.
 
+The Hub also checks every client itself, before it shows a login page. It runs
+as root, so it answers only this computer and the local network (loopback,
+private, VPN and link-local addresses) and turns everyone else away, however
+they reached it. Global IPv6 addresses are turned away too: a laptop on your
+network and a stranger on the internet look the same by address alone. If your
+devices use addresses outside the local ranges, list their networks in
+`sovran_systemsOS.hub.extraLanNetworks` in `custom.nix`;
+`sovran_systemsOS.hub.lanOnly = false` turns the check off.
+
 ### Public services and your home IP address
 
 Server + Desktop publishes services under your own domain. The Dynamic DNS
