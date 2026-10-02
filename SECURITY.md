@@ -33,7 +33,7 @@ authentication does not encrypt local network traffic.
 
 The Hub is served on port 8937 and is not fronted by Caddy. 
 
-Server + Desktop and Bitcoin Node Only (when BTCpayserver and/or LNURL is enabled) open that port in the firewall, so local devices reach the Hubat `http://sovransystemsos.local:8937`. 
+Server + Desktop and Bitcoin Node Only open that port in the firewall, so local devices reach the Hubat `http://sovransystemsos.local:8937`. 
 
 On Desktop Only the Hub is not published at all: reachable only from the machine itself, on localhost, with no TCP port
 open in the firewall (UDP 5353 for mDNS only).
