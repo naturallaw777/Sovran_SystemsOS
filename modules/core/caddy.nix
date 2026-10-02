@@ -89,6 +89,26 @@ EOF
 EOF
       ''}
 
+      # ── LAN-only guard ──────────────────────────────
+      # The Hub, RTL and Mempool sites below are meant for this home network
+      # only. Forwarding ports 80/443 on the router also lets other clients
+      # reach Caddy, so these sites check where a request comes from, not just
+      # which Host it asks for. Anyone else gets the connection closed.
+      #   private_ranges   10/8, 172.16/12, 192.168/16, 127/8, fd00::/8, ::1
+      #   100.64.0.0/10    Tailscale and other VPN addresses
+      #   169.254.0.0/16, fe80::/10, fc00::/7   link-local and unique-local
+      #   2000::/3         IPv6 global addresses. Computers on this network
+      #                    often connect over their own global address, which
+      #                    looks the same as one from the internet, so IPv6
+      #                    global addresses are not filtered.
+      cat >> /run/caddy/Caddyfile <<'EOF'
+
+(sovran_lan_only) {
+  @outside not remote_ip private_ranges 100.64.0.0/10 169.254.0.0/16 fe80::/10 fc00::/7 2000::/3
+  abort @outside
+}
+EOF
+
       # ── Matrix ──────────────────────────────────────
       if [ -n "$MATRIX" ]; then
         if [ -f /run/caddy/element-calling.snippet ]; then
@@ -206,6 +226,7 @@ EOF
       cat >> /run/caddy/Caddyfile <<EOF
 
 http://sovransystemsos.local {
+  import sovran_lan_only
   reverse_proxy localhost:8937
   header {
     Clear-Site-Data "\"cache\""
@@ -220,6 +241,7 @@ EOF
       cat >> /run/caddy/Caddyfile <<EOF
 
 :3051 {
+  import sovran_lan_only
   reverse_proxy :3050
   encode gzip zstd
 }
@@ -229,6 +251,7 @@ EOF
       cat >> /run/caddy/Caddyfile <<EOF
 
 :60847 {
+  import sovran_lan_only
   reverse_proxy :60845
   encode gzip zstd
 }

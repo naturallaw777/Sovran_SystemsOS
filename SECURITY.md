@@ -35,6 +35,12 @@ external networks and are outside a “fully offline” model.
 The local Hub currently uses HTTP. Authentication does not encrypt local network
 traffic, so use a trusted LAN and avoid public or guest Wi-Fi.
 
+Caddy serves the Hub (`sovransystemsos.local`), Ride The Lightning (port 3051),
+and Mempool (port 60847) only to this computer and to clients on your local
+network (private, link-local, and VPN addresses), even when ports 80 and 443 are
+forwarded to this computer for public services. Other IPv4 clients get the
+connection closed. IPv6 global addresses are not filtered.
+
 ### Public services and your home IP address
 
 Server + Desktop publishes services under your own domain. The Dynamic DNS
