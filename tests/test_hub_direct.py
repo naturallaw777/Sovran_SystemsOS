@@ -57,6 +57,44 @@ class HubIsNotACaddySite(unittest.TestCase):
         )
 
 
+class CaddyDoesNoAddressFiltering(unittest.TestCase):
+    """Caddy is a bridge for RTL and Mempool and a TLS front for public sites.
+
+    It used to carry a client-address guard (sovran_lan_only). That guard was
+    never aimed at these two sites: the bug was a Host header on ports 80/443
+    reaching the Hub, and RTL and Mempool sit on ports of their own. It also
+    could not be made right for IPv6, where a laptop's global address on the
+    LAN is indistinguishable from a stranger's.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.caddy = _read("modules", "core", "caddy.nix")
+        cls.code = _without_comments(cls.caddy)
+
+    def test_there_is_no_address_filter(self):
+        # (private_ranges is deliberately not on this list: the Nextcloud site
+        # uses it for trusted_proxies, which is not a filter on who may connect.)
+        for needle in ("sovran_lan_only", "remote_ip", "abort @"):
+            with self.subTest(needle=needle):
+                self.assertNotIn(needle, self.code)
+
+    def test_the_bitcoin_sites_are_plain_proxies(self):
+        for site, upstream in ((":3051", ":3050"), (":60847", ":60845")):
+            with self.subTest(site=site):
+                m = re.search(r"^" + re.escape(site) + r" \{\n(.*?)^\}$", self.code, re.S | re.M)
+                self.assertIsNotNone(m, f"{site} site not found")
+                directives = [l.strip() for l in m.group(1).splitlines() if l.strip()]
+                self.assertEqual(directives, [f"reverse_proxy {upstream}", "encode gzip zstd"])
+
+    def test_the_options_for_a_declared_prefix_are_gone(self):
+        # Never needed once Caddy stops guessing: neither the option nor its
+        # build-time assertion may linger half-wired.
+        roles = _read("modules", "core", "roles.nix")
+        self.assertNotIn("lanIPv6Prefixes", roles)
+        self.assertNotIn("lanIPv6Prefixes", self.caddy)
+
+
 class CaddyRunsWhereItIsNeeded(unittest.TestCase):
 
     @classmethod

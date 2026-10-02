@@ -63,11 +63,13 @@ The check goes by the address a connection comes from. A router that rewrites
 that address when it forwards a port makes an outsider look local, so the check
 is a second lock and not a reason to forward port 8937: don't.
 
-Caddy serves Ride The Lightning (port 3051) and Mempool (port 60847) only to
-this computer and to clients on your local network (private, link-local, and VPN
-addresses), even when ports 80 and 443 are forwarded to this computer for public
-services. Other IPv4 clients get the connection closed. IPv6 global addresses
-are not filtered.
+Ride The Lightning (port 3051) and Mempool (port 60847) listen on loopback only,
+and Caddy is how your local network reaches them. Caddy does not filter them by
+client address: forwarding ports 80 and 443 for public services does not reach
+them, because they answer on ports of their own, which nothing asks you to
+forward. Do not forward 3051 or 60847. If you do, Ride The Lightning still asks
+for its own random password and locks out repeated failures, and Mempool shows
+public blockchain data, but neither should face the internet.
 
 ### Public services and your home IP address
 

@@ -32,11 +32,18 @@ let
 
   # Sites for the local network, one per loopback-only service. Written after
   # the public domain sites; each exists only where its service does.
+  #
+  # They do not filter by client address. A request can only reach them on
+  # their own ports, which no setup step asks you to forward, so forwarding
+  # 80/443 for public services does not expose them (a Host header on those
+  # ports cannot select a site that listens elsewhere). RTL has its own
+  # password and lockout, and Mempool shows public chain data. An address
+  # check here could not be made right for IPv6 anyway: a laptop's global
+  # address on the LAN looks exactly like a stranger's.
   bitcoinUiSites =
     lib.optionalString servesRtl ''
 
 :3051 {
-  import sovran_lan_only
   reverse_proxy :3050
   encode gzip zstd
 }
@@ -44,7 +51,6 @@ let
     + lib.optionalString servesMempool ''
 
 :60847 {
-  import sovran_lan_only
   reverse_proxy :60845
   encode gzip zstd
 }
@@ -123,26 +129,6 @@ EOF
 }
 EOF
       ''}
-
-      # ── LAN-only guard ──────────────────────────────
-      # The RTL and Mempool sites below are meant for this home network
-      # only. Forwarding ports 80/443 on the router also lets other clients
-      # reach Caddy, so these sites check where a request comes from, not just
-      # which Host it asks for. Anyone else gets the connection closed.
-      #   private_ranges   10/8, 172.16/12, 192.168/16, 127/8, fd00::/8, ::1
-      #   100.64.0.0/10    Tailscale and other VPN addresses
-      #   169.254.0.0/16, fe80::/10, fc00::/7   link-local and unique-local
-      #   2000::/3         IPv6 global addresses. Computers on this network
-      #                    often connect over their own global address, which
-      #                    looks the same as one from the internet, so IPv6
-      #                    global addresses are not filtered.
-      cat >> /run/caddy/Caddyfile <<'EOF'
-
-(sovran_lan_only) {
-  @outside not remote_ip private_ranges 100.64.0.0/10 169.254.0.0/16 fe80::/10 fc00::/7 2000::/3
-  abort @outside
-}
-EOF
 
       # ── Matrix ──────────────────────────────────────
       if [ -n "$MATRIX" ]; then
