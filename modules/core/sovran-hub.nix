@@ -487,6 +487,12 @@ os.environ["SOVRAN_HUB_ICONS"]  = os.path.join("$out", "share", "sovran-hub", "i
 import uvicorn
 uvicorn.run(
     "sovran_systemsos_web.server:app",
+    # IPv4 only, on purpose. The desktop launcher uses "localhost", which
+    # falls back to 127.0.0.1, and other devices reach the Hub over IPv4 too.
+    # An IPv6 listener would admit clients whose global addresses the Hub's own
+    # check cannot tell from a stranger's (see LanPolicy). Which devices may
+    # connect is up to the firewall (hub.directPort) and that check
+    # (hub.lanOnly), not this bind.
     host="0.0.0.0",
     port=8937,
     log_level="info",
@@ -599,7 +605,14 @@ in
 
     environment.systemPackages = [ sovran-hub-web ];
 
-    networking.firewall.allowedTCPPorts = [ 8937 60847 ];
+    # The Hub is served on its own port, not through Caddy (see caddy.nix).
+    # Nothing here filters by client address: that is the Hub's own check
+    # (sovran_systemsOS.hub.lanOnly), and which networks can route to this
+    # computer at all is the router's call.
+    # 60847 is where Caddy serves Mempool, so it is open only when Mempool is.
+    networking.firewall.allowedTCPPorts =
+      lib.optionals cfg.hub.directPort [ 8937 ]
+      ++ lib.optionals (cfg.services.bitcoin && cfg.features.mempool) [ 60847 ];
 
     # ── Auto-launch Hub in browser on login ───────────────────────
     environment.etc."xdg/autostart/sovran-hub-autolaunch.desktop".text = ''

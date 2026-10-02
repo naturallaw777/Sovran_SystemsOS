@@ -1,9 +1,10 @@
 """Guards for the LAN-only Caddy sites.
 
-The Hub (http://sovransystemsos.local), Ride The Lightning (:3051) and Mempool
-(:60847) sites are for the home network. Caddy has to check where a request comes
-from because forwarding ports 80/443 on the router lets other clients reach it too.
-The domain sites for the operator's own public services must stay public.
+Ride The Lightning (:3051) and Mempool (:60847) sites are for the home network.
+Caddy has to check where a request comes from because forwarding ports 80/443 on
+the router lets other clients reach it too. The domain sites for the operator's
+own public services must stay public. (The Hub is not a Caddy site: it is served
+on its own port and checks its own clients.)
 
 These read modules/core/caddy.nix like the nix-file checks in test_security.py:
 nothing is run and nothing touches the network.
@@ -20,7 +21,7 @@ _ROOT = os.path.normpath(os.path.join(os.path.dirname(__file__), ".."))
 _PRIVATE_RANGES = ["192.168.0.0/16", "172.16.0.0/12", "10.0.0.0/8",
                    "127.0.0.1/8", "fd00::/8", "::1"]
 
-_LAN_SITES = ("http://sovransystemsos.local", ":3051", ":60847")
+_LAN_SITES = (":3051", ":60847")
 
 
 def _read(*parts):
@@ -81,9 +82,10 @@ class LanOnlySites(unittest.TestCase):
         snippet = _snippet(self.src)
         self.assertIsNotNone(snippet, "(sovran_lan_only) snippet not found")
         self.assertRegex(snippet, r"(?m)^\s*abort @outside\s*$")
-        # defined before the first site that imports it
+        # defined before the sites that import it are written (the sites come
+        # from bitcoinUiSites, which the generator appends after the snippet)
         self.assertLess(self.src.index("(sovran_lan_only) {"),
-                        self.src.index("import sovran_lan_only"))
+                        self.src.index("${bitcoinUiSites}"))
 
     def test_guard_ranges(self):
         nets = _allowed_networks(_snippet(self.src))

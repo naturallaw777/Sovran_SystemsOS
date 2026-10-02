@@ -316,8 +316,8 @@ the tools of your selected mode already in place.
 Prefer to keep using Windows, macOS, Linux, Android, or iOS? Install
 Sovran_SystemsOS on a separate computer and let it run quietly on your local
 network, with or without a monitor. From any other device on the same network,
-open a browser, visit `http://sovransystemsos.local`, and manage everything
-from [The Sovran Hub](#the-sovran-hub).
+open a browser, visit `http://sovransystemsos.local:8937`, and manage
+everything from [The Sovran Hub](#the-sovran-hub).
 
 Your existing devices stay familiar. Sovran_SystemsOS provides the independent
 infrastructure behind them.
@@ -354,7 +354,7 @@ From one place, the Hub helps you:
           │                      │                      │
     Windows laptop         Phone or tablet          Mac or Linux
           │                      │                      │
-          └──────── Browser: sovransystemsos.local ────┘
+          └─────── Browser: sovransystemsos.local:8937 ─┘
                                  │
                                  ▼
                     ┌──────────────────────────┐
@@ -376,9 +376,10 @@ Keep using the devices you already own. Sovran_SystemsOS becomes the private
 Bitcoin and digital infrastructure behind them.
 
 > **Local access:** the Hub is available at
-> `http://sovransystemsos.local` to devices connected to the same local
-> network. It is protected by authentication and is not automatically exposed
-> to the public internet.
+> `http://sovransystemsos.local:8937` to devices connected to the same local
+> network (not on Desktop, which publishes nothing). It is protected by
+> authentication, answers only your local network, and is not automatically
+> exposed to the public internet.
 
 ---
 
@@ -536,18 +537,20 @@ Open the Hub directly from the Sovran_SystemsOS desktop, or from any other
 device on the same local network at:
 
 ```text
-http://sovransystemsos.local
+http://sovransystemsos.local:8937
 ```
 
-Sign in with your Sovran_SystemsOS credentials.
+Sign in with your Sovran_SystemsOS credentials. Desktop does not publish the Hub
+on the network, so in that mode open it from the desktop.
 
 <details>
-<summary><strong>If sovransystemsos.local does not open</strong></summary>
+<summary><strong>If sovransystemsos.local:8937 does not open</strong></summary>
 
 1. Make sure the Sovran_SystemsOS machine is powered on, and allow it a few
    minutes to finish starting.
 2. Make sure both devices are connected to the same local network, and that
-   you entered the full address `http://sovransystemsos.local`.
+   you entered the full address `http://sovransystemsos.local:8937`,
+   including the `:8937`.
 3. Avoid guest Wi-Fi networks, which may prevent devices from seeing one
    another.
 4. Temporarily disconnect any VPN that may interfere with local-network

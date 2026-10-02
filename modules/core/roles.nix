@@ -84,6 +84,27 @@
         '';
       };
 
+      directPort = lib.mkOption {
+        type = lib.types.bool;
+        default = !config.sovran_systemsOS.roles.desktop;
+        defaultText = lib.literalExpression "!config.sovran_systemsOS.roles.desktop";
+        description = ''
+          Open port 8937 on the firewall, so that other devices on the local
+          network can reach the Hub at http://sovransystemsos.local:8937.
+
+          On by default for Server + Desktop and Bitcoin Node Only. Off on
+          Desktop Only, the role most likely to be used away from home: there
+          nothing is published, and the Hub is reachable only from this
+          computer, through the desktop application window on localhost. Set it
+          to true in custom.nix if you do want to reach a Desktop Only Hub from
+          another device.
+
+          The Hub runs as root, so it checks every client itself (see
+          sovran_systemsOS.hub.lanOnly); the firewall opening only decides
+          whether a packet may reach it at all.
+        '';
+      };
+
       extraLanNetworks = lib.mkOption {
         type = lib.types.listOf lib.types.str;
         default = [ ];

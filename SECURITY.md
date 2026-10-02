@@ -35,20 +35,39 @@ external networks and are outside a “fully offline” model.
 The local Hub currently uses HTTP. Authentication does not encrypt local network
 traffic, so use a trusted LAN and avoid public or guest Wi-Fi.
 
-Caddy serves the Hub (`sovransystemsos.local`), Ride The Lightning (port 3051),
-and Mempool (port 60847) only to this computer and to clients on your local
-network (private, link-local, and VPN addresses), even when ports 80 and 443 are
-forwarded to this computer for public services. Other IPv4 clients get the
-connection closed. IPv6 global addresses are not filtered.
+The Hub is served on port 8937, on its own: Caddy does not front it. Server +
+Desktop and Bitcoin Node Only open that port in the firewall, so other devices
+on your local network reach the Hub at `http://sovransystemsos.local:8937`.
+Forwarding ports 80 and 443 for public services does not put the Hub in front of
+the internet, because the only thing Caddy answers on those ports is the public
+sites.
+
+On Desktop Only the Hub is not published at all. It is reachable only from the
+machine itself, through the desktop application window on localhost. Desktop
+Only is the role most likely to be used away from home, and a root-capable admin
+UI has no business listening on a coffee-shop network.
+`sovran_systemsOS.hub.directPort = true` in `custom.nix` opens port 8937 if you
+do want to reach a Desktop Only Hub from another device.
 
 The Hub also checks every client itself, before it shows a login page. It runs
 as root, so it answers only this computer and the local network (loopback,
 private, VPN and link-local addresses) and turns everyone else away, however
-they reached it. Global IPv6 addresses are turned away too: a laptop on your
-network and a stranger on the internet look the same by address alone. If your
-devices use addresses outside the local ranges, list their networks in
-`sovran_systemsOS.hub.extraLanNetworks` in `custom.nix`;
+they reached it. The Hub listens on IPv4 only, so IPv6 clients do not reach it
+at all; if that ever changes, global IPv6 addresses would be turned away,
+because a laptop on your network and a stranger on the internet look the same
+by address alone. If your devices use addresses outside the local ranges, list
+their networks in `sovran_systemsOS.hub.extraLanNetworks` in `custom.nix`;
 `sovran_systemsOS.hub.lanOnly = false` turns the check off.
+
+The check goes by the address a connection comes from. A router that rewrites
+that address when it forwards a port makes an outsider look local, so the check
+is a second lock and not a reason to forward port 8937: don't.
+
+Caddy serves Ride The Lightning (port 3051) and Mempool (port 60847) only to
+this computer and to clients on your local network (private, link-local, and VPN
+addresses), even when ports 80 and 443 are forwarded to this computer for public
+services. Other IPv4 clients get the connection closed. IPv6 global addresses
+are not filtered.
 
 ### Public services and your home IP address
 

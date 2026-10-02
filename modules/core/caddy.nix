@@ -14,13 +14,48 @@ let
     || config.sovran_systemsOS.features.haven
     || config.sovran_systemsOS.features."nwc-wallets"
     || config.sovran_systemsOS.features.element-calling;
+
+  # RTL and Mempool listen on loopback only: Sovran_Bitcoin binds them to
+  # 127.0.0.1, and RTL's unit is sandboxed to loopback besides. Caddy is how
+  # the local network reaches them (:3051 and :60847), so it has to run
+  # wherever they do. That includes Bitcoin Node Only, which has no
+  # domain-based service and so no other reason to run Caddy.
+  #
+  # The Hub is not one of these. It listens on 0.0.0.0:8937 itself, so it is
+  # served on its own port rather than through Caddy: the one service that
+  # runs as root has nothing in front of it that it does not need, and the
+  # public sites on ports 80/443 cannot be asked for it by Host header.
+  servesRtl = config.sovran_systemsOS.services.bitcoin;
+  servesMempool = servesRtl && config.sovran_systemsOS.features.mempool;
+
+  caddyEnabled = needsHttpsPorts || extraVhosts != "" || servesRtl;
+
+  # Sites for the local network, one per loopback-only service. Written after
+  # the public domain sites; each exists only where its service does.
+  bitcoinUiSites =
+    lib.optionalString servesRtl ''
+
+:3051 {
+  import sovran_lan_only
+  reverse_proxy :3050
+  encode gzip zstd
+}
+''
+    + lib.optionalString servesMempool ''
+
+:60847 {
+  import sovran_lan_only
+  reverse_proxy :60845
+  encode gzip zstd
+}
+'';
 in
 {
   services.caddy = {
-    # Only enable Caddy when at least one domain-based service needs it or
-    # the operator has defined custom vhosts.  This prevents Caddy from
-    # running on Desktop Only installs that have no web services configured.
-    enable = needsHttpsPorts || extraVhosts != "";
+    # Caddy runs when a domain-based service needs it, when the operator has
+    # defined custom vhosts, or when it is the way to reach RTL and Mempool.
+    # Desktop Only has none of those, so Caddy stays off there.
+    enable = caddyEnabled;
     user = "caddy";
     group = "root";
   };
@@ -90,7 +125,7 @@ EOF
       ''}
 
       # ── LAN-only guard ──────────────────────────────
-      # The Hub, RTL and Mempool sites below are meant for this home network
+      # The RTL and Mempool sites below are meant for this home network
       # only. Forwarding ports 80/443 on the router also lets other clients
       # reach Caddy, so these sites check where a request comes from, not just
       # which Host it asks for. Anyone else gets the connection closed.
@@ -222,40 +257,11 @@ $LIGHTNING {
 EOF
       fi
 
-      # ── Sovran Hub (LAN access via mDNS) ────────────
-      cat >> /run/caddy/Caddyfile <<EOF
-
-http://sovransystemsos.local {
-  import sovran_lan_only
-  reverse_proxy localhost:8937
-  header {
-    Clear-Site-Data "\"cache\""
-    Cache-Control "no-store, no-cache, must-revalidate, max-age=0"
-    Pragma "no-cache"
-    Expires "0"
-  }
-}
-EOF
-
-      # ── RTL (LAN access) ────────────────────────────
-      cat >> /run/caddy/Caddyfile <<EOF
-
-:3051 {
-  import sovran_lan_only
-  reverse_proxy :3050
-  encode gzip zstd
-}
-EOF
-
-      # ── Mempool (LAN access) ────────────────────────
-      cat >> /run/caddy/Caddyfile <<EOF
-
-:60847 {
-  import sovran_lan_only
-  reverse_proxy :60845
-  encode gzip zstd
-}
-EOF
+      # ── RTL and Mempool (local network) ─────────────
+      # Only where those services run; see bitcoinUiSites above.
+      cat >> /run/caddy/Caddyfile <<'LAN_SITES_EOF'
+${bitcoinUiSites}
+LAN_SITES_EOF
 
       # ── Custom vhosts from custom.nix ──────────────
       cat >> /run/caddy/Caddyfile <<'CUSTOM_VHOSTS_EOF'
