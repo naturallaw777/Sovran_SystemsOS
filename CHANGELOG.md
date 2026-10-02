@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.2.0] - 2026-10-02
+
+### Added
+- Ssh: don't open port 22 for the loopback-only sshd
+- Bitcoin: drop the stray UDP 3051 firewall rule
+- Installer: raise generated password entropy from ~23 to ~33 bits
+- Caddy: stop filtering the RTL and Mempool sites by client address
+- Hub: serve the Hub on its own port instead of through Caddy
+- Hub: answer the local network only, whichever way a client arrives
+- Hub: make the login lockout that LOGIN_FAIL_MAX described
+- Caddy: serve the Hub, RTL and Mempool sites to local clients only
+- Docs, hub, installer: say Server + Desktop makes the home IP public
+- Ddns: take the public IP from Njal.la only and give it to LiveKit
+
+### Changed
+- Updated nixpkgs and Sovran_Bitcoin update and the new Bisq 1.10.9
+[1.2.0]: https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS/releases/tag/v1.2.0
+
+
 ## [1.1.7] - 2026-09-21
 
 ### Added
