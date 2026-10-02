@@ -54,9 +54,14 @@ DICEWARE_WORDS = [
 ]
 
 def generate_diceware_password():
-    words = [secrets.choice(DICEWARE_WORDS) for _ in range(3)]
-    digit = secrets.randbelow(10)
-    return "-".join(words) + f"-{digit}"
+    # 4 words from a 96 word list plus 2 digits: 96^4 x 100 = ~8.5e9, about
+    # 33 bits. The old 3 words plus 1 digit was 96^3 x 10 = ~8.8e6, about 23
+    # bits, for a password that is simultaneously the desktop login, the
+    # 'free' account password and the only thing in front of a Hub that runs
+    # as root and hands out every stored credential.
+    words = [secrets.choice(DICEWARE_WORDS) for _ in range(4)]
+    digits = f"{secrets.randbelow(100):02d}"
+    return "-".join(words) + f"-{digits}"
 
 try:
     logfile = open(LOG, "a")

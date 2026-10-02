@@ -91,7 +91,7 @@ in
       SECRET_FILE="/var/lib/secrets/root-password"
       if [ ! -f "$SECRET_FILE" ]; then
         mkdir -p /var/lib/secrets
-        # Generate a diceware-style passphrase: word-word-word-N
+        # Generate a diceware-style passphrase: word-word-word-word-NN
         WORDS="apple barn brook cabin cedar cloud coral crane delta eagle ember \
                fern field flame flora flint frost grove haven hedge holly heron \
                jade juniper kelp larch lemon lilac linden loch lotus maple marsh \
@@ -106,8 +106,9 @@ in
         W1=''${WORD_ARRAY[$((RANDOM % COUNT))]}
         W2=''${WORD_ARRAY[$((RANDOM % COUNT))]}
         W3=''${WORD_ARRAY[$((RANDOM % COUNT))]}
-        DIGIT=$((RANDOM % 10))
-        ROOT_PASS="$W1-$W2-$W3-$DIGIT"
+        W4=''${WORD_ARRAY[$((RANDOM % COUNT))]}
+        DIGIT=$(printf '%02d' $((RANDOM % 100)))
+        ROOT_PASS="$W1-$W2-$W3-$W4-$DIGIT"
         echo "$ROOT_PASS" > "$SECRET_FILE"
         chmod 600 "$SECRET_FILE"
       fi
@@ -170,7 +171,7 @@ in
       fi
 
       mkdir -p /var/lib/secrets
-      # Generate a diceware-style passphrase: word-word-word-N
+      # Generate a diceware-style passphrase: word-word-word-word-NN
       WORDS="apple barn brook cabin cedar cloud coral crane delta eagle ember \
              fern field flame flora flint frost grove haven hedge holly heron \
              jade juniper kelp larch lemon lilac linden loch lotus maple marsh \
@@ -185,8 +186,9 @@ in
       W1=''${WORD_ARRAY[$((RANDOM % COUNT))]}
       W2=''${WORD_ARRAY[$((RANDOM % COUNT))]}
       W3=''${WORD_ARRAY[$((RANDOM % COUNT))]}
-      DIGIT=$((RANDOM % 10))
-      FREE_PASS="$W1-$W2-$W3-$DIGIT"
+      W4=''${WORD_ARRAY[$((RANDOM % COUNT))]}
+      DIGIT=$(printf '%02d' $((RANDOM % 100)))
+      FREE_PASS="$W1-$W2-$W3-$W4-$DIGIT"
       echo "$FREE_PASS" > "$SECRET_FILE"
       chmod 600 "$SECRET_FILE"
       echo "free:$FREE_PASS" | chpasswd
@@ -229,8 +231,9 @@ in
       W1=''${WORD_ARRAY[$((RANDOM % COUNT))]}
       W2=''${WORD_ARRAY[$((RANDOM % COUNT))]}
       W3=''${WORD_ARRAY[$((RANDOM % COUNT))]}
-      DIGIT=$((RANDOM % 10))
-      FREE_PASS="$W1-$W2-$W3-$DIGIT"
+      W4=''${WORD_ARRAY[$((RANDOM % COUNT))]}
+      DIGIT=$(printf '%02d' $((RANDOM % 100)))
+      FREE_PASS="$W1-$W2-$W3-$W4-$DIGIT"
 
       printf '%s\n' "$FREE_PASS" > "$SECRET_FILE"
       chmod 600 "$SECRET_FILE"
