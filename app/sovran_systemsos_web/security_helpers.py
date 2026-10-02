@@ -15,6 +15,7 @@ import json
 import os
 import re
 import tempfile
+import threading
 import time
 import urllib.parse
 
@@ -243,6 +244,141 @@ def _validate_ssh_pubkey(key: str) -> str:
     if len(decoded) < 20:
         raise ValueError("SSH public key payload is too short")
     return key
+
+
+# ── Login throttling ──────────────────────────────────────────────────────────
+#
+# Delays applied after each failed login, and the lockout that follows once an
+# address has tripped LOGIN_FAIL_MAX inside the window.
+#
+# LOGIN_FAIL_WINDOW has to be longer than the time it takes to reach
+# LOGIN_FAIL_MAX failures under the ramping delay: with a 2s ramp capped at
+# LOGIN_FAIL_MAX_DELAY, 10 attempts take about 80 seconds, so a 60 second
+# window would silently expire the earliest failures and the counter could
+# never reach the limit. 900s (15 minutes) keeps the whole ramp inside it.
+LOGIN_FAIL_DELAY = 2.0         # base delay; the nth failure waits n x this
+LOGIN_FAIL_MAX_DELAY = 10.0    # ceiling for a single delay
+LOGIN_FAIL_WINDOW = 900.0      # rolling window failures are counted in
+LOGIN_FAIL_MAX = 10            # failures in the window that trigger a lockout
+LOGIN_LOCKOUT_SECONDS = 300.0  # how long the lockout lasts
+
+# Cap on how many addresses are tracked, so a distributed sweep cannot grow
+# the table without bound.
+_LOGIN_THROTTLE_MAX_IPS = 4096
+
+
+class LoginThrottle:
+    """Per-address failed-login tracking with a ramping delay and a lockout.
+
+    The delay ramps so a script hammering the login form slows down as it goes,
+    and once LOGIN_FAIL_MAX failures land inside the window the address is
+    refused outright for LOGIN_LOCKOUT_SECONDS. A successful login clears the
+    address so a legitimate user who fumbles a password is not penalised later.
+
+    ``sleep`` and ``clock`` are injectable so tests run without waiting.
+    """
+
+    def __init__(
+        self,
+        fail_delay=LOGIN_FAIL_DELAY,
+        max_delay=LOGIN_FAIL_MAX_DELAY,
+        window=LOGIN_FAIL_WINDOW,
+        max_failures=LOGIN_FAIL_MAX,
+        lockout=LOGIN_LOCKOUT_SECONDS,
+        max_tracked_ips=_LOGIN_THROTTLE_MAX_IPS,
+        sleep=None,
+        clock=None,
+    ):
+        self._fail_delay = float(fail_delay)
+        self._max_delay = float(max_delay)
+        self._window = float(window)
+        self._max_failures = int(max_failures)
+        self._lockout = float(lockout)
+        self._max_tracked_ips = int(max_tracked_ips)
+        self._sleep = sleep if sleep is not None else time.sleep
+        self._clock = clock if clock is not None else time.monotonic
+        self._lock = threading.Lock()
+        self._failures: dict[str, list[float]] = {}
+
+    # ── internals ────────────────────────────────────────────────────────────
+
+    def _prune(self, ip, now):
+        """Drop timestamps outside the window; return what is left."""
+        keep = [t for t in self._failures.get(ip, ()) if now - t < self._window]
+        if keep:
+            self._failures[ip] = keep
+        else:
+            self._failures.pop(ip, None)
+        return keep
+
+    def _evict(self, now):
+        """Forget addresses that can no longer affect anything."""
+        horizon = max(self._window, self._lockout)
+        for ip in [i for i, ts in self._failures.items()
+                   if ts and now - max(ts) > horizon]:
+            self._failures.pop(ip, None)
+        while len(self._failures) > self._max_tracked_ips:
+            oldest = min(self._failures, key=lambda i: max(self._failures[i]))
+            self._failures.pop(oldest, None)
+
+    # ── public API ───────────────────────────────────────────────────────────
+
+    def delay_for(self, count):
+        """Return the delay owed after *count* failures in the current window."""
+        if count <= 0:
+            return 0.0
+        return min(self._fail_delay * count, self._max_delay)
+
+    def failure_count(self, ip):
+        """Return the failures currently counted against *ip*."""
+        with self._lock:
+            return len(self._prune(ip, self._clock()))
+
+    def is_locked_out(self, ip):
+        """Return True while *ip* is inside a lockout."""
+        now = self._clock()
+        with self._lock:
+            failures = self._prune(ip, now)
+            if len(failures) < self._max_failures:
+                return False
+            return (now - failures[-1]) < self._lockout
+
+    def remaining_lockout(self, ip):
+        """Return the seconds left in *ip*'s lockout, or 0.0 if not locked out."""
+        now = self._clock()
+        with self._lock:
+            failures = self._prune(ip, now)
+            if len(failures) < self._max_failures:
+                return 0.0
+            return max(0.0, self._lockout - (now - failures[-1]))
+
+    def record_failure(self, ip):
+        """Record a failure for *ip* and serve out the delay it has earned.
+
+        Returns the delay that was applied. The lock is never held across the
+        sleep, so one slow client cannot stall every other login.
+        """
+        now = self._clock()
+        with self._lock:
+            failures = list(self._prune(ip, now))
+            failures.append(now)
+            self._failures[ip] = failures
+            count = len(failures)
+            self._evict(now)
+        delay = self.delay_for(count)
+        if delay > 0:
+            self._sleep(delay)
+        return delay
+
+    def clear(self, ip):
+        """Forget *ip*, e.g. after a successful login."""
+        with self._lock:
+            self._failures.pop(ip, None)
+
+    def tracked_addresses(self):
+        """Return how many addresses are currently being tracked."""
+        with self._lock:
+            return len(self._failures)
 
 
 # ── Persistent Hub session store ─────────────────────────────────────────────

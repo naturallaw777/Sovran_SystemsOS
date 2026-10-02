@@ -55,6 +55,12 @@ from .security_helpers import (
     _bech32_convertbits_decode,
     load_session_store,
     save_session_store,
+    LoginThrottle,
+    LOGIN_FAIL_DELAY,
+    LOGIN_FAIL_MAX_DELAY,
+    LOGIN_FAIL_WINDOW,
+    LOGIN_FAIL_MAX,
+    LOGIN_LOCKOUT_SECONDS,
 )
 from .update_state import effective_update_status
 
@@ -175,11 +181,19 @@ _sessions_lock = Lock()
 _SESSION_PERSIST_MIN_INTERVAL = 30.0  # seconds
 _sessions_last_persist = 0.0
 
-# Failed login tracking: ip → list of failure timestamps
-_login_failures: dict[str, list[float]] = {}
-LOGIN_FAIL_DELAY  = 2.0   # seconds to sleep after a failed attempt
-LOGIN_FAIL_WINDOW = 60.0  # rolling window (seconds) for counting failures
-LOGIN_FAIL_MAX    = 10    # max failures in window before extra delay
+# Failed login tracking.
+#
+# LOGIN_FAIL_MAX used to be declared here and never read anywhere: the only
+# thing a failed attempt cost an attacker was a flat 2 second delay, and there
+# was no lockout, no escalation and no ban. The throttling now lives in
+# security_helpers.LoginThrottle, which ramps the delay and refuses an address
+# outright once it has tripped LOGIN_FAIL_MAX inside the window.
+#
+# The window moved from 60s to 900s. With the ramping delay, reaching
+# LOGIN_FAIL_MAX takes about 80 seconds, so a 60 second window expired the
+# earliest failures before the limit could ever be reached — the old constant
+# could not have worked even if it had been wired up.
+_login_throttle = LoginThrottle()
 
 # Public paths that are accessible without a valid session
 _AUTH_EXEMPT_PATHS = {"/login", "/api/login", "/auto-login", "/api/ping"}
@@ -770,19 +784,20 @@ def _ensure_onboarding_reopened_for_migration() -> None:
         logger.warning("Could not clear onboarding flag for migration flow: %s", exc)
 
 
-def _record_failure(client_ip: str) -> None:
-    """Record a failed login attempt and apply a rate-limit delay.
+def _record_failure(client_ip: str) -> float:
+    """Record a failed login attempt and apply the throttling delay.
 
     Must always be called via loop.run_in_executor() so that the blocking
     time.sleep() does not stall the asyncio event loop.
+
+    Returns the delay that was applied.
     """
-    now = time.time()
-    failures = _login_failures.setdefault(client_ip, [])
-    # Prune old entries outside the window
-    _login_failures[client_ip] = [t for t in failures if now - t < LOGIN_FAIL_WINDOW]
-    _login_failures[client_ip].append(now)
-    # Sleep in the thread-pool thread to slow brute-force without blocking the loop
-    time.sleep(LOGIN_FAIL_DELAY)
+    return _login_throttle.record_failure(client_ip)
+
+
+def _is_locked_out(client_ip: str) -> bool:
+    """Return True while *client_ip* is inside a lockout."""
+    return _login_throttle.is_locked_out(client_ip)
 
 
 # ── Authentication middleware ─────────────────────────────────────
@@ -2638,10 +2653,24 @@ async def api_login(req: LoginRequest, request: Request):
     """Validate the Hub password and issue a session cookie."""
     client_ip = request.client.host if request.client else "unknown"
     loop = asyncio.get_event_loop()
+
+    # Refuse outright while the address is locked out. This runs before the
+    # scrypt hash, so a locked-out client costs almost nothing to reject.
+    if _is_locked_out(client_ip):
+        remaining = int(_login_throttle.remaining_lockout(client_ip) // 60) + 1
+        raise HTTPException(
+            status_code=429,
+            detail=f"Too many failed attempts. Try again in about {remaining} minute(s).",
+        )
+
     ok = await loop.run_in_executor(None, _check_password, req.password)
     if not ok:
         await loop.run_in_executor(None, _record_failure, client_ip)
         raise HTTPException(status_code=401, detail="Incorrect password")
+
+    # A real login clears the address, so fumbling a password once in a while
+    # does not accumulate towards a lockout.
+    _login_throttle.clear(client_ip)
     token = _create_session()
     response = JSONResponse({"ok": True})
     response.set_cookie(
