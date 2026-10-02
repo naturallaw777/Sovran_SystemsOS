@@ -105,9 +105,11 @@ in {
     '';
   };
 
-  # ── 5. Firewall — Hub management port ──────────────────────────
+  # ── 5. Firewall — RTL ──────────────────────────────────────────
+  # RTL is a web app served by Caddy over TCP on 3051. The matching UDP rule
+  # that used to sit here was carried over from the TCP line and opened a port
+  # nothing listens on.
   networking.firewall.allowedTCPPorts = lib.mkIf cfg.services.bitcoin [ 3051 ];
-  networking.firewall.allowedUDPPorts = lib.mkIf cfg.services.bitcoin [ 3051 ];
 
   # ── 6. NWC / LNURL — Sovran Hub integration ───────────────────
   # Sovran_Bitcoin's albyhub.nix and lnurl.nix handle the base services.
