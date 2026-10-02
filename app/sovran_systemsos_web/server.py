@@ -21,7 +21,6 @@ import subprocess
 import tempfile
 import threading
 import time
-import sys
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -41,6 +40,7 @@ from .config import load_config, load_versions
 from . import systemctl as sysctl
 from sovran_nwc import nwc_hub_manager as _nwc_mgr
 from . import support_ops as _support_ops
+from .ddns_update import normalise_url as _normalise_ddns_url
 from .security_helpers import (
     _nix_escape,
     NPUB_RE,
@@ -1008,44 +1008,21 @@ def _save_internal_ip(ip: str):
             pass
 
 
-def _save_external_ip(ip: str):
-    """Write the external IP to a file so other services (e.g. LiveKit) can
-    reference it without running their own detection."""
-    if ip and ip != "unavailable":
-        try:
-            os.makedirs(os.path.dirname(EXTERNAL_IP_FILE), exist_ok=True)
-            with open(EXTERNAL_IP_FILE, "w") as f:
-                f.write(ip)
-        except OSError:
-            pass
-
-
 def _get_external_ip() -> str:
-    """Public IP via the shared detector (/var/lib/sovran/public-ip.py).
+    """Public IP as recorded by the Njal.la DDNS runner (ddns_update.py).
 
-    The detector owns discovery (STUN -> DNS -> opt-in HTTPS echo), caches the
-    result in /var/lib/secrets/external-ip, and contacts at most one third
-    party per refresh interval. This function only reads the cache and asks
-    the detector to refresh when it is missing or stale — it performs no
-    per-call external queries of its own.
+    Nothing here looks the address up or contacts anyone. The DDNS update asks
+    Njal.la to use the address the request came from, Njal.la reports it back,
+    and the runner saves it to EXTERNAL_IP_FILE. Returns "unavailable" until
+    the first successful update (and on machines with no DDNS URL, e.g. Desktop).
     """
-    try:
-        r = subprocess.run(
-            [sys.executable, "/var/lib/sovran/public-ip.py", "check"],
-            capture_output=True, text=True, timeout=20,
-        )
-        if r.returncode == 0 and r.stdout.strip():
-            return r.stdout.strip().splitlines()[0]
-    except Exception:
-        pass
     try:
         with open(EXTERNAL_IP_FILE) as f:
             ip = f.read().strip()
-        if ip:
-            return ip
-    except OSError:
-        pass
-    return "unavailable"
+        ipaddress.ip_address(ip)
+        return ip
+    except (OSError, ValueError):
+        return "unavailable"
 
 
 # ── Port status helpers (local-only, no external calls) ──────────
@@ -3796,9 +3773,6 @@ async def api_network():
     # Keep the internal-ip file in sync for credential lookups
     _save_internal_ip(internal)
     _cached_external_ip = external
-    # Persist the external IP so other services (e.g. LiveKit) can reuse the
-    # Hub's detection instead of running their own.
-    _save_external_ip(external)
     return {"internal_ip": internal, "external_ip": external}
 
 
@@ -4723,51 +4697,26 @@ def _save_ddns_urls(urls: list[str]) -> None:
 
 
 def _run_njalla_ddns() -> None:
-    """Update Njal.la DDNS records immediately (best-effort).
+    """Ask the DDNS runner to update Njal.la right away (best-effort, non-blocking).
 
-    Resolves the current public IP once, then invokes ``curl`` directly as a
-    subprocess for each stored DDNS update URL.  No shell interpolation is
-    performed and no user-controlled value is interpreted as shell syntax.
-    Each URL is revalidated through ``_validate_ddns_url()`` after ``${IP}``
-    substitution; URLs that fail validation are silently skipped.
+    The runner (modules/core/njalla.nix -> ddns_update.py) is the only code that
+    talks to Njal.la. It validates every stored URL, calls it with "&auto" so
+    Njal.la uses the address the request came from, and records the address
+    Njal.la reports back for LiveKit and the Hub (EXTERNAL_IP_FILE).
 
-    Called when a domain/DDNS entry is saved and when a DDNS-backed feature
-    is enabled, so DNS is refreshed right away instead of waiting for the
-    15-minute timer tick (see modules/core/njalla.nix).
+    Called when a domain/DDNS entry is saved and when a DDNS-backed feature is
+    enabled, so DNS is refreshed right away instead of waiting for the
+    15-minute timer tick.
     """
-    urls = _load_ddns_urls()
-    if not urls:
+    if not _load_ddns_urls():
         return
-    # Resolve current public IP (best-effort; skip if unavailable)
-    public_ip = ""
     try:
-        ip_result = subprocess.run(
-            ["dig", "@resolver4.opendns.com", "myip.opendns.com", "+short", "-4"],
-            capture_output=True, text=True, timeout=10, check=False,
+        subprocess.run(
+            ["systemctl", "start", "--no-block", "sovran-ddns-update.service"],
+            capture_output=True, timeout=10, check=False,
         )
-        raw_ip = ip_result.stdout.strip().splitlines()[0] if ip_result.stdout.strip() else ""
-        # Validate strictly as a proper IPv4/IPv6 address before substitution
-        ipaddress.ip_address(raw_ip)
-        public_ip = raw_ip
     except Exception:
-        public_ip = ""
-
-    if not public_ip:
-        return  # skip to avoid sending bare ${IP} to curl
-
-    for raw_url in urls:
-        try:
-            # Replace the placeholder with the validated IP (safe string replacement)
-            url = raw_url.replace("${IP}", public_ip)
-            # Revalidate after substitution — enforces /update/ path, no $, etc.
-            _validate_ddns_url(url)
-            subprocess.run(
-                ["curl", "--silent", "--max-time", "15", "--fail", "--no-location", url],
-                timeout=20, check=False,
-                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-            )
-        except Exception:
-            pass
+        pass
 
 
 def _reload_caddy_for_domain_change() -> None:
@@ -4906,18 +4855,17 @@ async def api_domains_set(req: DomainSetRequest):
         # Strip surrounding quotes
         if len(ddns_url) >= 2 and ddns_url[0] in ('"', "'") and ddns_url[-1] == ddns_url[0]:
             ddns_url = ddns_url[1:-1]
-        # Replace trailing &auto with the IP placeholder used by _run_njalla_ddns
-        if ddns_url.endswith("&auto"):
-            ddns_url = ddns_url[:-5] + "&a=${IP}"
+        # Keep Njal.la's "&auto": Njal.la then uses the address the request comes
+        # from, so nothing on this machine has to look the address up. Old
+        # "&a=${IP}" pastes and "&quiet" are normalised exactly as the runner does.
+        ddns_url = _normalise_ddns_url(ddns_url)
         # Validate URL strictly — reject injection attempts before persisting.
-        # The placeholder ${IP} is replaced temporarily so the validator sees a
-        # real address; the original URL (with the placeholder) is kept for storage.
         try:
-            _validate_ddns_url(ddns_url.replace("${IP}", "127.0.0.1"))
+            _validate_ddns_url(ddns_url)
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=f"Invalid DDNS URL: {exc}")
         # Persist the URL in the JSON store (never in executable shell source)
-        existing_urls = _load_ddns_urls()
+        existing_urls = list(dict.fromkeys(_normalise_ddns_url(u) for u in _load_ddns_urls()))
         if ddns_url not in existing_urls:
             existing_urls.append(ddns_url)
         try:
@@ -6308,13 +6256,12 @@ async def _background_domain_reachability_checker():
     consecutive_failures = 0
     while True:
         try:
-            # Keep the persisted external IP fresh (dynamic WAN IPs), so
-            # services like LiveKit can read /var/lib/secrets/external-ip.
+            # Pick up the address the Njal.la DDNS runner last recorded (a plain
+            # file read; nothing is looked up from here).
             loop = asyncio.get_event_loop()
             external = await loop.run_in_executor(None, _get_external_ip)
             if external != "unavailable":
                 _cached_external_ip = external
-                _save_external_ip(external)
 
             cfg = load_config()
             services = cfg.get("services", [])

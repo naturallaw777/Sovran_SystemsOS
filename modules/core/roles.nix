@@ -107,9 +107,11 @@
         description = ''
           Optional pin: force LiveKit to advertise this public IPv4 in its
           host/TURN ICE candidates. Not required in normal operation — the
-          module auto-detects the public IP at runtime (HTTPS egress
-          detection, falling back to STUN). Set it only to override a
-          mis-detected address (e.g. multi-WAN/VPN setups).
+          address is the one Njal.la reports for the DDNS update (set up in
+          the Hub's Domains page), and nothing on this system looks it up
+          anywhere else. Set it for a fixed public address with no Njal.la
+          DDNS entry, or to override the reported one (e.g. multi-WAN/VPN
+          setups).
         '';
       };
     };

@@ -1,17 +1,32 @@
 { config, pkgs, lib, ... }:
 
 {
+  # The public-IP detector (STUN / OpenDNS / HTTPS echo) is gone: the public
+  # address is whatever Njal.la reports back for the DDNS update below, and
+  # nothing else on the system looks it up. Fail with a pointer, instead of
+  # silently ignoring them, if a custom.nix still sets one of its old options.
+  imports = map (opt:
+    lib.mkRemovedOptionModule [ "sovran_systemsOS" "publicIP" opt ]
+      "Sovran no longer looks up the public IP: the Njal.la DDNS update reports it (modules/core/njalla.nix). To force an address for Element Calling, set sovran_systemsOS.elementCalling.externalIP."
+  ) [ "stunServer" "stunPort" "dnsResolver" "httpsEcho" "cacheTTL" ];
+
   # ── Ensure njalla directory exists on every build ────────────────────────
   systemd.tmpfiles.rules = [
     "d /var/lib/njalla 0750 root root -"
   ];
 
-  # ── Install the shared validation helper so the DDNS runner can import it ─
-  # The exact same _validate_ddns_url() function used by the Hub web application
-  # is installed here as a read-only system file.  The DDNS runner imports it
-  # directly so the two code paths share one validator — no weaker inline copy.
+  # ── Install the DDNS runner and the validator it shares with the Hub ─────
+  # Both files come straight from the Hub's source tree and are installed side
+  # by side as read-only system files. The runner imports the exact same
+  # _validate_ddns_url() the Hub API uses — no weaker inline copy.
   environment.etc."sovran/security_helpers.py" = {
     source = ../../app/sovran_systemsos_web/security_helpers.py;
+    mode   = "0444";
+    user   = "root";
+    group  = "root";
+  };
+  environment.etc."sovran/ddns-update.py" = {
+    source = ../../app/sovran_systemsos_web/ddns_update.py;
     mode   = "0444";
     user   = "root";
     group  = "root";
@@ -20,24 +35,30 @@
   # ── Safe DDNS update service ─────────────────────────────────────────────
   # Reads DDNS update URLs from the JSON store written by the Hub API and
   # invokes curl directly — no shell interpolation, no script execution.
-  # Replaces the legacy root cron job that ran /var/lib/njalla/njalla.sh.
+  # Njal.la is asked to use the address the request came from ("&auto") and
+  # reports it back; the runner saves it to /var/lib/secrets/external-ip,
+  # where LiveKit and the Hub read it. See app/sovran_systemsos_web/ddns_update.py.
   systemd.services.sovran-ddns-update = {
     description = "Sovran Njal.la DDNS update (safe JSON-based runner)";
     wants = [ "network-online.target" ];
     after = [ "network-online.target" ];
+    # curl is not in a NixOS unit's default PATH (coreutils, findutils, grep,
+    # sed, systemd): without this the runner cannot start it.
+    path = [ pkgs.curl ];
     serviceConfig = {
       Type        = "oneshot";
       User        = "root";
-      ExecStart   = "${pkgs.python3}/bin/python3 /var/lib/sovran/ddns-update.py";
-      # Harden the service — it only needs network access and read access to
-      # /var/lib/njalla/ddns_urls.json.
+      ExecStart   = "${pkgs.python3}/bin/python3 /etc/sovran/ddns-update.py";
+      # Harden the service — it needs network access, the URL store, and the
+      # file that receives the reported address.
       NoNewPrivileges    = true;
       ProtectSystem      = "strict";
       ReadWritePaths     = [ "/var/lib/njalla" "/var/lib/secrets" ];
       ReadOnlyPaths      = [ "/etc/sovran" ];
       ProtectHome        = true;
       PrivateTmp         = true;
-      RestrictAddressFamilies = [ "AF_INET" "AF_INET6" ];
+      # AF_UNIX: name lookups can go through nscd / systemd-resolved sockets.
+      RestrictAddressFamilies = [ "AF_UNIX" "AF_INET" "AF_INET6" ];
     };
   };
 
@@ -52,86 +73,9 @@
     };
   };
 
-  # Install the Python runner script at build time so the service can find it.
-  # The script is owned by root and not world-writable.
-  # Uses _validate_ddns_url() from /etc/sovran/security_helpers.py — the same
-  # production validator used by the Hub API — before executing any curl call.
-  # No shell is used; no redirects; no script execution.
-  # ${IP} placeholder is preserved in stored URLs and substituted at runtime;
-  # the URL is validated after substitution so any remaining $ is rejected.
+  # The runner used to be written to /var/lib/sovran by this activation script,
+  # next to the old public-ip.py detector. Remove those stale copies.
   system.activationScripts.sovran-ddns-update-script = ''
-    install -d -m 0755 /var/lib/sovran
-    cat > /var/lib/sovran/ddns-update.py <<'PYEOF'
-#!/usr/bin/env python3
-"""Sovran safe DDNS update runner.
-
-Reads ddns_urls.json, substitutes the public IP for the ''${IP} placeholder,
-validates each URL using the production _validate_ddns_url() from
-/etc/sovran/security_helpers.py, then calls curl per URL.
-No shell interpolation.  No redirects.  No script execution.
-"""
-import ipaddress, json, os, subprocess, sys
-
-sys.path.insert(0, '/etc/sovran')
-try:
-    from security_helpers import _validate_ddns_url
-except ImportError:
-    sys.exit(1)  # validator missing — fail so systemd logs the misconfiguration
-
-URLS_FILE = "/var/lib/njalla/ddns_urls.json"
-
-try:
-    with open(URLS_FILE) as f:
-        urls = json.load(f)
-    if not isinstance(urls, list):
-        raise ValueError("not a list")
-except Exception:
-    sys.exit(0)  # no URLs configured — nothing to do
-
-# Resolve current public IP via the shared detector — one script, one cache
-# (STUN -> DNS -> opt-in HTTPS echo; see /var/lib/sovran/public-ip.py).
-# The detector refreshes /var/lib/secrets/external-ip, which the Hub and
-# LiveKit read as well, so the whole system shares a single detected value.
-public_ip = ""
-try:
-    r = subprocess.run(
-        [sys.executable, "/var/lib/sovran/public-ip.py", "check"],
-        capture_output=True, text=True, timeout=20,
-    )
-    raw = r.stdout.strip().splitlines()[0] if r.stdout.strip() else ""
-    ipaddress.ip_address(raw)  # validates — raises if not a real IP
-    public_ip = raw
-except Exception:
-    pass
-
-if not public_ip:
-    # Last resort: the shared cache file, if the detector is unavailable.
-    try:
-        with open("/var/lib/secrets/external-ip") as f:
-            raw = f.read().strip()
-        ipaddress.ip_address(raw)
-        public_ip = raw
-    except Exception:
-        pass
-
-if not public_ip:
-    sys.exit(0)  # no IP resolved — skip to avoid sending bare ''${IP}
-
-for raw_url in urls:
-    try:
-        # Substitute ''${IP} placeholder then validate through production validator.
-        # After substitution there must be no $ left; _validate_ddns_url rejects
-        # any remaining $ expression.
-        url = raw_url.replace("''${IP}", public_ip)
-        _validate_ddns_url(url)
-        subprocess.run(
-            ["curl", "--silent", "--max-time", "15", "--fail", "--no-location", url],
-            timeout=20, check=False,
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-        )
-    except Exception:
-        pass
-PYEOF
-    chmod 0500 /var/lib/sovran/ddns-update.py
+    rm -f /var/lib/sovran/ddns-update.py /var/lib/sovran/public-ip.py
   '';
 }

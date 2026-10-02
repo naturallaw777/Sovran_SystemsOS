@@ -204,35 +204,37 @@ EOF
       # NAT with port-forwarding. It does not need to be assigned to this box,
       # and it may be dynamic.
       #
-      # Reuse the shared detector (/var/lib/sovran/public-ip.py — see
-      # modules/core/public-ip.nix) instead of running our own: one script,
-      # one cache, privacy-first (STUN -> DNS -> opt-in HTTPS echo). Priority:
+      # Nothing here looks the address up. Priority:
       #   1. sovran_systemsOS.elementCalling.externalIP (explicit pin, if set)
-      #   2. /var/lib/secrets/external-ip (the shared cache)
-      #   3. run the detector now (it refreshes the cache)
-      #   4. STUN auto-detection (use_external_ip) as the fallback, with a
-      #      warning — this is where broken installs used to silently end up
-      #      advertising a private IP, causing "call connects but no video".
+      #   2. /var/lib/secrets/external-ip — the address Njal.la reported for the
+      #      last DDNS update (modules/core/njalla.nix). The runner rewrites that
+      #      file only when the address changes, and livekit-external-ip.path
+      #      then re-runs this script.
+      # With neither, or with an address that is not public, this unit fails with
+      # a clear message instead of guessing: advertising a wrong or private
+      # address is what produces "call connects but no video".
       EXTERNAL_IP='${if config.sovran_systemsOS.elementCalling.externalIP != null then config.sovran_systemsOS.elementCalling.externalIP else ""}'
 
       PUBLIC_IP="$EXTERNAL_IP"
       if [ -z "$PUBLIC_IP" ] && [ -f /var/lib/secrets/external-ip ]; then
         PUBLIC_IP=$(tr -d '[:space:]' < /var/lib/secrets/external-ip 2>/dev/null)
       fi
-      if [ -z "$PUBLIC_IP" ] && [ -x /var/lib/sovran/public-ip.py ]; then
-        PUBLIC_IP=$(python3 /var/lib/sovran/public-ip.py check 2>/dev/null | head -n1)
+
+      if [ -z "$PUBLIC_IP" ]; then
+        echo "ERROR: no public IP is known for LiveKit yet." >&2
+        echo "ERROR: It is recorded after the first successful Njal.la DDNS update (Hub, Domains)." >&2
+        echo "ERROR: To use a fixed address instead, set sovran_systemsOS.elementCalling.externalIP." >&2
+        exit 1
       fi
 
       # Reject non-routable addresses (loopback, private, link-local, CGNAT).
-      # A detected/pinned address like this must never be advertised.
-      if [ -n "$PUBLIC_IP" ] && printf '%s' "$PUBLIC_IP" | grep -qE \
-        '^(0\.|127\.|10\.|100\.64\.|169\.254\.|172\.(1[6-9]|2[0-9]|3[01])\.|192\.168\.)'; then
-        echo "WARNING: external IP '$PUBLIC_IP' is not routable; falling back to STUN auto-detection." >&2
-        PUBLIC_IP=""
+      if printf '%s' "$PUBLIC_IP" | grep -qE \
+        '^(0\.|127\.|10\.|100\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\.|169\.254\.|172\.(1[6-9]|2[0-9]|3[01])\.|192\.168\.)'; then
+        echo "ERROR: $PUBLIC_IP is not a public address, so remote peers cannot reach LiveKit there." >&2
+        exit 1
       fi
 
-      if [ -n "$PUBLIC_IP" ]; then
-        cat > /run/livekit/livekit.yaml <<EOF
+      cat > /run/livekit/livekit.yaml <<EOF
 port: 7880
 rtc:
   use_external_ip: false
@@ -244,22 +246,7 @@ rtc:
     includes:
       - $IFACE
 EOF
-        echo "LiveKit will advertise public IP: $PUBLIC_IP"
-      else
-        cat > /run/livekit/livekit.yaml <<EOF
-port: 7880
-rtc:
-  use_external_ip: true
-  skip_external_ip_validation: true
-  advertise_internal_ip: true
-  tcp_port: 7881
-  udp_port: 7882
-  interfaces:
-    includes:
-      - $IFACE
-EOF
-        echo "WARNING: could not determine a public IP for LiveKit; using STUN auto-detection. If calls connect without media, check STUN egress or set sovran_systemsOS.elementCalling.externalIP." >&2
-      fi
+      echo "LiveKit will advertise public IP: $PUBLIC_IP"
 
       # Webhooks → lk-jwt-service. The JWT service validates the HMAC
       # signature against the same key file it issues tokens with, and uses
@@ -414,14 +401,31 @@ EOF
   # Restart LiveKit / lk-jwt-service when a rebuild regenerates their runtime
   # configs (new domains, externalIP, full-access list), mirroring the domain
   # change flow.
-  # Re-run the config generator and restart LiveKit when a rebuild regenerates
-  # the runtime config, or when the Hub persists a new external IP (dynamic
-  # WAN IPs), so the advertised ICE candidate stays current without a manual
-  # restart. The trigger chain: external-ip change → livekit-turn-setup
-  # re-runs → rewrites livekit.yaml → livekit restarts with the new config.
-  systemd.services.livekit-turn-setup.restartTriggers = [ "/var/lib/secrets/external-ip" ];
   systemd.services.livekit.restartTriggers = [ "/run/livekit/livekit.yaml" ];
   systemd.services.lk-jwt-service.restartTriggers = [ "/run/lk-jwt-service/env" ];
+
+  # Follow a changing public IP. ddns-update.py rewrites
+  # /var/lib/secrets/external-ip only when Njal.la reports a different address;
+  # this path unit then re-runs livekit-turn-setup (new node_ip and TURN
+  # address) and starts LiveKit if it is not running, e.g. because no address
+  # was known yet at boot. restartTriggers cannot do this: it is evaluated when
+  # the system is built, so it cannot watch a file that changes at runtime.
+  systemd.paths.livekit-external-ip = {
+    description = "Watch the public IP recorded by the Njal.la DDNS runner";
+    wantedBy = [ "multi-user.target" ];
+    pathConfig.PathChanged = "/var/lib/secrets/external-ip";
+  };
+  systemd.services.livekit-external-ip = {
+    description = "Re-run LiveKit setup for a changed public IP";
+    serviceConfig.Type = "oneshot";
+    unitConfig.ConditionPathExists = "/var/lib/domains/element-calling";
+    script = ''
+      # livekit.service requires livekit-turn-setup, so it restarts with it.
+      systemctl restart livekit-turn-setup.service
+      # No-op if LiveKit is already running; starts it after an earlier failure.
+      systemctl start livekit.service
+    '';
+  };
 
   ####### PUBLIC REACHABILITY SELF-CHECK #######
   # Diagnostic only — never a hard dependency of livekit/caddy. Catches the
