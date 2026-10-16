@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased]
+
+### Added
+- Mullvad: install the VPN app and daemon, as NixOS ships them, on the Desktop Role only
+
+---
+
 ## [1.2.0] - 2026-10-02
 
 ### Added

@@ -35,5 +35,8 @@
     ./element-calling.nix
     ./rdp.nix
     ./sshd.nix
+
+    # ── Desktop Role only (gated inside the module) ───────────
+    ./mullvad.nix
   ];
 }

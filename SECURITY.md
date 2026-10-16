@@ -92,6 +92,25 @@ the public internet. Key authentication only. Turn it off when you are done.
 Tor reduces network exposure for configured Bitcoin services. It is not a
 guarantee against every IP leak, application bug, or traffic-analysis attack.
 
+### Mullvad VPN (Desktop Only)
+
+The Mullvad VPN client — daemon and app — is installed on the Desktop Role and
+on no other role: Server + Desktop and Bitcoin Node keep the one network
+configuration their services need. `modules/mullvad.nix` is a role gate around
+the stock NixOS service, with nothing configured by this system on top of it.
+
+Two behaviours are the app's own, and worth knowing before you connect:
+
+- While the tunnel is up, Mullvad's kill switch blocks everything outside it,
+  the local network included, so Remote Desktop and other local devices stop
+  answering until you switch local network sharing on in the app.
+- Name resolution follows the tunnel for as long as the client is enabled: the
+  NixOS service turns on systemd-resolved and points NetworkManager at it.
+
+Neither is set or restricted here; both are visible and changeable in the app.
+The firewall rules, the Hub's exposure checks, the Bitcoin stack and Tor are
+untouched by this module.
+
 ### Restricted support access
 
 Tech Support runs over SSH, and the Hub refuses to start a session until SSH

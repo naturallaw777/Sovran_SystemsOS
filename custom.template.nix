@@ -22,6 +22,11 @@
 
   # ─── Add your custom NixOS configuration below ───────────
 
+  # ─── Mullvad VPN (Desktop Only) ───────────────────────────
+  # Installed on the Desktop Role as the stock NixOS service; account, relay
+  # and settings belong to the app. To take it off a Desktop machine:
+  # services.mullvad-vpn.enable = lib.mkForce false;
+
   # ─── Custom Caddy virtual hosts ──────────────────────────
   # Uncomment and edit below to add your own Caddy sites:
   #

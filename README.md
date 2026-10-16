@@ -172,6 +172,7 @@ hardware you control.
 - [GNOME](https://www.gnome.org) desktop
 - [Brave Origin](https://brave.com/origin/) and
   [Firefox](https://www.mozilla.org/firefox) browsers
+- [Mullvad VPN](https://mullvad.net) desktop app and daemon, on Desktop Only
 - File management, email, calendar, and office applications
 - System monitoring and administration tools
 
@@ -185,15 +186,25 @@ Bitcoin and self-hosting infrastructure runs on the machine.
 
 | Mode | Best for | What you get |
 |---|---|---|
-| **Desktop** | Everyday users and computers with modest hardware | Sparrow, Bisq, and Bisq 2 for self-custody and peer-to-peer Bitcoin use |
+| **Desktop** | Everyday users and computers with modest hardware | Sparrow, Bisq, and Bisq 2 for self-custody and peer-to-peer Bitcoin use, plus the Mullvad VPN app |
 | **Node** | People ready to verify and operate their own Bitcoin infrastructure | Everything in Desktop, plus the full Bitcoin stack: Bitcoin Core, Electrs, LND, Ride The Lightning, BTCPay Server, and wallet-to-node connections. **Publishes nothing unless you enable *Put BTCPay Server Online* or *Lightning Wallet Connections*:** [read this first](#server--desktop-and-your-home-ip-address) |
 | **Server + Desktop** | Bitcoiners who want the same sovereignty over their communications, cloud, passwords, and web services | The complete Node stack, plus the private self-hosted services. **Makes your home IP address public:** [read this first](#server--desktop-and-your-home-ip-address) |
 
 **Desktop: start with your keys.** Desktop is not a reduced or Bitcoin-free
 edition: it is a complete, private everyday computer with a clean GNOME
-desktop, Tor, and the Sovran Hub, and a lower-hardware path to self-custody and
-non-KYC Bitcoin tools from the first boot. Move to Node mode when your
-hardware, storage, and needs are ready.
+desktop, Tor, the Sovran Hub, and the Mullvad VPN app and daemon — which no
+other role installs — and a lower-hardware path to self-custody and non-KYC
+Bitcoin tools from the first boot. Move to Node mode when your hardware,
+storage, and needs are ready.
+
+Mullvad is installed the way NixOS ships it and nothing in it is configured for
+you: create an account at [mullvad.net](https://mullvad.net), sign in from the
+app, and set the relay and the app's own switches to taste. It is the one thing
+that reaches the network from this machine as an application rather than as a
+service, so Server + Desktop and Bitcoin Node — built to serve — do not carry
+it. On Desktop it is simply there; remove it with
+`services.mullvad-vpn.enable = lib.mkForce false;` in `custom.nix` if you would
+rather not have it.
 
 **Node: verify your own money.** You operate the infrastructure that performs
 the verification instead of asking someone else's server: your node verifies,
@@ -588,6 +599,8 @@ and `/etc/nix-bitcoin-secrets` remain for compatibility.
 - [GNOME](https://www.gnome.org) desktop environment
 - [Caddy](https://caddyserver.com) for local and public service routing
 - [Tor](https://www.torproject.org) for Bitcoin network privacy
+- [Mullvad VPN](https://mullvad.net), installed as the stock NixOS service on
+  the Desktop Role only (`pkgs.mullvad` daemon and `pkgs.mullvad-vpn` app)
 - [AGPL-3.0](LICENSE) licensing
 
 ### Build from source
@@ -737,6 +750,7 @@ rebuilds the machine into the selected declarative state.
 | Optional Haven Nostr relay | `modules/haven.nix` |
 | Nextcloud, Vaultwarden, WordPress | `modules/nextcloud.nix`, `modules/vaultwarden.nix`, `modules/wordpress.nix`, `modules/php.nix` |
 | Optional remote desktop and public SSH | `modules/rdp.nix`, `modules/sshd.nix` |
+| Mullvad VPN app (Desktop Role only) | `modules/mullvad.nix` |
 
 Feature availability and defaults may change as Sovran_SystemsOS develops:
 review the relevant Nix module before relying on a default in production.
