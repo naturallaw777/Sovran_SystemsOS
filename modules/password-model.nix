@@ -61,7 +61,7 @@ let
              pixel plum pond prism quartz raven ridge river robin rocky rose rowan sage sand
              sierra silver slate snow solar spark spruce stone storm summit swift thorn tide
              timber torch trout vale vault vine walnut wave willow wren"
-          pw=$(for i in 1 2 3 4; do set -- $W; eval echo \${$((RANDOM % $# + 1))}; done | paste -sd- -)-$(printf '%02d' $((RANDOM % 100)))
+          pw=$(echo $W | tr ' ' '\n' | shuf -n4 | paste -sd- -)-$(printf '%02d' $((RANDOM % 100)))
           umask 077; printf '%s\n' "$pw" > "$f"
           echo "${account}:$pw" | chpasswd
         ''}
