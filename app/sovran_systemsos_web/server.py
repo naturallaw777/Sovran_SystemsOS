@@ -5,9 +5,7 @@ from __future__ import annotations
 import asyncio
 import base64
 import contextlib
-import glob
 import hashlib
-import hmac
 import ipaddress
 import json
 import logging
@@ -38,6 +36,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from .config import load_config, load_versions
 from . import systemctl as sysctl
+from . import system_password as sp
 from sovran_nwc import nwc_hub_manager as _nwc_mgr
 from . import support_ops as _support_ops
 from .ddns_update import normalise_url as _normalise_ddns_url
@@ -150,9 +149,7 @@ AUTOLAUNCH_DISABLE_FLAG = "/var/lib/sovran/hub-autolaunch-disabled"
 
 # ── Hub web authentication ────────────────────────────────────────
 
-FREE_PASSWORD_FILE      = "/var/lib/secrets/free-password"
-FREE_PASSWORD_FILE_WEB  = "/var/lib/secrets/free-password-web"
-MIGRATION_NEWPASS_FILE  = "/var/lib/secrets/free-password-migration-newpass"
+# free/root password verify/set/display lives in system_password.py
 HUB_SESSION_SECRET_FILE  = "/var/lib/secrets/hub-session-secret"
 SESSION_COOKIE_NAME      = "hub_session"
 MANUAL_LOGOUT_COOKIE_NAME = "hub_manual_logout"
@@ -724,58 +721,20 @@ def _is_authenticated(request: Request) -> bool:
     return True
 
 
-def _read_free_password() -> str | None:
-    """Return the contents of the free-password secrets file, or None."""
-    try:
-        with open(FREE_PASSWORD_FILE, "r") as f:
-            return f.read().strip()
-    except Exception:
-        return None
-
-
-
-
-def _hash_password(password: str) -> str:
-    """Return a scrypt-hash with 16-byte salt, formatted salt_hex:hash_hex."""
-    salt = os.urandom(16)
-    hashed = hashlib.scrypt(password.encode(), salt=salt, n=16384, r=8, p=1)
-    return salt.hex() + ":" + hashed.hex()
-
-
 def _check_password(submitted: str) -> bool:
-    """Constant-time comparison against stored scrypt hash or legacy plaintext."""
-    for fp in (FREE_PASSWORD_FILE_WEB, FREE_PASSWORD_FILE):
-        try:
-            with open(fp, "r") as f:
-                stored = f.read().strip()
-        except Exception:
-            continue
-        if not stored:
-            continue
-        if ":" in stored:
-            try:
-                salt_hex, hash_hex = stored.split(":", 1)
-                salt = bytes.fromhex(salt_hex)
-                submitted_hash = hashlib.scrypt(submitted.encode(), salt=salt, n=16384, r=8, p=1)
-                if hmac.compare_digest(submitted_hash.hex().encode(), hash_hex.encode()):
-                    return True
-            except Exception:
-                pass
-        else:
-            if hmac.compare_digest(submitted.encode(), stored.encode()):
-                try:
-                    with open(FREE_PASSWORD_FILE_WEB, "w") as f:
-                        f.write(_hash_password(submitted))
-                    os.chmod(FREE_PASSWORD_FILE_WEB, 0o600)
-                except Exception:
-                    pass
-                return True
-    return False
+    """Verify against /etc/shadow -- the same password GDM accepts.
+
+    On success, heal a stale display copy with the password the user just
+    proved (e.g. changed in GNOME Settings or the pre-upgrade Hub)."""
+    if not sp.verify_system_password(submitted):
+        return False
+    sp.record_known_password(submitted, only_if_stale=True)
+    return True
 
 
 def _ensure_onboarding_reopened_for_migration() -> None:
     """Re-open onboarding when a migration password disclosure is pending."""
-    if not os.path.isfile(MIGRATION_NEWPASS_FILE):
+    if not sp.ensure_migration_pending(_generate_diceware_password):
         return
     try:
         os.remove(ONBOARDING_FLAG)
@@ -1846,6 +1805,18 @@ def _resolve_credential(cred: dict) -> dict | None:
     if not filepath:
         return None
 
+    # free/root login passwords: shown only if the display copy really is the
+    # current one (system_password verifies it against /etc/shadow).
+    if filepath in (sp.DISPLAY_FILE, sp.ROOT_DISPLAY_FILE):
+        pw = (sp.read_display_password() if filepath == sp.DISPLAY_FILE
+              else sp.read_root_display_password())
+        if pw is None:
+            hint = ("Changed outside the Hub — finish the password step in onboarding to see it here."
+                    if sp.migration_pending() else
+                    "Changed outside the Hub — sign out and back in to show it here.")
+            return {"label": label, "value": "", "unknown": True, "hint": hint}
+        return {"label": label, "value": prefix + pw + suffix, "multiline": multiline}
+
     try:
         with open(filepath, "r") as f:
             raw = f.read().strip()
@@ -2863,69 +2834,19 @@ async def api_onboarding_complete():
 @app.get("/api/migration/password-status")
 async def api_migration_password_status():
     """Return whether a migration-generated password is awaiting acknowledgement."""
-    try:
-        with open(MIGRATION_NEWPASS_FILE, "r") as f:
-            return {"pending": True, "password": f.read().strip()}
-    except FileNotFoundError:
-        return {"pending": False}
-    except OSError as exc:
-        raise HTTPException(status_code=500, detail=f"Could not read migration password: {exc}")
+    pw = sp.migration_pending()
+    return {"pending": True, "password": pw} if pw else {"pending": False}
 
 
 @app.post("/api/migration/password-acknowledge")
 async def api_migration_password_acknowledge():
-    """Acknowledge the migration password and update /etc/shadow to match."""
-    # Read the new password before deleting the file
-    new_password = None
+    """Acknowledge the migration password: apply it to /etc/shadow and the display copy."""
     try:
-        with open(MIGRATION_NEWPASS_FILE, "r") as f:
-            new_password = f.read().strip()
-    except FileNotFoundError:
-        pass
-    except OSError as exc:
-        raise HTTPException(status_code=500, detail=f"Could not read migration password: {exc}")
-
-    # Update /etc/shadow so GDM accepts the new password going forward
-    if new_password:
-        chpasswd_bin = (
-            shutil.which("chpasswd")
-            or ("/run/current-system/sw/bin/chpasswd"
-                if os.path.isfile("/run/current-system/sw/bin/chpasswd") else None)
-        )
-        if chpasswd_bin:
-            try:
-                result = subprocess.run(
-                    [chpasswd_bin],
-                    input=f"free:{new_password}",
-                    capture_output=True,
-                    text=True,
-                )
-                if result.returncode != 0:
-                    logger.warning(
-                        "chpasswd failed during migration acknowledge (rc=%d): %s",
-                        result.returncode,
-                        (result.stderr or result.stdout).strip(),
-                    )
-            except Exception as exc:
-                logger.warning("chpasswd exception during migration acknowledge: %s", exc)
-
-        # Clear only the locked keyring databases, leaving the directory and 'default' pointer intact.
-        keyring_dir = "/home/free/.local/share/keyrings"
-        keyring_files = glob.glob(os.path.join(keyring_dir, "*.keyring"))
-        for kf in keyring_files:
-            try:
-                os.remove(kf)
-            except OSError as exc:
-                logger.warning("Could not remove old keyring file %s: %s", kf, exc)
-
-    # Clear the pending marker
-    try:
-        os.remove(MIGRATION_NEWPASS_FILE)
-    except FileNotFoundError:
-        pass
-    except OSError as exc:
-        raise HTTPException(status_code=500, detail=f"Could not clear migration password: {exc}")
-
+        ok = await asyncio.get_event_loop().run_in_executor(None, sp.acknowledge_migration)
+    except subprocess.CalledProcessError as exc:
+        raise HTTPException(status_code=500, detail=(exc.stderr or "chpasswd failed").strip())
+    if not ok:
+        raise HTTPException(status_code=404, detail="No migration password pending.")
     return {"ok": True}
 
 
@@ -5558,86 +5479,16 @@ async def api_security_reset():
     new_free_password = _generate_diceware_password()
     new_root_password = _generate_diceware_password()
 
-    # Locate chpasswd
-    chpasswd_bin = (
-        shutil.which("chpasswd")
-        or ("/run/current-system/sw/bin/chpasswd"
-            if os.path.isfile("/run/current-system/sw/bin/chpasswd") else None)
-    )
-
-    if chpasswd_bin:
-        # Set free user password
+    # Set the new passwords (shadow first, then the plaintext display copies the
+    # credentials view shows). No keyring handling: the login keyring is
+    # password-independent and does not need re-keying or wiping.
+    for setter, pw, tag in ((sp.set_free_password, new_free_password, "free"),
+                            (sp.set_root_password, new_root_password, "root")):
         try:
-            result = subprocess.run(
-                [chpasswd_bin],
-                input=f"free:{new_free_password}",
-                capture_output=True, text=True,
-            )
-            if result.returncode != 0:
-                logger.warning("chpasswd free failed: %s", (result.stderr or result.stdout).strip())
-                errors.append("chpasswd_free_failed")
+            setter(pw)
         except Exception as exc:
-            logger.warning("chpasswd free error: %s", exc)
-            errors.append("chpasswd_free_failed")
-
-        # Set root password
-        try:
-            result = subprocess.run(
-                [chpasswd_bin],
-                input=f"root:{new_root_password}",
-                capture_output=True, text=True,
-            )
-            if result.returncode != 0:
-                logger.warning("chpasswd root failed: %s", (result.stderr or result.stdout).strip())
-                errors.append("chpasswd_root_failed")
-        except Exception as exc:
-            logger.warning("chpasswd root error: %s", exc)
-            errors.append("chpasswd_root_failed")
-    else:
-        logger.warning("chpasswd not found; passwords not reset")
-        errors.append("chpasswd_not_found")
-
-    # Write new passwords to secrets files
-    try:
-        os.makedirs("/var/lib/secrets", exist_ok=True)
-        try:
-            import subprocess
-            subprocess.run(
-                ["chpasswd"],
-                input=f"free:{new_free_password}\n".encode(),
-                check=True,
-                capture_output=True,
-            )
-        except Exception:
-            pass
-        try:
-            with open(FREE_PASSWORD_FILE_WEB, "w") as f:
-                f.write(_hash_password(new_free_password))
-            os.chmod(FREE_PASSWORD_FILE_WEB, 0o600)
-        except Exception:
-            pass
-    except Exception as exc:
-        logger.warning("write free-password error: %s", exc)
-        errors.append("write_free_password_failed")
-
-    try:
-        os.makedirs("/var/lib/secrets", exist_ok=True)
-        with open("/var/lib/secrets/root-password", "w") as f:
-            f.write(_hash_password(new_root_password))
-        os.chmod("/var/lib/secrets/root-password", 0o600)
-    except Exception as exc:
-        logger.warning("write root-password error: %s", exc)
-        errors.append("write_root_password_failed")
-
-    # Clear only the locked keyring databases, leaving the directory and 'default' pointer intact.
-    keyring_dir = "/home/free/.local/share/keyrings"
-    keyring_files = glob.glob(os.path.join(keyring_dir, "*.keyring"))
-    for kf in keyring_files:
-        try:
-            os.remove(kf)
-        except OSError as exc:
-            logger.warning("keyring wipe error for %s: %s", kf, exc)
-            errors.append("keyring_wipe_failed")
+            logger.warning("security reset: set %s password failed: %s", tag, exc)
+            errors.append(f"set_{tag}_password_failed")
 
     # The user performed a full security reset — the banner's purpose is served.
     try:
@@ -5753,83 +5604,29 @@ async def api_security_verify_integrity():
 
 
 class ChangePasswordRequest(BaseModel):
+    current_password: str
     new_password: str
     confirm_password: str
 
 
 @app.post("/api/change-password")
 async def api_change_password(req: ChangePasswordRequest):
-    """Change the system 'free' user password.
+    """Change the system 'free' user password (also the Hub login password).
 
-    Updates /etc/shadow via chpasswd and writes the new password to
-    /var/lib/secrets/free-password so the Hub credentials view stays in sync.
-    """
+    Updates /etc/shadow via system_password.set_free_password, which also keeps
+    the /var/lib/secrets/free-password display copy in sync."""
+    if not sp.verify_system_password(req.current_password):
+        raise HTTPException(status_code=403, detail="Current password is incorrect.")
     if not req.new_password:
         raise HTTPException(status_code=400, detail="New password must not be empty.")
     if req.new_password != req.confirm_password:
         raise HTTPException(status_code=400, detail="Passwords do not match.")
     if len(req.new_password) < 8:
         raise HTTPException(status_code=400, detail="Password must be at least 8 characters long.")
-
-    # Locate chpasswd binary (NixOS puts it in the Nix store, not /usr/bin)
-    chpasswd_bin = (
-        shutil.which("chpasswd")
-        or ("/run/current-system/sw/bin/chpasswd"
-            if os.path.isfile("/run/current-system/sw/bin/chpasswd") else None)
-    )
-    if chpasswd_bin is None:
-        raise HTTPException(
-            status_code=500,
-            detail="chpasswd binary not found. Cannot update system password.",
-        )
-
-    # Update /etc/shadow via chpasswd
     try:
-        result = subprocess.run(
-            [chpasswd_bin],
-            input=f"free:{req.new_password}",
-            capture_output=True,
-            text=True,
-        )
-        if result.returncode != 0:
-            detail = (result.stderr or result.stdout).strip() or "chpasswd failed."
-            raise HTTPException(status_code=500, detail=detail)
-    except HTTPException:
-        raise
-    except Exception as exc:
-        logger.error("Failed to update system password: %s", exc)
-        raise HTTPException(status_code=500, detail="Failed to update system password.")
-
-    # Write new password to secrets file so Hub credentials stay in sync
-    try:
-        os.makedirs(os.path.dirname(FREE_PASSWORD_FILE), exist_ok=True)
-        # Write secure web-only hash; sync system shadow via chpasswd (memory)
-        try:
-            import subprocess
-            subprocess.run(
-                ["chpasswd"],
-                input=f"free:{req.new_password}\n".encode(),
-                check=True,
-                capture_output=True,
-            )
-        except Exception as exc:
-            # Log but do not block; web hash is the critical fix
-            pass
-        with open(FREE_PASSWORD_FILE_WEB, "w") as f:
-            f.write(_hash_password(req.new_password))
-        os.chmod(FREE_PASSWORD_FILE_WEB, 0o600)
-    except Exception as exc:
-        logger.error("Failed to write secrets file: %s", exc)
-        raise HTTPException(status_code=500, detail="Failed to write secrets file.")
-
-    # Clear only the locked keyring databases, leaving the directory and 'default' pointer intact.
-    keyring_dir = "/home/free/.local/share/keyrings"
-    for kf in glob.glob(os.path.join(keyring_dir, "*.keyring")):
-        try:
-            os.remove(kf)
-        except OSError:
-            pass  # Non-fatal: keyring will be re-created on next login regardless
-
+        await asyncio.get_event_loop().run_in_executor(None, sp.set_free_password, req.new_password)
+    except subprocess.CalledProcessError as exc:
+        raise HTTPException(status_code=500, detail=(exc.stderr or "chpasswd failed").strip())
     return {"ok": True}
 
 

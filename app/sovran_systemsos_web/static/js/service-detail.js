@@ -34,6 +34,10 @@ function _renderCredsHtml(credentials, unit) {
       html += '<div class="creds-row"><div class="creds-label">' + escHtml(cred.label) + '</div>' + qrBlock + '</div>';
       continue;
     }
+    if (cred.unknown) {
+      html += '<div class="creds-row"><div class="creds-label">' + escHtml(cred.label) + '</div><div class="creds-value-wrap"><div class="creds-value creds-unknown">' + escHtml(cred.hint || "Changed outside the Hub — sign out and back in to show it here.") + '</div></div></div>';
+      continue;
+    }
     var displayValue = linkify(cred.value);
     html += '<div class="creds-row"><div class="creds-label">' + escHtml(cred.label) + '</div>' + qrBlock + '<div class="creds-value-wrap"><div class="creds-value" id="' + id + '">' + displayValue + '</div><button class="creds-copy-btn" data-target="' + id + '">Copy</button></div></div>';
   }
@@ -1293,6 +1297,11 @@ function openSystemChangePasswordModal(unit, name, icon) {
       '<div class="sys-chpw-title">🔑 Change Free Account &amp; Hub Login Password</div>' +
       '<div class="sys-chpw-desc">This updates the password for the <strong>free</strong> user account. <strong>This is also your Sovran Hub login password</strong> — both will change.</div>' +
     '</div>' +
+    '<div class="matrix-form-group"><label class="matrix-form-label" for="sys-chpw-current">Current Password</label>' +
+    '<div class="pw-input-wrap">' +
+    '<input class="matrix-form-input" type="password" id="sys-chpw-current" placeholder="Current password" autocomplete="current-password">' +
+    '<button type="button" class="pw-toggle-btn" id="sys-chpw-current-toggle" aria-label="Toggle password visibility">👁</button>' +
+    '</div></div>' +
     '<div class="matrix-form-group"><label class="matrix-form-label" for="sys-chpw-new">New Password</label>' +
     '<div class="pw-input-wrap">' +
     '<input class="matrix-form-input" type="password" id="sys-chpw-new" placeholder="New strong password" autocomplete="new-password">' +
@@ -1315,6 +1324,13 @@ function openSystemChangePasswordModal(unit, name, icon) {
     openServiceDetailModal(unit, name, icon);
   });
 
+  document.getElementById("sys-chpw-current-toggle").addEventListener("click", function() {
+    var inp = document.getElementById("sys-chpw-current");
+    var isHidden = inp.type === "password";
+    inp.type = isHidden ? "text" : "password";
+    this.textContent = isHidden ? "👁‍🗨" : "👁";
+  });
+
   document.getElementById("sys-chpw-new-toggle").addEventListener("click", function() {
     var inp = document.getElementById("sys-chpw-new");
     var isHidden = inp.type === "password";
@@ -1332,12 +1348,13 @@ function openSystemChangePasswordModal(unit, name, icon) {
   document.getElementById("sys-chpw-submit-btn").addEventListener("click", async function() {
     var submitBtn = document.getElementById("sys-chpw-submit-btn");
     var resultEl = document.getElementById("sys-chpw-result");
+    var currentPassword = document.getElementById("sys-chpw-current").value || "";
     var newPassword = document.getElementById("sys-chpw-new").value || "";
     var confirmPassword = document.getElementById("sys-chpw-confirm").value || "";
 
-    if (!newPassword || !confirmPassword) {
+    if (!currentPassword || !newPassword || !confirmPassword) {
       resultEl.className = "matrix-form-result error";
-      resultEl.textContent = "Both password fields are required.";
+      resultEl.textContent = "All password fields are required.";
       return;
     }
 
@@ -1362,7 +1379,7 @@ function openSystemChangePasswordModal(unit, name, icon) {
       await apiFetch("/api/change-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ new_password: newPassword, confirm_password: confirmPassword })
+        body: JSON.stringify({ current_password: currentPassword, new_password: newPassword, confirm_password: confirmPassword })
       });
       resultEl.className = "matrix-form-result success";
       resultEl.textContent = "✅ Free account & Hub login password changed successfully.";

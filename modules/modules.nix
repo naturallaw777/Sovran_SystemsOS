@@ -21,6 +21,7 @@
     # ── Always on (no flag) ───────────────────────────────────
     ./php.nix
     ./credentials.nix
+    ./password-model.nix
 
     # ── Services (default ON — disable in custom.nix) ─────────
     ./synapse.nix

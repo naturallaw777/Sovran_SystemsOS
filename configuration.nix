@@ -74,18 +74,6 @@
   services.printing.enable = true;
   systemd.enableEmergencyMode = false;
   environment.gnome.excludePackages = [ pkgs.gnome-tour ];
-  security.pam.services.gdm-password.enableGnomeKeyring = true;
-  security.pam.services.gdm-autologin.enableGnomeKeyring = true;
-
-  # Declaratively guarantee the GNOME Keyring default pointer exists.
-  # Defining the full path ensures root doesn't accidentally lock the user out of .local
-  systemd.tmpfiles.rules = [
-    "d /home/free/.local 0700 free users -"
-    "d /home/free/.local/share 0700 free users -"
-    "d /home/free/.local/share/keyrings 0700 free users -"
-    "f /home/free/.local/share/keyrings/default 0600 free users - login\n"
-  ];
-
 
   # ── Audio ──────────────────────────────────────────────────
   services.pulseaudio.enable = false;

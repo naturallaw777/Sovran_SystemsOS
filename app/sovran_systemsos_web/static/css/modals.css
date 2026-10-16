@@ -1520,3 +1520,6 @@
   margin-top: 10px;
   line-height: 1.5;
 }
+
+/* password cleanup: display copy changed outside the Hub */
+.creds-value.creds-unknown { font-style: italic; opacity: 0.75; }
