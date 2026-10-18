@@ -32,7 +32,7 @@ let
     NWC_LND_CERT_FILE = lndCertPath;
     NWC_LND_MACAROON_FILE = "/run/lnd/albyhub.macaroon";
     NWC_RELAY =
-      if cfg.features.haven
+      if cfg.features.haven && config.networking.domain != null && config.networking.domain != ""
       then "wss://haven.${config.networking.domain}/nostr"
       else "wss://relay.getalby.com,wss://relay2.getalby.com";
   };

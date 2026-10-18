@@ -12,6 +12,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Mullvad: install the VPN app and daemon, as NixOS ships them, on the Desktop Role only
 
+### Changed
+- Updated `flake.lock` (`nixpkgs`, `nixpkgs-stable`, `nixvim`, `btc-clients` with Bisq2 `2.1.14`, and `Sovran_Bitcoin` `1.1.1` with RTL `0.15.13` and Nix-native `sovran-nwc` `2.0.0`)
+- Updated fallback service version map (`app/sovran_systemsos_web/versions.json`)
+- Fixed deprecated `pkgs.system` reference in `flake.nix` and guarded `config.networking.domain` in `modules/sovran-bitcoin-integration.nix` when `haven` and `nwc-wallets` are both enabled
+
 ---
 
 ## [1.2.0] - 2026-10-02

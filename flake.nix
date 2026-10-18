@@ -51,9 +51,9 @@
 			];
 			config = {
 				environment.systemPackages = with pkgs; [
-					btc-clients.packages.${pkgs.system}.bisq
-					btc-clients.packages.${pkgs.system}.bisq2
-					btc-clients.packages.${pkgs.system}.sparrow
+					btc-clients.packages.${pkgs.stdenv.hostPlatform.system}.bisq
+					btc-clients.packages.${pkgs.stdenv.hostPlatform.system}.bisq2
+					btc-clients.packages.${pkgs.stdenv.hostPlatform.system}.sparrow
 				];
 			};
 		};
