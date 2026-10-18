@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.2.1] - 2026-10-18
+
+### Added
+- Mullvad: install the client on the Desktop Role only
+- Password-model.nix: fix Nix string escaping in the generate fallback
+- Password & keyring cleanup: one password, one truth, no prompts
+- Update security details in SECURITY.md
+- Enhance README formatting and emphasis on features
+- Revise SECURITY.md for clarity on Hub operations
+
+### Changed
+- Update flake.lock (nixpkgs, Sovran_Bitcoin 1.1.1, Bisq2 2.1.14) and integration
+
+### Fixed
+- Fix README formatting and clarify service exposure
+- Fix formatting and clarify server access instructions
+[1.2.1]: https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS/releases/tag/v1.2.1
+
+
 ## [Unreleased]
 
 ### Added
