@@ -55,13 +55,34 @@ in {
   };
 
   # ── 2. Second_Drive data paths (OS-specific) ──────────────────
-  services.bitcoind = lib.mkIf cfg.services.bitcoin {
+  services.bitcoind = lib.mkIf cfg.services.bitcoin ({
     dataDir = "/run/media/Second_Drive/BTCEcoandBackup/Bitcoin_Node";
     # The OS always enables the bitcoind wallet — the Hub and BTCPay need it.
     disablewallet = lib.mkForce false;
     # electrs 0.12.0 (bindex) requires bitcoind's REST interface (rest=1).
     extraConfig = lib.optionalString (!(options.services.bitcoind ? rest)) "rest=1";
-  };
+  } // lib.optionalAttrs cfg.web.btcpayserver {
+    rpc.users.btcpayserver.rpcwhitelist = lib.mkForce (lib.unique (config.services.bitcoind.rpc.users.public.rpcwhitelist ++ [
+      "setban"
+      "generatetoaddress"
+      "getrpcinfo"
+      "gettransaction"
+      "getwalletinfo"
+      "getnewaddress"
+      "listunspent"
+      "listtransactions"
+      "listreceivedbyaddress"
+      "importmulti"
+      "importdescriptors"
+      "importaddress"
+      "importprivkey"
+      "importpubkey"
+      "rescanblockchain"
+      "createwallet"
+      "loadwallet"
+      "signrawtransactionwithwallet"
+    ]));
+  });
 
   services.electrs = lib.mkIf cfg.services.bitcoin {
     dataDir = "/run/media/Second_Drive/BTCEcoandBackup/Electrs_Data";
