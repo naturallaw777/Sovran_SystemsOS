@@ -12,7 +12,7 @@
 #   3. Applies OS-specific overrides (Second_Drive paths, operator "free",
 #      forced wallet enable, Hub firewall port, domain requirements)
 #   4. Wires the Sovran Hub's NWC environment to the Alby Hub service
-{ config, pkgs, lib, ... }:
+{ config, pkgs, lib, options, ... }:
 
 let
   cfg = config.sovran_systemsOS;
@@ -59,6 +59,8 @@ in {
     dataDir = "/run/media/Second_Drive/BTCEcoandBackup/Bitcoin_Node";
     # The OS always enables the bitcoind wallet — the Hub and BTCPay need it.
     disablewallet = lib.mkForce false;
+    # electrs 0.12.0 (bindex) requires bitcoind's REST interface (rest=1).
+    extraConfig = lib.optionalString (!(options.services.bitcoind ? rest)) "rest=1";
   };
 
   services.electrs = lib.mkIf cfg.services.bitcoin {
@@ -72,11 +74,38 @@ in {
     serviceConfig.PrivateUsers = lib.mkForce false;
   };
 
-  systemd.services.electrs = lib.mkIf cfg.services.bitcoin {
-    requires = lib.mkForce [ "run-media-Second_Drive.mount" ];
-    after    = [ "run-media-Second_Drive.mount" "bitcoind.service" ];
-    wants    = [ "bitcoind.service" ];
-  };
+  systemd.services.electrs = lib.mkIf cfg.services.bitcoin (
+    let
+      bitcoind = config.services.bitcoind;
+      electrsCfg = config.services.electrs;
+      nbLib = config.nix-bitcoin.lib;
+    in {
+      requires = lib.mkForce [ "run-media-Second_Drive.mount" ];
+      after    = [ "run-media-Second_Drive.mount" "bitcoind.service" ];
+      wants    = [ "bitcoind.service" ];
+    } // lib.optionalAttrs (!(options.services.bitcoind ? rest)) {
+      # Fallback when locked against Sovran_Bitcoin <= 1.1.1:
+      # electrs 0.12.0 removed --daemon-p2p-addr and switched to bindex (format v1).
+      preStart = lib.mkAfter ''
+        dbNetDir='${electrsCfg.dataDir}/${bitcoind.makeNetworkName "bitcoin" "regtest"}'
+        if [[ -d "$dbNetDir" ]] && grep -q 'prefix_extractor=rocksdb\.FixedPrefix\.8' "$dbNetDir"/OPTIONS-* 2>/dev/null; then
+          echo "electrs: removing pre-0.12.0 database at $dbNetDir for bindex 0.12.0 reindex"
+          rm -rf "$dbNetDir"
+        fi
+      '';
+      serviceConfig.ExecStart = lib.mkForce ''
+        ${pkgs.electrs}/bin/electrs \
+        --log-filters=INFO \
+        --network=${bitcoind.makeNetworkName "bitcoin" "regtest"} \
+        --db-dir='${electrsCfg.dataDir}' \
+        --daemon-dir='${bitcoind.dataDir}' \
+        --electrum-rpc-addr=${electrsCfg.address}:${toString electrsCfg.port} \
+        --monitoring-addr=${electrsCfg.address}:${toString electrsCfg.monitoringPort} \
+        --daemon-rpc-addr=${nbLib.addressWithPort bitcoind.rpc.address bitcoind.rpc.port} \
+        ${electrsCfg.extraArgs}
+      '';
+    }
+  );
 
   systemd.services.lnd = lib.mkIf cfg.services.bitcoin {
     wants    = [ "bitcoind.service" ];
