@@ -36,6 +36,17 @@ let
     lock-after=false
   '';
 
+  # Which keyring gnome-keyring treats as the default collection. Without
+  # this pointer the daemon falls back to a keyring literally named
+  # "Default" (default.keyring), which is created encrypted and prompts
+  # "An application wants access to the keyring \"Default keyring\"" --
+  # e.g. Brave on Hub launch -- even though the login keyring is blank.
+  # The pre-cleanup configuration.nix seeded this file; password-model.nix
+  # dropped it by mistake.
+  defaultKeyringPointer = pkgs.writeText "keyring-default" ''
+    login
+  '';
+
   # Apply the installer's plaintext password ONCE: only while the account still has no
   # usable hash (nixos-install --no-root-password leaves both accounts locked). After that
   # the file is display-only and the Hub (system_password.py) is the only thing that
@@ -88,6 +99,7 @@ in
     "d ${home}/.local/share 0700 ${user} users -"
     "d ${home}/.local/share/keyrings 0700 ${user} users -"
     "C ${home}/.local/share/keyrings/login.keyring 0600 ${user} users - ${blankLoginKeyring}"
+    "C ${home}/.local/share/keyrings/default 0600 ${user} users - ${defaultKeyringPointer}"
   ];
 
   # One-time migration for machines that already have a keyring encrypted with the
@@ -99,6 +111,19 @@ in
     if [ -f "$d/login.keyring" ] && ! head -c 9 "$d/login.keyring" | grep -q '^\[keyring\]'; then
       mv "$d/login.keyring" "$d/login.keyring.encrypted-$(date +%Y%m%d)"
       install -o ${user} -g users -m 0600 ${blankLoginKeyring} "$d/login.keyring"
+    fi
+    # Machines that already lost the default pointer may also have picked up
+    # an encrypted "Default keyring" (default.keyring) that prompts on every
+    # application start (Brave/Hub). Point the default at the blank login
+    # keyring again, and move any encrypted Default keyring aside (kept,
+    # never deleted) so the prompt cannot come back.
+    if [ -d "$d" ]; then
+      if [ ! -f "$d/default" ] || ! grep -qx 'login' "$d/default"; then
+        install -o ${user} -g users -m 0600 ${defaultKeyringPointer} "$d/default"
+      fi
+      if [ -f "$d/default.keyring" ] && ! head -c 9 "$d/default.keyring" | grep -q '^\[keyring\]'; then
+        mv "$d/default.keyring" "$d/default.keyring.encrypted-$(date +%Y%m%d)"
+      fi
     fi
   '';
 

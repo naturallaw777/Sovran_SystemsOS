@@ -140,6 +140,43 @@ class WrongLibraryMustNotLockTheUserOut(unittest.TestCase):
             self.assertNotIn("sign out and back in to show it here", text)
 
 
+class RootHintMustNotClaimItIsTheFreePassword(unittest.TestCase):
+    """The root row in the System Passwords tile showed the free/hub hint
+    verbatim. Root has no desktop or Hub sign-in, so that text was false
+    and sent users looking for a sign-in that could refresh it."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.server = _read("app", "sovran_systemsos_web", "server.py")
+
+    def test_root_gets_its_own_hint(self):
+        self.assertIn("ROOT_DISPLAY_FILE", self.server)
+        start = self.server.index('if filepath == sp.ROOT_DISPLAY_FILE:')
+        block = self.server[start:start + 1400]
+        self.assertIn("Root has no desktop or Hub sign-in", block)
+        self.assertIn("sudo passwd root", block)
+        self.assertIn("Security Reset", block)
+
+
+class DefaultKeyringMustStayTheBlankLoginKeyring(unittest.TestCase):
+    """The password cleanup dropped the keyrings/default pointer, so
+    gnome-keyring fell back to an encrypted keyring literally named
+    "Default" and Brave prompted for it on every Hub launch."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.nix = _read("modules", "password-model.nix")
+
+    def test_default_pointer_is_seeded(self):
+        self.assertIn("keyring-default", self.nix)
+        self.assertIn("/.local/share/keyrings/default ", self.nix)
+
+    def test_encrypted_default_keyring_is_moved_aside_never_deleted(self):
+        self.assertIn("default.keyring.encrypted-", self.nix)
+        self.assertNotIn('rm "$d/default.keyring"', self.nix)
+        self.assertNotIn("rm -f \"$d/default.keyring\"", self.nix)
+
+
 class ServiceDetailCannotBeKilledByOneCredential(unittest.TestCase):
     """Source guards (server.py is not importable without the full Hub deps,
     same reason the other suites read it as text)."""
@@ -150,7 +187,7 @@ class ServiceDetailCannotBeKilledByOneCredential(unittest.TestCase):
 
     def test_resolve_credential_guards_system_password_calls(self):
         start = self.server.index("if filepath in (sp.DISPLAY_FILE, sp.ROOT_DISPLAY_FILE):")
-        block = self.server[start:start + 1600]
+        block = self.server[start:start + 3200]
         self.assertIn("try:", block)
         self.assertIn("except Exception", block)
         self.assertIn('"unknown": True', block)

@@ -1822,9 +1822,14 @@ def _resolve_credential(cred: dict) -> dict | None:
             logger.warning("Could not resolve %s for display: %s", filepath, exc)
             pw, migration = None, None
         if pw is None:
-            hint = ("Changed outside the Hub — finish the password step in onboarding to see it here."
-                    if migration else
-                    "Changed outside the Hub — the current password is your desktop (free) sign-in password; it will show here after you next sign in to the Hub with it. Do not sign out unless you know that password — the Hub has no separate password.")
+            if filepath == sp.ROOT_DISPLAY_FILE:
+                # Root is NOT the desktop/Hub sign-in: nothing a user signs
+                # in with refreshes this copy, so never show the free text.
+                hint = ("Changed outside the Hub — the Hub's saved copy no longer matches the current root password (set by the installer, 'passwd', or a terminal). Root has no desktop or Hub sign-in, so signing in will not refresh this copy. If you do not know the root password, set one in a terminal with 'sudo passwd root'; to make this tile show a root password again, run a Hub Security Reset, which sets new free + root passwords and saves copies of both.")
+            elif migration:
+                hint = "Changed outside the Hub — finish the password step in onboarding to see it here."
+            else:
+                hint = "Changed outside the Hub — the current password is your desktop (free) sign-in password; it will show here after you next sign in to the Hub with it. Do not sign out unless you know that password — the Hub has no separate password."
             return {"label": label, "value": "", "unknown": True, "hint": hint}
         return {"label": label, "value": prefix + pw + suffix, "multiline": multiline}
 
@@ -2663,10 +2668,13 @@ async def auto_login_redirect(request: Request):
     client_ip = request.client.host if request.client else "unknown"
     if client_ip not in ("127.0.0.1", "::1"):
         raise HTTPException(status_code=403, detail="Forbidden")
-    # An explicit logout must take precedence over the desktop launcher's
-    # localhost auto-login, including after the Hub window is closed/reopened.
-    if request.cookies.get(MANUAL_LOGOUT_COOKIE_NAME) == "1":
-        return RedirectResponse(url="/login", status_code=303)
+    # The desktop Hub icon is a trusted local entry point: whoever can click
+    # it is already signed in to this machine as 'free', so it must never
+    # demand the Hub password again. A legacy hub_manual_logout cookie (set
+    # by older versions for 400 days after any Hub sign-out) used to send
+    # the icon to /login forever -- ignore it and clear it. Sign-out still
+    # destroys the session; clients on the LAN never get auto-login and
+    # must sign in with the password as before.
     token = _create_session()
     response = RedirectResponse(url="/", status_code=303)
     response.set_cookie(
@@ -2677,6 +2685,7 @@ async def auto_login_redirect(request: Request):
         samesite="lax",
         secure=False,  # LAN-only appliance; no TLS on the Hub port
     )
+    response.delete_cookie(key=MANUAL_LOGOUT_COOKIE_NAME)
     return response
 
 
@@ -2724,20 +2733,20 @@ async def api_login(req: LoginRequest, request: Request):
 
 @app.post("/api/logout")
 async def api_logout(request: Request):
-    """Destroy the session and prevent desktop auto-login until password login."""
+    """Destroy the session.
+
+    This is a real sign-out for LAN clients (they must enter the password
+    again). On this machine the desktop Hub icon remains a trusted,
+    passwordless entry point -- its user is already signed in to the OS --
+    so no persistent "manual logout" cookie is set any more: it made the
+    Hub icon demand a password for 400 days after a single sign-out.
+    """
     token = request.cookies.get(SESSION_COOKIE_NAME)
     if token:
         _destroy_session(token)
     response = JSONResponse({"ok": True})
     response.delete_cookie(key=SESSION_COOKIE_NAME)
-    response.set_cookie(
-        key=MANUAL_LOGOUT_COOKIE_NAME,
-        value="1",
-        max_age=MANUAL_LOGOUT_MAX_AGE,
-        httponly=True,
-        samesite="lax",
-        secure=False,  # LAN-only appliance; no TLS on the Hub port
-    )
+    response.delete_cookie(key=MANUAL_LOGOUT_COOKIE_NAME)
     return response
 
 

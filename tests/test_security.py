@@ -386,7 +386,13 @@ class TestFrontendAuthRecovery(unittest.TestCase):
 
 
 class TestManualLogoutPersistence(unittest.TestCase):
-    """Explicit logout must take precedence over desktop auto-login."""
+    """Hub sign-out must NOT make the desktop Hub icon demand a password.
+
+    The icon is a trusted local entry point (its user is already signed in
+    to the OS), and the old hub_manual_logout cookie blocked it for 400
+    days after a single sign-out -- users read that as "the Hub is locked".
+    Sign-out still destroys the session; LAN clients never get auto-login.
+    """
 
     @classmethod
     def setUpClass(cls):
@@ -397,22 +403,24 @@ class TestManualLogoutPersistence(unittest.TestCase):
     def _between(self, start, end):
         return self.server.split(start, 1)[1].split(end, 1)[0]
 
-    def test_auto_login_honors_manual_logout_cookie(self):
+    def test_auto_login_ignores_manual_logout_cookie(self):
         route = self._between(
             '@app.get("/auto-login")',
             "class LoginRequest",
         )
-        self.assertIn("request.cookies.get(MANUAL_LOGOUT_COOKIE_NAME)", route)
-        self.assertIn('RedirectResponse(url="/login"', route)
+        self.assertNotIn("request.cookies.get(MANUAL_LOGOUT_COOKIE_NAME)", route)
+        self.assertNotIn('RedirectResponse(url="/login"', route)
+        # Legacy cookies are cleared so the icon keeps working.
+        self.assertIn("response.delete_cookie(key=MANUAL_LOGOUT_COOKIE_NAME)", route)
 
-    def test_logout_sets_persistent_manual_logout_cookie(self):
+    def test_logout_sets_no_persistent_manual_logout_cookie(self):
         route = self._between(
             '@app.post("/api/logout")',
             "def _get_sovran_version",
         )
-        self.assertIn("key=MANUAL_LOGOUT_COOKIE_NAME", route)
-        self.assertIn("max_age=MANUAL_LOGOUT_MAX_AGE", route)
-        self.assertIn("httponly=True", route)
+        self.assertNotIn("max_age=MANUAL_LOGOUT_MAX_AGE", route)
+        self.assertIn("response.delete_cookie(key=MANUAL_LOGOUT_COOKIE_NAME)", route)
+        self.assertIn("_destroy_session(token)", route)
 
     def test_password_login_clears_manual_logout_cookie(self):
         route = self._between(
@@ -427,10 +435,9 @@ class TestManualLogoutPersistence(unittest.TestCase):
 class TestHubBrowserProfilePersistence(unittest.TestCase):
     """The desktop launcher must keep a persistent browser profile.
 
-    The hub_manual_logout marker (and the session cookie) are stored in this
-    profile. If the launcher used an ephemeral /tmp profile that it deleted on
-    exit, closing and reopening the Hub window would wipe the marker and
-    /auto-login would silently log the user back in without a password.
+    The session cookie is stored in this profile. If the launcher used an
+    ephemeral /tmp profile that it deleted on exit, the browser would lose
+    its session (and all site state) every time the Hub window closed.
     """
 
     @classmethod
