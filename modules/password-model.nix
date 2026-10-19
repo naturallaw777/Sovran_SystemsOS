@@ -149,4 +149,12 @@ in
 
   # ── 3. The Hub verifies passwords against /etc/shadow via libxcrypt ───────
   systemd.services.sovran-hub-web.environment.LIBCRYPT = "${pkgs.libxcrypt}/lib/libcrypt.so.1";
+  # ctypes fallback lookups (bare "libcrypt.so.1" / "libpam.so.0") resolve
+  # through LD_LIBRARY_PATH inside the unit. Without this they find nothing
+  # on NixOS (no ld.so.conf paths) or glibc's failure-token libcrypt stub,
+  # whose "*0"/NULL answers read as a wrong password at Hub login even
+  # though the same password signs in at the desktop. Put the real
+  # libxcrypt and PAM libraries on the Hub's library path.
+  systemd.services.sovran-hub-web.environment.LD_LIBRARY_PATH =
+    lib.makeLibraryPath [ pkgs.libxcrypt pkgs.pam ];
 }

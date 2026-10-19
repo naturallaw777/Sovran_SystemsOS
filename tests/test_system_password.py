@@ -140,6 +140,25 @@ class WrongLibraryMustNotLockTheUserOut(unittest.TestCase):
             self.assertNotIn("sign out and back in to show it here", text)
 
 
+class HubUnitMustBeAbleToLoadItsVerifiers(unittest.TestCase):
+    """Patch 0002's PAM fallback could only work if libpam.so.0 is findable
+    inside the Hub unit. On NixOS a bare soname resolves via LD_LIBRARY_PATH
+    or not at all, so the unit must put the real libxcrypt + PAM libraries
+    on it -- otherwise a correct desktop password reads as 'wrong password'
+    at Hub login while the desktop accepts it."""
+
+    def test_hub_unit_gets_real_libcrypt_and_pam_on_library_path(self):
+        nix = _read("modules", "password-model.nix")
+        self.assertIn("LD_LIBRARY_PATH", nix)
+        self.assertIn("pkgs.libxcrypt pkgs.pam", nix)
+
+    def test_no_unix_chkpwd_shortcut(self):
+        # unix_chkpwd refuses (and stalls) when invoked outside pam_unix;
+        # PAM is the only supported route to it.
+        src = _read("app", "sovran_systemsos_web", "system_password.py")
+        self.assertNotIn("_verify_via_unix_chkpwd", src)
+
+
 class RootHintMustNotClaimItIsTheFreePassword(unittest.TestCase):
     """The root row in the System Passwords tile showed the free/hub hint
     verbatim. Root has no desktop or Hub sign-in, so that text was false

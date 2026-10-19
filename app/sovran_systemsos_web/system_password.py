@@ -18,11 +18,15 @@ from __future__ import annotations
 import ctypes
 import ctypes.util
 import hmac
+import logging
 import os
 import secrets
+import shutil
 import subprocess
 import threading
 from typing import Callable
+
+logger = logging.getLogger(__name__)
 
 USER = "free"
 SECRETS_DIR = "/var/lib/secrets"
@@ -33,6 +37,7 @@ LIVE_ISO_MARKER = "/iso"   # NixOS live media mounts the image here; never start
 
 _lock = threading.Lock()   # crypt() returns a static buffer; serialise calls
 _libcrypt_libs = None      # list of every loadable libcrypt, in preference order
+_libcrypt_sources: list[str] = []   # where those libraries were loaded from
 
 
 # ── low level ──────────────────────────────────────────────────────────────
@@ -65,12 +70,14 @@ def _crypt_libs() -> list:
                 lib = ctypes.CDLL(path)
                 lib.crypt.restype = ctypes.c_char_p
                 lib.crypt.argtypes = [ctypes.c_char_p, ctypes.c_char_p]
-            except (OSError, AttributeError):
+            except (OSError, AttributeError) as exc:
+                _libcrypt_sources.append(f"{path} (unloadable: {exc})")
                 continue
             if lib._handle in seen:   # same library reached by two names
                 continue
             seen.add(lib._handle)
             libs.append(lib)
+            _libcrypt_sources.append(path)
         _libcrypt_libs = libs
     return _libcrypt_libs
 
@@ -161,11 +168,21 @@ def _verify_via_pam(password: str, user: str) -> bool | None:
                                 ctypes.byref(conv), ctypes.byref(handle)) != 0:
                 continue
             try:
-                return libpam.pam_authenticate(handle, 0) == 0
+                rc = libpam.pam_authenticate(handle, 0)
+                if rc != 0:
+                    # e.g. 7 = auth failure, 9/10 = bad item / user unknown.
+                    # Logged (code only, never the password) so a Hub-only
+                    # rejection can be told apart from a wrong password.
+                    logger.warning(
+                        "verify via PAM: service=%s user=%s pam_authenticate rc=%d",
+                        service, user, rc)
+                return rc == 0
             finally:
                 libpam.pam_end(handle, 0)
+        logger.warning("verify via PAM: no PAM service could be started for user=%s", user)
         return None
-    except Exception:
+    except Exception as exc:
+        logger.warning("verify via PAM unavailable for user=%s: %s", user, exc)
         return None
 
 
@@ -211,7 +228,18 @@ def verify_system_password(password: str, user: str = USER) -> bool:
                 return hmac.compare_digest(out, h.encode())
     except Exception:
         pass
+    # No libcrypt could decide. Log *why* (hash scheme only -- never the
+    # password or hash) so a false "wrong password" at Hub login, while the
+    # same password signs in at the desktop, is diagnosable from
+    # `journalctl -u sovran-hub-web` instead of looking like user error.
+    scheme = h[1:].split("$", 1)[0] if h.startswith("$") else "legacy"
+    logger.warning(
+        "verify_system_password: libcrypt inconclusive for user=%s (scheme=%s, "
+        "sources=%r); falling back to PAM",
+        user, scheme, _libcrypt_sources,
+    )
     pam_result = _verify_via_pam(password, user)
+    logger.warning("verify_system_password: PAM verdict for user=%s: %s", user, pam_result)
     return bool(pam_result)
 
 
