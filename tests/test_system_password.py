@@ -87,6 +87,59 @@ class VerifyNeverRaises(unittest.TestCase):
             self.assertIsNone(self.sp.read_root_display_password())
 
 
+class WrongLibraryMustNotLockTheUserOut(unittest.TestCase):
+    """A loadable libcrypt that cannot speak the shadow hash's algorithm
+    (yescrypt $y$ on NixOS) answers with the "*0" sentinel. That used to be
+    compared against the hash, found unequal, and reported as a *wrong
+    password* at Hub login -- locking out a user whose desktop login with
+    the very same password still worked, after the tile's hint told them
+    to sign out. Inconclusive answers must fall through to the next
+    library, and finally to PAM (the check GDM itself performs)."""
+
+    def setUp(self):
+        self.sp = _load_system_password()
+        self.sp.shadow_hash = lambda user="free": _KNOWN_HASH
+        self._old_libs = self.sp._libcrypt_libs
+
+    def tearDown(self):
+        self.sp._libcrypt_libs = self._old_libs
+
+    def test_sentinel_from_first_library_falls_through_to_the_next(self):
+        class _SentinelLib:
+            @staticmethod
+            def crypt(_pw, _salt):
+                return b"*0"
+
+        class _RealLib:
+            @staticmethod
+            def crypt(pw, salt):
+                return _KNOWN_HASH.encode() if pw == b"hello" else b"$6$saltsalt$nomatch"
+
+        self.sp._libcrypt_libs = [_SentinelLib, _RealLib]
+        self.assertTrue(self.sp.verify_system_password("hello"))
+        self.assertFalse(self.sp.verify_system_password("not-the-password"))
+
+    def test_when_no_library_understands_the_hash_pam_decides(self):
+        class _SentinelLib:
+            @staticmethod
+            def crypt(_pw, _salt):
+                return b"*0"
+
+        self.sp._libcrypt_libs = [_SentinelLib]
+        with unittest.mock.patch.object(
+            self.sp, "_verify_via_pam", return_value=True
+        ) as pam:
+            self.assertTrue(self.sp.verify_system_password("hello"))
+            pam.assert_called_once()
+
+    def test_hint_no_longer_tells_the_user_to_sign_out_blind(self):
+        for text in (
+            _read("app", "sovran_systemsos_web", "server.py"),
+            _read("app", "sovran_systemsos_web", "static", "js", "service-detail.js"),
+        ):
+            self.assertNotIn("sign out and back in to show it here", text)
+
+
 class ServiceDetailCannotBeKilledByOneCredential(unittest.TestCase):
     """Source guards (server.py is not importable without the full Hub deps,
     same reason the other suites read it as text)."""

@@ -32,14 +32,24 @@ MIGRATION_FILE = f"{SECRETS_DIR}/free-password-migration-newpass"   # same path 
 LIVE_ISO_MARKER = "/iso"   # NixOS live media mounts the image here; never start a migration there
 
 _lock = threading.Lock()   # crypt() returns a static buffer; serialise calls
-_libcrypt = None
+_libcrypt_libs = None      # list of every loadable libcrypt, in preference order
 
 
 # ── low level ──────────────────────────────────────────────────────────────
 
-def _crypt():
-    global _libcrypt
-    if _libcrypt is None:
+def _crypt_libs() -> list:
+    """Every libcrypt we can load, best first ($LIBCRYPT, then system ones).
+
+    More than one library can be *loadable* while only one can actually
+    verify the system's hashes: e.g. a bare-soname libcrypt that loads fine
+    but returns the "*0" failure sentinel for yescrypt ($y$) hashes, which
+    NixOS uses by default. Verification therefore tries each library until
+    one gives a conclusive answer instead of trusting the first that loads.
+    A stale $LIBCRYPT (Nix store path from before an update / GC) is skipped,
+    never fatal.
+    """
+    global _libcrypt_libs
+    if _libcrypt_libs is None:
         candidates: list[str] = []
         env_path = os.environ.get("LIBCRYPT")
         if env_path:
@@ -48,22 +58,115 @@ def _crypt():
         if found:
             candidates.append(found)
         candidates += ["libcrypt.so.1", "libcrypt.so.2", "libcrypt.so"]
-        last_exc: Exception | None = None
-        for path in dict.fromkeys(candidates):
+        libs = []
+        seen = set()
+        for path in candidates:
             try:
                 lib = ctypes.CDLL(path)
                 lib.crypt.restype = ctypes.c_char_p
                 lib.crypt.argtypes = [ctypes.c_char_p, ctypes.c_char_p]
-            except (OSError, AttributeError) as exc:
-                # A stale LIBCRYPT path (e.g. a Nix store path from before an
-                # update / GC) must not be fatal: try the next candidate.
-                last_exc = exc
+            except (OSError, AttributeError):
                 continue
-            _libcrypt = lib
-            break
-        if _libcrypt is None:
-            raise OSError(f"could not load libcrypt (tried {candidates!r})") from last_exc
-    return _libcrypt
+            if lib._handle in seen:   # same library reached by two names
+                continue
+            seen.add(lib._handle)
+            libs.append(lib)
+        _libcrypt_libs = libs
+    return _libcrypt_libs
+
+
+def _crypt():
+    libs = _crypt_libs()
+    if not libs:
+        raise OSError("could not load any libcrypt")
+    return libs[0]
+
+
+# ── PAM fallback ───────────────────────────────────────────────────────────
+# crypt() only answers conclusively when a loaded library understands the
+# shadow hash's algorithm. When none does (sentinel replies, no library),
+# ask PAM instead -- it is literally the check GDM/sudo perform, so a
+# password the desktop accepts can never be refused by the Hub just
+# because libcrypt could not speak its hash format.
+
+_PAM_SERVICE_CANDIDATES = ("login", "system-auth", "gdm-password", "sudo")
+
+
+class _PamMessage(ctypes.Structure):
+    _fields_ = [("msg_style", ctypes.c_int), ("msg", ctypes.c_char_p)]
+
+
+class _PamResponse(ctypes.Structure):
+    _fields_ = [("resp", ctypes.c_char_p), ("resp_retcode", ctypes.c_int)]
+
+
+_PAM_CONV_FUNC = ctypes.CFUNCTYPE(
+    ctypes.c_int, ctypes.c_int,
+    ctypes.POINTER(ctypes.POINTER(_PamMessage)),
+    ctypes.POINTER(ctypes.POINTER(_PamResponse)), ctypes.c_void_p,
+)
+
+
+class _PamConv(ctypes.Structure):
+    _fields_ = [("conv", _PAM_CONV_FUNC), ("appdata_ptr", ctypes.c_void_p)]
+
+
+def _verify_via_pam(password: str, user: str) -> bool | None:
+    """True/False if PAM gave a verdict, None if PAM is unavailable here."""
+    try:
+        libpam = None
+        for candidate in dict.fromkeys(
+                filter(None, [ctypes.util.find_library("pam"), "libpam.so.0"])):
+            try:
+                libpam = ctypes.CDLL(candidate)
+                break
+            except OSError:
+                continue
+        if libpam is None:
+            return None
+        libc = ctypes.CDLL(None)
+        libc.calloc.restype = ctypes.c_void_p
+        libc.calloc.argtypes = [ctypes.c_size_t, ctypes.c_size_t]
+        libc.strdup.restype = ctypes.c_void_p
+        libc.strdup.argtypes = [ctypes.c_char_p]
+        libpam.pam_start.restype = ctypes.c_int
+        libpam.pam_start.argtypes = [ctypes.c_char_p, ctypes.c_char_p,
+                                     ctypes.POINTER(_PamConv), ctypes.POINTER(ctypes.c_void_p)]
+        libpam.pam_authenticate.restype = ctypes.c_int
+        libpam.pam_authenticate.argtypes = [ctypes.c_void_p, ctypes.c_int]
+        libpam.pam_end.restype = ctypes.c_int
+        libpam.pam_end.argtypes = [ctypes.c_void_p, ctypes.c_int]
+
+        pw_bytes = password.encode()
+
+        def _conv(num_msg, msg, resp, _appdata):
+            if num_msg <= 0:
+                return 1  # PAM_CONV_ERR
+            responses = libc.calloc(num_msg, ctypes.sizeof(_PamResponse))
+            if not responses:
+                return 1
+            resp_array = ctypes.cast(responses, ctypes.POINTER(_PamResponse))
+            for i in range(num_msg):
+                style = msg[i].contents.msg_style
+                if style in (1, 2):  # PROMPT_ECHO_OFF / PROMPT_ECHO_ON
+                    resp_array[i].resp = ctypes.cast(libc.strdup(pw_bytes), ctypes.c_char_p)
+            resp[0] = ctypes.cast(responses, ctypes.POINTER(_PamResponse))
+            return 0  # PAM_SUCCESS
+
+        conv_fn = _PAM_CONV_FUNC(_conv)   # keep alive for the pam_* calls
+        conv = _PamConv(conv=conv_fn, appdata_ptr=None)
+        for service in _PAM_SERVICE_CANDIDATES:
+            handle = ctypes.c_void_p()
+            if libpam.pam_start(service.encode(), user.encode(),
+                                ctypes.byref(conv), ctypes.byref(handle)) != 0:
+                continue
+            try:
+                return libpam.pam_authenticate(handle, 0) == 0
+            finally:
+                libpam.pam_end(handle, 0)
+        return None
+    except Exception:
+        return None
 
 
 def shadow_hash(user: str = USER) -> str | None:
@@ -86,21 +189,30 @@ def verify_system_password(password: str, user: str = USER) -> bool:
     h = shadow_hash(user)
     if not h or not password:
         return False
+    # Try every loadable libcrypt. A reply of None or "*0"/"*1" is a library
+    # saying "I don't understand this hash" (e.g. no yescrypt support) --
+    # inconclusive, NOT a wrong password -- so keep trying, and finally ask
+    # PAM. A real hash that simply doesn't match is conclusive: wrong
+    # password. Nothing here may raise: raising crashed the System
+    # Passwords tile ("Could not load service details."), and returning a
+    # false "wrong password" at login would lock a user whose desktop
+    # login still works out of the Hub.
     try:
         with _lock:
-            out = _crypt().crypt(password.encode(), h.encode())
+            for lib in _crypt_libs():
+                try:
+                    out = lib.crypt(password.encode(), h.encode())
+                except Exception:
+                    continue
+                if isinstance(out, str):
+                    out = out.encode()
+                if out is None or out.startswith(b"*"):
+                    continue
+                return hmac.compare_digest(out, h.encode())
     except Exception:
-        # Verification is fail-closed, never fatal. libcrypt can be missing /
-        # unloadable (stale LIBCRYPT Nix store path, library not yet in the
-        # Hub's environment after an update, unsupported hash): that must
-        # degrade to "password not verified / not showable", not raise into
-        # callers. Raising here crashed GET /api/service-detail/<unit> for
-        # the System Passwords tile, so the Hub showed only
-        # "Could not load service details." for that one tile.
-        return False
-    if isinstance(out, str):
-        out = out.encode()
-    return out is not None and hmac.compare_digest(out, h.encode())
+        pass
+    pam_result = _verify_via_pam(password, user)
+    return bool(pam_result)
 
 
 def _write_secret(path: str, value: str) -> None:

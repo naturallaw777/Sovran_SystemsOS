@@ -1824,7 +1824,7 @@ def _resolve_credential(cred: dict) -> dict | None:
         if pw is None:
             hint = ("Changed outside the Hub — finish the password step in onboarding to see it here."
                     if migration else
-                    "Changed outside the Hub — sign out and back in to show it here.")
+                    "Changed outside the Hub — the current password is your desktop (free) sign-in password; it will show here after you next sign in to the Hub with it. Do not sign out unless you know that password — the Hub has no separate password.")
             return {"label": label, "value": "", "unknown": True, "hint": hint}
         return {"label": label, "value": prefix + pw + suffix, "multiline": multiline}
 

@@ -35,7 +35,7 @@ function _renderCredsHtml(credentials, unit) {
       continue;
     }
     if (cred.unknown) {
-      html += '<div class="creds-row"><div class="creds-label">' + escHtml(cred.label) + '</div><div class="creds-value-wrap"><div class="creds-value creds-unknown">' + escHtml(cred.hint || "Changed outside the Hub — sign out and back in to show it here.") + '</div></div></div>';
+      html += '<div class="creds-row"><div class="creds-label">' + escHtml(cred.label) + '</div><div class="creds-value-wrap"><div class="creds-value creds-unknown">' + escHtml(cred.hint || "Changed outside the Hub — the current password is your desktop (free) sign-in password; it will show here after you next sign in to the Hub with it. Do not sign out unless you know that password — the Hub has no separate password.") + '</div></div></div>';
       continue;
     }
     var displayValue = linkify(cred.value);
