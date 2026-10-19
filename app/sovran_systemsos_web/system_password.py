@@ -40,11 +40,29 @@ _libcrypt = None
 def _crypt():
     global _libcrypt
     if _libcrypt is None:
-        path = os.environ.get("LIBCRYPT") or ctypes.util.find_library("crypt") or "libcrypt.so.1"
-        lib = ctypes.CDLL(path)
-        lib.crypt.restype = ctypes.c_char_p
-        lib.crypt.argtypes = [ctypes.c_char_p, ctypes.c_char_p]
-        _libcrypt = lib
+        candidates: list[str] = []
+        env_path = os.environ.get("LIBCRYPT")
+        if env_path:
+            candidates.append(env_path)
+        found = ctypes.util.find_library("crypt")
+        if found:
+            candidates.append(found)
+        candidates += ["libcrypt.so.1", "libcrypt.so.2", "libcrypt.so"]
+        last_exc: Exception | None = None
+        for path in dict.fromkeys(candidates):
+            try:
+                lib = ctypes.CDLL(path)
+                lib.crypt.restype = ctypes.c_char_p
+                lib.crypt.argtypes = [ctypes.c_char_p, ctypes.c_char_p]
+            except (OSError, AttributeError) as exc:
+                # A stale LIBCRYPT path (e.g. a Nix store path from before an
+                # update / GC) must not be fatal: try the next candidate.
+                last_exc = exc
+                continue
+            _libcrypt = lib
+            break
+        if _libcrypt is None:
+            raise OSError(f"could not load libcrypt (tried {candidates!r})") from last_exc
     return _libcrypt
 
 
@@ -68,8 +86,20 @@ def verify_system_password(password: str, user: str = USER) -> bool:
     h = shadow_hash(user)
     if not h or not password:
         return False
-    with _lock:
-        out = _crypt().crypt(password.encode(), h.encode())
+    try:
+        with _lock:
+            out = _crypt().crypt(password.encode(), h.encode())
+    except Exception:
+        # Verification is fail-closed, never fatal. libcrypt can be missing /
+        # unloadable (stale LIBCRYPT Nix store path, library not yet in the
+        # Hub's environment after an update, unsupported hash): that must
+        # degrade to "password not verified / not showable", not raise into
+        # callers. Raising here crashed GET /api/service-detail/<unit> for
+        # the System Passwords tile, so the Hub showed only
+        # "Could not load service details." for that one tile.
+        return False
+    if isinstance(out, str):
+        out = out.encode()
     return out is not None and hmac.compare_digest(out, h.encode())
 
 

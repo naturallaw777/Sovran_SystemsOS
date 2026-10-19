@@ -728,7 +728,10 @@ def _check_password(submitted: str) -> bool:
     proved (e.g. changed in GNOME Settings or the pre-upgrade Hub)."""
     if not sp.verify_system_password(submitted):
         return False
-    sp.record_known_password(submitted, only_if_stale=True)
+    try:
+        sp.record_known_password(submitted, only_if_stale=True)
+    except Exception as exc:  # healing the display copy is best-effort
+        logger.warning("Could not heal stale password display copy: %s", exc)
     return True
 
 
@@ -1808,11 +1811,19 @@ def _resolve_credential(cred: dict) -> dict | None:
     # free/root login passwords: shown only if the display copy really is the
     # current one (system_password verifies it against /etc/shadow).
     if filepath in (sp.DISPLAY_FILE, sp.ROOT_DISPLAY_FILE):
-        pw = (sp.read_display_password() if filepath == sp.DISPLAY_FILE
-              else sp.read_root_display_password())
+        try:
+            pw = (sp.read_display_password() if filepath == sp.DISPLAY_FILE
+                  else sp.read_root_display_password())
+            migration = sp.migration_pending() if pw is None else None
+        except Exception as exc:
+            # Never let one credential 500 the whole service-detail modal:
+            # the System Passwords tile must still open and say the password
+            # is unavailable instead of "Could not load service details."
+            logger.warning("Could not resolve %s for display: %s", filepath, exc)
+            pw, migration = None, None
         if pw is None:
             hint = ("Changed outside the Hub — finish the password step in onboarding to see it here."
-                    if sp.migration_pending() else
+                    if migration else
                     "Changed outside the Hub — sign out and back in to show it here.")
             return {"label": label, "value": "", "unknown": True, "hint": hint}
         return {"label": label, "value": prefix + pw + suffix, "multiline": multiline}
