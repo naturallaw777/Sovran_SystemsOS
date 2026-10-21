@@ -10,8 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.2.2] - 2026-10-21
 
 ### Changed
-- Updated nixpkgs
-- Updated Sovran_Bitcoin flake for a hot fix for NWC
+- **Nixpkgs Update (`nixpkgs-stable` / `nixos-26.05`):**
+  - Updated to commit [`cd4ea8d`](https://github.com/NixOS/nixpkgs/commit/cd4ea8d57de16f4810bc5f14207bac45fbf19f67)
+  - Upgraded **Matrix Synapse**: `1.162.0` → `1.163.0` (automatically picked up by The Hub)
+- **Sovran_Bitcoin Update (`1.1.2`):**
+  - Updated to commit [`63e1049`](https://github.com/naturallaw777/Sovran_Bitcoin/commit/63e104940ef4ff21eb2b43977ca6e110e9c5d524)
+  - Hotfix for Nostr Wallet Connect (NWC): fixes spending on LND 0.21, real internal preimages, and `pay_keysend` support
 
 ### Fixed
 - Make Hub login verification loadable and diagnosable
