@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.2.2] - 2026-10-21
+
+### Changed
+- Updated nixpkgs
+- Updated Sovran_Bitcoin flake for a hot fix for NWC
+
+### Fixed
+- Make Hub login verification loadable and diagnosable
+- Trusted Hub icon, truthful root hint, no Default-keyring prompt
+- Hub login must accept the password the desktop accepts
+- Don't let password verification crash the System Passwords tile
+[1.2.2]: https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS/releases/tag/v1.2.2
+
+
 ## [1.2.1] - 2026-10-18
 
 ### Added
