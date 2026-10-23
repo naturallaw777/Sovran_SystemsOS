@@ -18,9 +18,42 @@
 #
 # To fall back to PHP 8.4 (nixpkgs' current default `pkgs.php`) change only
 # the `phpBase` line below.
+#
+# Security floor (October 2026):
+#   CVE-2026-109618 (RCE via OOM corruption) and CVE-2026-109619 (RCE via
+#   stale global state) are critical, unauthenticated flaws in PHP itself,
+#   CVSS v4.0 9.2 each, fixed in 8.5.12 / 8.4.27 / 8.3.36 / 8.2.35 on
+#   2026-10-21.  PHP-FPM is named as susceptible in both advisories, so the
+#   pools below are in scope; updating is the only complete mitigation.
+#   nixpkgs bumped php85 in 81513f364091c759812f716cef3c175109d07342 the same
+#   day, but the nixpkgs revision this flake pins predates it, so the floor is
+#   enforced here.  Once flake.lock is at or past that commit the `else`
+#   branch below stops being taken and can be deleted.
 
 let
-	phpBase = pkgs.php85;
+	# The first 8.5.x release that carries the fixes above.  Bump only upward.
+	phpSecurityFloor = "8.5.12";
+
+	# php-8.5.12.tar.bz2, the same artifact and URL shape nixpkgs' own
+	# generic.nix fetches.  Verified against php.net on 2026-10-23.
+	phpSourceHash = "sha256-/7YO3EN87WO1E35JhNs3moERxQBJxxFRDYuVgnfvwag=";
+
+	# `.override` (not `overrideAttrs`) on purpose: php85 is a `makeOverridable`
+	# buildEnv, so this threads `version`/`phpSrc` into generic.nix while
+	# keeping the default extension set.  `overrideAttrs` would keep the new
+	# source but drop the extension set, which would silently strip gd, intl,
+	# pdo_pgsql and friends out of the pools below.
+	phpBase =
+		if lib.versionAtLeast pkgs.php85.version phpSecurityFloor then
+			pkgs.php85
+		else
+			pkgs.php85.override {
+				version = phpSecurityFloor;
+				phpSrc = pkgs.fetchurl {
+					url = "https://www.php.net/distributions/php-${phpSecurityFloor}.tar.bz2";
+					hash = phpSourceHash;
+				};
+			};
 
 	custom-php = phpBase.buildEnv {
 		# `enabled` is nixpkgs' default extension set.  It already contains every
