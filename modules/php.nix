@@ -62,13 +62,47 @@ let
 		# xmlreader, xmlwriter, zip, zlib, pdo_pgsql, pdo_mysql, bcmath, gmp,
 		# exif, sodium, sysvsem, pcntl, ...).  OPcache is compiled into PHP >= 8.5
 		# and no longer appears as a separate extension.
-		extensions = { enabled, all }: enabled ++ (with all; [
-			bz2        # Nextcloud: bz2 archive support
-			apcu       # Nextcloud: memcache.local  (apc.enable_cli=1 below is mandatory for occ + cron)
-			redis      # Nextcloud: memcache.distributed / file locking once a Redis server is configured
-			imagick    # Nextcloud: previews + theming (nixpkgs ImageMagick is built with SVG support)
-			memcached  # WordPress object-cache plugins (legacy option for Nextcloud)
-		]);
+		extensions = { enabled, all }:
+			let
+				# nixpkgs builds PHP with `--disable-all` and every extension as a
+				# shared module.  Three of the OOM regression tests shipped with
+				# 8.5.12 spawn `php-cgi -n` on purpose — no php.ini, so no shared
+				# module, so filter_input() is never defined and the request never
+				# reaches the code under test.  php-filter's `make test` then fails
+				# with "doesn't reach hard limit" for oom_filter_input,
+				# oom_filter_input_array and oom_filter_default_encoded, and the
+				# whole system build stops there.
+				#
+				# Upstream nixpkgs fixes this in a5fc1be5b6 ("php: fix `filter`
+				# tests"), shipped alongside the 8.5.12 bump.  This lock predates
+				# it, so apply the same substitution here; drop this once flake.lock
+				# is past a5fc1be5b6, since the two would otherwise both patch.
+				#
+				# Done by rewriting the filter derivation in the extension list
+				# rather than through buildEnv's `packageOverrides`: that argument
+				# only reaches the unwrapped PHP, while the extension set is folded
+				# from mkPhp's own packageOverrides, so it is silently ignored here.
+				patchFilterTests = ext:
+					if (ext.extensionName or "") != "filter" then
+						ext
+					else
+						ext.overrideAttrs (prevAttrs: {
+						postConfigure = (prevAttrs.postConfigure or "") + ''
+							substituteInPlace \
+								tests/oom_filter_input.phpt \
+								tests/oom_filter_input_array.phpt \
+								tests/oom_filter_default_encoded.phpt \
+								--replace-fail "'-n'," "'-n', '-d', 'extension=$PWD/modules/filter.so',"
+						'';
+					});
+			in
+			map patchFilterTests enabled ++ (with all; [
+				bz2        # Nextcloud: bz2 archive support
+				apcu       # Nextcloud: memcache.local  (apc.enable_cli=1 below is mandatory for occ + cron)
+				redis      # Nextcloud: memcache.distributed / file locking once a Redis server is configured
+				imagick    # Nextcloud: previews + theming (nixpkgs ImageMagick is built with SVG support)
+				memcached  # WordPress object-cache plugins (legacy option for Nextcloud)
+			]);
 
 		extraConfig = ''
 			; ── Error handling (production) ─────────────────────────────────
