@@ -16,8 +16,8 @@
 #   • PHP 8.3 has been security-only since 2025-12-31; PHP 8.4 leaves active
 #     support on 2026-12-31; PHP 8.5 is actively supported until 2027-12-31.
 #
-# To fall back to PHP 8.4 (nixpkgs' current default `pkgs.php`) change only
-# the `phpBase` line below.
+# To fall back to PHP 8.4, change only the `phpBase` line below (and drop the
+# security floor to the matching 8.4.x release).
 #
 # Security floor (October 2026):
 #   CVE-2026-109618 (RCE via OOM corruption) and CVE-2026-109619 (RCE via
@@ -25,84 +25,51 @@
 #   CVSS v4.0 9.2 each, fixed in 8.5.12 / 8.4.27 / 8.3.36 / 8.2.35 on
 #   2026-10-21.  PHP-FPM is named as susceptible in both advisories, so the
 #   pools below are in scope; updating is the only complete mitigation.
-#   nixpkgs bumped php85 in 81513f364091c759812f716cef3c175109d07342 the same
-#   day, but the nixpkgs revision this flake pins predates it, so the floor is
-#   enforced here.  Once flake.lock is at or past that commit the `else`
-#   branch below stops being taken and can be deleted.
+#
+#   nixpkgs bumped php85 to 8.5.12 in 81513f364091c759812f716cef3c175109d07342
+#   and fixed the `filter` extension tests in
+#   a5fc1be5b6c2d0c934143b57363aef9a15cce508.  flake.lock pins nixpkgs
+#   a8e753600fb48f8f0dd882cc5ad284438241f85a, which is *after* both of them
+#   (verified: pkgs/development/interpreters/php/default.nix at that rev says
+#   php85 = 8.5.12, and pkgs/top-level/php-packages.nix already carries the
+#   oom_filter_*.phpt patch).  So the stock package is used as-is and the
+#   floor below is only an assertion that catches a rolled-back pin.
+#
+#   Do NOT re-apply the `filter` test fix locally.  It uses
+#       --replace-fail "'-n'," "'-n', '-d', 'extension=$PWD/modules/filter.so',"
+#   and the replacement text still contains the `'-n',` it searches for, so a
+#   second application silently injects `-d extension=.../filter.so` twice.
+#   PHP then emits `Module "filter" is already loaded` (Zend/zend_API.c,
+#   E_CORE_WARNING) into the php-cgi output the tests capture, all three
+#   oom_filter_*.phpt fail on the unexpected line, `make test` exits non-zero
+#   and the builder dies with exit code 2 — the exact failure the patch was
+#   meant to prevent.
 
 let
 	# The first 8.5.x release that carries the fixes above.  Bump only upward.
 	phpSecurityFloor = "8.5.12";
 
-	# php-8.5.12.tar.bz2, the same artifact and URL shape nixpkgs' own
-	# generic.nix fetches.  Verified against php.net on 2026-10-23.
-	phpSourceHash = "sha256-/7YO3EN87WO1E35JhNs3moERxQBJxxFRDYuVgnfvwag=";
-
-	# `.override` (not `overrideAttrs`) on purpose: php85 is a `makeOverridable`
-	# buildEnv, so this threads `version`/`phpSrc` into generic.nix while
-	# keeping the default extension set.  `overrideAttrs` would keep the new
-	# source but drop the extension set, which would silently strip gd, intl,
-	# pdo_pgsql and friends out of the pools below.
-	phpBase =
-		if lib.versionAtLeast pkgs.php85.version phpSecurityFloor then
-			pkgs.php85
-		else
-			pkgs.php85.override {
-				version = phpSecurityFloor;
-				phpSrc = pkgs.fetchurl {
-					url = "https://www.php.net/distributions/php-${phpSecurityFloor}.tar.bz2";
-					hash = phpSourceHash;
-				};
-			};
+	# Stock nixpkgs package: correct version, correct extension recipes and
+	# upstream's own test fixes.  `.override { version = ...; phpSrc = ...; }`
+	# is deliberately *not* used here — rewriting the version while keeping the
+	# extension recipes of another release is how you end up with test (or
+	# ABI) failures that look like packaging bugs.
+	phpBase = pkgs.php85;
 
 	custom-php = phpBase.buildEnv {
 		# `enabled` is nixpkgs' default extension set.  It already contains every
 		# module Nextcloud lists as required or recommended (ctype, curl, dom,
 		# fileinfo, gd, intl, mbstring, openssl, posix, session, simplexml,
 		# xmlreader, xmlwriter, zip, zlib, pdo_pgsql, pdo_mysql, bcmath, gmp,
-		# exif, sodium, sysvsem, pcntl, ...).  OPcache is compiled into PHP >= 8.5
-		# and no longer appears as a separate extension.
-		extensions = { enabled, all }:
-			let
-				# nixpkgs builds PHP with `--disable-all` and every extension as a
-				# shared module.  Three of the OOM regression tests shipped with
-				# 8.5.12 spawn `php-cgi -n` on purpose — no php.ini, so no shared
-				# module, so filter_input() is never defined and the request never
-				# reaches the code under test.  php-filter's `make test` then fails
-				# with "doesn't reach hard limit" for oom_filter_input,
-				# oom_filter_input_array and oom_filter_default_encoded, and the
-				# whole system build stops there.
-				#
-				# Upstream nixpkgs fixes this in a5fc1be5b6 ("php: fix `filter`
-				# tests"), shipped alongside the 8.5.12 bump.  This lock predates
-				# it, so apply the same substitution here; drop this once flake.lock
-				# is past a5fc1be5b6, since the two would otherwise both patch.
-				#
-				# Done by rewriting the filter derivation in the extension list
-				# rather than through buildEnv's `packageOverrides`: that argument
-				# only reaches the unwrapped PHP, while the extension set is folded
-				# from mkPhp's own packageOverrides, so it is silently ignored here.
-				patchFilterTests = ext:
-					if (ext.extensionName or "") != "filter" then
-						ext
-					else
-						ext.overrideAttrs (prevAttrs: {
-						postConfigure = (prevAttrs.postConfigure or "") + ''
-							substituteInPlace \
-								tests/oom_filter_input.phpt \
-								tests/oom_filter_input_array.phpt \
-								tests/oom_filter_default_encoded.phpt \
-								--replace-fail "'-n'," "'-n', '-d', 'extension=$PWD/modules/filter.so',"
-						'';
-					});
-			in
-			map patchFilterTests enabled ++ (with all; [
-				bz2        # Nextcloud: bz2 archive support
-				apcu       # Nextcloud: memcache.local  (apc.enable_cli=1 below is mandatory for occ + cron)
-				redis      # Nextcloud: memcache.distributed / file locking once a Redis server is configured
-				imagick    # Nextcloud: previews + theming (nixpkgs ImageMagick is built with SVG support)
-				memcached  # WordPress object-cache plugins (legacy option for Nextcloud)
-			]);
+		# exif, sodium, sysvsem, pcntl, filter, ...).  OPcache is compiled into
+		# PHP >= 8.5 and no longer appears as a separate extension.
+		extensions = { enabled, all }: enabled ++ (with all; [
+			bz2        # Nextcloud: bz2 archive support
+			apcu       # Nextcloud: memcache.local  (apc.enable_cli=1 below is mandatory for occ + cron)
+			redis      # Nextcloud: memcache.distributed / file locking once a Redis server is configured
+			imagick    # Nextcloud: previews + theming (nixpkgs ImageMagick is built with SVG support)
+			memcached  # WordPress object-cache plugins (legacy option for Nextcloud)
+		]);
 
 		extraConfig = ''
 			; ── Error handling (production) ─────────────────────────────────
@@ -136,6 +103,12 @@ let
 	};
 in
 
+assert lib.assertMsg (lib.versionAtLeast phpBase.version phpSecurityFloor) ''
+	sovran_systemsOS: the pinned nixpkgs ships PHP ${phpBase.version}, below the
+	security floor ${phpSecurityFloor} (CVE-2026-109618 / CVE-2026-109619).
+	Update the nixpkgs input in flake.lock instead of pinning a version here.
+'';
+
 {
 	options.sovran_systemsOS.phpPackage = lib.mkOption {
 		type = lib.types.package;
@@ -163,4 +136,3 @@ in
 		];
 	};
 }
-
