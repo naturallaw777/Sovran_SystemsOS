@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.2.3] - 2026-10-27
+
+### Added
+- Php: assert the security floor via config.assertions, not a module-level assert
+- Php: drop duplicate filter-test backport that breaks the php-filter build
+- Php: fix the filter tests that break the 8.5.12 build
+- Php: pin the shared interpreter to 8.5.12 for CVE-2026-109618/-109619
+
+### Changed
+- Updated nixpkgs
+- Updated to Bisq 1.10.10
+
+### Documentation
+- Update changelog and versions with nixpkgs and matrix-synapse 1.163.0
+[1.2.3]: https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS/releases/tag/v1.2.3
+
+
 ## [1.2.2] - 2026-10-21
 
 ### Changed
