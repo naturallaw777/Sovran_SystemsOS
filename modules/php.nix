@@ -103,12 +103,6 @@ let
 	};
 in
 
-assert lib.assertMsg (lib.versionAtLeast phpBase.version phpSecurityFloor) ''
-	sovran_systemsOS: the pinned nixpkgs ships PHP ${phpBase.version}, below the
-	security floor ${phpSecurityFloor} (CVE-2026-109618 / CVE-2026-109619).
-	Update the nixpkgs input in flake.lock instead of pinning a version here.
-'';
-
 {
 	options.sovran_systemsOS.phpPackage = lib.mkOption {
 		type = lib.types.package;
@@ -117,6 +111,29 @@ assert lib.assertMsg (lib.versionAtLeast phpBase.version phpSecurityFloor) ''
 	};
 
 	config = {
+		# Security floor.  This has to live in `config.assertions`, NOT in a
+		# module-level `assert` above the module body: a bare
+		# `assert <cond>; { ... }` forces `phpBase` (and therefore `pkgs`) as
+		# soon as the module's attrset is forced to WHNF, which happens while
+		# the module system is still merging `_module.args`.  `pkgs` is not an
+		# externally supplied argument here, so it resolves through
+		# `config._module.args.pkgs` (lib/modules.nix:745) — which requires
+		# `config`, the very fixpoint being computed — giving
+		# "error: infinite recursion encountered" pointing at modules/php.nix.
+		# `config.assertions` is evaluated inside the fixpoint, once `pkgs`
+		# exists, which is the supported way to assert on package versions.
+		assertions = [
+			{
+				assertion = lib.versionAtLeast phpBase.version phpSecurityFloor;
+				message = ''
+					sovran_systemsOS: the pinned nixpkgs ships PHP ${phpBase.version},
+					below the security floor ${phpSecurityFloor} (CVE-2026-109618 /
+					CVE-2026-109619).  Update the nixpkgs input in flake.lock instead
+					of pinning a version in modules/php.nix.
+				'';
+			}
+		];
+
 		users.users = {
 
 			php = {
