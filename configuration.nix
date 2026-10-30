@@ -44,9 +44,14 @@
   # ── Avahi (mDNS) ───────────────────────────────────────────
   services.avahi = {
     enable = true;
-    hostName = "sovransystemsos";
     nssmdns4 = true;
-    publish = { enable = true; addresses = true; };
+    settings = {
+      server.host-name = "sovransystemsos";
+      publish = {
+        "disable-publishing" = false;
+        publish-addresses = true;
+      };
+    };
   };
 
   # ── Locale / Time ──────────────────────────────────────────

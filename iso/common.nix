@@ -91,9 +91,14 @@ in
   # mDNS so the machine is discoverable as sovran-installer.local
   services.avahi = {
     enable = true;
-    hostName = "sovran-installer";
     nssmdns4 = true;
-    publish = { enable = true; addresses = true; };
+    settings = {
+      server.host-name = "sovran-installer";
+      publish = {
+        "disable-publishing" = false;
+        publish-addresses = true;
+      };
+    };
   };
 
   environment.etc."sovran/logo.png".source = ./assets/splash-logo.png;

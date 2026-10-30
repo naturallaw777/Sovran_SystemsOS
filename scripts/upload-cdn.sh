@@ -5,7 +5,7 @@
 # verifies it, and optionally uploads to CDN.
 #
 # Usage:
-#   ./scripts/upload-cdn.sh [--upload]
+#   ./scripts/upload-cdn.sh [--upload] [--rebuild]
 #
 # EVERYTHING this script creates lives OUTSIDE the repository, even when you
 # run it from inside the repo:
@@ -16,9 +16,23 @@
 # Environment variables (optional):
 #   ISO_OUT_DIR        - dir for the build symlink + ISO + checksum
 #                        (default: ~/Sovran-builds)
+#   ISO_CONFIG         - flake attr holding the ISO (default:
+#                        nixosConfigurations.sovran_systemsos-iso)
+#   REPO_FLAKE_REF     - flake reference used to build. Defaults to
+#                        "path:$REPO_ROOT" so that gitignored files such as
+#                        iso/secrets/enroll-token are actually visible to the
+#                        build (a plain "." flake ref only sees git-tracked
+#                        files and silently drops them).
 #   CDN_RSYNC_TARGET   - rsync destination (e.g. user@server:/var/www/downloads/)
 #   CDN_RCLONE_REMOTE  - rclone remote target (e.g. s3:my-bucket/downloads/)
 #   CDN_UPLOAD_CMD     - custom upload command
+#
+# Notes on finding the ISO:
+#   A Nix build result is a SYMLINK to an immutable /nix/store path, and the
+#   ISO filename inside it is chosen by Nix (config.image.baseName), not by
+#   this script.  We therefore ask Nix for the derivation's real output path
+#   instead of guessing filenames, and we never rely on `find` walking through
+#   the symlink (find does not follow symlinks unless given -L / -H).
 #
 
 set -euo pipefail
@@ -52,6 +66,22 @@ ISO_PATH="$OUT_DIR/${ISO_NAME}"
 SHA_PATH="$OUT_DIR/${SHA_NAME}"
 RESULT_LINK="$OUT_DIR/result"
 
+# Flake attribute that produces the ISO image
+ISO_ATTR="${ISO_CONFIG:-nixosConfigurations.sovran_systemsos-iso}"
+
+# Flake reference used for the build. "path:" (not ".") so gitignored files
+# under iso/secrets/ are included -- with a "." ref, flakes only see files
+# tracked by git and the enroll token / provisioner URL vanish from the ISO.
+REPO_FLAKE_REF="${REPO_FLAKE_REF:-path:$REPO_ROOT}"
+ISO_BUILD_ATTR="${REPO_FLAKE_REF}#${ISO_ATTR}.config.system.build.isoImage"
+
+DO_REBUILD=0
+for arg in "$@"; do
+    case "$arg" in
+        --rebuild) DO_REBUILD=1 ;;
+    esac
+done
+
 echo -e "${BLUE}╔════════════════════════════════════════════════════════════╗${NC}"
 echo -e "${BLUE}║      Sovran_SystemsOS CDN ISO Packaging & Upload Tool      ║${NC}"
 echo -e "${BLUE}╚════════════════════════════════════════════════════════════╝${NC}"
@@ -59,45 +89,88 @@ echo -e "  Version : ${CYAN}${VERSION}${NC}"
 echo -e "  ISO     : ${CYAN}${ISO_NAME}${NC}"
 echo -e "  Repo    : ${CYAN}${REPO_ROOT}${NC}   (left untouched)"
 echo -e "  Output  : ${CYAN}${OUT_DIR}${NC}   (outside the repo)"
+echo -e "  Attr    : ${CYAN}${ISO_ATTR}${NC}"
+echo -e "  Flake   : ${CYAN}${REPO_FLAKE_REF}${NC}"
 echo
 
-# Locate or build ISO
+# ---------------------------------------------------------------------------
+# Helper: locate a *.iso file inside a nix build output directory.
+# Follows symlinks explicitly (-L) and ignores compressed variants unless
+# nothing else is present.
+# ---------------------------------------------------------------------------
+find_iso_in() {
+    local dir="$1"
+    [ -d "$dir" ] || return 0
+    local hit
+    # Prefer the exact versioned name Nix uses for this release.
+    if [ -f "$dir/iso/${ISO_NAME}" ]; then
+        printf '%s\n' "$dir/iso/${ISO_NAME}"
+        return 0
+    fi
+    hit=$(find -L "$dir" -maxdepth 3 -type f -name '*.iso' 2>/dev/null | sort | head -n 1 || true)
+    if [ -z "$hit" ]; then
+        hit=$(find -L "$dir" -maxdepth 3 -type f -name '*.iso.*' 2>/dev/null | sort | head -n 1 || true)
+    fi
+    printf '%s\n' "$hit"
+}
+
 SRC_ISO=""
-if [ -f "$RESULT_LINK/iso/${ISO_NAME}" ]; then
+
+# 1) Reuse an existing build ONLY if it is exactly the version we are packaging.
+#    A result symlink left over from a previous release must not be packaged
+#    under the new version number, so a name mismatch falls through to Nix.
+if [ "$DO_REBUILD" -eq 0 ] && [ -f "$RESULT_LINK/iso/${ISO_NAME}" ]; then
     SRC_ISO="$RESULT_LINK/iso/${ISO_NAME}"
-elif [ -f "$RESULT_LINK/iso/Sovran_SystemsOS.iso" ]; then
-    SRC_ISO="$RESULT_LINK/iso/Sovran_SystemsOS.iso"
-elif [ -f "result/iso/${ISO_NAME}" ]; then
-    SRC_ISO="result/iso/${ISO_NAME}"   # legacy: from an older in-repo build
-elif [ -f "result/iso/Sovran_SystemsOS.iso" ]; then
-    SRC_ISO="result/iso/Sovran_SystemsOS.iso"
-else
-    FOUND=$(find "$RESULT_LINK" result -name "*.iso" 2>/dev/null | head -n 1 || true)
-    if [ -n "$FOUND" ]; then
-        SRC_ISO="$FOUND"
+elif [ "$DO_REBUILD" -eq 0 ] && [ -d "$RESULT_LINK" ]; then
+    STALE=$(find_iso_in "$RESULT_LINK")
+    if [ -n "$STALE" ]; then
+        echo -e "${YELLOW}Ignoring stale build: $(basename "$STALE") != ${ISO_NAME}${NC}"
+        echo -e "  (result link points at a different release; re-resolving via Nix)"
     fi
 fi
 
+# 2) Ask Nix for the authoritative output path. This builds only if needed.
 if [ -z "$SRC_ISO" ] || [ ! -f "$SRC_ISO" ]; then
-    echo -e "${YELLOW}Built ISO not found. Building via Nix (result link goes outside the repo)...${NC}"
+    echo -e "${YELLOW}Building via Nix (result link goes outside the repo)...${NC}"
     rm -f "$RESULT_LINK"
-    nix build .#nixosConfigurations.sovran_systemsos-iso.config.system.build.isoImage \
-        --out-link "$RESULT_LINK"
 
-    if [ -f "$RESULT_LINK/iso/${ISO_NAME}" ]; then
-        SRC_ISO="$RESULT_LINK/iso/${ISO_NAME}"
-    else
-        FOUND=$(find "$RESULT_LINK" -name "*.iso" 2>/dev/null | head -n 1 || true)
-        if [ -n "$FOUND" ]; then
-            SRC_ISO="$FOUND"
-        fi
+    if ! OUT_PATH=$(nix build "$ISO_BUILD_ATTR" --out-link "$RESULT_LINK" --print-out-paths); then
+        echo -e "${RED}Error: nix build failed for ${ISO_BUILD_ATTR}.${NC}" >&2
+        echo -e "  The 'evaluation warning' lines about services.avahi are not fatal," >&2
+        echo -e "  but the real error is printed above them. Re-run with --show-trace" >&2
+        echo -e "  for details:" >&2
+        echo -e "    nix build ${ISO_BUILD_ATTR} --show-trace -L" >&2
+        exit 1
     fi
+    SRC_ISO=$(find_iso_in "$OUT_PATH")
+fi
+
+# 3) Last resort: a legacy in-repo result symlink.
+if [ -z "$SRC_ISO" ] || [ ! -f "$SRC_ISO" ]; then
+    SRC_ISO=$(find_iso_in "$REPO_ROOT/result")
 fi
 
 if [ -z "$SRC_ISO" ] || [ ! -f "$SRC_ISO" ]; then
     echo -e "${RED}Error: Failed to locate built ISO.${NC}" >&2
+    echo -e "  Looked in: ${RESULT_LINK} and ${REPO_ROOT}/result" >&2
+    echo -e "  Expected a file named ${ISO_NAME} produced by ${ISO_ATTR}." >&2
+    echo -e "  Inspect the build output with:" >&2
+    echo -e "    ls -l ${RESULT_LINK}/iso/" >&2
     exit 1
 fi
+
+if [ "$(basename "$SRC_ISO")" != "$ISO_NAME" ]; then
+    echo -e "${RED}Error: resolved ISO is $(basename "$SRC_ISO"), but VERSION requires ${ISO_NAME}.${NC}" >&2
+    echo -e "  Refusing to package a mismatched artifact. This usually means the" >&2
+    echo -e "  result link or an in-repo ./result points at an older release." >&2
+    echo -e "  Fix by rebuilding from a clean state:" >&2
+    echo -e "    rm -f ${RESULT_LINK} ${REPO_ROOT}/result" >&2
+    echo -e "    ./scripts/upload-cdn.sh --rebuild" >&2
+    exit 1
+fi
+
+echo -e "${GREEN}Using ISO:${NC} $SRC_ISO"
+echo
 
 echo -e "${BLUE}Step 1: Copying built ISO to output dir (outside repo)...${NC}"
 cp -v "$SRC_ISO" "$ISO_PATH"
@@ -117,11 +190,8 @@ echo -e "  ${GREEN}✓${NC} Checksum verified successfully"
 # Parse arguments for upload
 DO_UPLOAD=0
 for arg in "$@"; do
-    case $arg in
-        --upload)
-            DO_UPLOAD=1
-            shift
-            ;;
+    case "$arg" in
+        --upload) DO_UPLOAD=1 ;;
     esac
 done
 
