@@ -103,16 +103,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [1.2.1]: https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS/releases/tag/v1.2.1
 
 
-## [Unreleased]
-
-### Added
-- Mullvad: install the VPN app and daemon, as NixOS ships them, on the Desktop Role only
-
-### Changed
-- Updated `flake.lock` (`nixpkgs`, `nixpkgs-stable`, `nixvim`, `btc-clients` with Bisq2 `2.1.14`, and `Sovran_Bitcoin` `1.1.1` with RTL `0.15.13` and Nix-native `sovran-nwc` `2.0.0`)
-- Updated fallback service version map (`app/sovran_systemsos_web/versions.json`)
-- Fixed deprecated `pkgs.system` reference in `flake.nix` and guarded `config.networking.domain` in `modules/sovran-bitcoin-integration.nix` when `haven` and `nwc-wallets` are both enabled
-
 ---
 
 ## [1.2.0] - 2026-10-02
@@ -217,21 +207,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [1.1.4]: https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS/releases/tag/v1.1.4
 
 
-## [Unreleased]
-
-### Changed
-- Element Calling: pin LiveKit to 1.13.6 and advertise the LAN interface
-  (rtc.advertise_internal_ip) so Wi-Fi callers get a local ICE candidate and
-  calls no longer depend on router NAT hairpin
-- Element Calling: use a single UDP media mux (7882); move the TURN relay to
-  40000-40099 and remove the unreachable 5349 TURN/TLS listener
-- Hub: update Element Calling router-port guidance to the new port set
-
-### Fixed
-- Element Calling: TURN relay could not deliver media to the SFU on routers
-  without NAT loopback (turn.allow_restricted_peer_cidrs now permits the LAN
-  subnet derived from the primary interface)
-
 ## [1.1.3] - 2026-08-27
 
 ### Added
@@ -300,71 +275,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Update README ISO download links to v1.1.0
 [1.1.1]: https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS/releases/tag/v1.1.1
 
-
-## [Unreleased]
-
-### Changed
-  - Replaced Brave Browser with Brave Origin (the new `brave-origin` nixpkgs
-    package) as the desktop's default browser: installed package, dock
-    favorite, Browsers app-folder entry, `xdg.mime.defaultApplications`, and
-    the `$BROWSER` session variable now all point at Brave Origin, and the
-    Sovran Hub launcher runs it.
-  - On installs upgrading from the old Brave package, the desktop theme init
-    now migrates `brave-browser.desktop` → `brave-origin.desktop` in the dock
-    favorites, the Browsers app folder, and the user's `mimeapps.list`, so
-    the dock icon and default-browser handler survive the switch without a
-    manual re-pin.
-
-### Fixed
-  - Zeus Connect QR in the Hub was invalid: the LND-only `lndconnect`
-    wrapper used flags Zeus/`lndconnect` do not understand (`--cert`,
-    `--macaroon`), read a non-existent onion path (`free/lnd.onion`),
-    and collided with LND's P2P hidden service. The wrapper now matches
-    the nix-bitcoin contract — dedicated `lnd-rest` onion on port 8080,
-    `--nocert` over Tor, admin macaroon in the URI — so scanning the Hub
-    QR in Zeus works again.
-  - The Hub launcher now uses a persistent per-user browser profile
-    (`$XDG_STATE_HOME/sovran-hub-browser`) instead of a throwaway `/tmp`
-    profile that was deleted on exit. The throwaway profile wiped the
-    `hub_manual_logout` marker cookie on every close, so `/auto-login`
-    silently logged the user straight back in after they signed out and
-    reopened the Hub window. The persistent profile makes explicit logout
-    stick (until the next password login) while still skipping Brave Origin's
-    one-time startup dialog.
-  - The Hub now redirects to the login page when an API request finds an
-    expired browser session, instead of leaving the dashboard tile grid in a
-    loading state while `/api/services` continues returning 401 every five
-    seconds.
-  - Explicitly logging out now suppresses the desktop launcher's local
-    auto-login after the Hub window is closed and reopened. A successful
-    password login clears that preference.
-  - Sessions are now persisted to `/var/lib/secrets/hub-sessions.json` so the
-    browser login survives the Hub service restart that `nixos-rebuild switch`
-    performs during activation. Previously the in-memory session store was
-    wiped by that restart, the `/api/rebuild/status` poll started returning
-    401, and the rebuild modal spun forever showing "Applying changes…" while
-    the switch result was never displayed.
-  - Rebuild and update modals now bail out and reload the page after sustained
-    polling failures instead of hanging indefinitely.
-  - Rebuild/update scripts stream `nixos-rebuild` output into the live log
-    (it was buffered until completion, making long rebuilds look frozen).
-  - The update modal now reconciles persisted update state after a page/RDP
-    reconnect, bounds every status request with a timeout, prevents overlapping
-    async polls, and reports an explicit "status unavailable" state with a
-    Retry Status action instead of spinning forever. Verbose Nix logs are
-    rendered incrementally and bounded so they cannot stall the browser UI.
-  - Successful staged updates now record the exact NixOS generation. The Hub
-    keeps showing "Restart required" until that generation is active, then
-    clears the marker after reboot (with log-based recovery for older updates).
-  - Pending-reboot state is now derived from NixOS itself — the boot default
-    (`/nix/var/nix/profiles/system`) versus the running `/run/current-system`
-    — instead of from Hub-written marker files. Updates performed from a
-    terminal or support session (which never touch the Hub's status files)
-    previously left a stale `REBOOT_REQUIRED` marker the Hub could never
-    clear, pinning the "Restart required" badge forever even after many
-    reboots. The marker self-heals to `IDLE` on the next status read whenever
-    boot default and running system agree, and recording the informational
-    `.generation` marker can no longer fail an otherwise successful update.
 
 ---
 
@@ -503,19 +413,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [1.0.5]: https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS/releases/tag/v1.0.5
 
 
-## [Unreleased]
-
-### Fixed
-- Report the version of the configured BTCPay Server package in the Hub instead of the different package version from unstable nixpkgs.
-- Installer VM compatibility: legacy BIOS VM boots now install with GRUB, UEFI VM installs avoid depending on NVRAM boot-entry writes, VM users get clearer disk/resource guidance, and the internet check falls back to HTTPS when ICMP is blocked.
-- **Manual Backup now matches the system role**: on the Desktop Only role the Hub's
-  "What gets backed up" list no longer shows Node / Server + Desktop items
-  (nix-bitcoin secrets, `/var/lib` system service data, and the database/blockchain
-  caveats), and the backup script skips those stages entirely — Desktop Only backups
-  now mirror only the NixOS configuration (`/etc/nixos`) and home directory (`/home`).
-  The free-space estimate, stage numbering, backup manifest, and completion message
-  are all role-aware; Node and Server + Desktop backups are unchanged.
-
 ---
 
 ## [1.0.4] - 2026-07-29
@@ -605,10 +502,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [Unreleased]
-
-### Added
-- (Nothing yet)
 
 [1.0.3]: https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS/releases/tag/v1.0.3
 [1.0.2]: https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS/releases/tag/v1.0.2
