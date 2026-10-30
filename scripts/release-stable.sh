@@ -7,17 +7,19 @@
 # - Detects latest tag and suggests next version
 # - Pushes main → stable on Gitea
 # - Creates annotated tag
-# - Auto-updates CHANGELOG.md
+# - Release notes are generated from the commit log (no changelog file)
 # - Creates releases on both GitHub and Gitea via API
 #
 # Usage:
-#   ./scripts/release-stable.sh [version] [--message "text"] [--replace-unreleased] [--dry-run]
+#   ./scripts/release-stable.sh [version] [--message "text"] [--dry-run]
 #
 # Notes source:
-#   The curated body of "## [Unreleased]" in CHANGELOG.md is used as the
-#   release notes when it contains real content, and is then promoted into the
-#   new version section (leaving [Unreleased] empty). Commit scraping is only
-#   the fallback, for when [Unreleased] is empty. See extract_unreleased_notes().
+#   The commit log, and only the commit log. There is no CHANGELOG.md: a
+#   hand-maintained file would duplicate what the commit messages already say.
+#   Notes are generated from the subjects and bodies of the commits in
+#   <last tag>..HEAD, previewed, optionally edited, and published. See
+#   generate_release_notes(). Write commit messages you would be happy to see
+#   in the release notes, and nothing else is required.
 #
 # Requirements:
 #   - gh CLI (for GitHub releases)
@@ -43,8 +45,6 @@ NC='\033[0m'
 GITEA_REMOTE_DEFAULT="gitea"
 GITHUB_REMOTE_DEFAULT="origin"
 GITEA_API_URL="https://git.sovransystems.com/api/v1"
-CHANGELOG_FILE="CHANGELOG.md"
-CHANGELOG_LINK_BASE="https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS/releases/tag"
 
 # Auto-detect remotes
 detect_remote() {
@@ -116,39 +116,6 @@ suggest_next_version() {
     echo "${major}.$((minor)).$((patch + 1))"
 }
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Helper: extract_unreleased_notes FILE
-#
-# Print the body of "## [Unreleased]" verbatim: from just after the heading to
-# the next "## [" heading or a standalone "---". Leading and trailing blank
-# lines are trimmed. Returns 1 when there is no [Unreleased] heading.
-#
-# The body is already valid Keep-a-Changelog content, so it is promoted
-# unchanged into the new version section — no re-indenting, no rewrapping.
-# ─────────────────────────────────────────────────────────────────────────────
-extract_unreleased_notes() {
-    local file="${1:-$CHANGELOG_FILE}"
-    [[ -f "$file" ]] || return 1
-
-    grep -q '^## \[Unreleased\]' "$file" || return 1
-
-    # 'started' makes the scan begin exactly once: a duplicate [Unreleased]
-    # lower in the file must not re-arm it. 'seen' then never returns to 1.
-    awk '
-        /^## \[Unreleased\]/ && !started { started = 1; seen = 1; next }
-        seen && /^## /                    { seen = 0 }
-        seen && /^---[[:space:]]*$/       { seen = 0 }
-        seen                              { print }
-    ' "$file" | awk '
-        { lines[NR] = $0 }
-        END {
-            first = 1; last = NR
-            while (first <= last && lines[first] ~ /^[[:space:]]*$/) first++
-            while (last >= first && lines[last]  ~ /^[[:space:]]*$/) last--
-            for (i = first; i <= last; i++) print lines[i]
-        }
-    '
-}
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Helper: notes_are_placeholder TEXT
@@ -156,22 +123,6 @@ extract_unreleased_notes() {
 # True when TEXT carries no real content: empty, or only "(Nothing yet)"
 # markers. Such a body must not suppress the commit-scraping fallback.
 # ─────────────────────────────────────────────────────────────────────────────
-notes_are_placeholder() {
-    local text="$1"
-    local meaningful
-    # Count lines that carry actual content: ignore blanks, bare markdown
-    # headings (a body of only "### Added" is still empty), and the
-    # "(Nothing yet)" marker. '|| true' keeps pipefail from aborting us when
-    # grep finds nothing to print, which is the normal "it IS a placeholder"
-    # case.
-    meaningful=$(printf '%s\n' "$text" \
-        | sed -E 's/^[[:space:]]*//; s/[[:space:]]*$//' \
-        | grep -vE '^$' \
-        | grep -vE '^#{1,6}([[:space:]]|$)' \
-        | grep -vE '^-?[[:space:]]*\(?([Nn]othing yet|[Nn]othing)\)?[.]?$' \
-        | wc -l || true)
-    [[ "${meaningful:-0}" -eq 0 ]]
-}
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Step 0: Preflight and fetch everything
@@ -263,12 +214,10 @@ echo
 # ─────────────────────────────────────────────────────────────────────────────
 # Parse flags
 # ─────────────────────────────────────────────────────────────────────────────
-REPLACE_UNRELEASED=0
 DRY_RUN=0
 POSITIONAL=()
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --replace-unreleased) REPLACE_UNRELEASED=1; shift ;;
         --dry-run)    DRY_RUN=1; shift ;;
         --message|-m) POSITIONAL+=("$1" "${2:-}"); shift 2 ;;
         *)            POSITIONAL+=("$1"); shift ;;
@@ -341,39 +290,90 @@ fi
 # ─────────────────────────────────────────────────────────────────────────────
 # Helper: Generate categorized release notes from commit history
 # Groups commits since the last tag into Keep-a-Changelog sections based on
-# conventional-commit prefixes (feat/fix/docs/security/etc.) and keywords.
-# This is the FALLBACK path only — used when [Unreleased] has no content.
+# conventional-commit prefixes (feat/fix/docs/security/etc.) and keywords, and
+# folds in the first paragraph of each commit body.
 # ─────────────────────────────────────────────────────────────────────────────
 generate_release_notes() {
     local range="$1"
 
-    local added="" changed="" fixed="" security="" docs=""
+    local added="" changed="" fixed="" security="" docs="" other=""
 
-    while IFS= read -r subject; do
-        # Skip noise commits
+    # Subject + body of each non-merge commit, one record per commit. The body
+    # carries the CVE numbers, the "why" and the verification notes, so folding
+    # it into the bullet is the point of generating notes from history.
+    while IFS= read -r -d '' record; do
+        # git log separates records with a newline, which lands at the start of
+        # the next record. Strip it, or every subject looks empty.
+        record="${record#$'\n'}"
+        [[ -z "${record//[[:space:]]/}" ]] && continue
+
+        local subject="${record%%$'\n'*}"
+        local body="${record#*$'\n'}"
+        [[ "$body" == "$record" ]] && body=""
+
+        # Noise that belongs in git log but not in release notes.
         case "$subject" in
             "Initial plan"|"initial plan") continue ;;
             "Merge pull request"*|"Merge branch"*) continue ;;
-            "chore: bump VERSION"*|"docs: update CHANGELOG"*) continue ;;
             "Address code review"*|"Address review"*|"Address validation"*) continue ;;
+            "chore(release): prepare"*|"chore: prepare"*|"chore: bump VERSION"*) continue ;;
+            "docs: update CHANGELOG"*|"docs(changelog):"*) continue ;;
         esac
 
-        # Strip conventional-commit prefix for display
+        # Strip the conventional-commit prefix for display, keep the text.
         local clean
-        clean="$(echo "$subject" | sed -E 's/^(feat|fix|docs|chore|refactor|test|security|perf|style|ci|build)(\([^)]*\))?!?:[[:space:]]*//')"
-        # Capitalize first letter
-        clean="$(echo "${clean:0:1}" | tr '[:lower:]' '[:upper:]')${clean:1}"
+        clean="$(printf '%s' "$subject" | sed -E 's/^(feat|fix|docs|chore|refactor|test|security|perf|style|ci|build)(\([^)]*\))?!?:[[:space:]]*//')"
+        clean="$(printf '%s' "${clean:0:1}" | tr '[:lower:]' '[:upper:]')${clean:1}"
 
+        # Fold in the first paragraph of the body, flattened to one line, so
+        # the reasoning survives. Bullets and trailers are skipped.
+        local para
+        para="$(printf '%s\n' "$body" | awk '
+            /^[[:space:]]*$/ { if (seen) exit; next }
+            /^(-|\*|[0-9]+\.|>|#|\||Signed-off-by:|Co-authored-by:|Refs:|Fixes:)/ { next }
+            { print; seen = 1 }
+        ' | tr '\n' ' ' | sed -E 's/[[:space:]]+/ /g; s/^ //; s/ $//')"
+
+        local detail=""
+        if [[ -n "$para" ]]; then
+            detail="${para:0:300}"
+            [[ ${#para} -gt 300 ]] && detail="${detail% *} [...]"
+        fi
+
+        local bullet="- ${clean}"
+        [[ -n "$detail" ]] && bullet+=$'\n  '"${detail}"
+
+        # Classify. An explicit prefix always wins; otherwise fall back to a
+        # keyword test so an un-prefixed "fix Pillow for CVE-..." still lands
+        # under Security instead of Other.
+        local section
         case "$subject" in
-            security:*|security\(*)         security+="- ${clean}"$'\n' ;;
-            feat:*|feat\(*)                 added+="- ${clean}"$'\n' ;;
-            fix:*|fix\(*|Fix\ *|fixed\ *)   fixed+="- ${clean}"$'\n' ;;
-            docs:*|docs\(*)                 docs+="- ${clean}"$'\n' ;;
-            refactor:*|refactor\(*|chore:*|chore\(*|removed\ *|Updated\ *|updated\ *) changed+="- ${clean}"$'\n' ;;
-            test:*|test\(*)                 continue ;;
-            *)                              added+="- ${clean}"$'\n' ;;
+            security:*|security\(*)                        section=security ;;
+            feat:*|feat\(*)                                section=added ;;
+            fix:*|fix\(*|Fix\ *|fixed\ *|fixed\ *)        section=fixed ;;
+            docs:*|docs\(*)                                section=docs ;;
+            perf:*|perf\(*)                                section=changed ;;
+            refactor:*|refactor\(*)                        section=changed ;;
+            chore:*|chore\(*|removed\ *|Removed\ *)       section=changed ;;
+            test:*|test\(*|ci:*|ci\(*|build:*|build\(*)   continue ;;
+            *)
+                if printf '%s %s' "$subject" "$para" | grep -qiE 'cve-[0-9]{4}-|security|vulnerab'; then
+                    section=security
+                else
+                    section=other
+                fi
+                ;;
         esac
-    done < <(git log --no-merges --format='%s' "$range" 2>/dev/null | awk '!seen[$0]++')
+
+        case "$section" in
+            security) security+="${bullet}"$'\n' ;;
+            added)    added+="${bullet}"$'\n' ;;
+            fixed)    fixed+="${bullet}"$'\n' ;;
+            docs)     docs+="${bullet}"$'\n' ;;
+            changed)  changed+="${bullet}"$'\n' ;;
+            other)    other+="${bullet}"$'\n' ;;
+        esac
+    done < <(git log --no-merges --format='%s%n%b%x00' "$range" 2>/dev/null)
 
     local notes=""
     if [[ -n "$added" ]];    then notes+=$'### Added\n'"$added"$'\n'; fi
@@ -381,6 +381,7 @@ generate_release_notes() {
     if [[ -n "$fixed" ]];    then notes+=$'### Fixed\n'"$fixed"$'\n'; fi
     if [[ -n "$security" ]]; then notes+=$'### Security\n'"$security"$'\n'; fi
     if [[ -n "$docs" ]];     then notes+=$'### Documentation\n'"$docs"$'\n'; fi
+    if [[ -n "$other" ]];    then notes+=$'### Other\n'"$other"$'\n'; fi
 
     if [[ -z "$notes" ]]; then
         notes=$'### Changed\n- Incremental stable updates\n'
@@ -405,51 +406,15 @@ else
     COMMIT_RANGE_DISPLAY="HEAD"
 fi
 
-PROMOTE_UNRELEASED=0
 NOTES_SOURCE="commit log (${COMMIT_RANGE_DISPLAY})"
-
-# [Unreleased] is the source of truth. It is NOT cleared here: the release
-# commit promotes it into the new version section by renaming the heading in
-# place, so there is nothing to empty and no second step to remember. The flag
-# --replace-unreleased exists only for re-running a release whose notes were
-# wrong, which would otherwise publish the same entries twice.
-UNRELEASED_BODY="$(extract_unreleased_notes "$CHANGELOG_FILE" || true)"
-HAS_UNRELEASED=0
-if [[ -n "$UNRELEASED_BODY" ]] && ! notes_are_placeholder "$UNRELEASED_BODY"; then
-    HAS_UNRELEASED=1
-fi
-
-if [[ "$REPLACE_UNRELEASED" -eq 1 ]]; then
-    if [[ "$HAS_UNRELEASED" -eq 1 ]]; then
-        echo
-        echo -e "${YELLOW}────────────────────────────────────────────────────────${NC}"
-        echo -e "${YELLOW}  [Unreleased] already has content${NC}"
-        echo -e "${YELLOW}────────────────────────────────────────────────────────${NC}"
-        echo "  It would be published again alongside the notes you pass in."
-        echo "  Empty the [Unreleased] body in ${CHANGELOG_FILE} first, then re-run."
-        echo "  Nothing was changed."
-        exit 1
-    fi
-    RELEASE_NOTES="$(generate_release_notes "$COMMIT_RANGE")"
-    NOTES_SOURCE="commit log (${COMMIT_RANGE_DISPLAY}), --replace-unreleased"
-elif [[ "$HAS_UNRELEASED" -eq 1 ]]; then
-    RELEASE_NOTES="$UNRELEASED_BODY"
-    NOTES_SOURCE="CHANGELOG.md [Unreleased]"
-    echo
-    echo -e "${BLUE}Using the curated [Unreleased] section from ${CHANGELOG_FILE}.${NC}"
-    echo -e "  It will be promoted into [${VERSION}] in place, keeping git blame."
-else
-    RELEASE_NOTES="$(generate_release_notes "$COMMIT_RANGE")"
-fi
+RELEASE_NOTES="$(generate_release_notes "$COMMIT_RANGE")"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Append what actually changed in flake.lock and versions.json
 # ─────────────────────────────────────────────────────────────────────────────
 # A flake bump is a one-line commit that can move a dozen packages, so neither
 # the commit scraper nor a hand-written section reliably captures it. Derive it
-# instead, and always include it. Skipped when the notes already carry a
-# Bitcoin/stack section, so [Unreleased] can still be the source of truth if
-# somebody wants to write prose.
+# instead, and always include it.
 UPDATES_BLOCK=""
 if [[ -x scripts/generate-updates-section.sh ]]; then
     UPDATES_BLOCK="$(scripts/generate-updates-section.sh \
@@ -457,7 +422,7 @@ if [[ -x scripts/generate-updates-section.sh ]]; then
 fi
 if [[ -n "$UPDATES_BLOCK" ]]; then
     if printf '%s' "$RELEASE_NOTES" | grep -qiE '^### Changed'; then
-        # notes already have a Changed section from [Unreleased]; append the
+        # notes already have a Changed section; append the
         # generated detail beneath it without a second ### heading
         RELEASE_NOTES="${RELEASE_NOTES}"$'\n'"$(printf '%s' "$UPDATES_BLOCK" | sed '1{/^### Changed$/d}' | sed '/^$/d' | sed '1i\')"
     else
@@ -478,7 +443,7 @@ trap 'rm -f "$NOTES_FILE"' EXIT
     echo "${RELEASE_MESSAGE}"
     echo
     echo "$RELEASE_NOTES"
-    echo "**Full changelog:** [CHANGELOG.md](https://github.com/naturallaw777/Sovran_SystemsOS/blob/main/CHANGELOG.md)"
+    echo "**Full commit history:** https://github.com/naturallaw777/Sovran_SystemsOS/commits/${TAG}"
 } > "$NOTES_FILE"
 
 echo -e "  ${GREEN}✓${NC} Draft notes written to: ${CYAN}${NOTES_FILE}${NC}"
@@ -500,10 +465,10 @@ if [[ "$edit_confirm" =~ ^[Yy]$ ]]; then
     # Re-derive from the first '###'. Release bodies must therefore use '###'
     # or deeper; a '##' heading would be read as a new version section.
     if ! grep -q '^###' "$NOTES_FILE"; then
-        echo -e "${RED}Error: the notes file has no '###' heading, so the CHANGELOG entry would be empty.${NC}" >&2
+        echo -e "${RED}Error: the notes file has no '###' heading, so the release notes would be empty.${NC}" >&2
         exit 1
     fi
-    RELEASE_NOTES="$(sed -n '/^###/,$p' "$NOTES_FILE" | sed '/^\*\*Full changelog/d')"
+    RELEASE_NOTES="$(sed -n '/^###/,$p' "$NOTES_FILE" | sed '/^\*\*Full commit history/d')"
 fi
 RELEASE_BODY="$(cat "$NOTES_FILE")"
 
@@ -550,46 +515,7 @@ if [[ "$OLD_ISO_VER" != "$VERSION" ]]; then
     mv "$README_FILE.tmp" "$README_FILE"
 fi
 
-# Add the changelog entry before tagging so the tag and stable branch contain it.
-TODAY=$(date +%Y-%m-%d)
-NEW_ENTRY="## [${VERSION}] - ${TODAY}
-
-${RELEASE_NOTES}
-
-[${VERSION}]: ${CHANGELOG_LINK_BASE}/${TAG}
-"
-
-if [[ ! -f "$CHANGELOG_FILE" ]]; then
-    echo -e "${RED}Error: ${CHANGELOG_FILE} not found.${NC}" >&2
-    exit 1
-fi
-awk -v new_entry="$NEW_ENTRY" '
-    BEGIN { printed=0; skipping=0 }
-    /^---$/ && !printed {
-        print
-        print ""
-        print new_entry
-        printed=1
-        skipping=1
-        next
-    }
-    # Swallow the blank run that followed the insertion marker: the entry
-    # already ends with the separator blank, so keeping these would leave a
-    # double gap before the next version heading.
-    skipping && /^[[:space:]]*$/ { next }
-    { skipping=0; print }
-    END { if (!printed) exit 2 }
-' "$CHANGELOG_FILE" > "${CHANGELOG_FILE}.tmp" || {
-    rm -f "${CHANGELOG_FILE}.tmp"
-    echo -e "${RED}Error: could not find the changelog insertion marker.${NC}" >&2
-    exit 1
-}
-mv "${CHANGELOG_FILE}.tmp" "$CHANGELOG_FILE"
-
-# Nothing to clear: the insertion above renamed the [Unreleased] heading in
-# place, so its body is now the body of [VERSION].
-
-git add VERSION "$README_FILE" "$CHANGELOG_FILE"
+git add VERSION "$README_FILE"
 if git diff --cached --quiet; then
     echo -e "${RED}Error: release preparation produced no changes.${NC}" >&2
     exit 1
@@ -597,7 +523,7 @@ fi
 git commit -m "chore(release): prepare ${TAG}"
 RELEASE_COMMIT=$(git rev-parse HEAD)
 
-echo -e "  ${GREEN}✓${NC} VERSION, README, and CHANGELOG committed"
+echo -e "  ${GREEN}✓${NC} VERSION and README committed"
 echo -e "  Release commit: ${CYAN}${RELEASE_COMMIT}${NC}"
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -643,7 +569,7 @@ echo -e "${BLUE}Step 3: Creating annotated tag ${TAG} on ${RELEASE_COMMIT}...${N
 git tag -a "$TAG" -m "${RELEASE_MESSAGE}
 
 - Stable release of Sovran_SystemsOS
-- See CHANGELOG.md for full details" "$RELEASE_COMMIT"
+- See the commit history for full details" "$RELEASE_COMMIT"
 
 git push "$GITHUB_REMOTE" "$TAG"
 git push "$GITEA_REMOTE" "$TAG"

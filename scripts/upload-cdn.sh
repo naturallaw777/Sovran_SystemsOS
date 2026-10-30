@@ -18,11 +18,13 @@
 #                        (default: ~/Sovran-builds)
 #   ISO_CONFIG         - flake attr holding the ISO (default:
 #                        nixosConfigurations.sovran_systemsos-iso)
-#   REPO_FLAKE_REF     - flake reference used to build. Defaults to
-#                        "path:$REPO_ROOT" so that gitignored files such as
-#                        iso/secrets/enroll-token are actually visible to the
-#                        build (a plain "." flake ref only sees git-tracked
-#                        files and silently drops them).
+#   REPO_FLAKE_REF     - flake reference used to build. Defaults to "path:."
+#                        so that gitignored files such as iso/secrets/enroll-token
+#                        are actually visible to the build (a bare "." ref only
+#                        sees git-tracked files and silently drops them).
+#                        It is RELATIVE on purpose: a flake ref containing an
+#                        absolute path with spaces cannot be parsed by Nix, and
+#                        the script has already cd'd to the repo root.
 #   CDN_RSYNC_TARGET   - rsync destination (e.g. user@server:/var/www/downloads/)
 #   CDN_RCLONE_REMOTE  - rclone remote target (e.g. s3:my-bucket/downloads/)
 #   CDN_UPLOAD_CMD     - custom upload command
@@ -69,10 +71,12 @@ RESULT_LINK="$OUT_DIR/result"
 # Flake attribute that produces the ISO image
 ISO_ATTR="${ISO_CONFIG:-nixosConfigurations.sovran_systemsos-iso}"
 
-# Flake reference used for the build. "path:" (not ".") so gitignored files
-# under iso/secrets/ are included -- with a "." ref, flakes only see files
-# tracked by git and the enroll token / provisioner URL vanish from the ISO.
-REPO_FLAKE_REF="${REPO_FLAKE_REF:-path:$REPO_ROOT}"
+# Flake reference used for the build. "path:" (not a bare ".") so gitignored
+# files under iso/secrets/ are included -- a bare "." ref only sees files
+# tracked by git, so the enroll token / provisioner URL vanish from the ISO.
+# The path is relative because the script already cd'd to the repo root and
+# Nix cannot parse a flake ref whose path contains spaces.
+REPO_FLAKE_REF="${REPO_FLAKE_REF:-path:.}"
 ISO_BUILD_ATTR="${REPO_FLAKE_REF}#${ISO_ATTR}.config.system.build.isoImage"
 
 DO_REBUILD=0
@@ -139,7 +143,8 @@ if [ -z "$SRC_ISO" ] || [ ! -f "$SRC_ISO" ]; then
         echo -e "  The 'evaluation warning' lines about services.avahi are not fatal," >&2
         echo -e "  but the real error is printed above them. Re-run with --show-trace" >&2
         echo -e "  for details:" >&2
-        echo -e "    nix build ${ISO_BUILD_ATTR} --show-trace -L" >&2
+        echo -e "    nix build '${ISO_BUILD_ATTR}' --show-trace -L" >&2
+        echo -e "  Flake ref: ${REPO_FLAKE_REF}  (override with REPO_FLAKE_REF=...)" >&2
         exit 1
     fi
     SRC_ISO=$(find_iso_in "$OUT_PATH")

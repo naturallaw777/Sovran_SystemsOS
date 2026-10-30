@@ -72,6 +72,30 @@ git add .
 git commit -m "Brief description of your changes"
 ```
 
+#### 5a. Write the commit message as the release note
+
+There is no changelog file. The release notes are generated from the commit
+log, so the commit message *is* the release note — write it for the person
+reading the release, not for the diff.
+
+```
+fix(iso): use a relative flake ref so paths with spaces work
+
+The default REPO_FLAKE_REF was path:$REPO_ROOT. When the repo lives under a
+directory containing a space, Nix cannot parse the resulting URI and treats
+the whole string as a relative path.
+```
+
+- `fix:` lands under **Fixed**, `feat:` under **Added**, `security:` under
+  **Security**, `docs:` under **Documentation**, `chore:`/`refactor:` under
+  **Changed**, `test:`/`ci:`/`build:` are left out.
+- The first paragraph of the body is folded into the release note under the
+  subject, so explain *why*. Keep it short and factual.
+- `chore(release): prepare …` is filtered out automatically.
+
+Nothing else to write. `scripts/release-stable.sh` collects the commits since
+the last tag, previews the notes, and lets you edit them before publishing.
+
 #### 6. Push to Your Fork
 ```bash
 git push origin feature/your-feature-name
