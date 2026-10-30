@@ -1,189 +1,170 @@
 #!/usr/bin/env bash
 #
 # generate-updates-section.sh
-# Derive a Keep-a-Changelog "### Changed" block from what flake.lock and
-# versions.json actually say changed between two revisions.
+# Report what software actually changed between two revisions, by version.
 #
-# Why this exists
-# ---------------
-# Flake bumps are invisible to the release script. A commit called "updated
-# nixpkgs" is one line in git log, but it can move Bitcoin Core, LND, electrs,
-# Vaultwarden and a dozen other packages. And a commit called "updated flake
-# inputs which includes Sparrow v2.5.6" reads like one package when it is
-# usually three. Neither the commit scraper nor a hand-written [Unreleased]
-# section reliably captures that, so the Bitcoin stack silently drops out of
-# release notes.
+# Reads flake.lock to see which inputs moved, then resolves the versions of the
+# packages those inputs provide -- from the local git object store when the
+# input is a repo this checkout can reach (sovran-bitcoin, btc-clients), or
+# from GitHub raw for the nixpkgs inputs.
 #
-# This script reads the lock files and the Hub's service version map directly,
-# so the software list is derived rather than remembered.
+# Output is release-note prose, not revision hashes:
+#
+#   ### Changed
+#   - **Sparrow Wallet** 2.5.5 → 2.5.6
+#   - **Ride The Lightning** 0.15.13 → 0.15.16
+#   - **Matrix Synapse** 1.163.0 → 1.163.2
 #
 # Usage
-#   ./scripts/generate-updates-section.sh [--from REF] [--to REF] [--check] [--quiet]
+#   ./scripts/generate-updates-section.sh [--from REF] [--to REF] [--all] [--quiet]
 #
-#   --from REF   base revision      (default: latest release tag in refs/tags/ or
-#                                    refs/release-tags/github/)
-#   --to REF     revision to report (default: HEAD)
-#   --check      exit 1 if any flake input or Hub service version moved; write
-#                nothing. Use this in release preflight or CI.
-#   --quiet      only print the generated section (no footer/notes)
-#
-# Everything is read from the git object store, so --from/--to need no checkout
-# and the working tree is never touched.
+#   --from REF   base revision   (default: latest release tag)
+#   --to REF     revision        (default: HEAD)
+#   --all        also list packages that did not change
+#   --quiet      print only the section
 #
 set -uo pipefail
 
-FROM=""
-TO="HEAD"
-CHECK=0
-QUIET=0
-
+FROM=""; TO="HEAD"; SHOW_ALL=0; QUIET=0
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --from)  FROM="${2:-}"; shift 2 ;;
         --to)    TO="${2:-}";   shift 2 ;;
-        --check) CHECK=1; shift ;;
+        --all)   SHOW_ALL=1; shift ;;
         --quiet) QUIET=1; shift ;;
-        -h|--help) sed -n '2,30p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        -h|--help) sed -n '2,24p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
         *) echo "error: unknown argument '$1'" >&2; exit 2 ;;
     esac
 done
 
-command -v jq >/dev/null 2>&1 || { echo "error: jq is required" >&2; exit 2; }
-git rev-parse --git-dir >/dev/null 2>&1 || { echo "error: not a git repository" >&2; exit 2; }
+command -v jq >/dev/null || { echo "error: jq required" >&2; exit 2; }
+git rev-parse --git-dir >/dev/null 2>&1 || { echo "error: not a git repo" >&2; exit 2; }
 
-# ── Resolve the base revision ────────────────────────────────────────────────
 if [[ -z "$FROM" ]]; then
     FROM=$(git for-each-ref --sort=-version:refname --format='%(refname)' \
             'refs/tags/v*' 'refs/release-tags/github/v*' 2>/dev/null | head -1)
-    [[ -n "$FROM" ]] || { echo "error: no release tag found; pass --from REF" >&2; exit 2; }
+    [[ -n "$FROM" ]] || { echo "error: no release tag; pass --from" >&2; exit 2; }
 fi
+FROM_SHA=$(git rev-parse --verify -q "${FROM}^{commit}") || { echo "error: bad --from '$FROM'" >&2; exit 2; }
+TO_SHA=$(git rev-parse --verify -q "${TO}^{commit}")     || { echo "error: bad --to '$TO'" >&2; exit 2; }
 
-FROM_SHA=$(git rev-parse --verify -q "${FROM}^{commit}" 2>/dev/null) \
-    || { echo "error: cannot resolve --from '$FROM'" >&2; exit 2; }
-TO_SHA=$(git rev-parse --verify -q "${TO}^{commit}" 2>/dev/null) \
-    || { echo "error: cannot resolve --to '$TO'" >&2; exit 2; }
-
-FROM_LABEL=$(git describe --tags --exact-match "$FROM_SHA" 2>/dev/null || echo "$FROM")
-
-# ── Helpers ──────────────────────────────────────────────────────────────────
-# Read a file at a revision; empty string when absent.
-read_at() {
-    git show "${1}:${2}" 2>/dev/null || true
-}
-
-# Direct flake inputs, mapped to the lock node that holds their locked rev.
-# Following root.inputs rather than listing node names is deliberate: the same
-# nixpkgs revision appears as nixpkgs, nixpkgs_2, nixpkgs_3 and nixpkgs_4, and
-# only the node a direct input points at is relevant to this system.
-direct_inputs() {
-    local lock="$1"
-    printf '%s' "$lock" \
-        | jq -r '.nodes.root.inputs // {} | to_entries[] | select(.value | type == "string") | .key' \
-              2>/dev/null | sort
-}
-
-input_node() {
-    printf '%s' "$1" | jq -r --arg i "$2" '.nodes.root.inputs[$i] // empty' 2>/dev/null
-}
-
-node_rev() {
-    printf '%s' "$1" | jq -r --arg n "$2" '.nodes[$n].locked.rev // empty' 2>/dev/null
-}
-
-node_ref() {
-    printf '%s' "$1" | jq -r --arg n "$2" '.nodes[$n].locked.ref // .nodes[$n].original.ref // empty' 2>/dev/null
-}
-
-VERSIONS_JSON="app/sovran_systemsos_web/versions.json"
-
+read_at() { git show "${1}:${2}" 2>/dev/null || true; }
 LOCK_FROM=$(read_at "$FROM_SHA" flake.lock)
 LOCK_TO=$(read_at "$TO_SHA" flake.lock)
-VER_FROM=$(read_at "$FROM_SHA" "$VERSIONS_JSON")
-VER_TO=$(read_at "$TO_SHA" "$VERSIONS_JSON")
 
-MOVED=0
-BODY=""
+input_node() { printf '%s' "$1" | jq -r --arg i "$2" '.nodes.root.inputs[$i] // empty' 2>/dev/null; }
+node_rev()   { printf '%s' "$1" | jq -r --arg n "$2" '.nodes[$n].locked.rev // empty' 2>/dev/null; }
 
-# ── Flake inputs ─────────────────────────────────────────────────────────────
-INPUT_LINES=""
-while IFS= read -r input; do
-    [[ -n "$input" ]] || continue
-    node=$(input_node "$LOCK_TO" "$input")
-    [[ -n "$node" ]] || continue
-    rev_old=$(node_rev "$LOCK_FROM" "$node")
-    rev_new=$(node_rev "$LOCK_TO" "$node")
-    [[ "$rev_old" != "$rev_new" ]] || continue
-    MOVED=1
-    ref=$(node_ref "$LOCK_TO" "$node")
-    if [[ -n "$ref" ]]; then
-        INPUT_LINES+="- **${input}** (\`${ref}\`): \`${rev_old:0:10}\` → \`${rev_new:0:10}\`"$'\n'
-    else
-        INPUT_LINES+="- **${input}**: \`${rev_old:0:10}\` → \`${rev_new:0:10}\`"$'\n'
+moved() {  # moved INPUT -> 0 if the input's locked rev differs
+    local node; node=$(input_node "$LOCK_TO" "$1")
+    [[ -n "$node" ]] || return 1
+    [[ "$(node_rev "$LOCK_FROM" "$node")" != "$(node_rev "$LOCK_TO" "$node")" ]]
+}
+
+# ── version lookups ─────────────────────────────────────────────────────────
+# Strip a nixpkgs-input version out of package.nix, at a given rev.
+nix_ver() {  # nix_ver NIXPKGS_REV BY-NAME-PATH
+    curl -sSL --max-time 20 \
+        "https://raw.githubusercontent.com/NixOS/nixpkgs/$1/pkgs/by-name/$2/package.nix" \
+        2>/dev/null | grep -oE '^[[:space:]]+version = "[^"]+"' | head -1 \
+        | sed 's/.*= "//; s/"$//'
+}
+
+# Read a vendored package version out of the locked input's git history.
+# Falls back to GitHub raw when the object is not in this clone.
+dep_ver() {  # dep_ver LOCK_INPUT LOCKED_REV REPO PATH
+    local input="$1" rev="$2" repo="$3" path="$4" v=""
+
+    # 1. try the object store of an already-cloned sibling checkout
+    local guess
+    for guess in "../$input" "../$(basename "$repo" .git)"; do
+        if [[ -d "$guess/.git" ]] && git -C "$guess" cat-file -e "${rev}:${path}" 2>/dev/null; then
+            v=$(git -C "$guess" show "${rev}:${path}" 2>/dev/null \
+                | grep -oE '^[[:space:]]+version = "[^"]+"' | head -1 | sed 's/.*= "//; s/"$//')
+            [[ -n "$v" ]] && { printf '%s' "$v"; return; }
+        fi
+    done
+
+    # 2. fall back to GitHub raw
+    curl -sSL --max-time 20 "https://raw.githubusercontent.com/${repo}/${rev}/${path}" \
+        2>/dev/null | grep -oE '^[[:space:]]+version = "[^"]+"' | head -1 \
+        | sed 's/.*= "//; s/"$//'
+}
+
+nixpkgs_new=$(input_node "$LOCK_TO" nixpkgs)
+nixpkgs_old=$(input_node "$LOCK_FROM" nixpkgs)
+NP_OLD_REV=$(node_rev "$LOCK_FROM" "$nixpkgs_old")
+NP_NEW_REV=$(node_rev "$LOCK_TO"   "$nixpkgs_new")
+
+SB_NEW_REV=$(node_rev "$LOCK_TO" "$(input_node "$LOCK_TO" sovran-bitcoin)")
+SB_OLD_REV=$(node_rev "$LOCK_FROM" "$(input_node "$LOCK_FROM" sovran-bitcoin)")
+BC_NEW_REV=$(node_rev "$LOCK_TO" "$(input_node "$LOCK_TO" btc-clients)")
+BC_OLD_REV=$(node_rev "$LOCK_FROM" "$(input_node "$LOCK_FROM" btc-clients)")
+
+MOVED_LINES=""; SAME_LINES=""
+
+add() {  # add LABEL OLD NEW
+    local label="$1" old="$2" new="$3"
+    [[ -n "$old" && -n "$new" ]] || return 0
+    if [[ "$old" != "$new" ]]; then
+        MOVED_LINES+="- **${label}** \`${old}\` → \`${new}\`"$'\n'
+    elif [[ "$SHOW_ALL" -eq 1 ]]; then
+        SAME_LINES+="- **${label}** \`${new}\` (unchanged)"$'\n'
     fi
-done < <(direct_inputs "$LOCK_TO")
+}
 
-# ── Hub service versions ────────────────────────────────────────────────────
-SERVICE_LINES=""
-if [[ -n "$VER_TO" ]] && printf '%s' "$VER_TO" | jq -e . >/dev/null 2>&1; then
-    while IFS=$'\t' read -r svc old new; do
-        [[ -n "$svc" ]] || continue
-        [[ "$old" != "$new" ]] || continue
-        MOVED=1
-        SERVICE_LINES+="- **${svc%%.service}** \`${old:-—}\` → \`${new}\`"$'\n'
-    done < <(jq -rn \
-        --argjson old "$( [[ -n "$VER_FROM" ]] && printf '%s' "$VER_FROM" || echo '{}' )" \
-        --argjson new "$VER_TO" \
-        '($old + $new) | keys[] | . as $k
-         | [$k, ($old[$k] // "—"), ($new[$k] // "—")] | @tsv')
+# ── nixpkgs packages ────────────────────────────────────────────────────────
+if moved nixpkgs; then
+    for spec in \
+        "Bitcoin Core:bi/bitcoin" \
+        "LND:ln/lnd" \
+        "electrs:el/electrs" \
+        "BTCPay Server:bt/btcpayserver" \
+        "Matrix Synapse:ma/matrix-synapse-unwrapped" \
+        "Vaultwarden:va/vaultwarden" \
+        "Caddy:ca/caddy" \
+        "Tor:to/tor" \
+        "LiveKit:li/livekit"
+    do
+        label="${spec%%:*}"; p="${spec##*:}"
+        add "$label" "$(nix_ver "$NP_OLD_REV" "$p")" "$(nix_ver "$NP_NEW_REV" "$p")"
+    done
 fi
 
-# ── Check mode ──────────────────────────────────────────────────────────────
-if [[ "$CHECK" -eq 1 ]]; then
-    if [[ "$MOVED" -eq 1 ]]; then
-        echo "Pinned software moved between ${FROM_LABEL} and ${TO}:" >&2
-        [[ -n "$INPUT_LINES" ]]   && printf '%s' "$INPUT_LINES" >&2
-        [[ -n "$SERVICE_LINES" ]] && printf '%s' "$SERVICE_LINES" >&2
-        exit 1
-    fi
+# ── Sovran_Bitcoin vendored packages ────────────────────────────────────────
+if moved sovran-bitcoin; then
+    add "Ride The Lightning" \
+        "$(dep_ver sovran-bitcoin "$SB_OLD_REV" naturallaw777/Sovran_Bitcoin packages/rtl/default.nix)" \
+        "$(dep_ver sovran-bitcoin "$SB_NEW_REV" naturallaw777/Sovran_Bitcoin packages/rtl/default.nix)"
+    add "Mempool" \
+        "$(dep_ver sovran-bitcoin "$SB_OLD_REV" naturallaw777/Sovran_Bitcoin packages/mempool/default.nix)" \
+        "$(dep_ver sovran-bitcoin "$SB_NEW_REV" naturallaw777/Sovran_Bitcoin packages/mempool/default.nix)"
+    add "Sovran NWC" \
+        "$(dep_ver sovran-bitcoin "$SB_OLD_REV" naturallaw777/Sovran_Bitcoin packages/sovran-nwc/default.nix)" \
+        "$(dep_ver sovran-bitcoin "$SB_NEW_REV" naturallaw777/Sovran_Bitcoin packages/sovran-nwc/default.nix)"
+fi
+
+# ── btc-clients desktop apps ────────────────────────────────────────────────
+if moved btc-clients; then
+    add "Sparrow Wallet" \
+        "$(dep_ver btc-clients "$BC_OLD_REV" emmanuelrosa/btc-clients-nix pkgs/sparrow/default.nix)" \
+        "$(dep_ver btc-clients "$BC_NEW_REV" emmanuelrosa/btc-clients-nix pkgs/sparrow/default.nix)"
+    add "Bisq" \
+        "$(dep_ver btc-clients "$BC_OLD_REV" emmanuelrosa/btc-clients-nix pkgs/bisq/default.nix)" \
+        "$(dep_ver btc-clients "$BC_NEW_REV" emmanuelrosa/btc-clients-nix pkgs/bisq/default.nix)"
+    add "Bisq 2" \
+        "$(dep_ver btc-clients "$BC_OLD_REV" emmanuelrosa/btc-clients-nix pkgs/bisq2/default.nix)" \
+        "$(dep_ver btc-clients "$BC_NEW_REV" emmanuelrosa/btc-clients-nix pkgs/bisq2/default.nix)"
+fi
+
+# ── output ──────────────────────────────────────────────────────────────────
+if [[ -z "$MOVED_LINES" && -z "$SAME_LINES" ]]; then
+    [[ "$QUIET" -eq 1 ]] || echo "No software changed between ${FROM} and ${TO}."
     exit 0
 fi
 
-# ── Output ──────────────────────────────────────────────────────────────────
-if [[ -n "$INPUT_LINES" || -n "$SERVICE_LINES" ]]; then
-    BODY=$'### Changed\n'
-    [[ -n "$INPUT_LINES" ]]   && BODY+=$'\n#### Flake inputs\n'"$INPUT_LINES"
-    [[ -n "$SERVICE_LINES" ]] && BODY+=$'\n#### Service versions\n'"$SERVICE_LINES"
-fi
+BODY="### Changed"$'\n\n'
+[[ -n "$MOVED_LINES" ]] && BODY+="$MOVED_LINES"
+[[ -n "$SAME_LINES"  ]] && BODY+=$'\n'"#### Unchanged"$'\n'"$SAME_LINES"
 
-if [[ "$QUIET" -eq 1 ]]; then
-    [[ -n "$BODY" ]] && printf '%s' "$BODY"
-    exit 0
-fi
-
-if [[ -z "$BODY" ]]; then
-    echo "No pinned software moved between ${FROM_LABEL} and ${TO}."
-    exit 0
-fi
-
-printf '%s\n' "$BODY"
-cat >&2 <<EOF
-
-────────────────────────────────────────────────────────────────────────────
-Paste the block above into "## [Unreleased]" in CHANGELOG.md, then replace
-the revision hashes with real version numbers for anything user-facing.
-
-Resolve them without a nix build:
-
-  # Ride The Lightning / Mempool / sovran-nwc versions at the pinned rev
-  git -C ../Sovran_Bitcoin show <rev>:packages/rtl/default.nix | grep version
-  git -C ../Sovran_Bitcoin show <rev>:packages/mempool/default.nix | grep version
-
-  # Or from inside the flake, which evaluates the real packages
-  nix eval --raw .#nixosConfigurations.nixos.pkgs.sovran-bitcoin.rtl.version
-  nix eval --raw .#nixosConfigurations.nixos.pkgs.sovran-bitcoin.mempool-backend.version
-  nix eval --raw .#nixosConfigurations.nixos.pkgs.btc-clients.sparrow.version
-
-The Hub's service map (${VERSIONS_JSON}) already carries definitive versions for
-everything the Hub reports, so prefer it where an entry exists.
-────────────────────────────────────────────────────────────────────────────
-EOF
+printf '%s' "$BODY"
