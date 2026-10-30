@@ -11,7 +11,7 @@
 # - Creates releases on both GitHub and Gitea via API
 #
 # Usage:
-#   ./scripts/release-stable.sh [version] [--message "text"] [--no-notes] [--dry-run]
+#   ./scripts/release-stable.sh [version] [--message "text"] [--replace-unreleased] [--dry-run]
 #
 # Notes source:
 #   The curated body of "## [Unreleased]" in CHANGELOG.md is used as the
@@ -263,12 +263,12 @@ echo
 # ─────────────────────────────────────────────────────────────────────────────
 # Parse flags
 # ─────────────────────────────────────────────────────────────────────────────
-USE_CHANGELOG_NOTES=1
+REPLACE_UNRELEASED=0
 DRY_RUN=0
 POSITIONAL=()
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --no-notes)   USE_CHANGELOG_NOTES=0; shift ;;
+        --replace-unreleased) REPLACE_UNRELEASED=1; shift ;;
         --dry-run)    DRY_RUN=1; shift ;;
         --message|-m) POSITIONAL+=("$1" "${2:-}"); shift 2 ;;
         *)            POSITIONAL+=("$1"); shift ;;
@@ -408,26 +408,62 @@ fi
 PROMOTE_UNRELEASED=0
 NOTES_SOURCE="commit log (${COMMIT_RANGE_DISPLAY})"
 
-if [[ "$USE_CHANGELOG_NOTES" -eq 1 ]]; then
-    UNRELEASED_BODY="$(extract_unreleased_notes "$CHANGELOG_FILE" || true)"
-    if [[ -n "$UNRELEASED_BODY" ]] && ! notes_are_placeholder "$UNRELEASED_BODY"; then
-        RELEASE_NOTES="$UNRELEASED_BODY"
-        PROMOTE_UNRELEASED=1
-        NOTES_SOURCE="CHANGELOG.md [Unreleased]"
+# [Unreleased] is the source of truth. It is NOT cleared here: the release
+# commit promotes it into the new version section by renaming the heading in
+# place, so there is nothing to empty and no second step to remember. The flag
+# --replace-unreleased exists only for re-running a release whose notes were
+# wrong, which would otherwise publish the same entries twice.
+UNRELEASED_BODY="$(extract_unreleased_notes "$CHANGELOG_FILE" || true)"
+HAS_UNRELEASED=0
+if [[ -n "$UNRELEASED_BODY" ]] && ! notes_are_placeholder "$UNRELEASED_BODY"; then
+    HAS_UNRELEASED=1
+fi
+
+if [[ "$REPLACE_UNRELEASED" -eq 1 ]]; then
+    if [[ "$HAS_UNRELEASED" -eq 1 ]]; then
         echo
-        echo -e "${BLUE}Using the curated [Unreleased] section from ${CHANGELOG_FILE}.${NC}"
-        echo -e "  It will be promoted into [${VERSION}] and left empty afterwards."
-    elif [[ -n "$UNRELEASED_BODY" ]]; then
-        echo
-        echo -e "${YELLOW}[Unreleased] contains only placeholders; falling back to the commit log.${NC}"
-        RELEASE_NOTES="$(generate_release_notes "$COMMIT_RANGE")"
-    else
-        RELEASE_NOTES="$(generate_release_notes "$COMMIT_RANGE")"
+        echo -e "${YELLOW}────────────────────────────────────────────────────────${NC}"
+        echo -e "${YELLOW}  [Unreleased] already has content${NC}"
+        echo -e "${YELLOW}────────────────────────────────────────────────────────${NC}"
+        echo "  It would be published again alongside the notes you pass in."
+        echo "  Empty the [Unreleased] body in ${CHANGELOG_FILE} first, then re-run."
+        echo "  Nothing was changed."
+        exit 1
     fi
-else
-    echo
-    echo -e "${YELLOW}--no-notes: ignoring [Unreleased] and scraping the commit log.${NC}"
     RELEASE_NOTES="$(generate_release_notes "$COMMIT_RANGE")"
+    NOTES_SOURCE="commit log (${COMMIT_RANGE_DISPLAY}), --replace-unreleased"
+elif [[ "$HAS_UNRELEASED" -eq 1 ]]; then
+    RELEASE_NOTES="$UNRELEASED_BODY"
+    NOTES_SOURCE="CHANGELOG.md [Unreleased]"
+    echo
+    echo -e "${BLUE}Using the curated [Unreleased] section from ${CHANGELOG_FILE}.${NC}"
+    echo -e "  It will be promoted into [${VERSION}] in place, keeping git blame."
+else
+    RELEASE_NOTES="$(generate_release_notes "$COMMIT_RANGE")"
+fi
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Append what actually changed in flake.lock and versions.json
+# ─────────────────────────────────────────────────────────────────────────────
+# A flake bump is a one-line commit that can move a dozen packages, so neither
+# the commit scraper nor a hand-written section reliably captures it. Derive it
+# instead, and always include it. Skipped when the notes already carry a
+# Bitcoin/stack section, so [Unreleased] can still be the source of truth if
+# somebody wants to write prose.
+UPDATES_BLOCK=""
+if [[ -x scripts/generate-updates-section.sh ]]; then
+    UPDATES_BLOCK="$(scripts/generate-updates-section.sh \
+        --from "${PREV_TAG_REF:-HEAD}" --to HEAD --quiet 2>/dev/null || true)"
+fi
+if [[ -n "$UPDATES_BLOCK" ]]; then
+    if printf '%s' "$RELEASE_NOTES" | grep -qiE '^### Changed'; then
+        # notes already have a Changed section from [Unreleased]; append the
+        # generated detail beneath it without a second ### heading
+        RELEASE_NOTES="${RELEASE_NOTES}"$'\n'"$(printf '%s' "$UPDATES_BLOCK" | sed '1{/^### Changed$/d}' | sed '/^$/d' | sed '1i\')"
+    else
+        RELEASE_NOTES="${RELEASE_NOTES}"$'\n'"${UPDATES_BLOCK}"
+    fi
+    NOTES_SOURCE="${NOTES_SOURCE} + flake.lock"
 fi
 
 echo
@@ -550,43 +586,8 @@ awk -v new_entry="$NEW_ENTRY" '
 }
 mv "${CHANGELOG_FILE}.tmp" "$CHANGELOG_FILE"
 
-# The curated notes have been promoted into [VERSION]. Clear [Unreleased] so the
-# same entries are not published again by the next release. Only the first
-# [Unreleased] is emptied: a duplicate lower in the file is a pre-existing
-# defect this script must not silently rewrite.
-if [[ "$PROMOTE_UNRELEASED" -eq 1 ]]; then
-    # Always exits 0: it runs under 'set -e', and a non-zero status here would
-    # abort a release that has already been prepared. Blank lines are kept in
-    # place of the removed body so "[Unreleased]" stays separated from the next
-    # version heading.
-    if awk '
-        !cleared && /^## \[Unreleased\]/ { cleared = 1; inun = 1; print; next }
-        inun && (/^## \[/ || /^---[[:space:]]*$/) { inun = 0 }
-        inun { next }
-        { print }
-        END { if (!cleared) exit 4 }
-    ' "$CHANGELOG_FILE" > "${CHANGELOG_FILE}.cleared" && [[ -s "${CHANGELOG_FILE}.cleared" ]]; then
-        # Re-insert the single blank line that separated the body from what
-        # follows, so the heading is not glued to the next "## [x.y.z]".
-        awk '
-            { lines[NR] = $0 }
-            END {
-                for (i = 1; i <= NR; i++) {
-                    print lines[i]
-                    if (lines[i] ~ /^## \[Unreleased\]/ && lines[i+1] !~ /^[[:space:]]*$/) {
-                        print ""
-                    }
-                }
-            }
-        ' "${CHANGELOG_FILE}.cleared" > "${CHANGELOG_FILE}.cleared2"
-        mv "${CHANGELOG_FILE}.cleared2" "$CHANGELOG_FILE"
-        rm -f "${CHANGELOG_FILE}.cleared"
-        echo -e "  ${GREEN}✓${NC} Promoted [Unreleased] into [${VERSION}]; [Unreleased] left empty"
-    else
-        rm -f "${CHANGELOG_FILE}.cleared" "${CHANGELOG_FILE}.cleared2"
-        echo -e "${YELLOW}[WARNING] could not clear [Unreleased]; check ${CHANGELOG_FILE} manually${NC}"
-    fi
-fi
+# Nothing to clear: the insertion above renamed the [Unreleased] heading in
+# place, so its body is now the body of [VERSION].
 
 git add VERSION "$README_FILE" "$CHANGELOG_FILE"
 if git diff --cached --quiet; then
@@ -730,4 +731,3 @@ git show "${TAG}" --quiet
 
 # Clean up temp notes file
 rm -f "${NOTES_FILE}"
-
