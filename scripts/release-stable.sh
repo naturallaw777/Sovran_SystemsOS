@@ -11,7 +11,13 @@
 # - Creates releases on both GitHub and Gitea via API
 #
 # Usage:
-#   ./scripts/release-stable.sh [version] [--message "text"]
+#   ./scripts/release-stable.sh [version] [--message "text"] [--no-notes] [--dry-run]
+#
+# Notes source:
+#   The curated body of "## [Unreleased]" in CHANGELOG.md is used as the
+#   release notes when it contains real content, and is then promoted into the
+#   new version section (leaving [Unreleased] empty). Commit scraping is only
+#   the fallback, for when [Unreleased] is empty. See extract_unreleased_notes().
 #
 # Requirements:
 #   - gh CLI (for GitHub releases)
@@ -38,6 +44,7 @@ GITEA_REMOTE_DEFAULT="gitea"
 GITHUB_REMOTE_DEFAULT="origin"
 GITEA_API_URL="https://git.sovransystems.com/api/v1"
 CHANGELOG_FILE="CHANGELOG.md"
+CHANGELOG_LINK_BASE="https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS/releases/tag"
 
 # Auto-detect remotes
 detect_remote() {
@@ -107,6 +114,63 @@ suggest_next_version() {
 
     # Default: bump patch
     echo "${major}.$((minor)).$((patch + 1))"
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Helper: extract_unreleased_notes FILE
+#
+# Print the body of "## [Unreleased]" verbatim: from just after the heading to
+# the next "## [" heading or a standalone "---". Leading and trailing blank
+# lines are trimmed. Returns 1 when there is no [Unreleased] heading.
+#
+# The body is already valid Keep-a-Changelog content, so it is promoted
+# unchanged into the new version section — no re-indenting, no rewrapping.
+# ─────────────────────────────────────────────────────────────────────────────
+extract_unreleased_notes() {
+    local file="${1:-$CHANGELOG_FILE}"
+    [[ -f "$file" ]] || return 1
+
+    grep -q '^## \[Unreleased\]' "$file" || return 1
+
+    # 'started' makes the scan begin exactly once: a duplicate [Unreleased]
+    # lower in the file must not re-arm it. 'seen' then never returns to 1.
+    awk '
+        /^## \[Unreleased\]/ && !started { started = 1; seen = 1; next }
+        seen && /^## /                    { seen = 0 }
+        seen && /^---[[:space:]]*$/       { seen = 0 }
+        seen                              { print }
+    ' "$file" | awk '
+        { lines[NR] = $0 }
+        END {
+            first = 1; last = NR
+            while (first <= last && lines[first] ~ /^[[:space:]]*$/) first++
+            while (last >= first && lines[last]  ~ /^[[:space:]]*$/) last--
+            for (i = first; i <= last; i++) print lines[i]
+        }
+    '
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Helper: notes_are_placeholder TEXT
+#
+# True when TEXT carries no real content: empty, or only "(Nothing yet)"
+# markers. Such a body must not suppress the commit-scraping fallback.
+# ─────────────────────────────────────────────────────────────────────────────
+notes_are_placeholder() {
+    local text="$1"
+    local meaningful
+    # Count lines that carry actual content: ignore blanks, bare markdown
+    # headings (a body of only "### Added" is still empty), and the
+    # "(Nothing yet)" marker. '|| true' keeps pipefail from aborting us when
+    # grep finds nothing to print, which is the normal "it IS a placeholder"
+    # case.
+    meaningful=$(printf '%s\n' "$text" \
+        | sed -E 's/^[[:space:]]*//; s/[[:space:]]*$//' \
+        | grep -vE '^$' \
+        | grep -vE '^#{1,6}([[:space:]]|$)' \
+        | grep -vE '^-?[[:space:]]*\(?([Nn]othing yet|[Nn]othing)\)?[.]?$' \
+        | wc -l || true)
+    [[ "${meaningful:-0}" -eq 0 ]]
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -197,6 +261,26 @@ echo -e "  Suggested    : ${GREEN}v${NEXT_VERSION}${NC}"
 echo
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Parse flags
+# ─────────────────────────────────────────────────────────────────────────────
+USE_CHANGELOG_NOTES=1
+DRY_RUN=0
+POSITIONAL=()
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --no-notes)   USE_CHANGELOG_NOTES=0; shift ;;
+        --dry-run)    DRY_RUN=1; shift ;;
+        --message|-m) POSITIONAL+=("$1" "${2:-}"); shift 2 ;;
+        *)            POSITIONAL+=("$1"); shift ;;
+    esac
+done
+if [[ ${#POSITIONAL[@]} -gt 0 ]]; then
+    set -- "${POSITIONAL[@]}"
+else
+    set --
+fi
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Get version from user or argument
 # ─────────────────────────────────────────────────────────────────────────────
 if [ $# -ge 1 ] && [[ "$1" != --* ]]; then
@@ -235,7 +319,7 @@ RELEASE_MESSAGE=""
 while [[ $# -gt 0 ]]; do
     case $1 in
         --message|-m)
-            RELEASE_MESSAGE="$2"
+            RELEASE_MESSAGE="${2:-}"
             shift 2
             ;;
         *)
@@ -258,6 +342,7 @@ fi
 # Helper: Generate categorized release notes from commit history
 # Groups commits since the last tag into Keep-a-Changelog sections based on
 # conventional-commit prefixes (feat/fix/docs/security/etc.) and keywords.
+# This is the FALLBACK path only — used when [Unreleased] has no content.
 # ─────────────────────────────────────────────────────────────────────────────
 generate_release_notes() {
     local range="$1"
@@ -304,6 +389,9 @@ generate_release_notes() {
     printf '%s' "$notes"
 }
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Choose the notes source
+# ─────────────────────────────────────────────────────────────────────────────
 # Build notes from the previous canonical GitHub tag. Use its private ref so a
 # conflicting local or Gitea tag with the same name cannot select the wrong
 # commit.
@@ -317,9 +405,33 @@ else
     COMMIT_RANGE_DISPLAY="HEAD"
 fi
 
+PROMOTE_UNRELEASED=0
+NOTES_SOURCE="commit log (${COMMIT_RANGE_DISPLAY})"
+
+if [[ "$USE_CHANGELOG_NOTES" -eq 1 ]]; then
+    UNRELEASED_BODY="$(extract_unreleased_notes "$CHANGELOG_FILE" || true)"
+    if [[ -n "$UNRELEASED_BODY" ]] && ! notes_are_placeholder "$UNRELEASED_BODY"; then
+        RELEASE_NOTES="$UNRELEASED_BODY"
+        PROMOTE_UNRELEASED=1
+        NOTES_SOURCE="CHANGELOG.md [Unreleased]"
+        echo
+        echo -e "${BLUE}Using the curated [Unreleased] section from ${CHANGELOG_FILE}.${NC}"
+        echo -e "  It will be promoted into [${VERSION}] and left empty afterwards."
+    elif [[ -n "$UNRELEASED_BODY" ]]; then
+        echo
+        echo -e "${YELLOW}[Unreleased] contains only placeholders; falling back to the commit log.${NC}"
+        RELEASE_NOTES="$(generate_release_notes "$COMMIT_RANGE")"
+    else
+        RELEASE_NOTES="$(generate_release_notes "$COMMIT_RANGE")"
+    fi
+else
+    echo
+    echo -e "${YELLOW}--no-notes: ignoring [Unreleased] and scraping the commit log.${NC}"
+    RELEASE_NOTES="$(generate_release_notes "$COMMIT_RANGE")"
+fi
+
 echo
-echo -e "${BLUE}Generating draft release notes from ${COMMIT_RANGE_DISPLAY}...${NC}"
-RELEASE_NOTES="$(generate_release_notes "$COMMIT_RANGE")"
+echo -e "${BLUE}Generating draft release notes from ${NOTES_SOURCE}...${NC}"
 
 # Let the user review/edit the generated notes before publishing
 NOTES_FILE="$(mktemp "/tmp/release-notes-${TAG}.XXXXXX.md")"
@@ -339,9 +451,22 @@ echo "──────────────── Draft Release Notes ─�
 cat "$NOTES_FILE"
 echo "──────────────────────────────────────────────────────"
 echo
+if [[ "$DRY_RUN" -eq 1 ]]; then
+    echo -e "${YELLOW}--dry-run: stopping before the edit prompt. Nothing was committed or pushed.${NC}"
+    echo "  Draft kept at: ${NOTES_FILE}"
+    trap - EXIT
+    exit 0
+fi
+
 read -rp "Edit the notes before publishing? (y/N): " edit_confirm
 if [[ "$edit_confirm" =~ ^[Yy]$ ]]; then
     "${EDITOR:-nano}" "$NOTES_FILE"
+    # Re-derive from the first '###'. Release bodies must therefore use '###'
+    # or deeper; a '##' heading would be read as a new version section.
+    if ! grep -q '^###' "$NOTES_FILE"; then
+        echo -e "${RED}Error: the notes file has no '###' heading, so the CHANGELOG entry would be empty.${NC}" >&2
+        exit 1
+    fi
     RELEASE_NOTES="$(sed -n '/^###/,$p' "$NOTES_FILE" | sed '/^\*\*Full changelog/d')"
 fi
 RELEASE_BODY="$(cat "$NOTES_FILE")"
@@ -394,7 +519,8 @@ TODAY=$(date +%Y-%m-%d)
 NEW_ENTRY="## [${VERSION}] - ${TODAY}
 
 ${RELEASE_NOTES}
-[${VERSION}]: https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS/releases/tag/${TAG}
+
+[${VERSION}]: ${CHANGELOG_LINK_BASE}/${TAG}
 "
 
 if [[ ! -f "$CHANGELOG_FILE" ]]; then
@@ -402,15 +528,20 @@ if [[ ! -f "$CHANGELOG_FILE" ]]; then
     exit 1
 fi
 awk -v new_entry="$NEW_ENTRY" '
-    BEGIN { printed=0 }
+    BEGIN { printed=0; skipping=0 }
     /^---$/ && !printed {
         print
         print ""
         print new_entry
         printed=1
+        skipping=1
         next
     }
-    { print }
+    # Swallow the blank run that followed the insertion marker: the entry
+    # already ends with the separator blank, so keeping these would leave a
+    # double gap before the next version heading.
+    skipping && /^[[:space:]]*$/ { next }
+    { skipping=0; print }
     END { if (!printed) exit 2 }
 ' "$CHANGELOG_FILE" > "${CHANGELOG_FILE}.tmp" || {
     rm -f "${CHANGELOG_FILE}.tmp"
@@ -418,6 +549,44 @@ awk -v new_entry="$NEW_ENTRY" '
     exit 1
 }
 mv "${CHANGELOG_FILE}.tmp" "$CHANGELOG_FILE"
+
+# The curated notes have been promoted into [VERSION]. Clear [Unreleased] so the
+# same entries are not published again by the next release. Only the first
+# [Unreleased] is emptied: a duplicate lower in the file is a pre-existing
+# defect this script must not silently rewrite.
+if [[ "$PROMOTE_UNRELEASED" -eq 1 ]]; then
+    # Always exits 0: it runs under 'set -e', and a non-zero status here would
+    # abort a release that has already been prepared. Blank lines are kept in
+    # place of the removed body so "[Unreleased]" stays separated from the next
+    # version heading.
+    if awk '
+        !cleared && /^## \[Unreleased\]/ { cleared = 1; inun = 1; print; next }
+        inun && (/^## \[/ || /^---[[:space:]]*$/) { inun = 0 }
+        inun { next }
+        { print }
+        END { if (!cleared) exit 4 }
+    ' "$CHANGELOG_FILE" > "${CHANGELOG_FILE}.cleared" && [[ -s "${CHANGELOG_FILE}.cleared" ]]; then
+        # Re-insert the single blank line that separated the body from what
+        # follows, so the heading is not glued to the next "## [x.y.z]".
+        awk '
+            { lines[NR] = $0 }
+            END {
+                for (i = 1; i <= NR; i++) {
+                    print lines[i]
+                    if (lines[i] ~ /^## \[Unreleased\]/ && lines[i+1] !~ /^[[:space:]]*$/) {
+                        print ""
+                    }
+                }
+            }
+        ' "${CHANGELOG_FILE}.cleared" > "${CHANGELOG_FILE}.cleared2"
+        mv "${CHANGELOG_FILE}.cleared2" "$CHANGELOG_FILE"
+        rm -f "${CHANGELOG_FILE}.cleared"
+        echo -e "  ${GREEN}✓${NC} Promoted [Unreleased] into [${VERSION}]; [Unreleased] left empty"
+    else
+        rm -f "${CHANGELOG_FILE}.cleared" "${CHANGELOG_FILE}.cleared2"
+        echo -e "${YELLOW}[WARNING] could not clear [Unreleased]; check ${CHANGELOG_FILE} manually${NC}"
+    fi
+fi
 
 git add VERSION "$README_FILE" "$CHANGELOG_FILE"
 if git diff --cached --quiet; then
@@ -561,3 +730,4 @@ git show "${TAG}" --quiet
 
 # Clean up temp notes file
 rm -f "${NOTES_FILE}"
+
