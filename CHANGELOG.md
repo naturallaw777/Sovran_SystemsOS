@@ -7,6 +7,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.2.4] - 2026-10-30
+
+### Security
+- **Matrix Synapse: Pillow 13.0.0 backport** (`modules/pillow-security.nix`).
+  Pillow 13.0.0 (2026-10-16) is the only release that fixes CVE-2026-112900
+  (EPS filename argument injection into Ghostscript, CVSS v4.0 9.2, every
+  release 2.6.0 through 12.3.0), CVE-2026-112398 (FlashPix heap overflow) and
+  the October 2026 TIFF/JPEG memory-corruption fixes — there is no 12.x
+  backport.  The pinned nixos-unstable still ships **12.3.0**, and
+  `nix flake update nixpkgs` does not help yet: the bump is merged into
+  nixpkgs `staging` (#575689) and backported to `release-26.05` (#576110), but
+  staging-next is not merged into master.  The overlay touches only the Python
+  set Synapse runs on, so `pkgs.python3Packages` — and therefore the Sovran
+  Hub — is unchanged.  The sysroot hash is taken from nixpkgs-stable's
+  known-good 13.0.0 build and verified to fetch python-pillow 13.0.0.
+- **Matrix Synapse: Pillow security floor as an assertion.**  In the same
+  style as the PHP floor in `modules/php.nix`, `config.assertions` now checks
+  the Pillow that `services.matrix-synapse.package` actually loads, so a
+  rolled-back nixpkgs pin (or a change to Synapse's Python environment) fails
+  evaluation instead of silently shipping a vulnerable Pillow.
+- The overlay is self-disabling: once nixpkgs ships Pillow >= 13.0.0 the
+  `overridePythonAttrs` version test is false, every derivation in Synapse's
+  Python set is byte-identical to stock (`drvPath` unchanged, nothing rebuilt)
+  and the file can be deleted along with its use in `modules/synapse.nix`.
+
+### Added
+- `tests/pillow-security-eval.nix` — an evaluation check for the Pillow
+  overlay: proves it moves the Pillow Synapse runs against (12.3.0 → 13.0.0),
+  leaves `pkgs.python3Packages` (Hub) untouched, and reduces to an identity
+  when the floor is below what nixpkgs ships.  Run with
+  `NIXPKGS=/path/to/nixpkgs nix-instantiate --eval --strict tests/pillow-security-eval.nix`.
+
+### Fixed
+- `versions.json`: `matrix-synapse.service` `1.163.0` → `1.163.2`, matching
+  what the pinned nixpkgs actually builds.  (The Hub renders
+  `pkgs.matrix-synapse.version` at build time, so only the checked-in fallback
+  file was stale.)
+- `modules/php.nix`: the security-floor comment cited the wrong flake.lock
+  node.  `a8e753600fb4` is btc-clients' nixpkgs (bisq/sparrow only); the system
+  is built from `nixpkgs_2 = 31ecbaca1bde`, which is where php85 = 8.5.12 was
+  verified.
+### Changed
+
+- **BTCPay Server** `2.4.5` → `2.4.6`
+- **Matrix Synapse** `1.163.0` → `1.163.2`
+- **Ride The Lightning** `0.15.13` → `0.15.16`
+- **Mempool** `3.3.1` → `3.3.2`
+- **Sparrow Wallet** `2.5.5` → `2.5.6`
+
+[1.2.4]: https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS/releases/tag/v1.2.4
+
 ## [Unreleased]
 
 ### Security
