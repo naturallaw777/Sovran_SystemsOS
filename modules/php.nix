@@ -28,12 +28,15 @@
 #
 #   nixpkgs bumped php85 to 8.5.12 in 81513f364091c759812f716cef3c175109d07342
 #   and fixed the `filter` extension tests in
-#   a5fc1be5b6c2d0c934143b57363aef9a15cce508.  flake.lock pins nixpkgs
-#   a8e753600fb48f8f0dd882cc5ad284438241f85a, which is *after* both of them
-#   (verified: pkgs/development/interpreters/php/default.nix at that rev says
-#   php85 = 8.5.12, and pkgs/top-level/php-packages.nix already carries the
-#   oom_filter_*.phpt patch).  So the stock package is used as-is and the
-#   floor below is only an assertion that catches a rolled-back pin.
+#   a5fc1be5b6c2d0c934143b57363aef9a15cce508.  flake.lock pins nixpkgs as
+#   nixpkgs_2 = 31ecbaca1bdefa45dffc409f0250bd8039ea0010, which is *after*
+#   both of them.  (The `nixpkgs` node in flake.lock, a8e753600fb4, is
+#   btc-clients' input and only builds bisq/sparrow — do not audit it for
+#   system packages.)  Verified at that rev:
+#   pkgs/development/interpreters/php/default.nix says php85 = 8.5.12, and
+#   pkgs/top-level/php-packages.nix already carries the oom_filter_*.phpt
+#   patch.  So the stock package is used as-is and the floor below is only an
+#   assertion that catches a rolled-back pin.
 #
 #   Do NOT re-apply the `filter` test fix locally.  It uses
 #       --replace-fail "'-n'," "'-n', '-d', 'extension=$PWD/modules/filter.so',"

@@ -9,7 +9,7 @@
   "btcpayserver.service": "2.4.5",
   "albyhub.service": "2.0.0",
   "mempool.service": "3.3.1",
-  "matrix-synapse.service": "1.163.0",
+  "matrix-synapse.service": "1.163.2",
   "livekit.service": "1.13.8",
   "vaultwarden.service": "1.37.4",
   "haven-relay.service": "1.2.2"

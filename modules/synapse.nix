@@ -1,6 +1,40 @@
 { config, pkgs, lib, ... }:
 
+let
+  # Pillow security floor — see modules/pillow-security.nix for the full story
+  # (CVE-2026-112900 / -112398, why a backport instead of a flake update).
+  # Self-disabling: the override becomes a no-op (identical drvPath, no
+  # rebuild) as soon as nixpkgs ships pillow >= 13.0.0.
+  pillowSecurity = import ./pillow-security.nix { inherit lib; };
+in
 lib.mkIf config.sovran_systemsOS.services.synapse {
+
+  # Synapse is the only Pillow consumer on this system.  The NixOS
+  # matrix-synapse module deliberately makes services.matrix-synapse.package
+  # read-only and documents "use an overlay to override
+  # pkgs.matrix-synapse-unwrapped" as the supported way to change Synapse, so
+  # the Pillow floor has to be delivered as an overlay.
+  nixpkgs.overlays = [ pillowSecurity.overlay ];
+
+  assertions = [
+    {
+      # A rolled-back nixpkgs pin, or a future change to Synapse's Python
+      # environment, must not silently ship the vulnerable 12.3.0 again.
+      # This reads the Pillow the homeserver will actually load — not
+      # pkgs.python3Packages.pillow, which is intentionally left alone.
+      assertion =
+        lib.versionAtLeast
+          config.services.matrix-synapse.package.unwrapped.python.pkgs.pillow.version
+          pillowSecurity.version;
+      message = ''
+        Matrix Synapse is built against Pillow
+        ${config.services.matrix-synapse.package.unwrapped.python.pkgs.pillow.version},
+        below the security floor ${pillowSecurity.version} (CVE-2026-112900 /
+        CVE-2026-112398).  Update the nixpkgs input in flake.lock, or check that
+        modules/pillow-security.nix still applies — do not lower the floor.
+      '';
+    }
+  ];
 
   services.postgresql = {
     ensureDatabases = [ "matrix-synapse" ];
