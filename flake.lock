@@ -152,11 +152,11 @@
         "nixpkgs": "nixpkgs_4"
       },
       "locked": {
-        "lastModified": 1793364002,
-        "narHash": "sha256-e5/+yZ6PkLyUvvxqyshMkyKhQ4uOEoEJgwV/REc5dgM=",
+        "lastModified": 1793409841,
+        "narHash": "sha256-Df46fF6d4n/fYRNkraTbLexw0ySNm7mjIprDlxXZlsI=",
         "owner": "naturallaw777",
         "repo": "Sovran_Bitcoin",
-        "rev": "d2103df4f91e6c83ab39d864747d5e6c7b26f308",
+        "rev": "de14a20125023b270a58fb5b7ac22acc9b2f6373",
         "type": "github"
       },
       "original": {
