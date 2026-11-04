@@ -2645,6 +2645,32 @@ def _verify_support_removed() -> bool:
     return True
 
 
+def _revoke_support_for_sshd_disable() -> bool:
+    """End any active support session before SSH is switched off.
+
+    The per-session support key is only usable while sshd is running, so
+    disabling SSH must also remove the key, re-lock wallet paths, and clear
+    the session metadata.  This makes "disable SSH" a complete return to the
+    secure default no matter which screen triggers it (Tech Support modal or
+    Feature Manager).  Idempotent: a no-op when no session is active.
+
+    Returns ``True`` if a session was active and its key is now verified gone,
+    ``False`` if no session was active.  If a session was active but the key
+    could not be removed, the attempt is still audited; the caller proceeds to
+    disable SSH regardless, since stopping sshd is the stronger mitigation.
+    """
+    if not _is_support_active():
+        return False
+    _disable_support()
+    verified = _verify_support_removed()
+    _log_support_audit(
+        "SUPPORT_REVOKED_SSHD_OFF",
+        "active support session ended because SSH was disabled; "
+        f"key_removed_verified={verified}",
+    )
+    return verified
+
+
 # ── Routes ───────────────────────────────────────────────────────
 
 @app.get("/login", response_class=HTMLResponse)
@@ -4537,6 +4563,12 @@ async def api_features_toggle(req: FeatureToggleRequest):
 
         features[req.feature] = True
     else:
+        # Disabling SSH must also end any active Tech Support session: the
+        # support key is only usable over SSH, so it must not outlive the
+        # service. Revoke it now (before the rebuild) so access is cut
+        # immediately rather than after the rebuild completes.
+        if req.feature == "sshd":
+            await loop.run_in_executor(None, _revoke_support_for_sshd_disable)
         features[req.feature] = False
 
     # Persist any extra fields (nostr_npub)

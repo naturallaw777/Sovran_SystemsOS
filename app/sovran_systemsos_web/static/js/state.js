@@ -17,6 +17,7 @@ let _supportTimerInt      = null;
 let _supportEnabledAt     = null;
 let _supportStatus        = null;   // last fetched /api/support/status payload
 let _walletUnlockTimerInt = null;
+let _sshdPollTimer        = null;   // SSH enable/disable rebuild poll interval
 let _cachedExternalIp = null;
 
 // Current role (set during init from /api/config)

@@ -4,6 +4,7 @@
 
 async function openSupportModal() {
   if (!$supportModal) return;
+  stopSshdPoll();
   $supportModal.classList.add("open");
   // The dialog is shared with Security — always restore its identity
   var title = document.getElementById("support-modal-title");
@@ -75,25 +76,33 @@ async function enableSshd() {
 }
 
 function pollForSshdReady() {
+  stopSshdPoll();
   var attempts = 0;
   var maxAttempts = 60; // 5 minutes (5s interval)
-  var interval = setInterval(async function() {
+  _sshdPollTimer = setInterval(async function() {
     attempts++;
     try {
       var status = await apiFetch("/api/support/status");
       var el = document.getElementById("sshd-rebuild-status");
       if (status.sshd_enabled) {
-        clearInterval(interval);
+        stopSshdPoll();
         _supportStatus = status;
         renderSupportInactive();
       } else if (attempts >= maxAttempts) {
-        clearInterval(interval);
+        stopSshdPoll();
         if (el) el.textContent = "Rebuild is taking longer than expected. Please close this dialog and try again.";
       } else {
         if (el) el.textContent = "Rebuilding system… (" + attempts * 5 + "s)";
       }
     } catch (_) {}
   }, 5000);
+}
+
+// Stop any in-flight SSH enable/disable rebuild poll. Tracked globally so that
+// closing (or re-opening) the modal cancels it instead of leaving a stray
+// interval that keeps re-rendering the body in the background.
+function stopSshdPoll() {
+  if (_sshdPollTimer) { clearInterval(_sshdPollTimer); _sshdPollTimer = null; }
 }
 
 function renderSupportInactive() {
@@ -105,8 +114,13 @@ function renderSupportInactive() {
     '<h3 class="support-heading">Need help from Sovran Systems?</h3>',
     '<p class="support-desc">This will temporarily grant our support team SSH access to your machine so we can help diagnose and fix issues.</p>',
     '<div class="support-wallet-box support-wallet-protected">',
-      '<div class="support-wallet-header"><span class="support-wallet-icon">✅</span><span class="support-wallet-title">SSH is Active</span></div>',
-      '<p class="support-wallet-desc">SSH is enabled on your machine. You can now grant Sovran Systems temporary access below.</p>',
+      '<div class="support-wallet-header"><span class="support-wallet-icon">✅</span><span class="support-wallet-title">SSH is On</span></div>',
+      '<p class="support-wallet-desc">SSH remote access is enabled. No support session is active right now — Sovran Systems cannot connect unless you grant access below.</p>',
+    '</div>',
+    '<div class="support-wallet-box support-wallet-protected">',
+      '<div class="support-wallet-header"><span class="support-wallet-icon">🔐</span><span class="support-wallet-title">Turn Off SSH</span></div>',
+      '<p class="support-wallet-desc">You can turn SSH off at any time — you do not need an active support session to do so. This returns your machine to its default secure state.</p>',
+      '<button class="btn support-btn-disable" id="btn-sshd-disable">Disable SSH</button>',
     '</div>',
     '<div class="support-info-box">',
       '<div class="support-info-row"><span class="support-info-label">Your IP</span><span class="support-info-value">' + escHtml(ip) + '</span></div>',
@@ -138,10 +152,11 @@ function renderSupportInactive() {
     '</div>',
     '<button class="btn support-btn-enable" id="btn-support-enable">Enable Support Access</button>',
     '<p id="support-key-error" class="support-key-error" style="display:none;color:#c0392b;margin-top:8px;"></p>',
-    '<p class="support-fine-print">You can revoke access at any time. When you end the session, you\'ll be able to disable SSH to return to the default secure state.</p>',
+    '<p class="support-fine-print">You can revoke access at any time, and you can disable SSH above whenever you are done — no support session is required to turn SSH off.</p>',
     '</div>',
   ].join("");
   document.getElementById("btn-support-enable").addEventListener("click", enableSupport);
+  document.getElementById("btn-sshd-disable").addEventListener("click", function() { disableSshd(); });
 }
 
 function renderSupportActive(status) {
@@ -201,13 +216,16 @@ function renderSupportActive(status) {
       '<div class="support-info-row"><span class="support-info-label">Duration</span><span class="support-info-value" id="support-timer">…</span></div>',
     '</div>',
     walletSection,
-    '<button class="btn support-btn-disable" id="btn-support-disable">End Support Session</button>',
-    '<p class="support-fine-print">This will remove the SSH key and revoke all wallet access immediately.</p>',
+    '<button class="btn support-btn-disable" id="btn-support-disable-sshd">End Session &amp; Disable SSH</button>',
+    '<p class="support-fine-print">Removes the support key, re-locks wallet access, and turns SSH off — a full return to the default secure state.</p>',
+    '<button class="btn support-btn-auditlog" id="btn-support-disable">End Support Session only (keep SSH on)</button>',
+    '<p class="support-fine-print">Removes the support key and re-locks wallet access, but leaves SSH enabled so you can keep using it yourself.</p>',
     '<button class="btn support-btn-auditlog" id="btn-support-audit">View Audit Log</button>',
     '</div>',
     '<div id="support-audit-container" class="support-audit-container" style="display:none;"></div>',
   ].join("");
 
+  document.getElementById("btn-support-disable-sshd").addEventListener("click", function() { disableSshd("btn-support-disable-sshd"); });
   document.getElementById("btn-support-disable").addEventListener("click", disableSupport);
   document.getElementById("btn-support-audit").addEventListener("click", toggleAuditLog);
   if (walletProtected && !walletUnlocked) {
@@ -238,13 +256,13 @@ function renderSupportRemoved(verified) {
     '<div class="support-wallet-box support-wallet-protected" style="margin-top:12px;">',
       '<div class="support-wallet-header"><span class="support-wallet-icon">🔐</span><span class="support-wallet-title">Disable SSH When Done</span></div>',
       '<p class="support-wallet-desc">SSH is still enabled on your machine. Click below to turn it off and return to the default secure state.</p>',
-      '<button class="btn support-btn-enable" id="btn-sshd-disable">Disable SSH</button>',
+      '<button class="btn support-btn-disable" id="btn-sshd-disable">Disable SSH</button>',
     '</div>',
     '<button class="btn support-btn-done" id="btn-support-done">Done</button>',
     '</div>',
   ].join("");
   document.getElementById("btn-support-done").addEventListener("click", closeSupportModal);
-  document.getElementById("btn-sshd-disable").addEventListener("click", disableSshd);
+  document.getElementById("btn-sshd-disable").addEventListener("click", function() { disableSshd(); });
 }
 
 async function enableSupport() {
@@ -296,56 +314,70 @@ async function disableSupport() {
     var result = await apiFetch("/api/support/disable", { method: "POST" });
     renderSupportRemoved(result.verified);
   } catch (err) {
-    if (btn) { btn.disabled = false; btn.textContent = "End Support Session"; }
+    if (btn) { btn.disabled = false; btn.textContent = "End Support Session only (keep SSH on)"; }
     alert("Failed to disable support access. Please try again.");
   }
 }
 
-async function disableSshd() {
-  var btn = document.getElementById("btn-sshd-disable");
+// Turn SSH off. This works from any screen where SSH is on, whether or not a
+// support session is active — the user never needs to grant support access
+// just to reach this control. The backend also revokes any active support
+// session when sshd is disabled, so this is a complete return to the secure
+// default. ``btnId`` is the id of the button that triggered the action.
+async function disableSshd(btnId) {
+  var id = btnId || "btn-sshd-disable";
+  var btn = document.getElementById(id);
+  var originalLabel = btn ? btn.textContent : "Disable SSH";
   if (btn) { btn.disabled = true; btn.textContent = "Disabling SSH…"; }
+  // Stop the session timers now: any active support session is being revoked
+  // server-side, so the UI must not keep counting it down.
+  stopSupportTimer();
+  stopWalletUnlockTimer();
   try {
     await apiFetch("/api/features/toggle", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ feature: "sshd", enabled: false }),
     });
+    _supportStatus = null;
     $supportBody.innerHTML = [
       '<div class="support-section">',
       '<div class="support-icon-big">⚙️</div>',
       '<h3 class="support-heading">Disabling SSH…</h3>',
-      '<p class="support-desc">A system rebuild is in progress to turn off SSH. This may take a few minutes.</p>',
+      '<p class="support-desc">A system rebuild is in progress to turn off SSH. Any active support session is being ended. This may take a few minutes.</p>',
       '<p class="creds-loading" id="sshd-disable-status">Rebuilding system…</p>',
       '</div>',
     ].join("");
     pollForSshdDisabled();
   } catch (err) {
-    if (btn) { btn.disabled = false; btn.textContent = "Disable SSH"; }
+    if (btn) { btn.disabled = false; btn.textContent = originalLabel; }
     alert("Failed to disable SSH. Please try again.");
   }
 }
 
 function pollForSshdDisabled() {
+  stopSshdPoll();
   var attempts = 0;
   var maxAttempts = 60; // 5 minutes (5s interval)
-  var interval = setInterval(async function() {
+  _sshdPollTimer = setInterval(async function() {
     attempts++;
     try {
       var status = await apiFetch("/api/support/status");
       var el = document.getElementById("sshd-disable-status");
       if (!status.sshd_enabled) {
-        clearInterval(interval);
+        stopSshdPoll();
+        _supportStatus = status;
         $supportBody.innerHTML = [
           '<div class="support-section">',
           '<div class="support-icon-big">🔐</div>',
           '<h3 class="support-heading">SSH is Off</h3>',
-          '<p class="support-desc">SSH has been disabled. Your machine is back to its default secure state.</p>',
+          '<p class="support-desc">SSH has been disabled and any support access has been removed. Your machine is back to its default secure state.</p>',
           '<button class="btn support-btn-done" id="btn-support-done">Done</button>',
           '</div>',
         ].join("");
         document.getElementById("btn-support-done").addEventListener("click", closeSupportModal);
       } else if (attempts >= maxAttempts) {
-        clearInterval(interval);
+        stopSshdPoll();
         if (el) el.textContent = "Rebuild is taking longer than expected. Please close this dialog and try again.";
       } else {
         if (el) el.textContent = "Rebuilding system… (" + attempts * 5 + "s)";
@@ -450,6 +482,7 @@ function closeSupportModal() {
   if ($supportModal) $supportModal.classList.remove("open");
   stopSupportTimer();
   stopWalletUnlockTimer();
+  stopSshdPoll();
 }
 
 // ── Manual Backup modal ───────────────────────────────────────────
