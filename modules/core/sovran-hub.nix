@@ -16,10 +16,13 @@ let
   monitoredServices =
     # ── Infrastructure — System Passwords (always present) ─────
     [
+      # Desktop Only has no sshd and no factory SSH key, so it must not show
+      # an SSH Passphrase credential that cannot be used.
       { name = "System Passwords"; unit = "root-password-setup.service"; type = "system"; icon = "passwords"; enabled = true; category = "infrastructure"; credentials = [
         { label = "Free Account — Username"; value = "free"; }
         { label = "Free Account / Hub Login — Password"; file = "/var/lib/secrets/free-password"; }
         { label = "Administrator (root) Password"; file = "/var/lib/secrets/root-password"; }
+      ] ++ lib.optionals (!cfg.roles.desktop) [
         { label = "SSH Passphrase — use via: ssh root@localhost"; file = "/var/lib/secrets/ssh-passphrase"; }
       ]; }
     ]
@@ -105,8 +108,11 @@ let
     ++ lib.optionals cfg.roles.server_plus_desktop [
       { name = "Haven Relay"; unit = "haven-relay.service"; type = "system"; icon = "haven"; enabled = cfg.features.haven; category = "nostr"; credentials = []; }
     ]
-    # ── Support (always present) ────────────────────────────────
-    ++ [
+    # ── Support (Server + Desktop and Bitcoin Node only) ────────
+    # Desktop Only has no Tech Support tile, window or remote SSH feature,
+    # and tech-support.nix does not provision the restricted support account
+    # on that role. Keep the tile entirely out of the generated Hub config.
+    ++ lib.optionals (!cfg.roles.desktop) [
       { name = "Tech Support"; unit = "sovran-tech-support"; type = "support"; icon = "support"; enabled = true; category = "support"; credentials = []; }
     ];
 

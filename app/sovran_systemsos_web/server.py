@@ -459,19 +459,36 @@ ROLE_LABELS = {
     "node":                "Bitcoin Node",
 }
 
-# Categories shown per role (None = show all)
+# Categories shown per role (None = show all). Desktop Only has no "support"
+# category: the Tech Support tile/window is not part of that role.
 ROLE_CATEGORIES: dict[str, set[str] | None] = {
     "server_plus_desktop": None,
-    "desktop":             {"infrastructure", "support", "feature-manager"},
+    "desktop":             {"infrastructure", "feature-manager"},
     "node":                {"infrastructure", "bitcoin", "support", "feature-manager"},
 }
 
-# Features shown per role (None = show all)
+# Features shown per role (None = show all). SSH Remote Access is absent on
+# Desktop Only; Tech Support is only reachable through it on the other roles.
 ROLE_FEATURES: dict[str, set[str] | None] = {
     "server_plus_desktop": None,
-    "desktop":             {"rdp", "sshd"},
+    "desktop":             {"rdp"},
     "node":                {"rdp", "bitcoin-tor-gossip", "mempool", "btcpay-web", "nwc-wallets", "sshd"},
 }
+
+# Roles on which Tech Support exists at all. Desktop Only is deliberately
+# excluded: no tile, no window, no API, no support account, no remote SSH.
+def _support_role_available() -> bool:
+    """Return False on Desktop Only, where Tech Support does not exist."""
+    return load_config().get("role", "server_plus_desktop") != "desktop"
+
+
+def _require_support_role() -> None:
+    """Reject Tech Support API calls on roles where the feature is absent."""
+    if not _support_role_available():
+        raise HTTPException(
+            status_code=404,
+            detail="Tech Support is not available on the Desktop Only role.",
+        )
 
 SERVICE_DESCRIPTIONS: dict[str, str] = {
     "bitcoind.service": (
@@ -2222,6 +2239,56 @@ def _migrate_strip_deprecated_features() -> None:
         logger.exception("_migrate_strip_deprecated_features: unexpected error (non-fatal)")
 
 
+def _migrate_strip_desktop_sshd() -> None:
+    """Drop a stale SSH override from custom.nix on Desktop Only systems.
+
+    Machines upgraded from a build where Desktop Only offered SSH Remote
+    Access can still have ``features.sshd = true`` in the Hub Managed section.
+    role-logic.nix forces the option off on this role, but leaving the line in
+    place would keep dead state around and could re-expose SSH if the role were
+    ever changed without a rebuild. Best-effort: never fails startup.
+    """
+    if _support_role_available():
+        return
+    try:
+        features, nostr_npub, timezone, locale = _read_hub_overrides()
+        if "sshd" not in features:
+            return
+        features.pop("sshd", None)
+        _write_hub_overrides(features, nostr_npub, timezone, locale)
+    except Exception:
+        logger.exception("_migrate_strip_desktop_sshd: cleanup failed (non-fatal)")
+
+
+def _cleanup_desktop_support_state() -> None:
+    """Remove leftover Tech Support session files on Desktop Only machines.
+
+    A system upgraded from a build where Desktop Only offered Tech Support
+    could still carry a live per-session SSH key. The endpoint is gone and the
+    support account is no longer provisioned, but the files must not survive.
+    Best-effort and silent: Desktop Only has no support audit log.
+    """
+    if _support_role_available():
+        return
+    try:
+        _cancel_expiry_timer()
+        for path in (
+            SUPPORT_USER_AUTH_KEYS,
+            SUPPORT_KEY_FILE,
+            WALLET_UNLOCK_FILE,
+            SUPPORT_STATUS_FILE,
+        ):
+            try:
+                os.remove(path)
+            except FileNotFoundError:
+                pass
+            except OSError:
+                logger.exception("_cleanup_desktop_support_state: could not remove %s (non-fatal)", path)
+        shutil.rmtree(SUPPORT_USER_HOME, ignore_errors=True)
+    except Exception:
+        logger.exception("_cleanup_desktop_support_state: cleanup failed (non-fatal)")
+
+
 # ── Feature status helpers ─────────────────────────────────────────
 
 def _is_feature_enabled_in_config(feature_id: str) -> bool | None:
@@ -2250,7 +2317,13 @@ def _is_feature_enabled_in_config(feature_id: str) -> bool | None:
 
 
 def _is_sshd_feature_enabled() -> bool:
-    """Check if the sshd feature is enabled via hub overrides or config."""
+    """Check if the sshd feature is enabled via hub overrides or config.
+
+    Desktop Only has no SSH Remote Access feature, so a stale override left in
+    custom.nix by an older build must not make the Hub report SSH as on.
+    """
+    if not _support_role_available():
+        return False
     overrides, *_ = _read_hub_overrides()
     if "sshd" in overrides:
         return bool(overrides["sshd"])
@@ -4135,6 +4208,7 @@ async def api_updates_status(offset: int = 0):
 @app.get("/api/support/status")
 async def api_support_status():
     """Check if tech support SSH access is currently enabled."""
+    _require_support_role()
     loop = asyncio.get_event_loop()
     active = await loop.run_in_executor(None, _is_support_active)
     sshd_enabled = await loop.run_in_executor(None, _is_sshd_feature_enabled)
@@ -4167,6 +4241,7 @@ async def api_support_enable(req: SupportEnableRequest):
     is installed only for the ``sovran-support`` restricted user; root's
     ``authorized_keys`` is never modified.  SSH must be enabled first.
     """
+    _require_support_role()
     # Validate the submitted public key before doing anything else
     try:
         validated_key = _validate_ssh_pubkey(req.ssh_public_key)
@@ -4192,6 +4267,7 @@ async def api_support_enable(req: SupportEnableRequest):
 @app.post("/api/support/disable")
 async def api_support_disable():
     """Remove the Sovran support SSH key and end the session."""
+    _require_support_role()
     loop = asyncio.get_event_loop()
     ok = await loop.run_in_executor(None, _disable_support)
     if not ok:
@@ -4214,6 +4290,7 @@ async def api_support_wallet_unlock(req: WalletUnlockRequest):
     Access is automatically revoked when the timer expires (checked lazily on
     next status call) or when the support session is ended.
     """
+    _require_support_role()
 
     loop = asyncio.get_event_loop()
     active = await loop.run_in_executor(None, _is_support_active)
@@ -4252,6 +4329,7 @@ async def api_support_wallet_unlock(req: WalletUnlockRequest):
 @app.post("/api/support/wallet-lock")
 async def api_support_wallet_lock():
     """Revoke wallet access and re-apply ACL protections."""
+    _require_support_role()
     loop = asyncio.get_event_loop()
 
     try:
@@ -4267,6 +4345,7 @@ async def api_support_wallet_lock():
 @app.get("/api/support/audit-log")
 async def api_support_audit_log(limit: int = 100):
     """Return the last N lines of the support audit log."""
+    _require_support_role()
     limit = max(1, min(limit, 500))
     loop = asyncio.get_event_loop()
     lines = await loop.run_in_executor(None, _get_support_audit_log, limit)
@@ -4496,6 +4575,17 @@ async def api_features_toggle(req: FeatureToggleRequest):
     feat_meta = next((f for f in FEATURE_REGISTRY if f["id"] == req.feature), None)
     if not feat_meta:
         raise HTTPException(status_code=404, detail="Feature not found")
+
+    # Enforce the per-role allowlist server-side too. On Desktop Only this
+    # rejects "sshd" (SSH Remote Access) even if a crafted request tries to
+    # toggle it directly, and keeps any stale Hub override from being written.
+    role = load_config().get("role", "server_plus_desktop")
+    allowed_features = ROLE_FEATURES.get(role)
+    if allowed_features is not None and req.feature not in allowed_features:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Feature '{req.feature}' is not available on this role.",
+        )
 
     loop = asyncio.get_event_loop()
     features, nostr_npub, cur_tz, cur_locale = await loop.run_in_executor(None, _read_hub_overrides)
@@ -6174,6 +6264,14 @@ async def _startup_migrate_deprecated_features():
     await loop.run_in_executor(None, _migrate_strip_deprecated_features)
 
 
+@app.on_event("startup")
+async def _startup_desktop_role_cleanup():
+    """Desktop Only: drop stale SSH overrides and Tech Support session files."""
+    loop = asyncio.get_event_loop()
+    await loop.run_in_executor(None, _migrate_strip_desktop_sshd)
+    await loop.run_in_executor(None, _cleanup_desktop_support_state)
+
+
 async def _background_domain_reachability_checker():
     """Periodically curl configured domains and cache reachability results."""
     global _cached_external_ip
@@ -6268,12 +6366,15 @@ async def _startup_security_migrations():
     # Migrate legacy njalla.sh DDNS lines to JSON store and archive the script
     await loop.run_in_executor(None, _migrate_legacy_njalla_script)
     # Remove the legacy fleet-wide support key from /root/.ssh/authorized_keys
+    # on every role: it is a fleet-wide credential, not a Tech Support session.
     await loop.run_in_executor(None, _remove_legacy_root_support_key)
-    # Expire any support session that has passed its deadline
-    await loop.run_in_executor(None, _expire_support_if_stale)
-    # Reconcile the expiry timer: if a valid session survived startup expiry,
-    # schedule the server-side timer so expiry occurs even without user activity.
-    await loop.run_in_executor(None, _reconcile_expiry_timer)
+    # Session expiry only applies to roles that actually have Tech Support.
+    if _support_role_available():
+        # Expire any support session that has passed its deadline
+        await loop.run_in_executor(None, _expire_support_if_stale)
+        # Reconcile the expiry timer: if a valid session survived startup expiry,
+        # schedule the server-side timer so expiry occurs even without user activity.
+        await loop.run_in_executor(None, _reconcile_expiry_timer)
 
 
 def _reconcile_expiry_timer() -> None:

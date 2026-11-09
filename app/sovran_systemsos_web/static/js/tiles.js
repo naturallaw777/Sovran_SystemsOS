@@ -74,8 +74,11 @@ function renderSidebarSupport(supportServices) {
   // checkUpdates may already have run before the sidebar was built
   applyUpdateSidebarState(window._lastUpdateCheck);
 
-  for (var i = 0; i < supportServices.length; i++) {
-    var svc = supportServices[i];
+  // Defence in depth: the Nix config emits no support service on Desktop
+  // Only, but never render one even if a stale config.json says otherwise.
+  var visibleSupportServices = (_currentRole === "desktop") ? [] : supportServices;
+  for (var i = 0; i < visibleSupportServices.length; i++) {
+    var svc = visibleSupportServices[i];
     var btn = document.createElement("button");
     btn.className = "sidebar-support-btn";
     btn.innerHTML =

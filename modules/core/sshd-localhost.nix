@@ -1,7 +1,10 @@
 { config, lib, pkgs, ... }:
 
-{
-  # ── Always-on localhost SSH ────────────────────────────────────
+# Desktop Only ships no SSH daemon at all, not even on loopback. An operator
+# who wants SSH on that role adds the stock NixOS module to custom.nix:
+#   services.openssh = { enable = true; settings.PasswordAuthentication = false; };
+lib.mkIf (!config.sovran_systemsOS.roles.desktop) {
+  # ── Always-on localhost SSH (Server + Desktop / Bitcoin Node) ─
   # Provides "ssh root@localhost" for local root access and Hub
   # operations. Binds exclusively to 127.0.0.1 — zero network exposure.
   # The sshd *feature flag* in sshd.nix extends this to 0.0.0.0 and

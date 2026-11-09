@@ -15,7 +15,11 @@
 #     read logs — without full root, wallet access, Nix editing, or rebuilds.
 #   • journalctl access is provided only through the root-owned
 #     sovran-journal-helper script (see below) with an allowlist of safe flags.
-{
+#
+# Desktop Only does not offer Tech Support: the Hub does not expose the tile,
+# window or API there, so this account, its sudo rules and its helper are not
+# built on that role at all.
+lib.mkIf (!config.sovran_systemsOS.roles.desktop) {
   # ── System packages ────────────────────────────────────────────────────────
   environment.systemPackages = [ pkgs.acl ];
 

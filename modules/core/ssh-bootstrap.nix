@@ -5,7 +5,9 @@ let
   keyPath = "/home/${userName}/.ssh/factory_login";
   userExists = builtins.hasAttr userName config.users.users;
 in
-lib.mkIf userExists {
+# Desktop Only has no sshd, no factory SSH key and no passphrase. To add SSH
+# later, enable stock services.openssh in /etc/nixos/custom.nix.
+lib.mkIf (userExists && !config.sovran_systemsOS.roles.desktop) {
 
   systemd.tmpfiles.rules = [
     "d /root/.ssh 0700 root root -"

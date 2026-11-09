@@ -34,8 +34,8 @@ authentication does not encrypt local network traffic.
 The Hub is served on port 8937 and is not fronted by Caddy. Server + Desktop and
 Bitcoin Node Only open that port in the firewall, so local devices reach the Hub
 at `http://sovransystemsos.local:8937`. On Desktop Only the Hub is not published
-at all: reachable only from the machine itself, on localhost, with no TCP port
-open in the firewall (UDP 5353 for mDNS only).
+at all: reachable only from the machine itself, on localhost, and the role
+opens no TCP port in the firewall by default (UDP 5353 for mDNS only).
 `sovran_systemsOS.hub.directPort = true` in `custom.nix` opens port 8937 if you
 want to reach a Desktop Only Hub from another device.
 
@@ -89,6 +89,20 @@ network, and it is off by default. Enabling it listens on all interfaces and
 opens TCP port 22; the Hub then asks you to forward port 22, which puts SSH on
 the public internet. Key authentication only. Turn it off when you are done.
 
+Desktop Only ships **no SSH at all**: no `sshd` daemon (not even loopback),
+no factory SSH key or passphrase, no SSH Passphrase credential, no Hub SSH
+Remote Access feature, and remote deploy mode is rejected on that role. The
+Hub hides the toggle, rejects toggle requests, and strips any stale
+`features.sshd` override from `custom.nix` at startup. Server + Desktop and
+Bitcoin Node keep a loopback-only sshd for local administration plus the
+optional SSH Remote Access feature.
+
+If an operator wants SSH on Desktop Only later, they must add the stock NixOS
+module to `/etc/nixos/custom.nix` and rebuild, for example
+`services.openssh = { enable = true; settings.PasswordAuthentication = false; };`
+(see the commented example in `custom.template.nix`). The remote installer's
+`--deploy-key` / `--headscale-*` options are unavailable with `--role desktop`.
+
 Tor reduces network exposure for configured Bitcoin services. It is not a
 guarantee against every IP leak, application bug, or traffic-analysis attack.
 
@@ -116,6 +130,10 @@ untouched by this module.
 Tech Support runs over SSH, and the Hub refuses to start a session until SSH
 Remote Access is enabled (see above). Support uses a per-session SSH key on the
 non-root `sovran-support` account.
+
+Tech Support does not exist on Desktop Only: no tile, no window, no support
+endpoints and no `sovran-support` account. It is available on Server + Desktop
+and Bitcoin Node only.
 
 Sessions expire after 24 hours and have a small allowlist of `sudo` commands.
 Wallet paths receive deny ACLs unless the operator explicitly removes them.

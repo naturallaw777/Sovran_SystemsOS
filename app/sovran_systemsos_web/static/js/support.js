@@ -3,6 +3,8 @@
 // ── Tech Support modal ────────────────────────────────────────────
 
 async function openSupportModal() {
+  // Tech Support does not exist on Desktop Only: no tile, no window, no API.
+  if (typeof _currentRole !== "undefined" && _currentRole === "desktop") return;
   if (!$supportModal) return;
   stopSshdPoll();
   $supportModal.classList.add("open");
@@ -51,6 +53,7 @@ function renderSupportSshdOff() {
 }
 
 async function enableSshd() {
+  if (typeof _currentRole !== "undefined" && _currentRole === "desktop") return;
   var btn = document.getElementById("btn-sshd-enable");
   if (btn) { btn.disabled = true; btn.textContent = "Enabling SSH…"; }
   try {
@@ -325,6 +328,7 @@ async function disableSupport() {
 // session when sshd is disabled, so this is a complete return to the secure
 // default. ``btnId`` is the id of the button that triggered the action.
 async function disableSshd(btnId) {
+  if (typeof _currentRole !== "undefined" && _currentRole === "desktop") return;
   var id = btnId || "btn-sshd-disable";
   var btn = document.getElementById(id);
   var originalLabel = btn ? btn.textContent : "Disable SSH";

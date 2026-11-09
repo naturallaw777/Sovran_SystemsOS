@@ -302,6 +302,11 @@ if ($portReqClose) {
 // ── Feature toggle logic ──────────────────────────────────────────
 
 async function performFeatureToggle(featId, enabled, extra) {
+  // SSH Remote Access is not part of the Desktop Only role.
+  if (featId === "sshd" && typeof _currentRole !== "undefined" && _currentRole === "desktop") {
+    alert("SSH Remote Access is not available on Desktop Only.");
+    return;
+  }
   // Look up feature name for the rebuild modal
   _rebuildIsEnabling = enabled;
   _rebuildFeatureName = featId;

@@ -35,6 +35,10 @@
         element-calling = lib.mkForce false;
         bitcoin-tor-gossip = lib.mkForce false;
         "nwc-wallets" = lib.mkForce false;
+        # SSH Remote Access (and the Tech Support sessions that ride on it)
+        # do not exist on Desktop Only. mkForce so custom.nix cannot turn it
+        # back on for this role; sshd.nix then never opens TCP port 22.
+        sshd = lib.mkForce false;
       };
 
       sovran_systemsOS.web.btcpayserver = lib.mkForce false;

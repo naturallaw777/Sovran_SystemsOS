@@ -9,7 +9,7 @@ Options:
   --disk /dev/sda              Target OS disk (required)
   --data-disk /dev/sdb         Data disk for Bitcoin (optional)
   --role server|desktop|node   Installation role (default: server)
-  --deploy-key "ssh-ed25519 AAAA..."  SSH pubkey for remote access after install
+  --deploy-key "ssh-ed25519 AAAA..."  SSH pubkey for remote access (server/node only)
   --headscale-server URL       Headscale login server for post-install Tailnet
   --headscale-key KEY          Headscale pre-auth key for the installed OS
 
@@ -75,6 +75,13 @@ case "$ROLE" in
     server|desktop|node) ;;
     *) die "--role must be one of: server, desktop, node" ;;
 esac
+
+# Desktop Only ships no SSH daemon and rejects remote deploy mode (see
+# modules/core/remote-deploy.nix). Fail early instead of writing a custom.nix
+# that would make nixos-install fail evaluation.
+if [[ "$ROLE" == "desktop" && ( -n "$DEPLOY_KEY" || -n "$HEADSCALE_SERVER" || -n "$HEADSCALE_KEY" ) ]]; then
+    die "Remote deploy/SSH is not available with --role desktop. Install without --deploy-key/--headscale-* and, if you need SSH later, add services.openssh to /etc/nixos/custom.nix and rebuild."
+fi
 
 # ── Detect firmware / VM environment ─────────────────────────────────────────
 if [[ -d /sys/firmware/efi ]]; then
@@ -349,6 +356,7 @@ nixos-install \
 
 log "=== Installation complete! ==="
 log "You can now reboot into Sovran_SystemsOS."
-log "After reboot, the machine will be accessible via SSH on port 22 (if --deploy-key was provided)."
+[[ -n "$DEPLOY_KEY" ]] && \
+    log "After reboot, the machine will be accessible via SSH on port 22 (deploy key provided)."
 [[ -n "$HEADSCALE_SERVER" ]] && \
     log "Tailscale will connect to Headscale at ${HEADSCALE_SERVER} on first boot."

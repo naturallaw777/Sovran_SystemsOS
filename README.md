@@ -364,6 +364,30 @@ The Hub can give a Sovran Systems technician temporary access to your machine.
 Support runs over SSH, and **Tech Support requires SSH Remote Access, which is
 off by default.**
 
+> **Desktop Only:** Tech Support is not available on this role. The Hub shows no
+> Tech Support tile or window, the SSH Remote Access feature is not offered, the
+> support API is disabled, and the restricted `sovran-support` account is not
+> provisioned. Use Server + Desktop or Bitcoin Node if you need remote
+> assistance.
+
+> **SSH on Desktop Only:** that role ships no SSH daemon at all — no loopback
+> sshd, no factory SSH key or passphrase, no Hub SSH toggle and no remote
+> deploy mode. If you want SSH later, add the standard NixOS module to
+> `/etc/nixos/custom.nix` and rebuild (there is a commented example in
+> `custom.template.nix`):
+>
+> ```nix
+> services.openssh = {
+>   enable = true;
+>   settings.PasswordAuthentication = false;
+> };
+> ```
+>
+> NixOS opens TCP port 22 by default when `services.openssh` is enabled; add
+> `openFirewall = false;` for loopback-only SSH. The remote installer's
+> `--deploy-key` / `--headscale-*` options are not
+> available with `--role desktop`.
+
 Turning SSH on makes the machine listen on all interfaces and opens **TCP port
 22** in the firewall. Letting support in from outside your home means
 forwarding port 22 on your router, which puts SSH on the public internet where
@@ -777,8 +801,9 @@ relying on a wallet, and begin with a small amount.
 Sovran_SystemsOS uses layered controls:
 
 - Pinned flake inputs and hash-pinned source archives
-- Firewall enabled; SSH Remote Access and remote desktop disabled by default.
-  Enabling SSH opens TCP port 22 and the Hub then asks you to forward it
+- Firewall enabled; SSH Remote Access and remote desktop disabled by default
+  (Desktop Only has no SSH daemon at all). Enabling SSH opens TCP port 22 and
+  the Hub then asks you to forward it
 - Separate service users, systemd sandboxing, and loopback bindings where practical
 - Tor enforcement for supported Bitcoin services
 - Restricted, time-limited support access with scoped `sudo`

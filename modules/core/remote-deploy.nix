@@ -27,7 +27,23 @@ in
     };
   };
 
-  config = lib.mkIf cfg.enable {
+  config = lib.mkIf cfg.enable (lib.mkMerge [
+    # Desktop Only ships no SSH at all. Fail evaluation rather than silently
+    # ignoring a deploy key, and point the operator at the stock NixOS module.
+    {
+      assertions = [{
+        assertion = !config.sovran_systemsOS.roles.desktop;
+        message = ''
+          sovran_systemsOS.deploy.enable is not supported on the Desktop Only
+          role: that role ships no SSH daemon. Use --role server or node for
+          remote deploy, or add the stock NixOS SSH module to
+          /etc/nixos/custom.nix (services.openssh.enable = true; ...) and
+          rebuild if you want SSH on a Desktop Only machine.
+        '';
+      }];
+    }
+
+    (lib.mkIf (!config.sovran_systemsOS.roles.desktop) {
 
     # ── Force SSH open on all interfaces ────────────────────────────────────
     services.openssh = {
@@ -117,5 +133,6 @@ in
 
     # ── Deploy-mode indicator file ────────────────────────────────────────────
     environment.etc."sovran/deploy-mode".text = "active";
-  };
+    })
+  ]);
 }
