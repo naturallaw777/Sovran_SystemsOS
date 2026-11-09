@@ -966,41 +966,35 @@ def _get_remote_version(branch=None):
     return None
 
 
-def check_for_updates() -> bool | None:
-    """Whether an update is available.
+def get_update_comparison() -> dict:
+    """Compare the running build with the same branch the updater tracks.
 
-    Primary signal: the flake lock's pinned Sovran_Systems rev differs from
-    the remote branch head.  BUT a failed update rewrites ``flake.lock`` (the
-    ``nix flake update`` step) without staging a generation (the
-    ``nixos-rebuild boot`` step failed), so after a failure the lock and the
-    remote agree while the *running* system is still on the old version.  In
-    that case the rev comparison alone reports a false "up to date" and hides
-    the failed update from the dashboard.
-
-    Backstop: compare the running Hub version against the branch VERSION.
-    A newer released version while running an older one means the update did
-    not apply (build failed, reboot skipped, generation rolled back) and must
-    be offered again.
+    A revision change may be an update even when VERSION did not change.
+    Keep that signal separate from the human-readable release versions.
     """
     locked_rev, branch = _get_locked_info()
+    installed = _get_sovran_version(fallback=False)
     remote_rev = _get_remote_rev(branch)
-    if locked_rev and remote_rev:
-        rev_differs = locked_rev != remote_rev
-        if rev_differs:
-            return True
-        # Revs match — make sure the pinned (failed) rev isn't masking an
-        # older *running* system.
-        running_ver = _parse_version(_get_sovran_version())
-        remote_ver = _get_remote_version(branch)
-        if running_ver and remote_ver and remote_ver > running_ver:
-            return True
-        return False
-    # Couldn't compare revs — fall back to the version backstop.
-    running_ver = _parse_version(_get_sovran_version())
     remote_ver = _get_remote_version(branch)
-    if running_ver and remote_ver:
-        return remote_ver > running_ver
-    return None  # inconclusive — couldn't read lock or reach remote
+    running_ver = _parse_version(installed)
+    if locked_rev and remote_rev and locked_rev != remote_rev:
+        available = True
+    elif running_ver and remote_ver and remote_ver > running_ver:
+        available = True
+    elif running_ver and remote_ver:
+        available = remote_ver > running_ver
+    else:
+        available = None
+    return {
+        "available": available,
+        "installed_version": installed,
+        "latest_version": ".".join(map(str, remote_ver)) if remote_ver else None,
+        "channel": branch or "stable",
+    }
+
+
+def check_for_updates() -> bool | None:
+    return get_update_comparison()["available"]
 
 
 # ── IP helpers ───────────────────────────────────────────────────
@@ -2776,7 +2770,7 @@ async def api_logout(request: Request):
     return response
 
 
-def _get_sovran_version() -> str:
+def _get_sovran_version(fallback: bool = True) -> str | None:
     """Read the OS version to display in the Hub header.
 
     Resolution order (first match wins):
@@ -2791,7 +2785,7 @@ def _get_sovran_version() -> str:
     """
     try:
         version = load_config().get("sovran_version")
-        if version:
+        if version and str(version).strip().lower() != "dev":
             return str(version).strip().lstrip("vV")
     except Exception:
         pass
@@ -2809,7 +2803,7 @@ def _get_sovran_version() -> str:
         except (FileNotFoundError, OSError):
             continue
 
-    return "1.0.0"
+    return "1.0.0" if fallback else None
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -3961,19 +3955,16 @@ async def api_ports_health():
 async def api_updates_check():
     loop = asyncio.get_event_loop()
     status = await loop.run_in_executor(None, _read_update_status)
-    if status in {"RUNNING", "REBOOT_REQUIRED"}:
-        # Avoid a slow remote update check when there is already an operation
-        # the dashboard needs to surface.
+    if status in {"RUNNING", "REBOOT_REQUIRED", "FAILED"}:
+        # Preserve operation recovery without a slow network request.
         return {"available": True, "status": status.lower()}
-    if status == "FAILED":
-        # The last update did not complete (build failed).  Keep offering the
-        # update so the user can re-run it rather than silently landing on a
-        # false "up to date".
-        return {"available": True, "status": "failed"}
 
-    available = await loop.run_in_executor(None, check_for_updates)
-    # None means inconclusive (check failed) — report as available so the UI doesn't block
-    return {"available": available is not False, "status": status.lower()}
+    comparison = await loop.run_in_executor(None, get_update_comparison)
+    status = await loop.run_in_executor(None, _read_update_status)
+    if status in {"RUNNING", "REBOOT_REQUIRED", "FAILED"}:
+        return {"available": True, "status": status.lower()}
+    comparison["status"] = status.lower()
+    return comparison
 
 
 @app.get("/api/ping")
@@ -4033,6 +4024,8 @@ async def api_updates_run():
     # Do NOT call _recover_stale_status() here — it appends to the log file
     # which causes stale log content to appear in the frontend modal.
     status = await loop.run_in_executor(None, _read_update_status)
+    if status == "REBOOT_REQUIRED":
+        return {"ok": True, "status": "reboot_required"}
     if status == "RUNNING":
         unit_active = await loop.run_in_executor(
             None, lambda: sysctl.is_active(UPDATE_UNIT, "system")

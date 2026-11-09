@@ -4,6 +4,7 @@
 
 // if ($updateBtn) $updateBtn.addEventListener("click", openUpdateModal); // moved to sidebar in tiles.js
 if ($btnCloseModal) $btnCloseModal.addEventListener("click", closeUpdateModal);
+if ($btnStartUpdate) $btnStartUpdate.addEventListener("click", _doOpenUpdateModal);
 if ($btnCheckAgain) $btnCheckAgain.addEventListener("click", function() { openUpdateModal(); });
 if ($updateCloseBtn) $updateCloseBtn.addEventListener("click", closeUpdateModal);
 if ($btnReboot) $btnReboot.addEventListener("click", doReboot);

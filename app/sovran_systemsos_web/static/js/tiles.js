@@ -300,6 +300,10 @@ function applyUpdateSidebarState(data) {
     sidebarUpdateBtn.style.borderColor = "#78aeed";
     sidebarUpdateBtn.style.backgroundColor = "rgba(120, 174, 237, 0.10)";
     if (sidebarUpdateHint) sidebarUpdateHint.textContent = "Update in progress…";
+  } else if (data.available === null) {
+    sidebarUpdateBtn.style.borderColor = "#e9b64a";
+    sidebarUpdateBtn.style.backgroundColor = "rgba(233, 182, 74, 0.10)";
+    if (sidebarUpdateHint) sidebarUpdateHint.textContent = "Update check unavailable";
   } else if (hasUpdates) {
     sidebarUpdateBtn.style.borderColor = "#3ecf8e";
     sidebarUpdateBtn.style.backgroundColor = "rgba(62, 207, 142, 0.10)";
@@ -319,5 +323,9 @@ async function checkUpdates() {
     applyUpdateSidebarState(data);
     // The welcome dashboard's updates card reads this state
     if (typeof window.dashboardServicesUpdated === "function") window.dashboardServicesUpdated();
-  } catch (_) {}
+  } catch (_) {
+    window._lastUpdateCheck = { available: null, status: "idle" };
+    applyUpdateSidebarState(window._lastUpdateCheck);
+    if (typeof window.dashboardServicesUpdated === "function") window.dashboardServicesUpdated();
+  }
 }

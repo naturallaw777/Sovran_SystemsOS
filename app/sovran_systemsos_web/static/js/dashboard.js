@@ -283,6 +283,8 @@
       updTitle = "Restart required"; updSub = "Click to restart and finish the update"; updChip = "chip-amber";
     } else if (updStatus === "running") {
       updTitle = "Update in progress"; updSub = "Installing the new system generation"; updChip = "chip-amber";
+    } else if (upd && upd.available === null) {
+      updTitle = "Update check unavailable"; updSub = "Click to check again"; updChip = "chip-amber";
     } else if (upd && upd.available) {
       updTitle = "Updates available"; updSub = "Click to review and update"; updChip = "chip-amber";
     } else if (!upd) {
