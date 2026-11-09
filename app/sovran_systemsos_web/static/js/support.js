@@ -493,6 +493,15 @@ var _backupLogOffset = 0;
 function openBackupModal() {
   if (!$supportModal) return;
   $supportModal.classList.add("open");
+  // This dialog is shared with Tech Support and Security, so reset its
+  // heading and icon whenever Manual Backup opens.
+  var title = document.getElementById("support-modal-title");
+  if (title) title.textContent = "Manual Backup";
+  var chip = document.getElementById("support-modal-chip");
+  if (chip) {
+    var use = chip.querySelector("use");
+    if (use) use.setAttribute("href", "#g-box");
+  }
   $supportBody.innerHTML = '<p class="creds-loading">Detecting external drives\u2026</p>';
   detectDrivesAndRender();
 }
