@@ -55,6 +55,20 @@
 								config = prev.config;
 							}).brave-origin;
 						})
+						# TEMPORARY: nixos-unstable is pinned at f4a03c0 (2026-11-07 09:04 UTC),
+						# six hours BEFORE the upstream build fix for lk-jwt-service 0.9.0
+						# (nixpkgs PR #584539, commit 1e28906, merged 2026-11-07 15:22 UTC).
+						# The nixos-unstable branch still points at the broken rev, so take the
+						# fixed build from nixpkgs master via the existing nixpkgs-brave input
+						# (same version, 0.9.0, so nothing else changes).
+						# Remove this block once nixos-unstable advances past 1e28906:
+						#   curl -s https://channels.nixos.org/nixos-unstable/git-revision
+						(final: prev: {
+							lk-jwt-service = (import inputs.nixpkgs-brave {
+								system = prev.stdenv.hostPlatform.system;
+								config = prev.config;
+							}).lk-jwt-service;
+						})
 					];
 				})
 				./configuration.nix
