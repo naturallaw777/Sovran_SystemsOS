@@ -130,10 +130,23 @@
     gnomeExtensions.transparent-top-bar-adjustable-transparency
     gnomeExtensions.dash-to-dock
     gnomeExtensions.vitals
-    gnomeExtensions.pop-shell
     gnomeExtensions.just-perfection
     gnomeExtensions.appindicator
-    gnomeExtensions.date-menu-formatter
+    (gnomeExtensions.pop-shell.overrideAttrs (old: {
+  patches = (old.patches or [ ]) ++ [
+    (fetchurl {
+      url = "https://raw.githubusercontent.com/NixOS/nixpkgs/0dfacd4bc311b11f4e2f2681a82b4cfbfe36e500/pkgs/desktops/gnome/extensions/pop-shell/gnome-51.patch";
+      hash = "sha256-lDF+g5S8rLPWSXDJ3nERS4CnjeybmwhbP41Meb/KFpc=";
+    })
+  ];
+}))
+
+  (gnomeExtensions.date-menu-formatter.overrideAttrs (old: {
+  postPatch = (old.postPatch or "") + ''
+    substituteInPlace metadata.json \
+      --replace-fail '"50"' '"50", "51"'
+  '';
+}))
     gnome-tweaks papirus-icon-theme
     ranger fastfetch gedit openssl pwgen
     aspell aspellDicts.en lm_sensors
