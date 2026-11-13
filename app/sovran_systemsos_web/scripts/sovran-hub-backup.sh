@@ -11,33 +11,37 @@
 #
 # What gets mirrored depends on the system role:
 #   - Node / Server + Desktop: /etc/nixos, /etc/nix-bitcoin-secrets,
-#     /home, and /var/lib (minus databases, blockchain data, logs, caches).
+#     PostgreSQL and MariaDB SQL dumps (when active), /home, and /var/lib
+#     (minus raw database files, blockchain data, Flatpak runtimes, logs, caches).
 #   - Desktop Only: /etc/nixos and /home. Desktop Only runs no server or
-#     Bitcoin services, so there are no nix-bitcoin secrets or system
-#     service data to back up.
+#     Bitcoin services, so there are no nix-bitcoin secrets, databases, or
+#     system service data to back up.
 #
 # The external drive must be formatted as ext4. Files are stored as
 # directly browsable files under Sovran_SystemsOS_Backup/current/.
 # Later runs update the same mirror and only transfer changed or new
 # files, making repeat backups fast.
 #
-# PostgreSQL and MariaDB/MySQL databases are NOT included. Bitcoin
-# blockchain and Electrs index data are NOT included (they live on
-# the internal second drive).
+# Bitcoin blockchain and Electrs index data are NOT included (they live on
+# the internal second drive and are reconstructable).
 #
 # Usage:
 #   BACKUP_TARGET=/run/media/<user>/<drive> bash sovran-hub-backup.sh
-#   (or run with no env var to auto-detect the first external USB drive)
+#   (or pass path in /run/sovran-hub-backup.target, or omit to auto-detect)
 
 set -euo pipefail
 
-BACKUP_LOG="/var/log/sovran-hub-backup.log"
-BACKUP_STATUS="/var/log/sovran-hub-backup.status"
-MEDIA_ROOT="/run/media"
-HUB_CONFIG_JSON="/var/lib/sovran-hub/config.json"
-ROLE_STATE_NIX="/etc/nixos/role-state.nix"
-SECOND_DRIVE_MOUNT="/run/media/Second_Drive"
-SAFETY_MARGIN_BYTES=$((1024 * 1024 * 1024))
+BACKUP_LOG="${BACKUP_LOG:-/var/log/sovran-hub-backup.log}"
+BACKUP_STATUS="${BACKUP_STATUS:-/var/log/sovran-hub-backup.status}"
+BACKUP_LOCK="${BACKUP_LOCK:-/var/lock/sovran-hub-backup.lock}"
+BACKUP_TARGET_FILE="${BACKUP_TARGET_FILE:-/run/sovran-hub-backup.target}"
+MEDIA_ROOT="${MEDIA_ROOT:-/run/media}"
+HUB_CONFIG_JSON="${SOVRAN_HUB_CONFIG:-/var/lib/sovran-hub/config.json}"
+ROLE_STATE_NIX="${ROLE_STATE_NIX:-/etc/nixos/role-state.nix}"
+SECOND_DRIVE_MOUNT="${SECOND_DRIVE_MOUNT:-/run/media/Second_Drive}"
+SOURCE_ROOT="${SOURCE_ROOT:-/}"
+SRC_PREFIX="${SOURCE_ROOT%/}"
+SAFETY_MARGIN_BYTES="${SAFETY_MARGIN_BYTES:-$((2 * 1024 * 1024 * 1024))}"
 
 # ── Internal drive labels/paths to NEVER use as backup targets ───
 INTERNAL_LABELS=("BTCEcoandBackup" "sovran_systemsos")
@@ -45,6 +49,7 @@ INTERNAL_MOUNTS=("$SECOND_DRIVE_MOUNT" "/boot/efi" "/")
 
 FAILED_ALREADY=0
 BACKUP_COMPLETE=0
+LOCK_ACQUIRED=0
 RSYNC_WARNINGS=()
 
 # Stable rsync mirror sub-path under the target drive. Not timestamped
@@ -72,6 +77,16 @@ fail() {
 
 cleanup() {
   local rc=$?
+
+  # If we exited before acquiring the exclusive run lock (e.g. another
+  # backup is already running), never clobber the active run's log, status,
+  # or completion markers.
+  if [[ "$LOCK_ACQUIRED" -ne 1 ]]; then
+    if [[ -n "${LOCK_FD:-}" ]]; then
+      exec {LOCK_FD}>&- 2>/dev/null || true
+    fi
+    return
+  fi
 
   # Release the concurrency lock file descriptor if it was opened
   if [[ -n "${LOCK_FD:-}" ]]; then
@@ -203,7 +218,7 @@ validate_target_mount() {
   mountpoint -q "$target" || fail "Target path '$target' is not a mount point."
 
   local fstype=""
-  fstype=$(findmnt -n -o FSTYPE -T "$target" 2>/dev/null || true)
+  fstype=$(findmnt -n -o FSTYPE -M "$target" 2>/dev/null || findmnt -n -o FSTYPE -T "$target" 2>/dev/null || true)
   [[ -n "$fstype" ]] || fail "Could not determine filesystem type for '$target'."
 
   if [[ "$fstype" != "ext4" ]]; then
@@ -233,12 +248,93 @@ estimate_path_bytes() {
   echo "$size"
 }
 
+estimate_db_bytes() {
+  local total=0
+
+  if command -v psql >/dev/null 2>&1 && \
+     command -v systemctl >/dev/null 2>&1 && \
+     systemctl is-active --quiet postgresql.service 2>/dev/null; then
+    local pg_bytes
+    pg_bytes=$(psql -AtU postgres -c "SELECT COALESCE(SUM(pg_database_size(oid)), 0) FROM pg_database;" 2>/dev/null | tr -d '[:space:]' || true)
+    if [[ "$pg_bytes" =~ ^[0-9]+$ ]]; then
+      total=$(( total + pg_bytes ))
+    fi
+  fi
+
+  if [[ -d "${SRC_PREFIX}/var/lib/mysql" ]] && \
+     command -v systemctl >/dev/null 2>&1 && \
+     systemctl is-active --quiet mysql.service 2>/dev/null; then
+    local my_bytes
+    my_bytes=$(estimate_path_bytes "${SRC_PREFIX}/var/lib/mysql")
+    total=$(( total + my_bytes ))
+  fi
+
+  echo "$total"
+}
+
+dump_databases() {
+  local db_dir="$BACKUP_DIR/databases"
+
+  mountpoint -q "$TARGET" 2>/dev/null || \
+    fail "Databases stage: external drive '$TARGET' is no longer mounted. Refusing to write."
+
+  mkdir -p -- "$db_dir" || fail "Failed to create database dump directory '$db_dir'."
+  chmod 700 "$db_dir"
+
+  # ── PostgreSQL (Nextcloud, Matrix Synapse, BTCPay Server) ─────────
+  if command -v pg_dumpall >/dev/null 2>&1 && \
+     command -v systemctl >/dev/null 2>&1 && \
+     systemctl is-active --quiet postgresql.service 2>/dev/null; then
+    log "Dumping PostgreSQL databases…"
+    local pg_tmp="$db_dir/postgresql-all.sql.tmp"
+    local pg_out="$db_dir/postgresql-all.sql"
+    rm -f "$pg_tmp"
+    if ( umask 077 && pg_dumpall --clean --if-exists -U postgres > "$pg_tmp" ) && \
+       mv -f "$pg_tmp" "$pg_out"; then
+      chmod 600 "$pg_out"
+      log "PostgreSQL dump saved to databases/postgresql-all.sql"
+    else
+      rm -f "$pg_tmp"
+      fail "PostgreSQL database dump failed."
+    fi
+  else
+    log "(PostgreSQL service not active or pg_dumpall unavailable — skipping)"
+  fi
+
+  # ── MariaDB / MySQL (WordPress) ──────────────────────────────────
+  local mysql_dump_bin=""
+  if command -v mariadb-dump >/dev/null 2>&1; then
+    mysql_dump_bin="mariadb-dump"
+  elif command -v mysqldump >/dev/null 2>&1; then
+    mysql_dump_bin="mysqldump"
+  fi
+
+  if [[ -n "$mysql_dump_bin" ]] && \
+     command -v systemctl >/dev/null 2>&1 && \
+     systemctl is-active --quiet mysql.service 2>/dev/null; then
+    log "Dumping MariaDB databases…"
+    local my_tmp="$db_dir/mariadb-all.sql.tmp"
+    local my_out="$db_dir/mariadb-all.sql"
+    rm -f "$my_tmp"
+    if ( umask 077 && "$mysql_dump_bin" -u root --all-databases --single-transaction --quick > "$my_tmp" ) && \
+       mv -f "$my_tmp" "$my_out"; then
+      chmod 600 "$my_out"
+      log "MariaDB dump saved to databases/mariadb-all.sql"
+    else
+      rm -f "$my_tmp"
+      fail "MariaDB database dump failed."
+    fi
+  else
+    log "(MariaDB service not active or mariadb-dump unavailable — skipping)"
+  fi
+}
+
 # ── Sync one source tree to its backup destination ───────────────
 # Usage: sync_tree <label> <allow_vanished> <source> <destination> [rsync options...]
 #
 # allow_vanished: "yes" means rsync exit 24 (vanished files) is nonfatal.
-# Used for /home only — files may disappear while the desktop is active.
-# All other nonzero exit codes are always fatal.
+# Used for /home and /var/lib — transient files may disappear while the
+# desktop and hosted services are active. All other nonzero exit codes remain fatal.
 #
 # Before every rsync call this helper:
 #   1. Re-verifies $TARGET is still a mount point (fails if drive disconnected).
@@ -271,9 +367,6 @@ sync_tree() {
   esac
 
   # ── Create complete destination directory hierarchy ───────────────
-  # This is the fix for the production failure:
-  #   rsync: [Receiver] mkdir ".../current/etc/nixos" failed: No such file or directory
-  # mkdir -p creates all intermediate parents (e.g. current/etc/) before rsync runs.
   mkdir -p -- "$destination" || \
     fail "Stage $label: failed to create destination directory '$destination' (source: '$source')."
 
@@ -288,6 +381,7 @@ sync_tree() {
     --hard-links \
     --numeric-ids \
     --one-file-system \
+    --delete-delay \
     --partial \
     "$@" "$source" "$destination" 2>"$rsync_err_tmp" || rc=$?
 
@@ -301,32 +395,37 @@ sync_tree() {
   if [[ "$rc" -eq 0 ]]; then
     return 0
   elif [[ "$allow_vanished" == "yes" && "$rc" -eq 24 ]]; then
-    log "NOTE: $label — some files vanished during sync (normal on an active desktop). Your important data is backed up."
-    RSYNC_WARNINGS+=("$label: some files vanished during sync (rsync exit 24 — normal on active desktop)")
+    log "NOTE: $label — some transient files vanished during sync (normal on an active system). Your important data is backed up."
+    RSYNC_WARNINGS+=("$label: some transient files vanished during sync (rsync exit 24 — normal on active system)")
     return 0
   else
     fail "rsync failed for $label (exit code $rc). See the rsync errors above."
   fi
 }
 
-# ── Initialise log file ──────────────────────────────────────────
+# ── Acquire exclusive run lock BEFORE touching status or log ─────
+# Prevents a second invocation from truncating the active run's log
+# or overwriting its RUNNING status with FAILED.
 
+mkdir -p "$(dirname "$BACKUP_LOCK")" 2>/dev/null || true
+if ! exec {LOCK_FD}>>"$BACKUP_LOCK" 2>/dev/null; then
+  echo "ERROR: Cannot open lock file: $BACKUP_LOCK." >&2
+  exit 1
+fi
+if ! flock --nonblock "$LOCK_FD" 2>/dev/null; then
+  echo "Another backup is already running (lock held on $BACKUP_LOCK)." >&2
+  exit 0
+fi
+LOCK_ACQUIRED=1
+
+# ── Initialise log and status now that we own the lock ───────────
+
+mkdir -p "$(dirname "$BACKUP_LOG")" "$(dirname "$BACKUP_STATUS")" 2>/dev/null || true
 : > "$BACKUP_LOG"
 set_status "RUNNING"
 
 log "=== Sovran_SystemsOS External Hub Backup ==="
 log "Starting backup process…"
-
-# ── Acquire exclusive run lock ────────────────────────────────────
-# Prevents two simultaneous backup runs (e.g. from double-click or
-# stale RUNNING status after a Hub restart).
-
-LOCK_FILE="/var/lock/sovran-hub-backup.lock"
-# Note: exec {LOCK_FD}>>file requires bash 4.1+ (NixOS provides bash 5.x).
-exec {LOCK_FD}>>"$LOCK_FILE" 2>/dev/null || \
-  fail "Cannot open lock file: $LOCK_FILE. Ensure /var/lock is writable."
-flock --nonblock "$LOCK_FD" 2>/dev/null || \
-  fail "Another backup is already running. Wait for it to complete or check $BACKUP_STATUS."
 
 require_cmd rsync
 require_cmd findmnt
@@ -340,6 +439,7 @@ require_cmd hostname
 require_cmd date
 require_cmd python3
 require_cmd flock
+require_cmd sync
 
 # ── Detect system role ───────────────────────────────────────────
 
@@ -354,18 +454,22 @@ log "Detected role: $ROLE_LABEL"
 
 # Backup scope depends on the role. Desktop Only systems run no server or
 # Bitcoin services, so only the NixOS configuration and home directory are
-# mirrored (2 stages). Node and Server + Desktop systems also mirror the
-# nix-bitcoin secrets and /var/lib system service data (4 stages).
+# mirrored (2 stages). Node and Server + Desktop systems also mirror
+# nix-bitcoin secrets, database dumps, and /var/lib service data (5 stages).
 if [[ "$ROLE" == "desktop" ]]; then
   TOTAL_STAGES=2
   HOME_STAGE_NUM=2
   log "Desktop Only role: backing up the NixOS configuration (/etc/nixos) and home directory (/home) only."
 else
-  TOTAL_STAGES=4
-  HOME_STAGE_NUM=3
+  TOTAL_STAGES=5
+  HOME_STAGE_NUM=4
 fi
 
 # ── Detect target drive ──────────────────────────────────────────
+
+if [[ -z "${BACKUP_TARGET:-}" && -f "$BACKUP_TARGET_FILE" ]]; then
+  BACKUP_TARGET="$(tr -d '\r\n' < "$BACKUP_TARGET_FILE" 2>/dev/null || true)"
+fi
 
 if [[ -n "${BACKUP_TARGET:-}" ]]; then
   TARGET="$BACKUP_TARGET"
@@ -387,56 +491,79 @@ validate_target_mount "$TARGET"
 # ── Set up stable backup destination ────────────────────────────
 # Subsequent runs update the same mirror, transferring only new or changed files.
 
+BACKUP_ROOT_DIR="${TARGET}/Sovran_SystemsOS_Backup"
 BACKUP_DIR="${TARGET}/${BACKUP_SUBPATH}"
 mkdir -p -- "$BACKUP_DIR"
+
+# Prevent GNOME LocalSearch (Tracker) and media scanners from indexing the
+# backup mirror and holding open file descriptors when the user ejects the drive.
+touch "$BACKUP_ROOT_DIR/.trackerignore" "$BACKUP_ROOT_DIR/.nomedia" 2>/dev/null || true
 
 # Remove any stale BACKUP_COMPLETE left by a previous successful run.
 # The new run will re-earn it only after all stages succeed.
 rm -f "$BACKUP_DIR/BACKUP_COMPLETE"
 
 # Write an INCOMPLETE marker immediately; replaced by BACKUP_COMPLETE only
-# after all rsync stages and manifest write succeed. Failed or interrupted
-# runs keep this marker so they are clearly identifiable.
+# after all rsync stages, manifest write, and disk sync succeed.
 touch "$BACKUP_DIR/INCOMPLETE"
 log "Backup destination: $BACKUP_DIR"
 
 # ── Estimate required free space ─────────────────────────────────
-# PostgreSQL/MariaDB raw directories and Bitcoin/Electrs data are excluded
-# from the estimate to avoid inflating the required size.
+# Subtract space already occupied by an existing backup mirror on this drive
+# so incremental repeat runs do not falsely fail when the drive is >50% full.
 
-ETC_NIXOS_BYTES=$(estimate_path_bytes /etc/nixos)
-HOME_BYTES=$(estimate_path_bytes /home --exclude='*/.cache' --exclude='*/.local/share/Trash' --exclude='*/Trash')
+SRC_ETC_NIXOS="${SRC_PREFIX}/etc/nixos"
+SRC_SECRETS="${SRC_PREFIX}/etc/nix-bitcoin-secrets"
+SRC_HOME="${SRC_PREFIX}/home"
+SRC_VAR_LIB="${SRC_PREFIX}/var/lib"
 
-# nix-bitcoin secrets and /var/lib system service data exist only on the
-# Node and Server + Desktop roles — they are skipped entirely on Desktop Only.
+ETC_NIXOS_BYTES=$(estimate_path_bytes "$SRC_ETC_NIXOS")
+HOME_BYTES=$(estimate_path_bytes "$SRC_HOME" --exclude='*/.cache' --exclude='*/.local/share/Trash' --exclude='*/Trash')
+
 SECRETS_BYTES=0
 VAR_LIB_BYTES=0
+DB_BYTES=0
 if [[ "$ROLE" != "desktop" ]]; then
-  SECRETS_BYTES=$(estimate_path_bytes /etc/nix-bitcoin-secrets)
-  VAR_LIB_BYTES=$(estimate_path_bytes /var/lib \
+  SECRETS_BYTES=$(estimate_path_bytes "$SRC_SECRETS")
+  DB_BYTES=$(estimate_db_bytes)
+  VAR_LIB_BYTES=$(estimate_path_bytes "$SRC_VAR_LIB" \
     --exclude='postgresql' \
     --exclude='mysql' \
     --exclude='mariadb' \
     --exclude='bitcoind' \
     --exclude='electrs' \
+    --exclude='flatpak' \
+    --exclude='udisks2' \
+    --exclude='systemd/coredump' \
     --exclude='*/log' \
     --exclude='*/logs' \
     --exclude='*/cache' \
     --exclude='*/tmp')
 fi
 
-ESTIMATED_BYTES=$(( ETC_NIXOS_BYTES + HOME_BYTES + SECRETS_BYTES + VAR_LIB_BYTES ))
-# Require 20% growth headroom plus a fixed 1 GiB safety margin.
-# Later incremental runs need far less space, but a conservative first-run
-# check protects against running out of space mid-backup.
-REQUIRED_BYTES=$(( ESTIMATED_BYTES + (ESTIMATED_BYTES / 5) + SAFETY_MARGIN_BYTES ))
+ESTIMATED_BYTES=$(( ETC_NIXOS_BYTES + HOME_BYTES + SECRETS_BYTES + DB_BYTES + VAR_LIB_BYTES ))
+
+EXISTING_BACKUP_BYTES=0
+if [[ -d "$BACKUP_DIR" ]]; then
+  EXISTING_BACKUP_BYTES=$(estimate_path_bytes "$BACKUP_DIR")
+fi
+
+if (( ESTIMATED_BYTES > EXISTING_BACKUP_BYTES )); then
+  NET_NEW_BYTES=$(( ESTIMATED_BYTES - EXISTING_BACKUP_BYTES ))
+else
+  NET_NEW_BYTES=0
+fi
+
+# Require 20% headroom on net new data plus a fixed safety margin for
+# rsync temporary files and database dumps.
+REQUIRED_BYTES=$(( NET_NEW_BYTES + (NET_NEW_BYTES / 5) + SAFETY_MARGIN_BYTES ))
 
 FREE_BYTES=$(df -B1 --output=avail "$TARGET" | tail -1 | tr -d ' ')
 FREE_GB=$(( FREE_BYTES / 1024 / 1024 / 1024 ))
 REQUIRED_GB=$(( REQUIRED_BYTES / 1024 / 1024 / 1024 ))
 
-log "Estimated backup size: $(( ESTIMATED_BYTES / 1024 / 1024 / 1024 )) GB"
-log "Required free space (with safety margin): ${REQUIRED_GB} GB"
+log "Estimated total backup size: $(( ESTIMATED_BYTES / 1024 / 1024 / 1024 )) GB (existing mirror on drive: $(( EXISTING_BACKUP_BYTES / 1024 / 1024 / 1024 )) GB)"
+log "Required additional free space (with safety margin): ${REQUIRED_GB} GB"
 log "Free space on drive: ${FREE_GB} GB"
 
 (( FREE_BYTES >= REQUIRED_BYTES )) || \
@@ -446,39 +573,47 @@ log "Free space on drive: ${FREE_GB} GB"
 
 log ""
 log "── Stage 1/${TOTAL_STAGES}: NixOS configuration (/etc/nixos) ──────────────"
-if [[ -d /etc/nixos ]]; then
-  sync_tree "/etc/nixos" no /etc/nixos/ "$BACKUP_DIR/etc/nixos/"
+if [[ -d "$SRC_ETC_NIXOS" ]]; then
+  sync_tree "/etc/nixos" no "$SRC_ETC_NIXOS/" "$BACKUP_DIR/etc/nixos/"
   log "Stage 1 complete."
 else
   log "WARNING: /etc/nixos not found — skipping."
 fi
 
 # ── Stage 2: Secrets ────────────────────────────────────────────
-# Only applies to the Node and Server + Desktop roles. Desktop Only systems
-# run no nix-bitcoin services, so there are no secrets to back up and this
-# stage does not exist for them.
+# Only applies to the Node and Server + Desktop roles.
 
 if [[ "$ROLE" != "desktop" ]]; then
   log ""
   log "── Stage 2/${TOTAL_STAGES}: Secrets (/etc/nix-bitcoin-secrets) ───────────"
-  if [[ -e /etc/nix-bitcoin-secrets ]]; then
-    sync_tree "/etc/nix-bitcoin-secrets" no /etc/nix-bitcoin-secrets/ "$BACKUP_DIR/etc/nix-bitcoin-secrets/"
+  if [[ -e "$SRC_SECRETS" ]]; then
+    sync_tree "/etc/nix-bitcoin-secrets" no "$SRC_SECRETS/" "$BACKUP_DIR/etc/nix-bitcoin-secrets/"
   else
     log "(not found: /etc/nix-bitcoin-secrets — skipping)"
   fi
   log "Stage 2 complete."
 fi
 
+# ── Stage 3: Application databases ──────────────────────────────
+# Consistent SQL dumps for PostgreSQL (Nextcloud, Matrix Synapse, BTCPay)
+# and MariaDB (WordPress) on Node and Server + Desktop roles.
+
+if [[ "$ROLE" != "desktop" ]]; then
+  log ""
+  log "── Stage 3/${TOTAL_STAGES}: Application databases (SQL dumps) ───────────"
+  dump_databases
+  log "Stage 3 complete."
+fi
+
 # ── Home directory ──────────────────────────────────────────────
-# Stage 2/2 on Desktop Only, stage 3/4 on Node and Server + Desktop.
+# Stage 2/2 on Desktop Only, stage 4/5 on Node and Server + Desktop.
 # Rsync exit code 24 (vanished source files) is treated as nonfatal here
-# because the desktop may be active and files can disappear between the
-# directory scan and the copy. All other nonzero exit codes remain fatal.
+# because the desktop may be active.
 
 log ""
 log "── Stage ${HOME_STAGE_NUM}/${TOTAL_STAGES}: Home directory (/home) ───────────────────────"
-if [[ -d /home ]]; then
-  sync_tree "/home" yes /home/ "$BACKUP_DIR/home/" \
+if [[ -d "$SRC_HOME" ]]; then
+  sync_tree "/home" yes "$SRC_HOME/" "$BACKUP_DIR/home/" \
     --exclude='.cache/' \
     --exclude='.local/share/Trash/' \
     --exclude='Trash/' \
@@ -502,28 +637,32 @@ else
   log "WARNING: /home not found — skipping."
 fi
 
-# ── Stage 4: System data ────────────────────────────────────────
-# Only applies to the Node and Server + Desktop roles — Desktop Only systems
-# run no server services, so /var/lib holds no service data worth mirroring.
-# PostgreSQL/MariaDB raw database directories are excluded. Application
-# databases must be backed up separately with native database tools.
-# Bitcoin/Electrs data are excluded; they live on the internal second drive.
+# ── Stage 5: System data ────────────────────────────────────────
+# Only applies to the Node and Server + Desktop roles.
+# Raw PostgreSQL/MariaDB directories are excluded (backed up cleanly as SQL
+# dumps in Stage 3). Bitcoin/Electrs data live on the internal second drive.
+# Flatpak runtimes, udisks state, and coredumps are excluded as reconstructable.
+# allow_vanished is "yes" so active services rotating transient temp files
+# (Nextcloud cron, Redis RDB, Tor consensus, systemd timers) do not abort Stage 5.
 
 if [[ "$ROLE" != "desktop" ]]; then
   log ""
-  log "── Stage 4/${TOTAL_STAGES}: System data (/var/lib) ───────────────────────"
-  if [[ -d /var/lib ]]; then
-    sync_tree "/var/lib" no /var/lib/ "$BACKUP_DIR/var/lib/" \
+  log "── Stage 5/${TOTAL_STAGES}: System data (/var/lib) ───────────────────────"
+  if [[ -d "$SRC_VAR_LIB" ]]; then
+    sync_tree "/var/lib" yes "$SRC_VAR_LIB/" "$BACKUP_DIR/var/lib/" \
       --exclude='postgresql/' \
       --exclude='mysql/' \
       --exclude='mariadb/' \
       --exclude='bitcoind/' \
       --exclude='electrs/' \
+      --exclude='flatpak/' \
+      --exclude='udisks2/' \
+      --exclude='systemd/coredump/' \
       --exclude='*/log/' \
       --exclude='*/logs/' \
       --exclude='*/cache/' \
       --exclude='*/tmp/'
-    log "Stage 4 complete."
+    log "Stage 5 complete."
   else
     log "WARNING: /var/lib not found — skipping."
   fi
@@ -549,6 +688,7 @@ MANIFEST_FILE="$BACKUP_DIR/BACKUP_MANIFEST.txt"
   echo "- /etc/nixos  →  current/etc/nixos/"
   if [[ "$ROLE" != "desktop" ]]; then
     echo "- /etc/nix-bitcoin-secrets (when present)  →  current/etc/nix-bitcoin-secrets/"
+    echo "- PostgreSQL / MariaDB SQL dumps (when active)  →  current/databases/"
   fi
   echo "- /home  →  current/home/"
   if [[ "$ROLE" != "desktop" ]]; then
@@ -557,10 +697,10 @@ MANIFEST_FILE="$BACKUP_DIR/BACKUP_MANIFEST.txt"
   echo ""
   echo "Exclusions:"
   if [[ "$ROLE" != "desktop" ]]; then
-    echo "- /var/lib/postgresql (PostgreSQL raw database files — not included)"
-    echo "- /var/lib/mysql, /var/lib/mariadb (MariaDB raw database files — not included)"
+    echo "- /var/lib/postgresql, /var/lib/mysql, /var/lib/mariadb (raw DB files excluded; logical SQL dumps stored in current/databases/)"
     echo "- /var/lib/bitcoind (Bitcoin blockchain — excluded; lives on internal second drive)"
     echo "- /var/lib/electrs (Electrs index — excluded; lives on internal second drive)"
+    echo "- /var/lib/flatpak, /var/lib/udisks2, /var/lib/systemd/coredump (reconstructable runtime state)"
     echo "- /run/media/Second_Drive (internal second drive — never traversed)"
     echo "- /var/lib/*/log, /var/lib/*/logs, /var/lib/*/cache, /var/lib/*/tmp"
   fi
@@ -568,25 +708,25 @@ MANIFEST_FILE="$BACKUP_DIR/BACKUP_MANIFEST.txt"
   echo ""
   echo "Important limitations:"
   if [[ "$ROLE" != "desktop" ]]; then
-    echo "- PostgreSQL and MariaDB/MySQL application databases are NOT included in this"
-    echo "  backup. If you use Nextcloud, Matrix/Synapse, or other database-backed"
-    echo "  applications, their data must be backed up separately using native tools."
     echo "- Bitcoin blockchain data and Electrs indexes are NOT included; they are"
     echo "  reconstructable or stored on the internal second drive."
   fi
-  echo "- This is a live file-level mirror, not a transactional database backup."
-  echo "  Files being written during the backup may be in an inconsistent state."
+  echo "- File trees are mirrored from a live system; files actively written mid-copy"
+  echo "  may reflect an in-flight state."
   echo ""
-  echo "Restore guidance:"
+  echo "Restore guidance (run from a root shell via 'su -' or from the Sovran Live ISO):"
   echo "- Files are directly browsable on the backup drive under: ${BACKUP_DIR}"
-  echo "- To restore a directory:"
-  echo "    sudo rsync -aAXH --numeric-ids current/etc/nixos/ /etc/nixos/"
-  echo "    sudo rsync -aAXH --numeric-ids current/home/ /home/"
+  echo "- To restore directories:"
+  echo "    rsync -aAXH --numeric-ids current/etc/nixos/ /etc/nixos/"
+  echo "    rsync -aAXH --numeric-ids current/home/ /home/"
   if [[ "$ROLE" != "desktop" ]]; then
-    echo "    sudo rsync -aAXH --numeric-ids current/var/lib/ /var/lib/"
+    echo "    rsync -aAXH --numeric-ids current/var/lib/ /var/lib/"
+    echo "- To restore SQL dumps (when present):"
+    echo "    psql -U postgres -f current/databases/postgresql-all.sql"
+    echo "    mysql -u root < current/databases/mariadb-all.sql"
   fi
   echo "- To copy individual files:"
-  echo "    sudo cp -a current/home/username/ /home/username/"
+  echo "    cp -a current/home/free/ /home/free/"
   echo "- When restoring /etc/nixos to replacement hardware, regenerate"
   echo "  hardware-configuration.nix for the new hardware before rebuilding."
   echo ""
@@ -608,7 +748,14 @@ MANIFEST_FILE="$BACKUP_DIR/BACKUP_MANIFEST.txt"
 
 log "Manifest written to $MANIFEST_FILE"
 
-# ── Done ─────────────────────────────────────────────────────────
+# ── Finalise markers & flush USB writeback BEFORE reporting SUCCESS ──
+
+rm -f "$BACKUP_DIR/INCOMPLETE"
+date -u '+%Y-%m-%dT%H:%M:%SZ' > "$BACKUP_DIR/BACKUP_COMPLETE"
+
+log "Flushing pending disk writes to USB drive…"
+sync -f "$BACKUP_DIR/BACKUP_COMPLETE" 2>/dev/null || sync
+log "All disk buffers flushed."
 
 log ""
 if [[ "${#RSYNC_WARNINGS[@]}" -gt 0 ]]; then
@@ -616,8 +763,8 @@ if [[ "${#RSYNC_WARNINGS[@]}" -gt 0 ]]; then
   for warning in "${RSYNC_WARNINGS[@]}"; do
     log "  WARNING: $warning"
   done
-  log "Your important data is backed up. The warnings above indicate files that"
-  log "vanished during backup, which is normal on an active desktop."
+  log "Your important data is backed up. The warnings above indicate transient"
+  log "files that vanished during backup, which is normal on an active system."
   log ""
 fi
 if [[ "$ROLE" == "desktop" ]]; then
@@ -626,12 +773,7 @@ else
   log "All Finished! Your data is now backed up to a third location."
 fi
 log "Files are directly browsable on the drive under: ${BACKUP_DIR}"
-log "Please eject the drive safely before removing it from your Sovran Pro."
-
-# Remove incomplete marker and write completion marker only after all work succeeds.
-# A later successful run will update the same mirror and replace any INCOMPLETE state.
-rm -f "$BACKUP_DIR/INCOMPLETE"
-date -u '+%Y-%m-%dT%H:%M:%SZ' > "$BACKUP_DIR/BACKUP_COMPLETE"
+log "Click 'Safely Eject Drive' in the Hub before unplugging your USB drive."
 
 BACKUP_COMPLETE=1
 set_status "SUCCESS"

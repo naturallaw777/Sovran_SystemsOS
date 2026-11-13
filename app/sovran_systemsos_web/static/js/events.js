@@ -99,10 +99,19 @@ function openRestartConfirmDialog() {
   if (!$restartConfirmModal) return;
   _restartDialogOpener = document.activeElement;
 
-  // Detect conflicting operations
-  var isOperationInProgress = !!_updatePollTimer || !!_rebuildPollTimer;
+  // Detect conflicting operations (update, rebuild, or manual backup)
+  var isOperationInProgress = !!_updatePollTimer || !!_rebuildPollTimer || (typeof _backupPollTimer !== "undefined" && !!_backupPollTimer);
   if ($restartConflictBox) $restartConflictBox.style.display = isOperationInProgress ? "" : "none";
   if ($restartConfirmOk) $restartConfirmOk.disabled = isOperationInProgress;
+
+  if (!isOperationInProgress) {
+    apiFetch("/api/backup/status?offset=0").then(function(st) {
+      if (st && st.running && $restartConfirmModal.classList.contains("open")) {
+        if ($restartConflictBox) $restartConflictBox.style.display = "";
+        if ($restartConfirmOk) $restartConfirmOk.disabled = true;
+      }
+    }).catch(function() {});
+  }
 
   $restartConfirmModal.classList.add("open");
 

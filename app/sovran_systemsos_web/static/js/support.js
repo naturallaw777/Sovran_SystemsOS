@@ -493,6 +493,16 @@ function closeSupportModal() {
 
 var _backupPollTimer = null;
 var _backupLogOffset = 0;
+var _selectedBackupTarget = "";
+var _backupAccumulatedLog = "";
+var _backupPendingCompletion = null;
+var _detectedBackupDrives = [];
+
+function isBackupModalActive() {
+  if (!$supportModal || !$supportModal.classList.contains("open")) return false;
+  var title = document.getElementById("support-modal-title");
+  return !!(title && title.textContent === "Manual Backup");
+}
 
 function openBackupModal() {
   if (!$supportModal) return;
@@ -506,6 +516,12 @@ function openBackupModal() {
     var use = chip.querySelector("use");
     if (use) use.setAttribute("href", "#g-box");
   }
+  if (_backupPendingCompletion !== null) {
+    var completedState = _backupPendingCompletion;
+    _backupPendingCompletion = null;
+    renderBackupDone(completedState === "success");
+    return;
+  }
   $supportBody.innerHTML = '<p class="creds-loading">Detecting external drives\u2026</p>';
   detectDrivesAndRender();
 }
@@ -514,12 +530,17 @@ async function detectDrivesAndRender() {
   try {
     // Check whether a backup is already in progress
     var status = await apiFetch("/api/backup/status?offset=0");
+    if (status.target) {
+      _selectedBackupTarget = status.target;
+    }
     if (status.running) {
-      renderBackupRunning();
       _backupLogOffset = status.offset || 0;
-      if (status.log) {
+      _backupAccumulatedLog = status.log || "";
+      if (!isBackupModalActive()) return;
+      renderBackupRunning();
+      if (_backupAccumulatedLog) {
         var logDiv = document.getElementById("backup-log");
-        if (logDiv) { logDiv.insertAdjacentText("beforeend", status.log); logDiv.scrollTop = logDiv.scrollHeight; }
+        if (logDiv) { logDiv.textContent = _backupAccumulatedLog; logDiv.scrollTop = logDiv.scrollHeight; }
       }
       startBackupPoll();
       return;
@@ -528,13 +549,46 @@ async function detectDrivesAndRender() {
 
   try {
     var data = await apiFetch("/api/backup/drives");
+    if (!isBackupModalActive()) return;
     renderBackupReady(data.drives || []);
   } catch (err) {
+    if (!isBackupModalActive()) return;
     $supportBody.innerHTML = '<p class="creds-empty">Could not detect drives. Please try again.</p>';
   }
 }
 
+function updateDriveSelectionState() {
+  var sel = document.getElementById("backup-drive-select");
+  var btn = document.getElementById("btn-start-backup");
+  var warnBox = document.getElementById("backup-fstype-warning");
+  var warnText = document.getElementById("backup-fstype-warning-text");
+  if (!sel || !btn) return;
+
+  var selectedPath = sel.value || "";
+  _selectedBackupTarget = selectedPath;
+  var driveObj = null;
+  for (var i = 0; i < _detectedBackupDrives.length; i++) {
+    if (_detectedBackupDrives[i].path === selectedPath) {
+      driveObj = _detectedBackupDrives[i];
+      break;
+    }
+  }
+
+  var fstype = driveObj && driveObj.fstype ? String(driveObj.fstype).toLowerCase() : "";
+  var unsupported = (fstype !== "" && fstype !== "ext4");
+  btn.disabled = unsupported;
+  if (warnBox) {
+    warnBox.style.display = unsupported ? "" : "none";
+    if (unsupported && warnText) {
+      warnText.textContent =
+        "'" + (driveObj.name || selectedPath) + "' is formatted as " + fstype + ". " +
+        "Manual Backup requires an ext4-formatted Linux drive so file permissions, ACLs, and links are preserved.";
+    }
+  }
+}
+
 function renderBackupReady(drives) {
+  _detectedBackupDrives = drives || [];
   var driveSelector = "";
   if (drives.length > 0) {
     driveSelector = [
@@ -544,13 +598,23 @@ function renderBackupReady(drives) {
     ].join("");
     for (var i = 0; i < drives.length; i++) {
       var d = drives[i];
+      var fsTag = d.fstype ? " (" + escHtml(d.fstype) + ")" : "";
       driveSelector += '<option value="' + escHtml(d.path) + '">' +
-        escHtml(d.name) + ' \u2014 ' + d.free_gb + ' GB free / ' + d.total_gb + ' GB total' +
+        escHtml(d.name) + ' \u2014 ' + d.free_gb + ' GB free / ' + d.total_gb + ' GB total' + fsTag +
         '</option>';
     }
     driveSelector += '</select>';
     driveSelector += '<button class="btn support-btn-auditlog" id="btn-backup-refresh" style="white-space:nowrap;">&#x21bb; Refresh</button>';
     driveSelector += '</div>';
+    driveSelector += [
+      '<div class="support-wallet-box support-wallet-warning" id="backup-fstype-warning" style="display:none;margin-bottom:14px;">',
+        '<div class="support-wallet-header">',
+          '<span class="support-wallet-icon">\u26a0\ufe0f</span>',
+          '<span class="support-wallet-title">Unsupported Drive Format</span>',
+        '</div>',
+        '<p class="support-wallet-desc" id="backup-fstype-warning-text"></p>',
+      '</div>',
+    ].join("");
     driveSelector += '<button class="btn support-btn-enable" id="btn-start-backup">Start Backup</button>';
   } else {
     driveSelector = [
@@ -571,9 +635,8 @@ function renderBackupReady(drives) {
   // ── Role-aware backup description ─────────────────────────────
   // Desktop Only systems run no server or Bitcoin services and have no
   // internal second drive, so the backup mirrors only the NixOS configuration
-  // and home directory. nix-bitcoin secrets, /var/lib system service data,
-  // and the database/blockchain caveats apply only to the Node and
-  // Server + Desktop roles.
+  // and home directory. nix-bitcoin secrets, database dumps, and /var/lib
+  // service data apply only to the Node and Server + Desktop roles.
   var isDesktopOnly = (_currentRole === "desktop");
 
   var introHtml;
@@ -610,21 +673,21 @@ function renderBackupReady(drives) {
     backupItemsHtml = [
       '<li>NixOS configuration (<code>/etc/nixos</code>)</li>',
       '<li>nix-bitcoin secrets (<code>/etc/nix-bitcoin-secrets</code>)</li>',
-      '<li>System service data (<code>/var/lib</code>) — excluding databases and blockchain data (see note below)</li>',
+      '<li>Application databases \u2014 PostgreSQL &amp; MariaDB SQL dumps (<code>databases/</code>, when active)</li>',
       '<li>Home directory (<code>/home</code>)</li>',
+      '<li>System service data (<code>/var/lib</code>) \u2014 excluding raw database files and blockchain data</li>',
     ].join("");
   }
 
-  // The database/blockchain caveat is only relevant when server services exist.
   var dbNoteHtml = "";
   if (!isDesktopOnly) {
     dbNoteHtml = [
       '<div class="support-wallet-box support-wallet-warning">',
         '<div class="support-wallet-header">',
           '<span class="support-wallet-icon">\u2139\ufe0f</span>',
-          '<span class="support-wallet-title">Database and Blockchain Data</span>',
+          '<span class="support-wallet-title">Databases &amp; Blockchain Data</span>',
         '</div>',
-        '<p class="support-wallet-desc">Application databases stored in PostgreSQL or MariaDB/MySQL are <strong>not included</strong> in Manual Backup. Bitcoin blockchain and Electrs index data are also excluded (they are stored on the internal second drive). If you use Nextcloud, Matrix, or other database-backed applications, back up those databases separately with their native tools.</p>',
+        '<p class="support-wallet-desc">Active PostgreSQL and MariaDB databases (Nextcloud, Matrix, BTCPay Server, WordPress) are exported automatically as SQL dumps under <code>current/databases/</code>. Bitcoin blockchain and Electrs index data are excluded because they already live on the internal second drive and can be reconstructed.</p>',
       '</div>',
     ].join("");
   }
@@ -641,7 +704,7 @@ function renderBackupReady(drives) {
       '<ol class="support-backup-steps">',
         '<li>USB hard drive plugged into one of the open USB ports on your Sovran Pro</li>',
         '<li>Enough free space for your data (the backup checks this before starting)</li>',
-        '<li>Drive must be formatted as <strong>ext4</strong> (a Linux filesystem). Drives with exFAT, FAT32, or NTFS are not supported. To format a drive as ext4, use a Linux tool such as GParted or <code>mkfs.ext4</code> — note that formatting erases all data on the drive.</li>',
+        '<li>Drive must be formatted as <strong>ext4</strong> (a Linux filesystem). Drives with exFAT, FAT32, or NTFS are not supported. To format a drive as ext4, use a Linux tool such as GParted or <code>mkfs.ext4</code> \u2014 note that formatting erases all data on the drive.</li>',
         '<li>The drive is intended for Linux/Sovran recovery. It may not be directly readable by Windows or macOS without additional software.</li>',
       '</ol>',
     '</div>',
@@ -668,6 +731,11 @@ function renderBackupReady(drives) {
   ].join("");
 
   if (drives.length > 0) {
+    var selectEl = document.getElementById("backup-drive-select");
+    if (selectEl) {
+      selectEl.addEventListener("change", updateDriveSelectionState);
+    }
+    updateDriveSelectionState();
     document.getElementById("btn-start-backup").addEventListener("click", startBackup);
     document.getElementById("btn-backup-refresh").addEventListener("click", function() {
       $supportBody.innerHTML = '<p class="creds-loading">Scanning for external drives\u2026</p>';
@@ -688,7 +756,10 @@ async function startBackup() {
   var target = sel ? sel.value : "";
   try {
     _backupLogOffset = 0;
-    await apiFetch("/api/backup/run" + (target ? "?target=" + encodeURIComponent(target) : ""), { method: "POST" });
+    _backupAccumulatedLog = "";
+    _backupPendingCompletion = null;
+    var res = await apiFetch("/api/backup/run" + (target ? "?target=" + encodeURIComponent(target) : ""), { method: "POST" });
+    _selectedBackupTarget = (res && res.target) ? res.target : target;
     renderBackupRunning();
     startBackupPoll();
   } catch (err) {
@@ -727,54 +798,137 @@ function stopBackupPoll() {
 async function pollBackupStatus() {
   try {
     var data = await apiFetch("/api/backup/status?offset=" + _backupLogOffset);
-    var logDiv = document.getElementById("backup-log");
-    if (logDiv && data.log) {
-      logDiv.insertAdjacentText("beforeend", data.log);
-      logDiv.scrollTop = logDiv.scrollHeight;
+    if (data.target) {
+      _selectedBackupTarget = data.target;
+    }
+    if (data.log) {
+      _backupAccumulatedLog += data.log;
+      if (isBackupModalActive()) {
+        var logDiv = document.getElementById("backup-log");
+        if (logDiv) {
+          logDiv.insertAdjacentText("beforeend", data.log);
+          logDiv.scrollTop = logDiv.scrollHeight;
+        }
+      }
     }
     _backupLogOffset = data.offset;
     const result = (data.result || "").toLowerCase();
     if (result === "success" || result === "failed") {
       stopBackupPoll();
-      renderBackupDone(result === "success");
+      if (isBackupModalActive()) {
+        _backupPendingCompletion = null;
+        renderBackupDone(result === "success");
+      } else {
+        _backupPendingCompletion = result;
+      }
     }
   } catch (_) {}
 }
 
+async function ejectBackupDrive() {
+  var btn = document.getElementById("btn-eject-backup-drive");
+  var ejectBox = document.getElementById("backup-eject-box");
+  var ejectIcon = document.getElementById("backup-eject-icon");
+  var ejectTitle = document.getElementById("backup-eject-title");
+  var ejectDesc = document.getElementById("backup-eject-desc");
+  var feedbackBox = document.getElementById("backup-eject-feedback");
+  var feedbackText = document.getElementById("backup-eject-feedback-text");
+
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = "Flushing & Ejecting\u2026";
+  }
+  if (feedbackBox) feedbackBox.style.display = "none";
+
+  try {
+    var res = await apiFetch("/api/backup/eject", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ target: _selectedBackupTarget || "" }),
+    });
+    if (ejectBox) {
+      ejectBox.classList.remove("support-wallet-warning");
+      ejectBox.classList.add("support-wallet-protected");
+    }
+    if (ejectIcon) ejectIcon.textContent = "\u2705";
+    if (ejectTitle) ejectTitle.textContent = "Safe to Unplug";
+    if (ejectDesc) {
+      ejectDesc.textContent = (res && res.message)
+        ? res.message
+        : "Drive safely unmounted. You can unplug it now.";
+    }
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = "\u2713 Drive Safely Ejected";
+    }
+  } catch (err) {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = "\u23cf Safely Eject Drive";
+    }
+    if (feedbackBox && feedbackText) {
+      feedbackText.textContent = err.message || "Could not eject drive. Make sure no Files window is open on the drive and try again.";
+      feedbackBox.style.display = "";
+    }
+  }
+}
+
 function renderBackupDone(success) {
   var logDiv = document.getElementById("backup-log");
-  var logContent = logDiv ? logDiv.textContent : "";
+  var logContent = _backupAccumulatedLog || (logDiv ? logDiv.textContent : "");
 
   if (success) {
     $supportBody.innerHTML = [
       '<div class="support-section">',
       '<div class="support-icon-big">\u2705</div>',
       '<h3 class="support-heading">All Finished!</h3>',
-      '<div class="support-wallet-box support-wallet-protected">',
+      '<div class="support-wallet-box support-wallet-protected" id="backup-eject-box">',
         '<div class="support-wallet-header">',
-          '<span class="support-wallet-icon">\u23cf\ufe0f</span>',
-          '<span class="support-wallet-title">Eject Your Drive</span>',
+          '<span class="support-wallet-icon" id="backup-eject-icon">\u23cf\ufe0f</span>',
+          '<span class="support-wallet-title" id="backup-eject-title">Safely Eject Your Drive</span>',
         '</div>',
-        '<p class="support-wallet-desc">Please eject the drive before removing it from your Sovran Pro.</p>',
+        '<p class="support-wallet-desc" id="backup-eject-desc">Click <strong>Safely Eject Drive</strong> below and wait for confirmation before unplugging the USB cable from your Sovran Pro.</p>',
       '</div>',
+      '<div class="support-wallet-box support-wallet-warning" id="backup-eject-feedback" style="display:none;margin-bottom:12px;">',
+        '<div class="support-wallet-header">',
+          '<span class="support-wallet-icon">\u26a0\ufe0f</span>',
+          '<span class="support-wallet-title">Drive Busy</span>',
+        '</div>',
+        '<p class="support-wallet-desc" id="backup-eject-feedback-text"></p>',
+      '</div>',
+      '<button class="btn support-btn-enable" id="btn-eject-backup-drive" style="margin-bottom:12px;">\u23cf Safely Eject Drive</button>',
       '<div class="modal-log" id="backup-log-done" style="text-align:left;"></div>',
       '<button class="btn support-btn-done" id="btn-backup-close">Close</button>',
       '</div>',
     ].join("");
     var doneLog = document.getElementById("backup-log-done");
     if (doneLog) { doneLog.textContent = logContent; doneLog.scrollTop = doneLog.scrollHeight; }
+    var ejectBtn = document.getElementById("btn-eject-backup-drive");
+    if (ejectBtn) ejectBtn.addEventListener("click", ejectBackupDrive);
   } else {
     $supportBody.innerHTML = [
       '<div class="support-section">',
       '<div class="support-icon-big">\u26a0\ufe0f</div>',
       '<h3 class="support-heading">Backup Failed</h3>',
       '<p class="support-desc">The backup did not complete successfully. Please check that the USB drive is still connected, has enough free space, and is formatted as ext4. Then try again.</p>',
+      '<div class="support-wallet-box support-wallet-warning" id="backup-eject-feedback" style="display:none;margin-bottom:12px;">',
+        '<div class="support-wallet-header">',
+          '<span class="support-wallet-icon">\u26a0\ufe0f</span>',
+          '<span class="support-wallet-title">Drive Busy</span>',
+        '</div>',
+        '<p class="support-wallet-desc" id="backup-eject-feedback-text"></p>',
+      '</div>',
       '<div class="modal-log" id="backup-log-fail" style="text-align:left;"></div>',
-      '<button class="btn support-btn-done" id="btn-backup-close">Close</button>',
+      '<div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">',
+        '<button class="btn support-btn-auditlog" id="btn-eject-backup-drive">\u23cf Safely Eject Drive</button>',
+        '<button class="btn support-btn-done" id="btn-backup-close">Close</button>',
+      '</div>',
       '</div>',
     ].join("");
     var failLog = document.getElementById("backup-log-fail");
     if (failLog) { failLog.textContent = logContent; failLog.scrollTop = failLog.scrollHeight; }
+    var failEjectBtn = document.getElementById("btn-eject-backup-drive");
+    if (failEjectBtn) failEjectBtn.addEventListener("click", ejectBackupDrive);
   }
   document.getElementById("btn-backup-close").addEventListener("click", closeSupportModal);
 }

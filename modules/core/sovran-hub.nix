@@ -575,10 +575,40 @@ in
         pkgs.acl
         pkgs.util-linux
       ]
+      ++ lib.optionals config.services.udisks2.enable [ config.services.udisks2.package ]
       ++ lib.optional cfg.services.bitcoin config.services.bitcoind.package
       ++ lib.optionals cfg.services.bitcoin [ pkgs.lnd ]
-      ++ lib.optionals (cfg.services.nextcloud || cfg.services.synapse) [ config.services.postgresql.package ]
+      ++ lib.optionals config.services.postgresql.enable [ config.services.postgresql.package ]
       ++ lib.optionals config.services.mysql.enable [ config.services.mysql.package ];
+    };
+
+    systemd.services.sovran-hub-backup = {
+      description      = "Sovran_SystemsOS Manual External Backup";
+      conflicts        = [ "sovran-hub-reboot.service" ];
+      restartIfChanged = false;   # Don't let nixos-rebuild kill an in-flight backup
+      stopIfChanged    = false;   # Don't stop it during activation either
+      path = [
+        pkgs.bash
+        pkgs.gawk
+        pkgs.hostname
+        pkgs.coreutils
+        pkgs.findutils
+        pkgs.gnugrep
+        pkgs.rsync
+        pkgs.acl
+        pkgs.util-linux
+        pkgs.python3
+        config.systemd.package
+      ]
+      ++ lib.optionals config.services.postgresql.enable [ config.services.postgresql.package ]
+      ++ lib.optionals config.services.mysql.enable [ config.services.mysql.package ];
+      serviceConfig = {
+        Type           = "oneshot";
+        User           = "root";
+        ExecStart      = "${pkgs.bash}/bin/bash ${sovran-hub-web}/lib/sovran-hub-web/sovran_systemsos_web/scripts/sovran-hub-backup.sh";
+        StandardOutput = "journal";
+        StandardError  = "journal";
+      };
     };
 
     systemd.services.sovran-hub-update = {

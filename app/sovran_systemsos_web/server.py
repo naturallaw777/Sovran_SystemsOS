@@ -39,6 +39,7 @@ from . import systemctl as sysctl
 from . import system_password as sp
 from sovran_nwc import nwc_hub_manager as _nwc_mgr
 from . import support_ops as _support_ops
+from . import backup_ops as _backup_ops
 from .ddns_update import normalise_url as _normalise_ddns_url
 from .security_helpers import (
     _nix_escape,
@@ -110,9 +111,14 @@ _domain_dns_cache: dict[str, tuple[float, list[str]]] = {}
 _pending_service_starts: set[str] = set()
 _pending_service_starts_lock = Lock()
 
-BACKUP_LOG    = "/var/log/sovran-hub-backup.log"
-BACKUP_STATUS = "/var/log/sovran-hub-backup.status"
-BACKUP_SCRIPT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "scripts", "sovran-hub-backup.sh")
+BACKUP_LOG         = "/var/log/sovran-hub-backup.log"
+BACKUP_STATUS      = "/var/log/sovran-hub-backup.status"
+BACKUP_LOCK        = "/var/lock/sovran-hub-backup.lock"
+BACKUP_TARGET_FILE = "/run/sovran-hub-backup.target"
+BACKUP_UNIT        = "sovran-hub-backup.service"
+BACKUP_SCRIPT      = os.path.join(os.path.dirname(os.path.abspath(__file__)), "scripts", "sovran-hub-backup.sh")
+_backup_launch_monotonic: float = 0.0
+_BACKUP_LAUNCH_GRACE_SECONDS = 5.0
 
 CUSTOM_NIX  = "/etc/nixos/custom.nix"
 HUB_BEGIN   = "  # ── Hub Managed (do not edit) ──────────────"
@@ -1944,150 +1950,72 @@ def _append_backup_log(line: str) -> None:
         f.write(line.rstrip("\n") + "\n")
 
 
-_INTERNAL_LABELS  = {"BTCEcoandBackup", "sovran_systemsos"}
-_INTERNAL_MOUNTS  = {"/", "/boot/efi"}
-_INTERNAL_MOUNT_PREFIX = "/run/media/Second_Drive"
+_INTERNAL_LABELS  = _backup_ops.INTERNAL_LABELS
+_INTERNAL_MOUNTS  = _backup_ops.INTERNAL_MOUNTS
+_INTERNAL_MOUNT_PREFIX = _backup_ops.INTERNAL_MOUNT_PREFIX
 
 
 def _is_internal_mount(mnt: str) -> bool:
     """Return True if *mnt* is a known internal system path."""
-    if mnt in _INTERNAL_MOUNTS:
-        return True
-    if mnt == _INTERNAL_MOUNT_PREFIX or mnt.startswith(_INTERNAL_MOUNT_PREFIX + "/"):
-        return True
-    return False
+    return _backup_ops.is_internal_mount(mnt)
 
 
 def _is_supported_backup_fstype(path: str, fstype: str) -> bool:
-    """Return whether the target filesystem type is supported for manual backup.
-
-    Manual Backup requires ext4 for Linux metadata preservation (ACLs, xattrs,
-    hard links). exFAT, FAT32, NTFS, and other filesystems are not supported.
-    """
-    fstype = (fstype or "").lower()
-    return fstype == "ext4"
+    """Return whether the target filesystem type is supported for manual backup."""
+    return _backup_ops.is_supported_backup_fstype(path, fstype)
 
 
 def _detect_external_drives() -> list[dict]:
-    """Scan for mounted external USB drives.
+    """Scan for mounted external USB drives."""
+    return _backup_ops.detect_external_drives()
 
-    Uses ``lsblk`` to identify genuinely removable/hotplug devices and
-    filters out internal system drives (BTCEcoandBackup, sovran_systemsos,
-    /boot/efi, /run/media/Second_Drive).  Falls back to scanning
-    /run/media/ directly if lsblk is unavailable, applying the same
-    label/path filters.
 
-    Returns:
-        list[dict]: Each dict contains name, path, free_gb, total_gb, fstype.
-    """
-    import json as _json
-    import subprocess as _subprocess
-
-    drives: list[dict] = []
-    seen_paths: set[str] = set()
-
-    # ── Primary path: lsblk JSON ────────────────────────────────
+def _read_backup_target() -> str:
+    """Return the last selected backup target mount path, or '' if absent."""
     try:
-        result = _subprocess.run(
-            ["lsblk", "-J", "-o", "NAME,LABEL,FSTYPE,MOUNTPOINT,HOTPLUG,RM,TYPE"],
-            capture_output=True, text=True, timeout=10
-        )
-        if result.returncode == 0:
-            data = _json.loads(result.stdout)
-
-            def _flatten(devs: list) -> list:
-                out = []
-                for d in devs:
-                    out.append(d)
-                    out.extend(_flatten(d.get("children") or []))
-                return out
-
-            for dev in _flatten(data.get("blockdevices", [])):
-                dev_type   = dev.get("type", "")
-                hotplug    = str(dev.get("hotplug", "0"))
-                rm         = str(dev.get("rm", "0"))
-                label      = dev.get("label") or ""
-                fstype     = (dev.get("fstype") or "").lower()
-                mountpoint = dev.get("mountpoint") or ""
-
-                if dev_type not in ("part", "disk"):
-                    continue
-                if hotplug != "1" and rm != "1":
-                    continue
-                if not mountpoint:
-                    continue
-                if label in _INTERNAL_LABELS:
-                    continue
-                if _is_internal_mount(mountpoint):
-                    continue
-                if mountpoint in seen_paths:
-                    continue
-
-                try:
-                    st = os.statvfs(mountpoint)
-                    total_gb = round((st.f_blocks * st.f_frsize) / (1024 ** 3), 1)
-                    free_gb  = round((st.f_bavail * st.f_frsize) / (1024 ** 3), 1)
-                    name = label if label else os.path.basename(mountpoint)
-                    drives.append({
-                        "name":     name,
-                        "path":     mountpoint,
-                        "free_gb":  free_gb,
-                        "total_gb": total_gb,
-                        "fstype":   fstype,
-                    })
-                    seen_paths.add(mountpoint)
-                except OSError:
-                    pass
-
-            if drives:
-                return drives
-    except Exception:  # lsblk not available or JSON parse error
-        pass
-
-    # ── Fallback: scan /run/media/ ───────────────────────────────
-    media_root = "/run/media"
-    if not os.path.isdir(media_root):
-        return drives
-    try:
-        for user in os.listdir(media_root):
-            user_path = os.path.join(media_root, user)
-            if not os.path.isdir(user_path):
-                continue
-            for drive_name in os.listdir(user_path):
-                drive_path = os.path.join(user_path, drive_name)
-                if not os.path.isdir(drive_path):
-                    continue
-                if drive_name in _INTERNAL_LABELS:
-                    continue
-                if _is_internal_mount(drive_path):
-                    continue
-                if drive_path in seen_paths:
-                    continue
-                try:
-                    st = os.statvfs(drive_path)
-                    total_gb = round((st.f_blocks * st.f_frsize) / (1024 ** 3), 1)
-                    free_gb  = round((st.f_bavail * st.f_frsize) / (1024 ** 3), 1)
-                    fstype = ""
-                    try:
-                        fstype = _subprocess.run(
-                            ["findmnt", "-n", "-o", "FSTYPE", "-T", drive_path],
-                            capture_output=True, text=True, timeout=5
-                        ).stdout.strip().lower()
-                    except Exception:
-                        fstype = ""
-                    drives.append({
-                        "name":     drive_name,
-                        "path":     drive_path,
-                        "free_gb":  free_gb,
-                        "total_gb": total_gb,
-                        "fstype":   fstype,
-                    })
-                    seen_paths.add(drive_path)
-                except OSError:
-                    pass
+        with open(BACKUP_TARGET_FILE, "r", encoding="utf-8") as f:
+            return f.read().strip("\r\n")
     except OSError:
-        pass
-    return drives
+        return ""
+
+
+def _write_backup_target(target: str) -> None:
+    """Persist the selected backup target mount path for sovran-hub-backup.service."""
+    parent = os.path.dirname(BACKUP_TARGET_FILE)
+    if parent:
+        os.makedirs(parent, exist_ok=True)
+    tmp_path = f"{BACKUP_TARGET_FILE}.tmp.{os.getpid()}"
+    fd = os.open(tmp_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    try:
+        os.write(fd, (target + "\n").encode("utf-8"))
+    finally:
+        os.close(fd)
+    os.replace(tmp_path, BACKUP_TARGET_FILE)
+
+
+def _is_backup_unit_active() -> bool:
+    """Return True if the detached backup systemd unit is active or activating."""
+    try:
+        return sysctl.is_active(BACKUP_UNIT, "system") in ("active", "activating")
+    except Exception:
+        return False
+
+
+def _is_backup_genuinely_running() -> bool:
+    """Return True if either the backup flock is held or the backup unit is active."""
+    return _backup_ops.is_backup_lock_held(BACKUP_LOCK) or _is_backup_unit_active()
+
+
+def _recover_stale_backup_status() -> bool:
+    """Heal a stale RUNNING backup status left behind by a crash or reboot."""
+    grace = (time.monotonic() - _backup_launch_monotonic) < _BACKUP_LAUNCH_GRACE_SECONDS
+    return _backup_ops.recover_stale_backup_status(
+        BACKUP_STATUS,
+        BACKUP_LOG,
+        BACKUP_LOCK,
+        is_unit_active_fn=_is_backup_unit_active,
+        launch_grace_active=grace,
+    )
 
 
 # ── custom.nix Hub Managed section helpers ────────────────────────
@@ -4076,6 +4004,26 @@ async def api_service_restart(unit: str):
 
 @app.post("/api/reboot")
 async def api_reboot():
+    loop = asyncio.get_event_loop()
+    await loop.run_in_executor(None, _recover_stale_backup_status)
+    if (
+        await loop.run_in_executor(None, _read_backup_status) == "RUNNING"
+        or await loop.run_in_executor(None, _is_backup_genuinely_running)
+    ):
+        raise HTTPException(
+            status_code=409,
+            detail="Cannot restart while a manual backup is running. Wait for the backup to finish and eject your USB drive first.",
+        )
+    if await loop.run_in_executor(None, lambda: sysctl.is_active(UPDATE_UNIT, "system")) == "active":
+        raise HTTPException(
+            status_code=409,
+            detail="Cannot restart while a system update is in progress.",
+        )
+    if await loop.run_in_executor(None, lambda: sysctl.is_active(REBUILD_UNIT, "system")) == "active":
+        raise HTTPException(
+            status_code=409,
+            detail="Cannot restart while a system rebuild is in progress.",
+        )
     try:
         proc = await asyncio.create_subprocess_exec(
             "/run/current-system/sw/bin/systemctl", "start", "--no-block", REBOOT_UNIT,
@@ -4356,10 +4304,12 @@ async def api_support_audit_log(limit: int = 100):
 
 @app.get("/api/backup/status")
 async def api_backup_status(offset: int = 0):
-    """Poll endpoint: reads backup status file + log file."""
+    """Poll endpoint: reads backup status file + log file (healing stale RUNNING state)."""
     loop = asyncio.get_event_loop()
+    await loop.run_in_executor(None, _recover_stale_backup_status)
     status = await loop.run_in_executor(None, _read_backup_status)
     new_log, new_offset = await loop.run_in_executor(None, _read_backup_log, offset)
+    target = await loop.run_in_executor(None, _read_backup_target)
     running = (status == "RUNNING")
     result = "pending" if running else status.lower()
     return {
@@ -4367,6 +4317,7 @@ async def api_backup_status(offset: int = 0):
         "result":  result,
         "log":     new_log,
         "offset":  new_offset,
+        "target":  target,
     }
 
 
@@ -4379,7 +4330,7 @@ async def api_backup_drives():
 
 
 async def _monitor_backup_subprocess(proc: asyncio.subprocess.Process) -> None:
-    """Drain stderr, then mark status FAILED if backup subprocess exits unexpectedly."""
+    """Drain stderr, then mark status FAILED if fallback subprocess exits unexpectedly."""
     stderr_chunks: list[bytes] = []
 
     async def _drain_stderr() -> None:
@@ -4411,12 +4362,14 @@ async def _monitor_backup_subprocess(proc: asyncio.subprocess.Process) -> None:
 
 @app.post("/api/backup/run")
 async def api_backup_run(target: str = ""):
-    """Start the backup script as a background subprocess.
+    """Start the detached backup unit (with subprocess fallback in dev/test).
     Returns immediately; progress is read via /api/backup/status.
     """
+    global _backup_launch_monotonic
     loop = asyncio.get_event_loop()
+    await loop.run_in_executor(None, _recover_stale_backup_status)
     status = await loop.run_in_executor(None, _read_backup_status)
-    if status == "RUNNING":
+    if status == "RUNNING" or await loop.run_in_executor(None, _is_backup_genuinely_running):
         return {"ok": True, "status": "already_running"}
 
     drives = await loop.run_in_executor(None, _detect_external_drives)
@@ -4439,6 +4392,11 @@ async def api_backup_run(target: str = ""):
             detail=f"Selected drive filesystem '{selected_fstype}' is not supported for manual backup. Manual Backup requires an ext4-formatted drive.",
         )
 
+    try:
+        await loop.run_in_executor(None, _write_backup_target, selected_target)
+    except OSError as exc:
+        raise HTTPException(status_code=500, detail=f"Could not record backup target: {exc}")
+
     # Clear stale log before starting
     try:
         with open(BACKUP_LOG, "w") as f:
@@ -4451,11 +4409,38 @@ async def api_backup_run(target: str = ""):
     except OSError as exc:
         raise HTTPException(status_code=500, detail=f"Could not set backup status: {exc}")
 
+    _backup_launch_monotonic = time.monotonic()
+
     await loop.run_in_executor(
         None,
         _append_backup_log,
         f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] Starting backup process…",
     )
+
+    # Prefer the dedicated systemd unit so an in-flight backup survives a
+    # sovran-hub-web restart or nixos-rebuild switch.
+    systemctl_bin = "/run/current-system/sw/bin/systemctl"
+    if not os.path.exists(systemctl_bin):
+        systemctl_bin = shutil.which("systemctl") or ""
+
+    if systemctl_bin:
+        try:
+            unit_proc = await asyncio.create_subprocess_exec(
+                systemctl_bin, "start", "--no-block", BACKUP_UNIT,
+                stdout=asyncio.subprocess.DEVNULL,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            _, unit_stderr = await unit_proc.communicate()
+            if unit_proc.returncode == 0:
+                return {"ok": True, "status": "started", "target": selected_target}
+            logger.warning(
+                "systemctl start %s returned %d (%s); falling back to detached subprocess",
+                BACKUP_UNIT,
+                unit_proc.returncode,
+                unit_stderr.decode("utf-8", errors="replace").strip(),
+            )
+        except Exception as exc:
+            logger.warning("Failed to invoke systemctl for %s (%s); falling back to subprocess", BACKUP_UNIT, exc)
 
     env = dict(os.environ)
     env["BACKUP_TARGET"] = selected_target
@@ -4480,6 +4465,7 @@ async def api_backup_run(target: str = ""):
             stdout=asyncio.subprocess.DEVNULL,
             stderr=asyncio.subprocess.PIPE,
             env=env,
+            start_new_session=True,
         )
     except Exception as exc:
         await loop.run_in_executor(None, _append_backup_log, f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] ERROR: Failed to launch backup script: {exc}")
@@ -4488,6 +4474,35 @@ async def api_backup_run(target: str = ""):
 
     asyncio.create_task(_monitor_backup_subprocess(proc))
     return {"ok": True, "status": "started", "target": selected_target}
+
+
+class BackupEjectRequest(BaseModel):
+    target: str = ""
+
+
+@app.post("/api/backup/eject")
+async def api_backup_eject(req: BackupEjectRequest | None = None, target: str = ""):
+    """Flush buffers, unmount, and power off an external USB backup drive."""
+    loop = asyncio.get_event_loop()
+    await loop.run_in_executor(None, _recover_stale_backup_status)
+    status = await loop.run_in_executor(None, _read_backup_status)
+    if status == "RUNNING" or await loop.run_in_executor(None, _is_backup_genuinely_running):
+        raise HTTPException(
+            status_code=409,
+            detail="Cannot eject the drive while a backup is running.",
+        )
+
+    effective_target = (req.target if req and req.target else target) or await loop.run_in_executor(None, _read_backup_target)
+    if not effective_target:
+        raise HTTPException(status_code=400, detail="No backup drive specified to eject.")
+
+    try:
+        return await loop.run_in_executor(
+            None,
+            lambda: _backup_ops.eject_external_drive(effective_target),
+        )
+    except _backup_ops.DriveEjectError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.message)
 
 
 # ── Feature Manager endpoints ─────────────────────────────────────
@@ -6248,13 +6263,14 @@ def _recover_stale_status(status_file: str, log_file: str, unit_name: str) -> bo
 
 @app.on_event("startup")
 async def _startup_recover_stale_status():
-    """Reset stale RUNNING status files left by interrupted update/rebuild jobs."""
+    """Reset stale RUNNING status files left by interrupted update/rebuild/backup jobs."""
     global _update_recovery_happened
     loop = asyncio.get_event_loop()
     corrected = await loop.run_in_executor(None, _recover_stale_status, UPDATE_STATUS, UPDATE_LOG, UPDATE_UNIT)
     if corrected:
         _update_recovery_happened = True
     await loop.run_in_executor(None, _recover_stale_status, REBUILD_STATUS, REBUILD_LOG, REBUILD_UNIT)
+    await loop.run_in_executor(None, _recover_stale_backup_status)
 
 
 @app.on_event("startup")
