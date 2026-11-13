@@ -47,7 +47,8 @@ function renderDomainNeedsHtml(opts) {
   // connection. Say what that publishes (README: "Server + Desktop and your
   // home IP address").
   html += "<p>⚠️ <strong>Heads-up:</strong> your domain points at your home internet connection, "
-    + "so anyone can look up your home IP address. Domain privacy does not hide it.</p>";
+    + "so anyone can look up your home IP address — the number your internet provider "
+    + "assigns your router, like 203.0.113.42. Domain privacy does not hide it.</p>";
   return html;
 }
 

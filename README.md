@@ -87,8 +87,8 @@ Bisq, and Bisq 2.
 | Mode | Best for | Included stack | Public exposure |
 |---|---|---|---|
 | **Desktop** | Everyday computing & modest hardware | Sparrow, Bisq, Bisq 2, Tor, and the stock Mullvad VPN app (unconfigured; disable via `services.mullvad-vpn.enable = lib.mkForce false;` in `custom.nix` if unwanted) | **None.** Publishes nothing on your LAN or the internet; ships with no SSH daemon. |
-| **Node** | Running and verifying your own Bitcoin & Lightning node | Desktop stack (minus Mullvad) + Bitcoin Core, Electrs, LND, RTL, BTCPay Server, optional Mempool, and auto-connected wallets | **LAN & Tor by default.** Exposes your home IP only if you enable *Put BTCPay Server Online* or *Lightning Wallet Connections*. |
-| **Server + Desktop** | Full sovereignty over Bitcoin, cloud, chat, and web | Complete Node stack + Nextcloud, Matrix/Element, Vaultwarden, WordPress, and Caddy domains | **Public internet** (ports 80/443 + Dynamic DNS). [Read below first](#server--desktop-and-your-home-ip-address). |
+| **Node** | Running and verifying your own Bitcoin & Lightning node | Desktop stack (minus Mullvad) + Bitcoin Core, Electrs, LND, RTL, BTCPay Server, optional Mempool, and auto-connected wallets | **LAN & Tor by default.** Exposes your home connection's public IP address only if you enable *Put BTCPay Server Online* or *Lightning Wallet Connections*. |
+| **Server + Desktop** | Full sovereignty over Bitcoin, cloud, chat, and web | Complete Node stack + Nextcloud, Matrix/Element, Vaultwarden, WordPress, and Caddy domains | **Public internet** (ports 80/443 + Dynamic DNS), so your domain resolves to your home connection's public IP address — a number such as `203.0.113.42`. See [exposure notes](#server--desktop-and-your-home-ip-address). |
 
 ### Recommended hardware
 
@@ -101,21 +101,46 @@ Bisq, and Bisq 2.
 
 ### Server + Desktop and your home IP address
 
-> **⚠️ Public services reveal your home IP address.**
-> Enabling public services in **Server + Desktop** (or enabling *Put BTCPay
-> Server Online* / *Lightning Wallet Connections* in **Node**) points a
-> [Njal.la](https://njal.la) Dynamic DNS record at your home internet connection
-> and opens ports 80 and 443 for HTTPS via Caddy:
->
-> - **Anyone resolving your domain can see your home IP**, ISP, and approximate
->   location (registrar WHOIS privacy does not hide DNS `A` records).
-> - **Bots and scanners will probe open ports** on your connection.
-> - **Subdomains appear in public Certificate Transparency logs** (e.g.
->   `vault.yourdomain.com`), even if you never share them publicly.
->
-> Confirm your ISP allows port forwarding and that you can configure your router
-> before choosing Server + Desktop. If you want your home IP to stay private,
-> choose **Desktop** or **Node** (with public features left off).
+**Server + Desktop publishes services on the public internet, so your domain
+resolves to your home connection's public IP address.** This is what the role is
+for, and it is the same arrangement as any other self-hosted server on a
+residential connection.
+
+> **What "home IP address" means.** Your internet provider assigns your router a
+> number, called its public IP address, which looks like `203.0.113.42`. Digit,
+> dot, digit. That number is the whole of what this section is about, and it is
+> the only thing that enabling public services makes visible.
+
+Enabling public services in **Server + Desktop** (or enabling *Put BTCPay
+Server Online* / *Lightning Wallet Connections* in **Node**) points a
+[Njal.la](https://njal.la) Dynamic DNS record at your home internet connection
+and opens ports 80 and 443 for HTTPS via Caddy. As a result:
+
+- **Your domain's `A` record holds that number.** A DNS lookup returns the
+  digits, which is what lets a browser anywhere in the world find your services.
+  Registrar WHOIS privacy does not change this; DNS records are public by design.
+- **A lookup returns digits, plus the name of the provider that owns them.** An
+  IP lookup service can tell you which internet provider the number belongs to
+  and, from that provider's public registration records, name a broad region
+  such as a city or the provider's service area.
+- **The number belongs to your internet connection, not to you personally.**
+  Only your provider can link an address to a customer account, and it does not
+  publish that information. Nothing in a domain record carries a name, a contact
+  detail, or a location.
+- **Open ports receive routine background traffic.** Internet-wide scanners
+  probe 80/443 continuously on every public address, so expect log noise and
+  automated login attempts. Only the enabled services answer, each behind its
+  own authentication, and backends stay bound to loopback.
+- **Your service hostnames are visible in Certificate Transparency logs**
+  (e.g. `vault.yourdomain.com`), because certificates are issued publicly.
+
+None of the above is specific to this system, and none of it is prevented by
+running services here rather than elsewhere. What you are choosing is where your
+services run, not whether they are exposed. Confirm your ISP allows port
+forwarding and that you can configure your router before choosing Server +
+Desktop. If you would rather not publish your home IP address at all, choose
+**Desktop** or **Node** (with public features left off), or put a reverse proxy
+on a remote host in front of the machine.
 
 <details>
 <summary><strong>How Dynamic DNS & certificates work under the hood</strong></summary>

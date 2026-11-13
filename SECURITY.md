@@ -48,10 +48,16 @@ local ranges go in `sovran_systemsOS.hub.extraLanNetworks` in `custom.nix`;
 
 ### Public services and your home IP address
 
+"Home IP address", here and throughout this project's documentation, means the
+public IP address your internet provider assigns to your router — a number such
+as `203.0.113.42`, and nothing more. It is the number that lets traffic reach
+your connection. Only the provider can link that number to a customer account,
+and it does not publish that link.
+
 Publishing public services on Server + Desktop points a DDNS record at your
-home's public IP address, which anyone can look up, and lists your service
-hostnames in Certificate Transparency logs. Desktop publishes nothing. Node
-publishes nothing unless *Put BTCPay Server Online* or *Lightning Wallet
+home connection's public IP address, which anyone can look up, and lists your
+service hostnames in Certificate Transparency logs. Desktop publishes nothing.
+Node publishes nothing unless *Put BTCPay Server Online* or *Lightning Wallet
 Connections* is on. See
 [Server + Desktop and your home IP address](README.md#server--desktop-and-your-home-ip-address)
 for what this means and the alternatives.
@@ -82,7 +88,7 @@ an attacker who already controls root.
 - Administrative service ports bound to loopback where practical
 - Tor enforced for supported Bitcoin traffic and onion services
 - Public web services exposed only when enabled by the operator (this makes
-  your home IP address public)
+  your connection's public IP number visible in public DNS)
 
 SSH Remote Access is the only supported administrative port that faces the
 network, and it is off by default. Enabling it listens on all interfaces and

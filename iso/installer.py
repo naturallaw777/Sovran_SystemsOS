@@ -476,7 +476,7 @@ class InstallerWindow(Adw.ApplicationWindow):
         # Role cards
         roles = [
             ("Server + Desktop",
-             "Full sovereignty: host your own websites, cloud, chat, passwords, and Bitcoin services instead of relying on Big Tech. Sovran_SystemsOS walks you through getting your domain from Njal.la and connecting everything. One router task is required: forward ports 80 and 443 to this computer. Heads-up: this makes your home IP address public.",
+             "Full sovereignty: host your own websites, cloud, chat, passwords, and Bitcoin services instead of relying on Big Tech. Sovran_SystemsOS walks you through getting your domain from Njal.la and connecting everything. One router task is required: forward ports 80 and 443 to this computer. Heads-up: this makes your home IP address public — that is the number your internet provider assigns your router, like 203.0.113.42.",
              "Server+Desktop"),
             ("Desktop Only",
              "A beautiful, easy-to-use desktop without the background server applications. Includes the Mullvad VPN app.",
