@@ -124,7 +124,7 @@ and opens ports 80 and 443 for HTTPS via Caddy. As a result:
   and, from that provider's public registration records, name a broad region
   such as a city or the provider's service area.
 - **The number belongs to your internet connection, not to you personally.**
-  Only your provider can link an address to a customer account, and it does not
+  Only your internet provider can link an address to a customer account, and it does not
   publish that information. Nothing in a domain record carries a name, a contact
   detail, or a location.
 - **Open ports receive routine background traffic.** Internet-wide scanners
@@ -134,10 +134,7 @@ and opens ports 80 and 443 for HTTPS via Caddy. As a result:
 - **Your service hostnames are visible in Certificate Transparency logs**
   (e.g. `vault.yourdomain.com`), because certificates are issued publicly.
 
-None of the above is specific to this system, and none of it is prevented by
-running services here rather than elsewhere. What you are choosing is where your
-services run, not whether they are exposed. Confirm your ISP allows port
-forwarding and that you can configure your router before choosing Server +
+Confirm your ISP allows port forwarding and that you can configure your router before choosing Server +
 Desktop. If you would rather not publish your home IP address at all, choose
 **Desktop** or **Node** (with public features left off), or put a reverse proxy
 on a remote host in front of the machine.
