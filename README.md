@@ -6,24 +6,18 @@
 
 ### Bitcoin sovereignty. Sovereign computing. One system.
 
-Sovran_SystemsOS is a free and open-source operating system built for two
-inseparable freedoms: **Bitcoin self-custody** and **sovereign computing**.
-Hold your own keys, trade peer-to-peer, and verify your own money with your
-own node. Then claim that same uncompromising ownership over the rest of your
-digital life — your files, communications, passwords, and websites — all on
-hardware you control, running auditable open-source software you can trust.
-
-Every installation is a private [NixOS](https://nixos.org) desktop with
+Sovran_SystemsOS is a free and open-source operating system built on
+[NixOS](https://nixos.org) for **Bitcoin self-custody** and **sovereign
+computing**. Every installation starts with a private desktop and
 **[Sparrow Wallet](https://sparrowwallet.com)**, **[Bisq](https://bisq.network)**,
-and **[Bisq 2](https://github.com/bisq-network/bisq2)** ready to use. Move beyond
-custodial exchanges from the first boot, and grow into your own Bitcoin node,
-Lightning infrastructure, private cloud, and communications platform when you
-are ready.
+and **[Bisq 2](https://github.com/bisq-network/bisq2)** ready from the first
+boot — and scales into your own Bitcoin node, Lightning stack, private cloud,
+and communications server when you are ready.
 
-[Visit the Website](https://sovransystems.com) ·
-[Download the ISO](https://downloads.sovransystems.com/Sovran_SystemsOS-1.2.5.iso) ·
-[Try it safely in a VM](#try-it-first-in-a-virtual-machine) ·
-[Verify the Download](https://downloads.sovransystems.com/Sovran_SystemsOS-1.2.5.iso.sha256) ·
+[Website](https://sovransystems.com) ·
+[Download ISO](https://downloads.sovransystems.com/Sovran_SystemsOS-1.2.5.iso) ·
+[Verify SHA-256](https://downloads.sovransystems.com/Sovran_SystemsOS-1.2.5.iso.sha256) ·
+[Install Guide](#install-sovran_systemsos) ·
 [Build from Source](#build-from-source)
 
 <img src="assets/desktop-screenshot.webp" alt="Sovran_SystemsOS private Bitcoin desktop" width="800" />
@@ -32,883 +26,303 @@ are ready.
 
 </div>
 
-> **📌 Active development on GitHub `main` / Gitea `staging-dev` — releases on
-> [Gitea `stable`](https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS/src/branch/stable).**
-> See [Development workflow](#development-workflow) for details.
+> **📌 Branch note:** Active development happens on GitHub `main` and Gitea
+> `staging-dev`. Audited, release-ready builds live on
+> [Gitea `stable`](https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS/src/branch/stable).
 
 ---
 
 ## Contents
 
-- [Why Sovran_SystemsOS?](#why-sovran_systemsos)
-- [Try it first in a virtual machine](#try-it-first-in-a-virtual-machine)
 - [What is included](#what-is-included)
 - [Three modes](#three-modes)
-- [Use it your way](#use-it-your-way)
 - [The Hub](#the-hub)
 - [Install Sovran_SystemsOS](#install-sovran_systemsos)
 - [For developers](#for-developers)
-  - [Development workflow](#development-workflow)
-  - [Build from source](#build-from-source)
-  - [Publishing a release](#publishing-a-release)
-- [About Bitcoin wallet entropy](#about-bitcoin-wallet-entropy)
-- [Security approach](#security-approach)
+- [Security](#security)
 - [Acknowledgements](#acknowledgements)
-- [License](#license) · [Contributing](#contributing)
-
----
-
-## Why Sovran_SystemsOS?
-
-Bitcoin lets you hold and transfer value without asking a bank, exchange, or
-custodian for permission, but that freedom depends on the software and
-infrastructure you choose. Your wider digital life works the same way: files,
-messages, and passwords kept on someone else's servers are never fully yours.
-
-Sovran_SystemsOS solves both with one operating system:
-
-- **Hold your own keys** with **Sparrow Wallet**. Create and manage wallets,
-  connect hardware signing devices, use multisignature setups, build and
-  inspect transactions, and control UTXOs and coin selection.
-- **Buy and sell Bitcoin peer-to-peer** with **Bisq** and **Bisq 2**. No
-  central company holds user funds, and no exchange account stands between
-  buyers and sellers.
-- **Verify your own Bitcoin** with a full node: [Bitcoin Core](https://bitcoin.org) and
-  [Electrs](https://github.com/romanz/electrs), so your wallets connect to
-  *your* node instead of a stranger's.
-- **Use Lightning** with [LND](https://github.com/lightningnetwork/lnd) and
-  [Ride The Lightning](https://github.com/Ride-The-Lightning/RTL).
-- **Accept Bitcoin directly** with [BTCPay Server](https://btcpayserver.org),
-  with no payment processor in the middle.
-- **Own the rest of your digital life** with
-  [Nextcloud](https://nextcloud.com) files and calendars,
-  [Matrix](https://matrix.org) communications, a
-  [Vaultwarden](https://github.com/dani-garcia/vaultwarden) password vault,
-  and your own [WordPress](https://wordpress.org) website.
-- **Protect your network privacy** with [Tor](https://www.torproject.org)
-  integration across the Bitcoin stack.
-- **Control everything from the Sovran Hub**, on the desktop or from any
-  browser on your local network.
-
-Other projects solve one piece of this puzzle: a distribution that runs a
-wallet, a node project that runs Bitcoin services, a self-hosting stack that
-replaces a cloud app. Sovran_SystemsOS brings them together on a reproducible,
-auditable NixOS foundation: Bitcoin tools from the first boot, one control
-center, and hardware you own.
-
-> Sovran_SystemsOS provides tools for self-custody and peer-to-peer Bitcoin
-> use. Users remain responsible for protecting their keys, understanding their
-> trades, following applicable laws, and maintaining secure backups.
-
----
-
-## Try it first in a virtual machine
-
-**Curious, but not ready to replace your current operating system?** Start with
-Sovran_SystemsOS in a virtual machine (VM): a window on your existing Windows,
-macOS, or Linux computer, using a virtual disk file instead of your internal
-drive. Explore the desktop, Sovran Hub, Sparrow, Bisq, and the installation
-experience before changing how you use any physical machine. Closing or
-deleting the VM leaves your current operating system untouched, and installing
-on a dedicated computer later is still open to you.
-
-Use the same ISO with [VirtualBox](https://www.virtualbox.org), VMware,
-QEMU/KVM, Proxmox, and similar x86_64 VM software. For a first look, select
-**Desktop Only**, allocate at least **8 GB RAM**, and create a **256 GB or
-larger dynamically allocated virtual disk**. Full requirements are in
-[Installing in a virtual machine](#installing-in-a-virtual-machine-optional).
-
-> **A VM is for evaluation and learning, not a substitute for a dedicated,
-> hardened setup.** Do not hold meaningful Bitcoin, recovery phrases,
-> passwords, or other sensitive data in a trial VM. Avoid attaching physical
-> drives, and be deliberate about shared folders, clipboard sharing, and
-> network settings. Review VM disk selections before confirming an install.
+- [License & Contributing](#license--contributing)
 
 ---
 
 ## What is included
 
-Depending on the selected mode and enabled features, Sovran_SystemsOS brings
-together a growing collection of private, open-source tools. The Sovran Hub
-presents and manages the features available on your system.
+Other projects solve one piece of the puzzle — a wallet distribution, a node-in-a-box,
+or a self-hosting stack. Sovran_SystemsOS brings them together on a reproducible,
+auditable NixOS foundation controlled from one place.
 
-### Your money — Bitcoin sovereignty
+- **Bitcoin & Lightning** — [Bitcoin Core](https://bitcoin.org),
+  [Electrs](https://github.com/romanz/electrs), [Tor](https://www.torproject.org),
+  [LND](https://github.com/lightningnetwork/lnd),
+  [Ride The Lightning](https://github.com/Ride-The-Lightning/RTL),
+  [Alby Hub](https://albyhub.com) (NWC), [BTCPay Server](https://btcpayserver.org),
+  optional [Mempool](https://github.com/mempool/mempool) explorer, and
+  Sparrow Wallet, Bisq, and Bisq 2 with automatic wallet-to-node connections.
+- **Private communications** — [Matrix Synapse](https://github.com/element-hq/synapse)
+  and [Element](https://element.io), optional audio/video calling via
+  [LiveKit](https://livekit.io), and an optional
+  [Haven](https://github.com/bitvora/haven) Nostr relay.
+- **Private cloud & web** — [Nextcloud](https://nextcloud.com) (files,
+  calendars, contacts), [Vaultwarden](https://github.com/dani-garcia/vaultwarden)
+  passwords, [WordPress](https://wordpress.org), [Caddy](https://caddyserver.com)
+  reverse proxy, and optional remote desktop.
+- **Everyday desktop** — [GNOME](https://www.gnome.org),
+  [Brave Origin](https://brave.com/origin/) and
+  [Firefox](https://www.mozilla.org/firefox), office and administration tools,
+  plus [Mullvad VPN](https://mullvad.net) on the Desktop mode.
 
-- Bitcoin Core, Electrs, and Tor integration
-- LND and Ride The Lightning, with [Alby Hub](https://albyhub.com) for Nostr
-  Wallet Connect (NWC) connections
-- BTCPay Server
-- Sparrow Wallet, Bisq, and Bisq 2, with automatic wallet-to-node connections
-- Optional: a self-hosted [Mempool](https://github.com/mempool/mempool)
-  explorer
-
-Run your own Bitcoin infrastructure. Verify your own money. Trust no one.
-
-### Your voice — private communications
-
-- The [Synapse](https://github.com/element-hq/synapse) homeserver (Matrix) and
-  the [Element](https://element.io) client
-- Optional Matrix-native Element audio and video calling, powered by
-  [LiveKit](https://livekit.io)
-- Optional [Haven](https://github.com/bitvora/haven)
-  [Nostr](https://github.com/nostr-protocol/nostr) relay
-
-Communicate without making Big Tech the owner of your identity or
-conversations.
-
-### Your cloud — self-hosting and storage
-
-- Nextcloud files, calendars, and contacts
-- Vaultwarden password vault
-- WordPress websites
-- [Caddy](https://caddyserver.com) with private service domains
-- Optional remote desktop
-
-Keep your files, passwords, calendar, contacts, website, and services on
-hardware you control.
-
-### Your desktop
-
-- [GNOME](https://www.gnome.org) desktop
-- [Brave Origin](https://brave.com/origin/) and
-  [Firefox](https://www.mozilla.org/firefox) browsers
-- [Mullvad VPN](https://mullvad.net) desktop app and daemon, on Desktop Only
-- File management, email, calendar, and office applications
-- System monitoring and administration tools
+> Sovran_SystemsOS provides tools for self-custody and peer-to-peer Bitcoin use.
+> You remain responsible for protecting your keys, verifying backups, and
+> following applicable laws.
 
 ---
 
 ## Three modes
 
-Every mode shares the same foundation: the private NixOS and GNOME desktop,
-the Sovran Hub, and Sparrow, Bisq, and Bisq 2. What changes is how much
-Bitcoin and self-hosting infrastructure runs on the machine.
+Use Sovran_SystemsOS as your **everyday desktop**, or install it on a dedicated
+machine as a **headless home server** managed from any browser on your local
+network. Every mode shares the NixOS + GNOME base, the Sovran Hub, Sparrow,
+Bisq, and Bisq 2.
 
-| Mode | Best for | What you get |
-|---|---|---|
-| **Desktop** | Everyday users and computers with modest hardware | Sparrow, Bisq, and Bisq 2 for self-custody and peer-to-peer Bitcoin use, plus the Mullvad VPN app |
-| **Node** | People ready to verify and operate their own Bitcoin infrastructure | Everything in Desktop, plus the full Bitcoin stack: Bitcoin Core, Electrs, LND, Ride The Lightning, BTCPay Server, and wallet-to-node connections. **Publishes nothing unless you enable *Put BTCPay Server Online* or *Lightning Wallet Connections*:** [read this first](#server--desktop-and-your-home-ip-address) |
-| **Server + Desktop** | Bitcoiners who want the same sovereignty over their communications, cloud, passwords, and web services | The complete Node stack, plus the private self-hosted services. **Makes your home IP address public:** [read this first](#server--desktop-and-your-home-ip-address) |
-
-**Desktop: start with your keys.** Desktop is not a reduced or Bitcoin-free
-edition: it is a complete, private everyday computer with a clean GNOME
-desktop, Tor, the Sovran Hub, and the Mullvad VPN app and daemon — which no
-other role installs — and a lower-hardware path to self-custody and non-KYC
-Bitcoin tools from the first boot. Move to Node mode when your hardware,
-storage, and needs are ready.
-
-Mullvad is installed the way NixOS ships it and nothing in it is configured for
-you: create an account at [mullvad.net](https://mullvad.net), sign in from the
-app, and set the relay and the app's own switches to taste. It is the one thing
-that reaches the network from this machine as an application rather than as a
-service, so Server + Desktop and Bitcoin Node — built to serve — do not carry
-it. On Desktop it is simply there; remove it with
-`services.mullvad-vpn.enable = lib.mkForce false;` in `custom.nix` if you would
-rather not have it.
-
-**Node: verify your own money.** You operate the infrastructure that performs
-the verification instead of asking someone else's server: your node verifies,
-your wallet connects to it, your keys stay yours.
-
-Node publishes nothing by default. Two Node features need a public domain and
-make your home IP address public when enabled: **Put BTCPay Server Online** and
-**Lightning Wallet Connections**. Everything else, Mempool and Ride The
-Lightning included, stays on your home network or reaches you through Tor — see
-[Server + Desktop and your home IP address](#server--desktop-and-your-home-ip-address).
-
-**Server + Desktop: sovereignty beyond money.** The same principle, applied
-to your data, communications, identity, and services.
+| Mode | Best for | Included stack | Public exposure |
+|---|---|---|---|
+| **Desktop** | Everyday computing & modest hardware | Sparrow, Bisq, Bisq 2, Tor, and the stock Mullvad VPN app (unconfigured; disable via `services.mullvad-vpn.enable = lib.mkForce false;` in `custom.nix` if unwanted) | **None.** Publishes nothing on your LAN or the internet; ships with no SSH daemon. |
+| **Node** | Running and verifying your own Bitcoin & Lightning node | Desktop stack (minus Mullvad) + Bitcoin Core, Electrs, LND, RTL, BTCPay Server, optional Mempool, and auto-connected wallets | **LAN & Tor by default.** Exposes your home IP only if you enable *Put BTCPay Server Online* or *Lightning Wallet Connections*. |
+| **Server + Desktop** | Full sovereignty over Bitcoin, cloud, chat, and web | Complete Node stack + Nextcloud, Matrix/Element, Vaultwarden, WordPress, and Caddy domains | **Public internet** (ports 80/443 + Dynamic DNS). [Read below first](#server--desktop-and-your-home-ip-address). |
 
 ### Recommended hardware
 
 | | **Desktop** | **Node** | **Server + Desktop** |
 |---|---|---|---|
-| Processor | 64-bit Intel or AMD, ~2015 or newer | Intel or AMD x86, ~3 years old or newer | Same as Node |
-| RAM | 8 GB | 16 GB | 32 GB |
-| Storage | 256 GB SSD | 500 GB NVMe (OS) + 2 TB NVMe (timechain) | Same as Node |
-| Network | Any broadband | Unmetered, ~200 Mbps down / 50 Mbps up | Same as Node |
-| Also needed | — | — | A domain for publicly accessible services |
-
-> **Before choosing Server + Desktop:** this mode makes services reachable from
-> the public internet, which means opening specific ports on your home network.
-> Before you start, confirm three things: you can log in to your router's admin
-> panel, the panel includes a port-forwarding section, and your internet
-> provider allows port forwarding.
+| **CPU** | 64-bit Intel/AMD (~2015+) | 64-bit Intel/AMD (~3 yrs old or newer) | Same as Node |
+| **RAM** | 8 GB | 16 GB | 32 GB |
+| **Storage** | 256 GB SSD | 500 GB NVMe (OS) + 2 TB NVMe (timechain) | Same as Node |
+| **Network** | Any broadband | Unmetered, ~200 Mbps down / 50 Mbps up | Same as Node + router port forwarding & a domain |
 
 ### Server + Desktop and your home IP address
 
-> **⚠️ Server + Desktop makes your home IP address public.**
-> Public services need a domain name that points at your home internet
-> connection. When you finish the guided domain setup, Sovran_SystemsOS puts
-> your home's public IP address in a Dynamic DNS record at
-> [Njal.la](https://njal.la) and keeps it up to date, and you forward ports 80
-> and 443 on your router to this computer. From then on:
+> **⚠️ Public services reveal your home IP address.**
+> Enabling public services in **Server + Desktop** (or enabling *Put BTCPay
+> Server Online* / *Lightning Wallet Connections* in **Node**) points a
+> [Njal.la](https://njal.la) Dynamic DNS record at your home internet connection
+> and opens ports 80 and 443 for HTTPS via Caddy:
 >
-> - **Anyone can look up your domain and see your home IP address,** which
->   reveals your internet provider and approximate location and ties everything
->   you publish on that domain to your home connection. Domain privacy does not
->   hide it: registrar privacy protects the registrant's identity, not the IP
->   address in your DNS records.
-> - **Your connection is open to the whole internet on those ports.** Scanners
->   and bots constantly probe public IP addresses, so expect automated probing
->   and login attempts against every service you publish.
-> - **Your service names are discoverable.** Public HTTPS certificates are
->   listed in Certificate Transparency logs, so hostnames such as
->   `vault.yourdomain.com` can be found and resolved to your IP address, even
->   if you never share them.
-
-**Desktop** publishes nothing. **Node** publishes nothing unless you enable
-*Put BTCPay Server Online* or *Lightning Wallet Connections* — see
-[Three modes](#three-modes).
-
-**If you do not want your home IP address to be public,** choose Desktop or
-Node. Advanced users can put a VPS, reverse proxy, or tunnel in front of their
-services so DNS points there instead of at their home; Sovran_SystemsOS does
-not set that up, and the Hub's domain checks expect DNS to point at your home
-IP address.
+> - **Anyone resolving your domain can see your home IP**, ISP, and approximate
+>   location (registrar WHOIS privacy does not hide DNS `A` records).
+> - **Bots and scanners will probe open ports** on your connection.
+> - **Subdomains appear in public Certificate Transparency logs** (e.g.
+>   `vault.yourdomain.com`), even if you never share them publicly.
+>
+> Confirm your ISP allows port forwarding and that you can configure your router
+> before choosing Server + Desktop. If you want your home IP to stay private,
+> choose **Desktop** or **Node** (with public features left off).
 
 <details>
-<summary><strong>What happens technically</strong></summary>
+<summary><strong>How Dynamic DNS & certificates work under the hood</strong></summary>
 
-- You create a **Dynamic** DNS record at Njal.la and paste its update command
-  into the Hub, which only accepts `njal.la` update URLs.
-- The `sovran-ddns-update` timer points your record at the address the request
-  came from: after you save a domain, two minutes after boot, then every 15
-  minutes. Element calling and the Hub use that same address. See
-  `modules/core/njalla.nix`.
-- Once a service that needs a domain is on, the firewall opens TCP and UDP
-  ports 80 and 443 for Caddy, which requests public HTTPS certificates for the
-  domains you configure. The Hub lists any additional ports a feature needs.
-  See `modules/core/caddy.nix`.
+- You create a Dynamic DNS record at Njal.la and paste its `njal.la` update URL
+  into the Hub.
+- `sovran-ddns-update` updates the record on save, 2 minutes after boot, and
+  every 15 minutes (`modules/core/njalla.nix`).
+- When a domain-backed service is enabled, the firewall opens TCP/UDP 80 and 443
+  so Caddy can obtain public TLS certificates (`modules/core/caddy.nix`). The
+  Hub lists any extra ports required by specific features.
 
 </details>
-
----
-
-## Use it your way
-
-You do not have to replace the operating system on your current computer to
-benefit from Sovran_SystemsOS.
-
-### As your everyday computer
-
-Install Sovran_SystemsOS on a desktop, laptop, or mini PC and use its clean
-GNOME desktop as your daily operating system, with the Bitcoin software and
-the tools of your selected mode already in place.
-
-### As a private Bitcoin and home server
-
-Prefer to keep using Windows, macOS, Linux, Android, or iOS? Install
-Sovran_SystemsOS on a separate computer and let it run quietly on your local
-network, with or without a monitor. From any other device on the same network,
-open a browser, visit `http://sovransystemsos.local:8937`, and manage
-everything from [the Hub](#the-hub).
 
 ---
 
 ## The Hub
 
-### Your private infrastructure, controlled from any screen.
+The **Sovran Hub** is the built-in control center for your machine — available
+as a desktop app and, on **Node** and **Server + Desktop**, from any browser on
+your local network at `http://sovransystemsos.local:8937` (protected by login
+and restricted to local/LAN addresses).
 
-The Hub is the command center built into Sovran_SystemsOS: a local desktop
-application and a private web interface served by your Sovran_SystemsOS
-machine. The device opening it needs only a modern browser and access to the
-same local network.
-
-From one place, the Hub lets you:
-
-- Open, monitor, start, and stop your services
-- Configure system features and manage service domains and credentials
-- Reach your Bitcoin tools, private cloud, and communications
-- Perform supported system operations without everyday terminal commands
+- Start, stop, and monitor Bitcoin, Lightning, and self-hosted services
+- Toggle system features and configure domains and credentials
+- Run system updates and integrity checks without touching the terminal
+- Grant optional, time-limited **Tech Support** access on Node and Server +
+  Desktop (requires enabling SSH Remote Access, which is off by default;
+  Desktop ships with no SSH or support account — see
+  [`SECURITY.md`](SECURITY.md#restricted-support-access))
 
 <img src="assets/sovran-hub-screenshot.webp" alt="The Sovran Hub welcome dashboard" width="800" />
-
-*The Hub: your whole system at a glance — Bitcoin, Lightning, and your private apps.*
-
-### Example home setup
-
-```text
-                          Your local network
-                                 │
-          ┌──────────────────────┼──────────────────────┐
-          │                      │                      │
-    Windows laptop         Phone or tablet          Mac or Linux
-          │                      │                      │
-          └─────── Browser: sovransystemsos.local:8937 ─┘
-                                 │
-                                 ▼
-                    ┌──────────────────────────┐
-                    │   Sovran_SystemsOS       │
-                    │                          │
-                    │   • The Hub           │
-                    │   • Bitcoin node         │
-                    │   • Sparrow Wallet       │
-                    │   • Bisq and Bisq 2      │
-                    │   • Lightning            │
-                    │   • Private cloud        │
-                    │   • Communications       │
-                    │   • Password vault       │
-                    │   • Hosted services      │
-                    └──────────────────────────┘
-```
-
-> **Local access:** the Hub is available at
-> `http://sovransystemsos.local:8937` to devices connected to the same local
-> network (not on Desktop, which publishes nothing). It is protected by
-> authentication and answers only your local network.
-
-### Tech Support
-
-The Hub can give a Sovran Systems technician temporary access to your machine.
-Support runs over SSH, and **Tech Support requires SSH Remote Access, which is
-off by default.**
-
-> **Desktop Only:** Tech Support is not available on this role. The Hub shows no
-> Tech Support tile or window, the SSH Remote Access feature is not offered, the
-> support API is disabled, and the restricted `sovran-support` account is not
-> provisioned. Use Server + Desktop or Bitcoin Node if you need remote
-> assistance.
-
-> **SSH on Desktop Only:** that role ships no SSH daemon at all — no loopback
-> sshd, no factory SSH key or passphrase, no Hub SSH toggle and no remote
-> deploy mode. If you want SSH later, add the standard NixOS module to
-> `/etc/nixos/custom.nix` and rebuild (there is a commented example in
-> `custom.template.nix`):
->
-> ```nix
-> services.openssh = {
->   enable = true;
->   settings.PasswordAuthentication = false;
-> };
-> ```
->
-> NixOS opens TCP port 22 by default when `services.openssh` is enabled; add
-> `openFirewall = false;` for loopback-only SSH. The remote installer's
-> `--deploy-key` / `--headscale-*` options are not
-> available with `--role desktop`.
-
-Turning SSH on makes the machine listen on all interfaces and opens **TCP port
-22** in the firewall. Letting support in from outside your home means
-forwarding port 22 on your router, which puts SSH on the public internet where
-scanners and brute-force attempts will find it. Turn SSH off when the session
-ends; the Hub prompts you to.
-
-Support signs in as the restricted `sovran-support` account, not as root, with
-one key that expires after 24 hours. Wallet paths stay locked unless you unlock
-them for a limited time, and every session event is written to
-`/var/log/sovran-support-audit.log`. See
-[Restricted support access](SECURITY.md#restricted-support-access).
 
 ---
 
 ## Install Sovran_SystemsOS
 
-Sovran_SystemsOS is free and open source: download the installer, verify it,
-write it to a USB drive, and install it yourself, in control from the first
-step.
+> **Want to try it without touching your current PC?** Boot the ISO in a
+> virtual machine (VirtualBox, VMware, QEMU/KVM, or Proxmox) first — expand
+> *Installing in a virtual machine* below for recommended settings. Don't store
+> real funds or sensitive keys in a trial VM.
 
-An ISO is a complete installation image containing the operating system and
-installer. It is not copied to a USB drive like a document; it must be written
-with an imaging application such as [Balena Etcher](https://etcher.balena.io).
-
-**Before you begin, you will need:**
-
-- A compatible 64-bit computer, and a backup of anything important on it
-- A USB drive that can be erased
-- Another computer for downloading and preparing the installer
-- An internet connection
-
-> **Important:** Installing an operating system can erase the selected
-> destination drive. Back up important files and review every disk selection
-> carefully before continuing.
-
-### 1. Download the ISO and checksum
-
-- [Download Sovran_SystemsOS-1.2.5.iso](https://downloads.sovransystems.com/Sovran_SystemsOS-1.2.5.iso)
-- [Download Sovran_SystemsOS-1.2.5.iso.sha256](https://downloads.sovransystems.com/Sovran_SystemsOS-1.2.5.iso.sha256)
-
-The download may take some time. Do not rename or modify the ISO before
-verifying it, and keep both files in the same folder.
-
-### 2. Verify the checksum
-
-A checksum is a digital fingerprint of a file. Verifying it confirms the ISO
-downloaded completely and without corruption. The checksum produced from your
-ISO must match the published one exactly.
+1. **Download** both the installer image and its checksum:
+   - [Sovran_SystemsOS-1.2.5.iso](https://downloads.sovransystems.com/Sovran_SystemsOS-1.2.5.iso)
+   - [Sovran_SystemsOS-1.2.5.iso.sha256](https://downloads.sovransystems.com/Sovran_SystemsOS-1.2.5.iso.sha256)
+2. **Verify the SHA-256 checksum** before flashing. **Stop if it does not match.**
+3. **Flash to a USB drive** using [Balena Etcher](https://etcher.balena.io)
+   (flashing erases the selected USB drive).
+4. **Boot from USB** via your computer's boot menu (`F12`, `F11`, `F10`, `F9`,
+   `Esc`, or `Delete`), choose your mode and target disk carefully, and complete
+   the guided installer. **Back up any important data first.**
+5. **Open the Sovran Hub** from the desktop, or from another device on the same
+   LAN at `http://sovransystemsos.local:8937` (Node and Server + Desktop).
 
 <details>
-<summary><strong>Linux</strong></summary>
+<summary><strong>Checksum verification commands (Linux, macOS, Windows)</strong></summary>
 
-Open a terminal in the download folder and run:
+Keep both downloaded files in the same folder:
 
-```bash
-sha256sum --check Sovran_SystemsOS-1.2.5.iso.sha256
-```
-
-A successful comparison reports:
-
-```text
-Sovran_SystemsOS-1.2.5.iso: OK
-```
+- **Linux:**
+  ```bash
+  sha256sum --check Sovran_SystemsOS-1.2.5.iso.sha256
+  # Expected: Sovran_SystemsOS-1.2.5.iso: OK
+  ```
+- **macOS:**
+  ```bash
+  shasum -a 256 Sovran_SystemsOS-1.2.5.iso
+  ```
+- **Windows (PowerShell):**
+  ```powershell
+  Get-FileHash .\Sovran_SystemsOS-1.2.5.iso -Algorithm SHA256
+  ```
+  Compare the output hash on macOS/Windows with the contents of
+  `Sovran_SystemsOS-1.2.5.iso.sha256`.
 
 </details>
 
 <details>
-<summary><strong>macOS</strong></summary>
+<summary><strong>Installing in a virtual machine</strong></summary>
 
-Open Terminal in the download folder and run:
-
-```bash
-shasum -a 256 Sovran_SystemsOS-1.2.5.iso
-```
-
-Compare the value shown in Terminal with the value inside
-`Sovran_SystemsOS-1.2.5.iso.sha256`.
+- **RAM:** 8 GB+ for Desktop (16 GB for Node, 32 GB for Server + Desktop).
+- **Disks:** 256 GB+ virtual OS disk (thin/dynamically allocated is fine),
+  attached as VirtIO, SATA, SCSI, or NVMe (USB-attached disks are hidden by the
+  installer). Add a second 2 TB virtual disk if testing Node or Server + Desktop.
+- **Firmware & network:** UEFI preferred (falls back to GRUB on legacy BIOS);
+  use NAT or bridged networking with internet access.
 
 </details>
 
 <details>
-<summary><strong>Windows</strong></summary>
+<summary><strong>Troubleshooting local Hub access & guided help</strong></summary>
 
-Open PowerShell in the download folder and run:
+If `http://sovransystemsos.local:8937` does not open on another device:
+1. Confirm you are running **Node** or **Server + Desktop** (Desktop does not
+   expose the Hub on the LAN).
+2. Give the machine a few minutes to finish booting, and include `:8937` in the URL.
+3. Ensure both devices are on the same LAN (not guest Wi-Fi) and temporarily
+   pause any active VPN on the client device.
 
-```powershell
-Get-FileHash .\Sovran_SystemsOS-1.2.5.iso -Algorithm SHA256
-```
-
-Compare the value under `Hash` with the published checksum.
-
-</details>
-
-**If the values do not match, do not install.** Delete the downloaded ISO,
-download it again, and repeat the verification. Continue only after the values
-match exactly.
-
-### 3. Write the ISO to a USB drive
-
-1. Download and install [Balena Etcher](https://etcher.balena.io), then
-   connect the USB drive.
-2. Choose **Flash from file** and select `Sovran_SystemsOS-1.2.5.iso`.
-3. Choose **Select target**, select the USB drive, and review your selection
-   carefully.
-4. Choose **Flash** and wait for the writing and verification process to
-   finish.
-
-> **Warning:** Flashing erases the selected drive. Verify that you selected
-> the USB drive and not another storage device.
-
-After flashing, your computer may report that it cannot read the USB drive or
-may show several unfamiliar partitions. This is normal for a bootable Linux
-installer. Do not format the drive.
-
-### 4. Boot from the USB drive
-
-1. Leave the USB drive connected and restart the destination computer.
-2. Open the computer's boot-device menu. Common keys include `F12`, `F11`,
-   `F10`, `F9`, `Esc`, and `Delete`; the correct key is often shown briefly
-   when the computer powers on.
-3. Select the USB drive and start the Sovran_SystemsOS installer.
-
-If the normal operating system starts instead, restart and try the boot-menu
-key again.
-
-### Installing in a virtual machine (optional)
-
-Sovran_SystemsOS can be tested in VirtualBox, VMware, QEMU/KVM, Proxmox, and
-similar x86_64 virtual machines. Use production-like resources where possible:
-
-- Allocate **8 GB RAM or more** for Desktop Only. Node and Server + Desktop
-  should follow the normal 16 GB / 32 GB recommendations.
-- Create a **256 GB or larger virtual OS disk**. Thin-provisioned / dynamically
-  allocated disks are fine; they do not consume the full size immediately.
-- Use NAT or bridged networking with internet access before opening the
-  installer.
-- UEFI/EFI firmware is preferred: in UEFI VMs the installer avoids depending
-  on VM NVRAM boot-entry writes, and a VM that boots the ISO in legacy BIOS
-  mode automatically installs GRUB instead.
-- For Node or Server + Desktop, attach a **second 2 TB virtual data disk**.
-  If you only attach one disk, choose **Desktop Only**.
-- Present the install target as a normal virtual disk such as VirtIO, SATA,
-  SCSI, or NVMe. USB-attached disks are hidden by the installer so you cannot
-  erase the installer USB by mistake.
-
-### 5. Install
-
-Follow the on-screen installer. Before confirming:
-
-- Verify that you selected the correct destination drive.
-- Understand that existing partitions and data may be erased.
-- Disconnect unrelated external drives if you are unsure which drive is which.
-- Confirm that the computer is connected to reliable power.
-
-When installation is complete, restart the computer, remove the USB drive when
-instructed, allow Sovran_SystemsOS to start from the installed drive, and
-complete the initial setup.
-
-### 6. Open the Sovran Hub
-
-Open the Hub directly from the Sovran_SystemsOS desktop, or from any other
-device on the same local network at:
-
-```text
-http://sovransystemsos.local:8937
-```
-
-Sign in with your Sovran_SystemsOS credentials. Desktop does not publish the Hub
-on the network, so in that mode open it from the desktop.
-
-<details>
-<summary><strong>If sovransystemsos.local:8937 does not open</strong></summary>
-
-1. Make sure the Sovran_SystemsOS machine is powered on, and allow it a few
-   minutes to finish starting.
-2. Make sure both devices are connected to the same local network, and that
-   you entered the full address `http://sovransystemsos.local:8937`,
-   including the `:8937`.
-3. Avoid guest Wi-Fi networks, which may prevent devices from seeing one
-   another.
-4. Temporarily disconnect any VPN that may interfere with local-network
-   access.
-5. Try another browser or device on the same network.
+Prefer guided setup, pre-configured hardware, or Royal Membership? Visit
+[sovransystems.com](https://sovransystems.com).
 
 </details>
-
-### Prefer guided help?
-
-Not technical? You do not have to figure everything out alone. Visit the
-[Sovran Systems website](https://sovransystems.com) to learn about guided
-setup, supported hardware, and Royal Membership.
 
 ---
 
 ## For developers
 
-Sovran_SystemsOS combines [NixOS](https://nixos.org), the standalone
-[Sovran_Bitcoin](https://github.com/naturallaw777/Sovran_Bitcoin) flake for
-Bitcoin and Lightning, desktop packages from
-[btc-clients-nix](https://github.com/emmanuelrosa/btc-clients-nix), and the
-Sovran Hub. The Bitcoin and Lightning modules live in the Sovran_Bitcoin
-repository and are consumed as a flake input. OS-specific Bitcoin customizations
-(Second_Drive paths, operator user, Hub integration) are bridged by
-`modules/sovran-bitcoin-integration.nix`. Legacy `nix-bitcoin.*` option names
-and `/etc/nix-bitcoin-secrets` remain for compatibility.
-
-### Development workflow
-
-| Branch        | Host                                              | Purpose                     |
-|---------------|---------------------------------------------------|-----------------------------|
-| `main`        | [GitHub](https://github.com/naturallaw777/Sovran_SystemsOS) | Active development & PRs    |
-| `staging-dev` | [Gitea](https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS) | Synced with `main`          |
-| `stable`      | [Gitea](https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS/src/branch/stable) | Tested, release-ready builds |
-
-**Flow:** develop → sync `main` ↔ `staging-dev` → promote to `stable`
-
-> ⚠️ `main` and `staging-dev` may contain unreleased or less-tested code. For
-> stable, audited code, use Gitea
-> [`stable`](https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS/src/branch/stable).
-
-### Technology
-
-- [NixOS](https://nixos.org) and [Nix flakes](https://nixos.wiki/wiki/Flakes)
-  for declarative, pinned system configuration
-- [Sovran_Bitcoin](https://github.com/naturallaw777/Sovran_Bitcoin) for the
-  Bitcoin and Lightning stack (consumed as a flake input)
-- `modules/sovran-bitcoin-integration.nix` for OS-specific Bitcoin overrides
-- [btc-clients-nix](https://github.com/emmanuelrosa/btc-clients-nix) for the
-  Sparrow, Bisq, and Bisq 2 packages
-- [Python](https://www.python.org) and [FastAPI](https://fastapi.tiangolo.com)
-  for the Sovran Hub backend
-- JavaScript, HTML, and CSS for the Hub interface
-- [GNOME](https://www.gnome.org) desktop environment
-- [Caddy](https://caddyserver.com) for local and public service routing
-- [Tor](https://www.torproject.org) for Bitcoin network privacy
-- [Mullvad VPN](https://mullvad.net), installed as the stock NixOS service on
-  the Desktop Role only (`pkgs.mullvad` daemon and `pkgs.mullvad-vpn` app)
-- [AGPL-3.0](LICENSE) licensing
+Sovran_SystemsOS is a Nix flake combining NixOS, the standalone
+[Sovran_Bitcoin](https://github.com/naturallaw777/Sovran_Bitcoin) flake input
+(bridged via `modules/sovran-bitcoin-integration.nix`), desktop Bitcoin clients
+from [btc-clients-nix](https://github.com/emmanuelrosa/btc-clients-nix), and a
+Python/FastAPI + vanilla JS Sovran Hub (`app/`).
 
 ### Build from source
 
-You need a system with Nix installed and flakes enabled.
-
-Clone the **stable** branch from Gitea (recommended for builds):
+Requires Nix with flakes enabled. Clone `stable` from Gitea for release builds
+(or GitHub `main` for active development):
 
 ```bash
 git clone -b stable https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS.git
 cd Sovran_SystemsOS
+
+nix build .#nixosConfigurations.sovran_systemsos-iso.config.system.build.isoImage
 ```
 
-Or clone the **active development** line from GitHub:
+The built ISO is linked under `./result`.
+
+<details>
+<summary><strong>Common NixOS & release commands</strong></summary>
 
 ```bash
-git clone https://github.com/naturallaw777/Sovran_SystemsOS.git
-cd Sovran_SystemsOS
-```
-
-Then build the installer ISO:
-
-```bash
-nix build \
-  .#nixosConfigurations.sovran_systemsos-iso.config.system.build.isoImage
-```
-
-The resulting build output will be available through the `result` symlink.
-
-### Publishing a release
-
-Releases are managed with `scripts/release-stable.sh` and `scripts/upload-cdn.sh`:
-
-1. Run the stable release script to bump version, tag, update changelog, and push/create releases:
-   ```bash
-   ./scripts/release-stable.sh [version]
-   ```
-2. Build the installer ISO:
-   ```bash
-   nix build .#nixosConfigurations.sovran_systemsos-iso.config.system.build.isoImage
-   ```
-3. Copy, checksum, verify, and optionally upload to CDN:
-   ```bash
-   ./scripts/upload-cdn.sh --upload
-   ```
-
-### Common development commands
-
-Run these commands from the flake root.
-
-```bash
-# Build the installer ISO
-nix build \
-  .#nixosConfigurations.sovran_systemsos-iso.config.system.build.isoImage
-
-# Build the system configuration
+# Build / test / activate system configuration from flake root
 nixos-rebuild build --flake .#nixos
-
-# Test without making the change permanent
 sudo nixos-rebuild test --flake .#nixos
-
-# Activate the new configuration
 sudo nixos-rebuild switch --flake .#nixos
-
-# Stage the configuration for the next boot
 sudo nixos-rebuild boot --flake .#nixos
 
-# Update pinned flake inputs (review and test before committing flake.lock)
+# Roll back last generation or update pinned inputs
+sudo nixos-rebuild switch --rollback
 nix flake update
 
-# Roll back the last activated generation
-sudo nixos-rebuild switch --rollback
+# Cut a stable release (syncs main/staging-dev → stable, tags, updates VERSION & README)
+./scripts/release-stable.sh [version]
+nix build .#nixosConfigurations.sovran_systemsos-iso.config.system.build.isoImage
+./scripts/upload-cdn.sh --upload
 ```
 
-### Repository map
+</details>
+
+### Repository layout
 
 | Path | Purpose |
 |---|---|
-| `flake.nix` | Declares flake inputs, the running system, and installer outputs |
-| `flake.lock` | Pins dependencies for reproducible builds |
-| `configuration.nix` | Base host, boot, desktop, user, security, backup, and system configuration |
-| `modules/` | Core modules, self-hosted services, and optional features |
-| `modules/sovran-bitcoin-integration.nix` | OS-specific Bitcoin overrides (Second_Drive, operator, Hub wiring) |
-| `modules/core/` | Roles, Hub integration, Caddy, desktop, support, and other core behavior |
-| `app/` | Sovran Hub backend, templates, static assets, scripts, and web interface |
-| `scripts/` | Automated release, build, and CDN upload utility scripts |
-| `iso/` | Installer configuration, installer code, and installer assets |
-| `tests/` | Security and Nix integration checks |
-| `assets/` | Documentation images |
-| `custom.template.nix` | Template for local features and service overrides |
-
-On installed systems, `flake.nix` also imports `role-state.nix` (the selected
-mode), `custom.nix` (generated from `custom.template.nix`), and
-`hardware-configuration.nix`. These are generated per machine, so they are
-gitignored and not part of this repository.
-
-### Architecture overview
-
-Sovran_SystemsOS is assembled from a reproducible Nix flake.
-
-```text
-                       ┌─────────────────────────┐
-                       │        flake.nix        │
-                       │                         │
-                       │ Inputs and system       │
-                       │ build outputs           │
-                       └────────────┬────────────┘
-                                    │
-                                    ▼
-                       ┌─────────────────────────┐
-                       │    configuration.nix    │
-                       │                         │
-                       │ Host, desktop, users,   │
-                       │ boot, security, backup  │
-                       └────────────┬────────────┘
-                                    │
-                                    ▼
-                       ┌─────────────────────────┐
-                       │   modules/modules.nix   │
-                       │                         │
-                       │ Core modules, services, │
-                       │ and optional features   │
-                       └────────────┬────────────┘
-                                    │
-                 ┌──────────────────┼──────────────────┐
-                 │                  │                  │
-                 ▼                  ▼                  ▼
-          ┌────────────┐     ┌────────────┐     ┌────────────┐
-          │ Sovran Hub │     │  Bitcoin   │     │  Private   │
-          │ and desktop│     │ ecosystem  │     │  services  │
-          └────────────┘     └────────────┘     └────────────┘
-```
-
-The Hub writes supported user choices into the local configuration. NixOS then
-rebuilds the machine into the selected declarative state.
-
-### Module overview
-
-| Area | Modules |
-|---|---|
-| Core platform: roles, Hub, desktop integration, Caddy, domains, support, remote deployment | `modules/core/` |
-| Shared credentials | `modules/credentials.nix` |
-| Bitcoin and Lightning stack | [Sovran_Bitcoin](https://github.com/naturallaw777/Sovran_Bitcoin) flake input + `modules/sovran-bitcoin-integration.nix` |
-| Automatic wallet-to-node connections | `modules/wallet-autoconnect.nix` |
-| Matrix Synapse | `modules/synapse.nix` |
-| Optional Element audio and video calling via LiveKit | `modules/element-calling.nix` |
-| Optional Haven Nostr relay | `modules/haven.nix` |
-| Nextcloud, Vaultwarden, WordPress | `modules/nextcloud.nix`, `modules/vaultwarden.nix`, `modules/wordpress.nix`, `modules/php.nix` |
-| Optional remote desktop and public SSH | `modules/rdp.nix`, `modules/sshd.nix` |
-| Mullvad VPN app (Desktop Role only) | `modules/mullvad.nix` |
-
-Feature availability and defaults may change as Sovran_SystemsOS develops:
-review the relevant Nix module before relying on a default in production.
+| `flake.nix` / `flake.lock` | Pinned inputs, system outputs, and ISO build definitions |
+| `configuration.nix` | Base host, boot, GNOME desktop, users, security, and backups |
+| `modules/core/` | Roles, Hub service, Caddy, DDNS, desktop wiring, support, remote deploy |
+| `modules/sovran-bitcoin-integration.nix` | OS-specific overrides for the `Sovran_Bitcoin` flake input |
+| `modules/*.nix` | Self-hosted services (Synapse, LiveKit, Haven, Nextcloud, Vaultwarden, WordPress), wallet autoconnect, RDP, SSH, Mullvad |
+| `app/` | Sovran Hub FastAPI backend, scripts, templates, and web UI |
+| `iso/` | Installer configuration, UI, and assets |
+| `scripts/` · `tests/` | Release/CDN automation and Nix/security integration tests |
+| `custom.template.nix` | Template for per-machine `/etc/nixos/custom.nix` overrides (`role-state.nix`, `custom.nix`, and `hardware-configuration.nix` are generated per install) |
 
 ---
 
-## About Bitcoin wallet entropy
+## Security
 
-Wallet recovery words control the funds. Never share them with a website,
-support technician, cloud service, or chat application.
+- **Hardened defaults:** Pinned flake inputs, firewall on by default, SSH and
+  remote desktop off by default (no SSH daemon at all on Desktop), isolated
+  service accounts with systemd sandboxing, and Tor enforcement across Bitcoin
+  services.
+- **Self-custody hygiene:** Never share seed words with anyone (including
+  support). Use a dedicated hardware signer for meaningful balances, keep
+  verified offline backups in separate locations, and test recovery early.
 
-For meaningful balances, prefer a well-reviewed hardware signer and follow its
-verified backup process. A BIP39 passphrase is optional, advanced protection,
-not a replacement for recovery words: back it up separately, because losing
-either item can make the wallet unrecoverable.
-
-Keep durable offline backups in separate secure locations, test recovery before
-relying on a wallet, and begin with a small amount.
-
----
-
-## Security approach
-
-Sovran_SystemsOS uses layered controls:
-
-- Pinned flake inputs and hash-pinned source archives
-- Firewall enabled; SSH Remote Access and remote desktop disabled by default
-  (Desktop Only has no SSH daemon at all). Enabling SSH opens TCP port 22 and
-  the Hub then asks you to forward it
-- Separate service users, systemd sandboxing, and loopback bindings where practical
-- Tor enforcement for supported Bitcoin services
-- Restricted, time-limited support access with scoped `sudo`
-- Operator-controlled public service exposure (Server + Desktop Role or Node Role when enabled BTCpayserver and/or Lightning Wallet Connections
-  [makes your home IP address public](#server--desktop-and-your-home-ip-address)
-  once you set up a domain)
-
-See [`SECURITY.md`](SECURITY.md) for the threat model, limitations, reporting,
-and operator guidance.
+Read [`SECURITY.md`](SECURITY.md) for the full threat model, Desktop SSH notes,
+and private vulnerability reporting.
 
 ---
 
 ## Acknowledgements
 
-Sovran_SystemsOS stands on the work of exceptional free and open-source projects and contributors.
+Sovran_SystemsOS builds on the work of the free and open-source community:
 
-### NixOS
-
-Gratitude to the [NixOS](https://nixos.org) team, the [Nixpkgs](https://github.com/NixOS/nixpkgs) maintainers, and the broader [Nix community](https://github.com/nix-community).
-
-NixOS provides the reproducible, declarative foundation that makes Sovran_SystemsOS possible: its module system, package ecosystem, [flakes](https://nixos.wiki/wiki/Flakes), and generation-based system management allow an entire Bitcoin operating system to be described, audited, rebuilt, upgraded, and rolled back from source.
-
-### nix-bitcoin
-
-The in-repository Bitcoin stack began with code adapted from
-[nix-bitcoin](https://github.com/fort-nix/nix-bitcoin), primarily from commit
-[`360e30f`](https://github.com/fort-nix/nix-bitcoin/commit/360e30fee5ba32f9fecc89bc35628195d9d2dbbe).
-It has since been narrowed to Sovran's supported services and is maintained in
-this repository; nix-bitcoin is no longer a flake input or build dependency.
-Its MIT notice is retained in [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
-
-### Emmanuel Rosa and btc-clients-nix
-
-Thanks to [Emmanuel Rosa](https://github.com/emmanuelrosa) for [btc-clients-nix](https://github.com/emmanuelrosa/btc-clients-nix), which packages the Bitcoin desktop software included in every installation:
-
-- [Sparrow Wallet](https://github.com/sparrowwallet/sparrow)
-- [Bisq](https://github.com/bisq-network/bisq)
-- [Bisq 2](https://github.com/bisq-network/bisq2)
-
-### The upstream Bitcoin ecosystem
-
-Sovran_SystemsOS also depends on the work of the developers and communities behind:
-
-- [Bitcoin Core](https://github.com/bitcoin/bitcoin)
-- [Sparrow Wallet](https://github.com/sparrowwallet/sparrow)
-- [Bisq](https://github.com/bisq-network/bisq)
-- [Bisq 2](https://github.com/bisq-network/bisq2)
-- [Electrs](https://github.com/romanz/electrs)
-- [LND](https://github.com/lightningnetwork/lnd)
-- [Ride The Lightning](https://github.com/Ride-The-Lightning/RTL)
-- [Alby Hub](https://github.com/getAlby/hub) for Nostr Wallet Connect (NWC)
-  connections
-- [BTCPay Server](https://github.com/btcpayserver/btcpayserver)
-- [Tor](https://www.torproject.org)
-- [NixOS](https://github.com/NixOS/nixpkgs)
-- [GNOME](https://gitlab.gnome.org/GNOME)
-- [Caddy](https://github.com/caddyserver/caddy)
-- [Nextcloud](https://github.com/nextcloud/server)
-- [Matrix Synapse](https://github.com/element-hq/synapse)
-- [Element](https://github.com/element-hq/element-web)
-- [LiveKit](https://github.com/livekit/livekit) for Element audio and video
-  calling
-- [Vaultwarden](https://github.com/dani-garcia/vaultwarden)
-- [WordPress](https://github.com/WordPress/WordPress)
-- Every other upstream project included in the system
-
-Sovran Systems did not create these foundations; our work is to bring them together into one operating system that helps more people use Bitcoin privately and independently. Thank you to every developer, maintainer, reviewer, tester, documentarian, and user who keeps this ecosystem alive.
+- **[NixOS](https://nixos.org) & Nixpkgs** for the declarative, reproducible
+  operating system foundation.
+- **[Emmanuel Rosa (`btc-clients-nix`)](https://github.com/emmanuelrosa/btc-clients-nix)**
+  for packaging Sparrow Wallet, Bisq, and Bisq 2.
+- **[nix-bitcoin](https://github.com/fort-nix/nix-bitcoin)** (adapted from
+  [`360e30f`](https://github.com/fort-nix/nix-bitcoin/commit/360e30fee5ba32f9fecc89bc35628195d9d2dbbe);
+  MIT notice in [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md)).
+- The upstream maintainers behind Bitcoin Core, Electrs, LND, RTL, Alby Hub,
+  BTCPay Server, Tor, GNOME, Caddy, Matrix Synapse, Element, LiveKit, Nextcloud,
+  Vaultwarden, WordPress, and every package in the stack.
 
 ---
 
-## License
+## License & Contributing
 
-Sovran_SystemsOS is free and open-source software licensed under the
-[GNU Affero General Public License v3.0](LICENSE). You may use, study, modify,
-share, and self-host it; if you distribute a modified version, you must make
-its corresponding source code available under the same license.
+Licensed under the **[GNU Affero General Public License v3.0](LICENSE)**
+(without warranty). Network operators running modified versions of covered
+components such as the Sovran Hub must make corresponding source code available
+under AGPL-3.0. Upstream packages retain their own licenses; see [`LICENSE`](LICENSE)
+and [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
 
-Because Sovran_SystemsOS includes the browser-based Sovran Hub, operators who
-modify the covered software and make that modified version available for users
-to interact with over a network must offer those users access to its
-corresponding source code, as required by the AGPL-3.0.
-
-Sovran_SystemsOS is provided **without warranty**, as described in the full
-license. Individual upstream applications, packages, artwork, fonts, and other
-components may have their own licenses and copyright holders, which the
-AGPL-3.0 does not replace. Read [`LICENSE`](LICENSE) and
-[`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
-
----
-
-## Contributing
-
-We welcome contributions! The
-[GitHub repository](https://github.com/naturallaw777/Sovran_SystemsOS) is the
-primary location for collaboration. Please read our
-[Contributing Guidelines](CONTRIBUTING.md) before submitting a pull request.
-
-<div align="center">
-
----
-
-## Privacy. Sovereignty. Bitcoin.
-
-[Visit Sovran Systems](https://sovransystems.com) ·
-[Download Sovran_SystemsOS](https://downloads.sovransystems.com/Sovran_SystemsOS-1.2.5.iso) ·
-[View the License](LICENSE)
-
-</div>
+Contributions are welcome on
+[GitHub](https://github.com/naturallaw777/Sovran_SystemsOS) — please read
+[`CONTRIBUTING.md`](CONTRIBUTING.md) for branch workflow and commit-message
+conventions before opening a pull request.
