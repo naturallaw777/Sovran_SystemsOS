@@ -36,6 +36,99 @@ _FRIENDLY_PROC_NAMES: dict[str, str] = {
 }
 
 
+INTERNAL_TRANSPORTS = {"ata", "nvme", "sata", "sas"}
+USB_TRANSPORTS = {"usb"}
+
+
+def _lsblk_bool(value: object) -> bool:
+    """Normalize an lsblk boolean column to ``bool``.
+
+    util-linux emits HOTPLUG/RM as JSON booleans (``true``/``false``) with
+    ``lsblk -J`` on current releases, as ``0``/``1`` integers or strings on
+    others, and partitions often inherit neither value from their parent
+    disk.  Never compare these columns with ``== "1"`` directly.
+    """
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return value != 0
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "yes", "on"}
+    return False
+
+
+def _device_transport(dev: dict) -> str:
+    return str(dev.get("tran") or "").strip().lower()
+
+
+def _device_is_external(devs: list[dict]) -> bool:
+    """True if any partition/parent-disk record proves a drive is external.
+
+    A USB drive is external if its transport is USB *or* either the
+    partition or its parent disk reports hotplug/removable.  Many USB-SATA
+    bridges and USB SSD enclosures report ``HOTPLUG=false, RM=false`` for
+    both nodes, so TRAN=usb is authoritative on its own.
+    """
+    for dev in devs:
+        if _device_transport(dev) in USB_TRANSPORTS:
+            return True
+        if _lsblk_bool(dev.get("hotplug")) or _lsblk_bool(dev.get("rm")):
+            return True
+    return False
+
+
+def _device_is_positively_internal(devs: list[dict]) -> bool:
+    """True only when lsblk positively identifies an internal bus.
+
+    Absence of HOTPLUG/RM is *not* proof a drive is internal: the values
+    describe the parent disk, are booleans in JSON output, and are cleared
+    by common USB bridges.  Only refuse eject when the transport itself is
+    an internal bus (NVMe/SATA/ATA/SAS) and nothing indicates USB/removable.
+    """
+    if not devs or _device_is_external(devs):
+        return False
+    return any(_device_transport(dev) in INTERNAL_TRANSPORTS for dev in devs)
+
+
+def _flatten_lsblk(devs: list) -> list[dict]:
+    out: list[dict] = []
+    for dev in devs or []:
+        if not isinstance(dev, dict):
+            continue
+        out.append(dev)
+        out.extend(_flatten_lsblk(dev.get("children") or []))
+    return out
+
+
+def _lsblk_device(run_cmd, device: str) -> list[dict]:
+    """Return flattened lsblk records for *device*, or [] if unavailable."""
+    try:
+        res = run_cmd(
+            ["lsblk", "-J", "-o",
+             "NAME,LABEL,HOTPLUG,RM,TRAN,TYPE,PKNAME,MOUNTPOINT,MOUNTPOINTS",
+             device],
+            capture_output=True, text=True, timeout=10,
+        )
+        if res.returncode != 0 or not (res.stdout or "").strip():
+            return []
+        return _flatten_lsblk(json.loads(res.stdout).get("blockdevices", []))
+    except Exception:
+        return []
+
+
+def _hosts_system_mount(devs: list[dict]) -> bool:
+    """True if any record on this disk hosts `/` or `/boot/efi`."""
+    for dev in devs:
+        points = dev.get("mountpoints")
+        candidates = list(points) if isinstance(points, list) else []
+        single = dev.get("mountpoint")
+        if isinstance(single, str) and single:
+            candidates.append(single)
+        if any(point in INTERNAL_MOUNTS for point in candidates):
+            return True
+    return False
+
+
 class DriveEjectError(Exception):
     """Raised when an external backup drive cannot be ejected."""
 
@@ -162,30 +255,37 @@ def detect_external_drives(media_root: str = MEDIA_ROOT) -> list[dict]:
 
     try:
         result = subprocess.run(
-            ["lsblk", "-J", "-o", "NAME,LABEL,FSTYPE,MOUNTPOINT,HOTPLUG,RM,TYPE"],
+            ["lsblk", "-J", "-o", "NAME,LABEL,FSTYPE,MOUNTPOINT,HOTPLUG,RM,TRAN,TYPE,PKNAME"],
             capture_output=True, text=True, timeout=10,
         )
         if result.returncode == 0:
             data = json.loads(result.stdout)
 
-            def _flatten(devs: list) -> list:
-                out = []
-                for d in devs:
-                    out.append(d)
-                    out.extend(_flatten(d.get("children") or []))
-                return out
+            # Walk the device tree carrying the parent disk's transport /
+            # hotplug / removable flags: partitions frequently report
+            # TRAN=null and HOTPLUG/RM=false even on a USB parent disk,
+            # and lsblk -J emits those flags as JSON booleans.
+            candidates: list[tuple[dict, list[dict]]] = []
 
-            for dev in _flatten(data.get("blockdevices", [])):
+            def _walk(devs: list, inherited: list[dict]) -> None:
+                for dev in devs or []:
+                    if not isinstance(dev, dict):
+                        continue
+                    lineage = inherited + [dev]
+                    candidates.append((dev, lineage))
+                    _walk(dev.get("children") or [], lineage)
+
+            _walk(data.get("blockdevices", []), [])
+
+            for dev, lineage in candidates:
                 dev_type = dev.get("type", "")
-                hotplug = str(dev.get("hotplug", "0"))
-                rm = str(dev.get("rm", "0"))
                 label = dev.get("label") or ""
                 fstype = (dev.get("fstype") or "").lower()
                 mountpoint = dev.get("mountpoint") or ""
 
                 if dev_type not in ("part", "disk"):
                     continue
-                if hotplug != "1" and rm != "1":
+                if not _device_is_external(lineage):
                     continue
                 if not mountpoint:
                     continue
@@ -404,33 +504,44 @@ def eject_external_drive(
             status_code=400,
         )
 
-    # Verify via lsblk that the underlying device is genuinely hotplug/removable
-    # and resolve its parent disk device (e.g. /dev/sdb1 -> /dev/sdb) for power-off.
+    # Resolve the parent disk (e.g. /dev/sdb1 -> /dev/sdb) for power-off and
+    # check lsblk for *positive* evidence that this is an internal drive.
+    #
+    # The previous check refused eject whenever HOTPLUG and RM were not the
+    # string "1" on the partition itself.  That misfires on real USB backup
+    # drives: lsblk -J emits these columns as JSON booleans, partitions do
+    # not inherit them from the parent disk, and common USB-SATA/NVMe
+    # bridges report HOTPLUG=false/RM=false despite TRAN=usb.  The mount has
+    # already been validated as a udisks-managed mount under
+    # /run/media/<user>/ with no internal label; only refuse when the disk
+    # positively sits on an internal bus or hosts the running system.
     disk_dev = part_dev
-    lsblk_res = run_cmd(
-        ["lsblk", "-J", "-o", "NAME,LABEL,HOTPLUG,RM,PKNAME", part_dev],
-        capture_output=True, text=True, timeout=10,
-    )
-    if lsblk_res.returncode == 0 and (lsblk_res.stdout or "").strip():
-        try:
-            devs = json.loads(lsblk_res.stdout).get("blockdevices", [])
-            if devs:
-                dev = devs[0]
-                hotplug = str(dev.get("hotplug") or "0")
-                rm = str(dev.get("rm") or "0")
-                lbl = dev.get("label") or ""
-                if lbl in INTERNAL_LABELS or (hotplug != "1" and rm != "1"):
-                    raise DriveEjectError(
-                        "Refusing to eject a non-removable internal drive.",
-                        status_code=400,
-                    )
-                pkname = (dev.get("pkname") or "").strip()
-                if pkname:
-                    disk_dev = f"/dev/{pkname}"
-        except DriveEjectError:
-            raise
-        except Exception:
-            pass
+    part_devs = _lsblk_device(run_cmd, part_dev)
+    device_devs = list(part_devs)
+    if part_devs:
+        if any((dev.get("label") or "") in INTERNAL_LABELS for dev in part_devs):
+            raise DriveEjectError(
+                "Refusing to eject an internal system drive.",
+                status_code=400,
+            )
+        pkname = ""
+        for dev in part_devs:
+            pkname = str(dev.get("pkname") or "").strip()
+            if pkname:
+                break
+        if pkname:
+            disk_dev = f"/dev/{pkname}"
+            device_devs.extend(_lsblk_device(run_cmd, disk_dev))
+    if device_devs and _hosts_system_mount(device_devs):
+        raise DriveEjectError(
+            "Refusing to eject the drive running this system.",
+            status_code=400,
+        )
+    if _device_is_positively_internal(device_devs):
+        raise DriveEjectError(
+            "Refusing to eject a non-removable internal drive.",
+            status_code=400,
+        )
 
     # Flush all pending kernel filesystem writes before unmounting.
     try:

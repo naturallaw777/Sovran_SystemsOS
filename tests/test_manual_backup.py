@@ -311,7 +311,7 @@ class TestSafeDriveEject(unittest.TestCase):
                 if cmd[0] == "lsblk":
                     return subprocess.CompletedProcess(
                         cmd, 0,
-                        stdout=json.dumps({"blockdevices": [{"name": "nvme0n1p2", "hotplug": "0", "rm": "0", "pkname": "nvme0n1"}]}),
+                        stdout=json.dumps({"blockdevices": [{"name": "nvme0n1p2", "hotplug": False, "rm": False, "tran": "nvme", "pkname": "nvme0n1"}]}),
                         stderr="",
                     )
                 return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
@@ -321,6 +321,105 @@ class TestSafeDriveEject(unittest.TestCase):
                     target, media_root=media_root, run_cmd=fake_run, sync_fn=lambda: None,
                 )
             self.assertEqual(ctx.exception.status_code, 400)
+
+    def test_eject_allows_usb_bridge_reporting_json_booleans_false(self):
+        """Regression: real USB backup drives must not be called 'internal'.
+
+        lsblk -J emits HOTPLUG/RM as JSON booleans, partitions do not inherit
+        them from the parent disk, and USB-SATA bridges report both false
+        while TRAN=usb.  The screenshot bug ('Refusing to eject a
+        non-removable internal drive' after a successful backup to
+        /run/media/free/S_S Backup) came from requiring the string "1" on
+        the partition record alone.
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            media_root = os.path.join(tmp, "media")
+            target = os.path.join(media_root, "free", "S_S Backup")
+            os.makedirs(target)
+            calls: list[list[str]] = []
+
+            def fake_run(cmd, **_kwargs):
+                calls.append(list(cmd))
+                if cmd[0] == "findmnt":
+                    return subprocess.CompletedProcess(
+                        cmd, 0,
+                        stdout=json.dumps({"filesystems": [{"source": "/dev/sdb1", "target": target, "fstype": "ext4", "label": "S_S Backup"}]}),
+                        stderr="",
+                    )
+                if cmd[0] == "lsblk" and cmd[-1] == "/dev/sdb1":
+                    return subprocess.CompletedProcess(
+                        cmd, 0,
+                        stdout=json.dumps({"blockdevices": [{
+                            "name": "sdb1", "type": "part", "label": "S_S Backup",
+                            "hotplug": False, "rm": False, "tran": None,
+                            "pkname": "sdb",
+                        }]}),
+                        stderr="",
+                    )
+                if cmd[0] == "lsblk" and cmd[-1] == "/dev/sdb":
+                    return subprocess.CompletedProcess(
+                        cmd, 0,
+                        stdout=json.dumps({"blockdevices": [{
+                            "name": "sdb", "type": "disk",
+                            "hotplug": False, "rm": False, "tran": "usb",
+                        }]}),
+                        stderr="",
+                    )
+                return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+            res = backup_ops.eject_external_drive(
+                target,
+                media_root=media_root,
+                run_cmd=fake_run,
+                sync_fn=lambda: None,
+                which_fn=lambda name: "/usr/bin/udisksctl" if name == "udisksctl" else None,
+            )
+            self.assertEqual(res["status"], "ejected")
+            self.assertTrue(res["powered_off"])
+            self.assertIn(
+                ["/usr/bin/udisksctl", "power-off", "--no-user-interaction", "-b", "/dev/sdb"],
+                calls,
+            )
+
+    def test_eject_refuses_disk_hosting_root_filesystem(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            media_root = os.path.join(tmp, "media")
+            target = os.path.join(media_root, "free", "FakeInternal")
+            os.makedirs(target)
+
+            def fake_run(cmd, **_kwargs):
+                if cmd[0] == "findmnt":
+                    return subprocess.CompletedProcess(
+                        cmd, 0,
+                        stdout=json.dumps({"filesystems": [{"source": "/dev/sda2", "target": target, "fstype": "ext4"}]}),
+                        stderr="",
+                    )
+                if cmd[0] == "lsblk" and cmd[-1] == "/dev/sda2":
+                    return subprocess.CompletedProcess(
+                        cmd, 0,
+                        stdout=json.dumps({"blockdevices": [{
+                            "name": "sda2", "type": "part", "hotplug": True,
+                            "rm": True, "tran": "usb", "pkname": "sda",
+                        }]}),
+                        stderr="",
+                    )
+                if cmd[0] == "lsblk" and cmd[-1] == "/dev/sda":
+                    return subprocess.CompletedProcess(
+                        cmd, 0,
+                        stdout=json.dumps({"blockdevices": [{
+                            "name": "sda", "type": "disk", "tran": "sata",
+                            "children": [{"name": "sda1", "mountpoint": "/"}],
+                        }]}),
+                        stderr="",
+                    )
+                return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+            with self.assertRaises(backup_ops.DriveEjectError) as ctx:
+                backup_ops.eject_external_drive(
+                    target, media_root=media_root, run_cmd=fake_run, sync_fn=lambda: None,
+                )
+            self.assertEqual(ctx.exception.status_code, 400)
+            self.assertIn("running this system", ctx.exception.message)
 
 
 class TestBackupScriptEndToEnd(unittest.TestCase):
