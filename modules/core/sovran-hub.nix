@@ -574,6 +574,8 @@ in
         pkgs.rsync
         pkgs.acl
         pkgs.util-linux
+        pkgs.glib # gio, for GVfs session eject of USB backup drives
+        config.systemd.package # systemd-run, to eject inside the desktop user's session
       ]
       ++ lib.optionals config.services.udisks2.enable [ config.services.udisks2.package ]
       ++ lib.optional cfg.services.bitcoin config.services.bitcoind.package

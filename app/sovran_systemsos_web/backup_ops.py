@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import fcntl
 import json
+import pwd
 import os
 import shutil
 import subprocess
@@ -34,99 +35,6 @@ _FRIENDLY_PROC_NAMES: dict[str, str] = {
     "gvfsd-trash": "GNOME Trash Monitor",
     "rsync": "rsync",
 }
-
-
-INTERNAL_TRANSPORTS = {"ata", "nvme", "sata", "sas"}
-USB_TRANSPORTS = {"usb"}
-
-
-def _lsblk_bool(value: object) -> bool:
-    """Normalize an lsblk boolean column to ``bool``.
-
-    util-linux emits HOTPLUG/RM as JSON booleans (``true``/``false``) with
-    ``lsblk -J`` on current releases, as ``0``/``1`` integers or strings on
-    others, and partitions often inherit neither value from their parent
-    disk.  Never compare these columns with ``== "1"`` directly.
-    """
-    if isinstance(value, bool):
-        return value
-    if isinstance(value, (int, float)):
-        return value != 0
-    if isinstance(value, str):
-        return value.strip().lower() in {"1", "true", "yes", "on"}
-    return False
-
-
-def _device_transport(dev: dict) -> str:
-    return str(dev.get("tran") or "").strip().lower()
-
-
-def _device_is_external(devs: list[dict]) -> bool:
-    """True if any partition/parent-disk record proves a drive is external.
-
-    A USB drive is external if its transport is USB *or* either the
-    partition or its parent disk reports hotplug/removable.  Many USB-SATA
-    bridges and USB SSD enclosures report ``HOTPLUG=false, RM=false`` for
-    both nodes, so TRAN=usb is authoritative on its own.
-    """
-    for dev in devs:
-        if _device_transport(dev) in USB_TRANSPORTS:
-            return True
-        if _lsblk_bool(dev.get("hotplug")) or _lsblk_bool(dev.get("rm")):
-            return True
-    return False
-
-
-def _device_is_positively_internal(devs: list[dict]) -> bool:
-    """True only when lsblk positively identifies an internal bus.
-
-    Absence of HOTPLUG/RM is *not* proof a drive is internal: the values
-    describe the parent disk, are booleans in JSON output, and are cleared
-    by common USB bridges.  Only refuse eject when the transport itself is
-    an internal bus (NVMe/SATA/ATA/SAS) and nothing indicates USB/removable.
-    """
-    if not devs or _device_is_external(devs):
-        return False
-    return any(_device_transport(dev) in INTERNAL_TRANSPORTS for dev in devs)
-
-
-def _flatten_lsblk(devs: list) -> list[dict]:
-    out: list[dict] = []
-    for dev in devs or []:
-        if not isinstance(dev, dict):
-            continue
-        out.append(dev)
-        out.extend(_flatten_lsblk(dev.get("children") or []))
-    return out
-
-
-def _lsblk_device(run_cmd, device: str) -> list[dict]:
-    """Return flattened lsblk records for *device*, or [] if unavailable."""
-    try:
-        res = run_cmd(
-            ["lsblk", "-J", "-o",
-             "NAME,LABEL,HOTPLUG,RM,TRAN,TYPE,PKNAME,MOUNTPOINT,MOUNTPOINTS",
-             device],
-            capture_output=True, text=True, timeout=10,
-        )
-        if res.returncode != 0 or not (res.stdout or "").strip():
-            return []
-        return _flatten_lsblk(json.loads(res.stdout).get("blockdevices", []))
-    except Exception:
-        return []
-
-
-def _hosts_system_mount(devs: list[dict]) -> bool:
-    """True if any record on this disk hosts `/` or `/boot/efi`."""
-    for dev in devs:
-        points = dev.get("mountpoints")
-        candidates = list(points) if isinstance(points, list) else []
-        single = dev.get("mountpoint")
-        if isinstance(single, str) and single:
-            candidates.append(single)
-        if any(point in INTERNAL_MOUNTS for point in candidates):
-            return True
-    return False
 
 
 class DriveEjectError(Exception):
@@ -244,78 +152,14 @@ def recover_stale_backup_status(
 def detect_external_drives(media_root: str = MEDIA_ROOT) -> list[dict]:
     """Scan for mounted external USB drives under *media_root*.
 
-    Uses ``lsblk`` to identify genuinely removable/hotplug devices and
-    filters out internal system drives (BTCEcoandBackup, sovran_systemsos,
-    /boot/efi, /run/media/Second_Drive).  Falls back to scanning
-    *media_root* directly if lsblk is unavailable, applying the same
-    label/path filters.
+    GNOME/udisks automounts removable drives under
+    ``/run/media/<user>/<label>``; anything mounted there that is not a
+    known internal system drive (BTCEcoandBackup, sovran_systemsos,
+    /run/media/Second_Drive) is a backup target.  No lsblk inspection is
+    needed -- udisks has already decided the drive is removable by
+    mounting it there.
     """
     drives: list[dict] = []
-    seen_paths: set[str] = set()
-
-    try:
-        result = subprocess.run(
-            ["lsblk", "-J", "-o", "NAME,LABEL,FSTYPE,MOUNTPOINT,HOTPLUG,RM,TRAN,TYPE,PKNAME"],
-            capture_output=True, text=True, timeout=10,
-        )
-        if result.returncode == 0:
-            data = json.loads(result.stdout)
-
-            # Walk the device tree carrying the parent disk's transport /
-            # hotplug / removable flags: partitions frequently report
-            # TRAN=null and HOTPLUG/RM=false even on a USB parent disk,
-            # and lsblk -J emits those flags as JSON booleans.
-            candidates: list[tuple[dict, list[dict]]] = []
-
-            def _walk(devs: list, inherited: list[dict]) -> None:
-                for dev in devs or []:
-                    if not isinstance(dev, dict):
-                        continue
-                    lineage = inherited + [dev]
-                    candidates.append((dev, lineage))
-                    _walk(dev.get("children") or [], lineage)
-
-            _walk(data.get("blockdevices", []), [])
-
-            for dev, lineage in candidates:
-                dev_type = dev.get("type", "")
-                label = dev.get("label") or ""
-                fstype = (dev.get("fstype") or "").lower()
-                mountpoint = dev.get("mountpoint") or ""
-
-                if dev_type not in ("part", "disk"):
-                    continue
-                if not _device_is_external(lineage):
-                    continue
-                if not mountpoint:
-                    continue
-                if label in INTERNAL_LABELS:
-                    continue
-                if is_internal_mount(mountpoint):
-                    continue
-                if mountpoint in seen_paths:
-                    continue
-
-                try:
-                    st = os.statvfs(mountpoint)
-                    total_gb = round((st.f_blocks * st.f_frsize) / (1024 ** 3), 1)
-                    free_gb = round((st.f_bavail * st.f_frsize) / (1024 ** 3), 1)
-                    name = label if label else os.path.basename(mountpoint)
-                    drives.append({
-                        "name": name,
-                        "path": mountpoint,
-                        "free_gb": free_gb,
-                        "total_gb": total_gb,
-                        "fstype": fstype,
-                    })
-                    seen_paths.add(mountpoint)
-                except OSError:
-                    pass
-
-            if drives:
-                return drives
-    except Exception:
-        pass
 
     if not os.path.isdir(media_root):
         return drives
@@ -331,8 +175,6 @@ def detect_external_drives(media_root: str = MEDIA_ROOT) -> list[dict]:
                 if drive_name in INTERNAL_LABELS:
                     continue
                 if is_internal_mount(drive_path):
-                    continue
-                if drive_path in seen_paths:
                     continue
                 try:
                     st = os.statvfs(drive_path)
@@ -353,7 +195,6 @@ def detect_external_drives(media_root: str = MEDIA_ROOT) -> list[dict]:
                         "total_gb": total_gb,
                         "fstype": fstype,
                     })
-                    seen_paths.add(drive_path)
                 except OSError:
                     pass
     except OSError:
@@ -455,6 +296,29 @@ def validate_eject_target_path(target: str, media_root: str = MEDIA_ROOT) -> str
     return norm_target
 
 
+def _desktop_username(target: str, media_root: str) -> str | None:
+    """Return the desktop username who owns the mount at *target*, or None.
+
+    The mount lives under ``/run/media/<username>/...`` and that user has
+    a running graphical session if ``/run/user/<uid>/bus`` exists.  That
+    is all the Hub needs to know: ``systemd-run --machine=<user>@
+    --user`` enters that user's session (the user manager provides
+    XDG_RUNTIME_DIR and the session bus address itself), so no session
+    environment is assembled by hand here.
+    """
+    rel = os.path.relpath(os.path.normpath(target), os.path.normpath(media_root))
+    username = rel.split(os.sep)[0]
+    if not username or username.startswith("."):
+        return None
+    try:
+        entry = pwd.getpwnam(username)
+    except KeyError:
+        return None
+    if not os.path.exists(f"/run/user/{entry.pw_uid}/bus"):
+        return None
+    return username
+
+
 def eject_external_drive(
     target: str,
     media_root: str = MEDIA_ROOT,
@@ -462,11 +326,22 @@ def eject_external_drive(
     run_cmd: Callable[..., subprocess.CompletedProcess] = subprocess.run,
     sync_fn: Callable[[], None] = os.sync,
     which_fn: Callable[[str], str | None] = shutil.which,
+    session_fn: Callable[[str, str], str | None] = _desktop_username,
 ) -> dict:
     """Flush buffers, unmount, and power off an external USB backup drive.
 
-    Raises :class:`DriveEjectError` with an HTTP-ready status code and
-    user-facing detail string if validation fails or the mount is busy.
+    Eject goes through the desktop user's GVfs session -- the same path
+    Nautilus (GNOME Files) uses.  Per the gvfs udisks2 volume monitor,
+    ``GMount`` eject first emits ``mount-pre-unmount`` so the trash
+    monitor, indexer, and other per-user daemons release the volume
+    cooperatively, then unmounts every filesystem on the drive, then
+    asks udisks to power the drive off.  A root-side ``udisksctl unmount``
+    skips that choreography and fails with "Volume is busy" whenever
+    Files has been browsing the drive, so it is only a fallback for
+    headless systems with no desktop session.
+
+    Raises :class:`DriveEjectError` with an HTTP-ready status code if
+    validation fails or a real application still holds the mount.
     """
     norm_target = validate_eject_target_path(target, media_root=media_root)
 
@@ -492,54 +367,9 @@ def eject_external_drive(
         )
 
     part_dev = (mnt_info.get("source") or "").strip()
-    mnt_label = (mnt_info.get("label") or "").strip()
-    if not part_dev or not part_dev.startswith("/dev/"):
-        raise DriveEjectError(
-            "Could not resolve block device for external drive.",
-            status_code=400,
-        )
-    if mnt_label in INTERNAL_LABELS:
+    if (mnt_info.get("label") or "").strip() in INTERNAL_LABELS:
         raise DriveEjectError(
             "Refusing to eject an internal system drive.",
-            status_code=400,
-        )
-
-    # Resolve the parent disk (e.g. /dev/sdb1 -> /dev/sdb) for power-off and
-    # check lsblk for *positive* evidence that this is an internal drive.
-    #
-    # The previous check refused eject whenever HOTPLUG and RM were not the
-    # string "1" on the partition itself.  That misfires on real USB backup
-    # drives: lsblk -J emits these columns as JSON booleans, partitions do
-    # not inherit them from the parent disk, and common USB-SATA/NVMe
-    # bridges report HOTPLUG=false/RM=false despite TRAN=usb.  The mount has
-    # already been validated as a udisks-managed mount under
-    # /run/media/<user>/ with no internal label; only refuse when the disk
-    # positively sits on an internal bus or hosts the running system.
-    disk_dev = part_dev
-    part_devs = _lsblk_device(run_cmd, part_dev)
-    device_devs = list(part_devs)
-    if part_devs:
-        if any((dev.get("label") or "") in INTERNAL_LABELS for dev in part_devs):
-            raise DriveEjectError(
-                "Refusing to eject an internal system drive.",
-                status_code=400,
-            )
-        pkname = ""
-        for dev in part_devs:
-            pkname = str(dev.get("pkname") or "").strip()
-            if pkname:
-                break
-        if pkname:
-            disk_dev = f"/dev/{pkname}"
-            device_devs.extend(_lsblk_device(run_cmd, disk_dev))
-    if device_devs and _hosts_system_mount(device_devs):
-        raise DriveEjectError(
-            "Refusing to eject the drive running this system.",
-            status_code=400,
-        )
-    if _device_is_positively_internal(device_devs):
-        raise DriveEjectError(
-            "Refusing to eject a non-removable internal drive.",
             status_code=400,
         )
 
@@ -549,53 +379,109 @@ def eject_external_drive(
     except Exception:
         pass
 
-    udisksctl = which_fn("udisksctl")
-    if udisksctl:
-        unmount_res = run_cmd(
-            [udisksctl, "unmount", "--no-user-interaction", "-b", part_dev],
-            capture_output=True, text=True, timeout=60,
-        )
-        # If udisksctl is installed on a headless system where udisksd is not
-        # running (not a target-is-busy error), fall back to direct umount.
-        err_text = ((unmount_res.stderr or "") + " " + (unmount_res.stdout or "")).lower()
-        if unmount_res.returncode != 0 and "busy" not in err_text:
-            unmount_res = run_cmd(
-                ["umount", norm_target],
-                capture_output=True, text=True, timeout=60,
-            )
-    else:
-        unmount_res = run_cmd(
-            ["umount", norm_target],
-            capture_output=True, text=True, timeout=60,
-        )
-    if unmount_res.returncode != 0:
+    def _busy_error() -> DriveEjectError:
         holders = find_mount_holders(norm_target, proc_root=proc_root)
         drive_display = os.path.basename(norm_target)
         if holders:
             joined = ", ".join(holders)
-            raise DriveEjectError(
+            return DriveEjectError(
                 f"'{drive_display}' is still open in {joined}. "
                 "Close any Files windows, text editors, or terminals viewing "
                 "this drive, then click Safely Eject Drive again.",
                 status_code=409,
             )
-        raise DriveEjectError(
+        return DriveEjectError(
             f"'{drive_display}' is still busy finishing disk operations. "
             "Wait a few seconds, make sure no Files window is browsing the "
             "drive, and click Safely Eject Drive again.",
             status_code=409,
         )
 
-    powered_off = False
-    if udisksctl and disk_dev.startswith("/dev/"):
-        try:
-            po_res = run_cmd(
-                [udisksctl, "power-off", "--no-user-interaction", "-b", disk_dev],
-                capture_output=True, text=True, timeout=30,
+    # Preferred path: eject inside the desktop user's session so GVfs
+    # performs its mount-pre-unmount release before udisks powers off.
+    # systemd-run --machine=<user>@ --user is the systemd-supported way
+    # for a root service to run a command in a user's session; the user
+    # manager sets up the runtime environment.
+    username = None
+    try:
+        username = session_fn(norm_target, media_root)
+    except Exception:
+        username = None
+    gio = which_fn("gio")
+    systemd_run = which_fn("systemd-run")
+    if username and gio and systemd_run:
+        eject_res = run_cmd(
+            [systemd_run, f"--machine={username}@", "--user", "--wait", "--pipe",
+             gio, "mount", "--eject", norm_target],
+            capture_output=True, text=True, timeout=60,
+        )
+        if eject_res.returncode == 0:
+            # Confirm the drive really left before claiming power-off:
+            # gio success means GVfs/udisks accepted the eject; verify the
+            # mount is actually gone.
+            verify_res = run_cmd(
+                ["findmnt", "-n", "-M", norm_target],
+                capture_output=True, text=True, timeout=10,
             )
-            powered_off = (po_res.returncode == 0)
-        except Exception:
-            powered_off = False
+            if verify_res.returncode != 0:
+                return {
+                    "ok": True,
+                    "status": "ejected",
+                    "powered_off": True,
+                    "message": "Drive safely unmounted and powered down. You can unplug it now.",
+                }
+            raise _busy_error()
+        # If the user session turned out to be unavailable (stale bus,
+        # user logged out between checks), fall through to the headless
+        # path instead of crying busy.  A genuine busy failure goes to
+        # the user with the holding applications named.
+        session_err = ((eject_res.stderr or "") + " " + (eject_res.stdout or "")).lower()
+        session_unavailable = any(
+            marker in session_err
+            for marker in (
+                "user manager",
+                "not running",
+                "failed to connect",
+                "no such file or directory",
+                "transport endpoint",
+            )
+        )
+        if not session_unavailable:
+            raise _busy_error()
+
+    # Headless fallback: no desktop session -- unmount and power off
+    # directly through udisks, resolving the parent disk for power-off.
+    udisksctl = which_fn("udisksctl")
+    if not part_dev.startswith("/dev/") or not udisksctl:
+        raise _busy_error()
+    unmount_res = run_cmd(
+        [udisksctl, "unmount", "--no-user-interaction", "-b", part_dev],
+        capture_output=True, text=True, timeout=60,
+    )
+    if unmount_res.returncode != 0:
+        # udisksd may not be running; fall back to a plain umount.
+        err_text = ((unmount_res.stderr or "") + " " + (unmount_res.stdout or "")).lower()
+        if "busy" not in err_text:
+            unmount_res = run_cmd(
+                ["umount", norm_target],
+                capture_output=True, text=True, timeout=60,
+            )
+    if unmount_res.returncode != 0:
+        raise _busy_error()
+
+    powered_off = False
+    try:
+        pkname = run_cmd(
+            ["lsblk", "-no", "PKNAME", part_dev],
+            capture_output=True, text=True, timeout=10,
+        ).stdout.strip().splitlines()
+        disk_dev = f"/dev/{pkname[0].strip()}" if pkname and pkname[0].strip() else part_dev
+        powered_off = run_cmd(
+            [udisksctl, "power-off", "--no-user-interaction", "-b", disk_dev],
+            capture_output=True, text=True, timeout=30,
+        ).returncode == 0
+    except Exception:
+        powered_off = False
 
     return {
         "ok": True,

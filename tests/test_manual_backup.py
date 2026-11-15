@@ -197,63 +197,58 @@ class TestSafeDriveEject(unittest.TestCase):
             self.assertTrue(res["ok"])
             self.assertEqual(res["status"], "already_unmounted")
 
-    def test_eject_runs_sync_unmount_and_power_off(self):
+    def test_eject_uses_desktop_session_gio_eject(self):
+        """Eject must go through the desktop user's GVfs session, like Files.
+
+        Nautilus calls g_mount_eject_with_operation(); the gvfs udisks2
+        monitor then emits mount-pre-unmount (trash/indexer release),
+        unmounts every filesystem on the drive, and powers it off.  A
+        root-side udisksctl unmount skips that choreography and fails
+        "Volume is busy" whenever Files has browsed the drive.
+        """
         with tempfile.TemporaryDirectory() as tmp:
             media_root = os.path.join(tmp, "media")
             target = os.path.join(media_root, "free", "S_S Backup")
             os.makedirs(target)
-
             calls: list[list[str]] = []
             synced = {"count": 0}
 
-            def fake_sync():
-                synced["count"] += 1
-
             def fake_run(cmd, **_kwargs):
                 calls.append(list(cmd))
+                if cmd[0] == "findmnt" and "-J" in cmd:
+                    return subprocess.CompletedProcess(
+                        cmd, 0,
+                        stdout=json.dumps({"filesystems": [{"source": "/dev/sdb1", "target": target, "fstype": "ext4", "label": "S_S Backup"}]}),
+                        stderr="",
+                    )
                 if cmd[0] == "findmnt":
-                    payload = {
-                        "filesystems": [{
-                            "source": "/dev/sdb1",
-                            "target": target,
-                            "fstype": "ext4",
-                            "label": "S_S Backup",
-                        }]
-                    }
-                    return subprocess.CompletedProcess(cmd, 0, stdout=json.dumps(payload), stderr="")
-                if cmd[0] == "lsblk":
-                    payload = {
-                        "blockdevices": [{
-                            "name": "sdb1",
-                            "label": "S_S Backup",
-                            "hotplug": "1",
-                            "rm": "0",
-                            "pkname": "sdb",
-                        }]
-                    }
-                    return subprocess.CompletedProcess(cmd, 0, stdout=json.dumps(payload), stderr="")
+                    # Post-eject verification: mount is gone.
+                    return subprocess.CompletedProcess(cmd, 1, stdout="", stderr="")
                 return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
 
             res = backup_ops.eject_external_drive(
                 target,
                 media_root=media_root,
                 run_cmd=fake_run,
-                sync_fn=fake_sync,
-                which_fn=lambda name: "/run/current-system/sw/bin/udisksctl" if name == "udisksctl" else None,
+                sync_fn=lambda: synced.__setitem__("count", synced["count"] + 1),
+                which_fn=lambda name: f"/usr/bin/{name}",
+                session_fn=lambda _t, _m: "free",
             )
             self.assertEqual(synced["count"], 1)
             self.assertEqual(res["status"], "ejected")
             self.assertTrue(res["powered_off"])
             self.assertIn(
-                ["/run/current-system/sw/bin/udisksctl", "unmount", "--no-user-interaction", "-b", "/dev/sdb1"],
+                [
+                    "/usr/bin/systemd-run", "--machine=free@", "--user",
+                    "--wait", "--pipe",
+                    "/usr/bin/gio", "mount", "--eject", target,
+                ],
                 calls,
             )
-            self.assertIn(
-                ["/run/current-system/sw/bin/udisksctl", "power-off", "--no-user-interaction", "-b", "/dev/sdb"],
-                calls,
-            )
+            # No direct udisksctl/lsblk gatekeeping on the session path.
+            self.assertFalse(any("udisksctl" in part for call in calls for part in call))
 
-    def test_busy_unmount_surfaces_409_with_holder_names(self):
+    def test_busy_session_eject_surfaces_409_with_holder_names(self):
         with tempfile.TemporaryDirectory() as tmp:
             media_root = os.path.join(tmp, "media")
             target = os.path.join(media_root, "free", "S_S Backup")
@@ -273,15 +268,7 @@ class TestSafeDriveEject(unittest.TestCase):
                         stdout=json.dumps({"filesystems": [{"source": "/dev/sdb1", "target": target, "fstype": "ext4"}]}),
                         stderr="",
                     )
-                if cmd[0] == "lsblk":
-                    return subprocess.CompletedProcess(
-                        cmd, 0,
-                        stdout=json.dumps({"blockdevices": [{"name": "sdb1", "hotplug": "1", "rm": "0", "pkname": "sdb"}]}),
-                        stderr="",
-                    )
-                return subprocess.CompletedProcess(
-                    cmd, 1, stdout="", stderr="Error unmounting /dev/sdb1: target is busy (udisks-error-quark, 14)",
-                )
+                return subprocess.CompletedProcess(cmd, 1, stdout="", stderr="mount is busy")
 
             with self.assertRaises(backup_ops.DriveEjectError) as ctx:
                 backup_ops.eject_external_drive(
@@ -290,48 +277,47 @@ class TestSafeDriveEject(unittest.TestCase):
                     proc_root=proc_root,
                     run_cmd=fake_run,
                     sync_fn=lambda: None,
-                    which_fn=lambda name: "/usr/bin/udisksctl",
+                    which_fn=lambda name: f"/usr/bin/{name}",
+                    session_fn=lambda _t, _m: "free",
                 )
             self.assertEqual(ctx.exception.status_code, 409)
             self.assertIn("Files (nautilus)", ctx.exception.message)
 
-    def test_refuses_non_removable_device_reported_by_lsblk(self):
+    def test_stale_session_falls_back_to_udisksctl(self):
+        """A dead desktop session must degrade to headless eject, not 409."""
         with tempfile.TemporaryDirectory() as tmp:
             media_root = os.path.join(tmp, "media")
-            target = os.path.join(media_root, "free", "FakeInternal")
+            target = os.path.join(media_root, "free", "S_S Backup")
             os.makedirs(target)
 
             def fake_run(cmd, **_kwargs):
                 if cmd[0] == "findmnt":
                     return subprocess.CompletedProcess(
                         cmd, 0,
-                        stdout=json.dumps({"filesystems": [{"source": "/dev/nvme0n1p2", "target": target, "fstype": "ext4"}]}),
+                        stdout=json.dumps({"filesystems": [{"source": "/dev/sdb1", "target": target, "fstype": "ext4", "label": "S_S Backup"}]}),
                         stderr="",
+                    )
+                if "systemd-run" in cmd[0]:
+                    return subprocess.CompletedProcess(
+                        cmd, 1, stdout="",
+                        stderr="Failed to connect to user manager: user manager is not running",
                     )
                 if cmd[0] == "lsblk":
-                    return subprocess.CompletedProcess(
-                        cmd, 0,
-                        stdout=json.dumps({"blockdevices": [{"name": "nvme0n1p2", "hotplug": False, "rm": False, "tran": "nvme", "pkname": "nvme0n1"}]}),
-                        stderr="",
-                    )
+                    return subprocess.CompletedProcess(cmd, 0, stdout="sdb\n", stderr="")
                 return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
 
-            with self.assertRaises(backup_ops.DriveEjectError) as ctx:
-                backup_ops.eject_external_drive(
-                    target, media_root=media_root, run_cmd=fake_run, sync_fn=lambda: None,
-                )
-            self.assertEqual(ctx.exception.status_code, 400)
+            res = backup_ops.eject_external_drive(
+                target,
+                media_root=media_root,
+                run_cmd=fake_run,
+                sync_fn=lambda: None,
+                which_fn=lambda name: f"/usr/bin/{name}",
+                session_fn=lambda _t, _m: "free",
+            )
+            self.assertEqual(res["status"], "ejected")
+            self.assertTrue(res["powered_off"])
 
-    def test_eject_allows_usb_bridge_reporting_json_booleans_false(self):
-        """Regression: real USB backup drives must not be called 'internal'.
-
-        lsblk -J emits HOTPLUG/RM as JSON booleans, partitions do not inherit
-        them from the parent disk, and USB-SATA bridges report both false
-        while TRAN=usb.  The screenshot bug ('Refusing to eject a
-        non-removable internal drive' after a successful backup to
-        /run/media/free/S_S Backup) came from requiring the string "1" on
-        the partition record alone.
-        """
+    def test_headless_fallback_uses_udisksctl_unmount_and_power_off(self):
         with tempfile.TemporaryDirectory() as tmp:
             media_root = os.path.join(tmp, "media")
             target = os.path.join(media_root, "free", "S_S Backup")
@@ -346,25 +332,8 @@ class TestSafeDriveEject(unittest.TestCase):
                         stdout=json.dumps({"filesystems": [{"source": "/dev/sdb1", "target": target, "fstype": "ext4", "label": "S_S Backup"}]}),
                         stderr="",
                     )
-                if cmd[0] == "lsblk" and cmd[-1] == "/dev/sdb1":
-                    return subprocess.CompletedProcess(
-                        cmd, 0,
-                        stdout=json.dumps({"blockdevices": [{
-                            "name": "sdb1", "type": "part", "label": "S_S Backup",
-                            "hotplug": False, "rm": False, "tran": None,
-                            "pkname": "sdb",
-                        }]}),
-                        stderr="",
-                    )
-                if cmd[0] == "lsblk" and cmd[-1] == "/dev/sdb":
-                    return subprocess.CompletedProcess(
-                        cmd, 0,
-                        stdout=json.dumps({"blockdevices": [{
-                            "name": "sdb", "type": "disk",
-                            "hotplug": False, "rm": False, "tran": "usb",
-                        }]}),
-                        stderr="",
-                    )
+                if cmd[0] == "lsblk":
+                    return subprocess.CompletedProcess(cmd, 0, stdout="sdb\n", stderr="")
                 return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
 
             res = backup_ops.eject_external_drive(
@@ -373,53 +342,18 @@ class TestSafeDriveEject(unittest.TestCase):
                 run_cmd=fake_run,
                 sync_fn=lambda: None,
                 which_fn=lambda name: "/usr/bin/udisksctl" if name == "udisksctl" else None,
+                session_fn=lambda _t, _m: None,
             )
             self.assertEqual(res["status"], "ejected")
             self.assertTrue(res["powered_off"])
             self.assertIn(
+                ["/usr/bin/udisksctl", "unmount", "--no-user-interaction", "-b", "/dev/sdb1"],
+                calls,
+            )
+            self.assertIn(
                 ["/usr/bin/udisksctl", "power-off", "--no-user-interaction", "-b", "/dev/sdb"],
                 calls,
             )
-
-    def test_eject_refuses_disk_hosting_root_filesystem(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            media_root = os.path.join(tmp, "media")
-            target = os.path.join(media_root, "free", "FakeInternal")
-            os.makedirs(target)
-
-            def fake_run(cmd, **_kwargs):
-                if cmd[0] == "findmnt":
-                    return subprocess.CompletedProcess(
-                        cmd, 0,
-                        stdout=json.dumps({"filesystems": [{"source": "/dev/sda2", "target": target, "fstype": "ext4"}]}),
-                        stderr="",
-                    )
-                if cmd[0] == "lsblk" and cmd[-1] == "/dev/sda2":
-                    return subprocess.CompletedProcess(
-                        cmd, 0,
-                        stdout=json.dumps({"blockdevices": [{
-                            "name": "sda2", "type": "part", "hotplug": True,
-                            "rm": True, "tran": "usb", "pkname": "sda",
-                        }]}),
-                        stderr="",
-                    )
-                if cmd[0] == "lsblk" and cmd[-1] == "/dev/sda":
-                    return subprocess.CompletedProcess(
-                        cmd, 0,
-                        stdout=json.dumps({"blockdevices": [{
-                            "name": "sda", "type": "disk", "tran": "sata",
-                            "children": [{"name": "sda1", "mountpoint": "/"}],
-                        }]}),
-                        stderr="",
-                    )
-                return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
-
-            with self.assertRaises(backup_ops.DriveEjectError) as ctx:
-                backup_ops.eject_external_drive(
-                    target, media_root=media_root, run_cmd=fake_run, sync_fn=lambda: None,
-                )
-            self.assertEqual(ctx.exception.status_code, 400)
-            self.assertIn("running this system", ctx.exception.message)
 
 
 class TestBackupScriptEndToEnd(unittest.TestCase):
@@ -678,6 +612,7 @@ class TestHubWiringAndFrontendInvariants(unittest.TestCase):
         self.assertIn("systemd.services.sovran-hub-backup", hub_nix)
         self.assertIn("config.services.udisks2.package", hub_nix)
         self.assertIn("config.services.postgresql.enable", hub_nix)
+        self.assertIn("pkgs.glib", hub_nix)  # gio for GVfs session eject
         start = hub_nix.index("systemd.services.sovran-hub-backup")
         end = hub_nix.index("systemd.services.sovran-hub-update", start)
         block = hub_nix[start:end]
