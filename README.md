@@ -288,6 +288,12 @@ nix build .#nixosConfigurations.sovran_systemsos-iso.config.system.build.isoImag
 
 </details>
 
+PostgreSQL major-version changes are migrated automatically by the PostgreSQL
+pre-start gate during a NixOS switch or the next reboot; users do not need to run
+database migration commands. See the
+[PostgreSQL upgrade and recovery guide](docs/postgresql-major-upgrades.md) for
+what happens automatically and how to investigate an exceptional failure.
+
 ### Repository layout
 
 | Path | Purpose |

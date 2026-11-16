@@ -203,10 +203,20 @@ EOF
     };
   };
 
-  systemd.services.matrix-synapse.after = [ "matrix-synapse-secret-init.service" ];
-  systemd.services.matrix-synapse.wants = [ "matrix-synapse-secret-init.service" ];
-  
-  
+  systemd.services.matrix-synapse = {
+    after = [ "matrix-synapse-secret-init.service" "postgresql.service" "postgresql-setup.service" ];
+    wants = [ "matrix-synapse-secret-init.service" ];
+    requires = [ "postgresql-setup.service" ];
+    # Stop/restart Synapse with PostgreSQL so no pooled client can reconnect
+    # while the cluster is being copied. After=setup orders it back up only
+    # after extension updates and both statistics passes succeed.
+    partOf = [ "postgresql.service" ];
+    restartTriggers = [
+      (pkgs.writeText "postgresql-major-trigger" config.services.postgresql.package.psqlSchema)
+    ];
+  };
+
+
     # ── Auto-generate Admin and Test users ──────────────────────
   systemd.services.matrix-synapse-create-users = {
     description = "Create Admin and Test users for Matrix Synapse";

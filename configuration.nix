@@ -181,6 +181,19 @@
   #   services.postgresql.settings.shared_buffers = lib.mkForce "512MB";
   services.postgresql = {
     enable = true;
+    # Pin the PostgreSQL major explicitly. system.stateVersion is a NixOS
+    # compatibility baseline, not a database upgrade control; the pinned
+    # nixpkgs module would otherwise select PostgreSQL 14 for stateVersion
+    # 22.05, which is now out of upstream support. Supported major upgrades run
+    # automatically on service activation; the runbook documents recovery.
+    package = pkgs.postgresql_18;
+    # Make new clusters' encoding and default locale reproducible. Leave PG18's
+    # default checksums enabled for fresh installs; the automatic upgrade path
+    # matches the source cluster's encoding, locale, and checksum setting.
+    initdbArgs = [
+      "--encoding=UTF8"
+      "--locale=${config.i18n.defaultLocale}"
+    ];
     authentication = lib.mkForce ''
       local   all   all                 trust
       host    all   all   127.0.0.1/32  trust

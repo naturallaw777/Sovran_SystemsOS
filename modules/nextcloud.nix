@@ -22,8 +22,9 @@ lib.mkIf config.sovran_systemsOS.services.nextcloud {
   # ── Auto-generate DB password and initialize ──────────────
   systemd.services.nextcloud-db-init = {
     description = "Initialize Nextcloud PostgreSQL database with auto-generated password";
-    after = [ "postgresql.service" ];
-    requires = [ "postgresql.service" ];
+    after = [ "postgresql.service" "postgresql-setup.service" ];
+    requires = [ "postgresql.service" "postgresql-setup.service" ];
+    partOf = [ "postgresql.service" ];
     before = [ "nextcloud-init.service" ];
     wantedBy = [ "multi-user.target" ];
     serviceConfig = {
@@ -71,9 +72,10 @@ lib.mkIf config.sovran_systemsOS.services.nextcloud {
   # ── Fully automated Nextcloud setup ───────────────────────
   systemd.services.nextcloud-init = {
     description = "Download, extract, and fully configure Nextcloud";
-    after = [ "network-online.target" "postgresql.service" "phpfpm-nextcloud.service" "nextcloud-db-init.service" "redis-nextcloud.service" ];
+    after = [ "network-online.target" "postgresql.service" "postgresql-setup.service" "phpfpm-nextcloud.service" "nextcloud-db-init.service" "redis-nextcloud.service" ];
     wants = [ "network-online.target" "redis-nextcloud.service" ];
-    requires = [ "postgresql.service" "nextcloud-db-init.service" ];
+    requires = [ "postgresql.service" "postgresql-setup.service" "nextcloud-db-init.service" ];
+    partOf = [ "postgresql.service" ];
     wantedBy = [ "multi-user.target" ];
 
     unitConfig = {
@@ -276,7 +278,9 @@ CREDS
   # re-run on every boot — occ just overwrites the same values.
   systemd.services.nextcloud-redis-migrate = {
     description = "Point existing Nextcloud installs at Redis locking";
-    after = [ "postgresql.service" "redis-nextcloud.service" "phpfpm-nextcloud.service" ];
+    after = [ "postgresql.service" "postgresql-setup.service" "redis-nextcloud.service" "phpfpm-nextcloud.service" ];
+    requires = [ "postgresql-setup.service" ];
+    partOf = [ "postgresql.service" ];
     wants = [ "redis-nextcloud.service" ];
     wantedBy = [ "multi-user.target" ];
     unitConfig = {
@@ -319,7 +323,9 @@ CREDS
   # Scoped to nextclouddb only — matrix-synapse is untouched.
   systemd.services.nextcloud-db-maintenance = {
     description = "Nextcloud DB maintenance: VACUUM + missing indices";
-    after = [ "postgresql.service" "redis-nextcloud.service" "phpfpm-nextcloud.service" ];
+    after = [ "postgresql.service" "postgresql-setup.service" "redis-nextcloud.service" "phpfpm-nextcloud.service" ];
+    requires = [ "postgresql-setup.service" ];
+    partOf = [ "postgresql.service" ];
     wants = [ "postgresql.service" ];
     unitConfig = {
       ConditionPathExists = [
@@ -385,8 +391,21 @@ CREDS
     };
   };
 
+  # Hold the Nextcloud database client until PostgreSQL's automatic major
+  # upgrade, extension updates, and initial statistics passes are complete.
+  systemd.services.phpfpm-nextcloud = {
+    after = [ "postgresql.service" "postgresql-setup.service" ];
+    requires = [ "postgresql-setup.service" ];
+    # Stop/restart the app pool with PostgreSQL so clients cannot reconnect
+    # during the migration; After=setup delays it until maintenance succeeds.
+    partOf = [ "postgresql.service" ];
+    restartTriggers = [
+      (pkgs.writeText "postgresql-major-trigger" config.services.postgresql.package.psqlSchema)
+    ];
+  };
+
   environment.systemPackages = with pkgs; [ unzip ];
-  
+
   sovran_systemsOS.domainRequirements = [
     { name = "nextcloud"; label = "Nextcloud"; example = "cloud.yourdomain.com"; }
   ];

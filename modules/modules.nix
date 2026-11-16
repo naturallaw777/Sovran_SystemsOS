@@ -22,6 +22,7 @@
     ./php.nix
     ./credentials.nix
     ./password-model.nix
+    ./postgresql-major-upgrade.nix
 
     # ── Services (default ON — disable in custom.nix) ─────────
     ./synapse.nix
