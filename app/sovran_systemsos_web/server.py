@@ -2200,18 +2200,31 @@ def _cleanup_desktop_support_state() -> None:
         return
     try:
         _cancel_expiry_timer()
-        for path in (
-            SUPPORT_USER_AUTH_KEYS,
-            SUPPORT_KEY_FILE,
-            WALLET_UNLOCK_FILE,
-            SUPPORT_STATUS_FILE,
-        ):
+        # Each target is paired with a fixed, non-derived label. The paths
+        # themselves must never be logged: SUPPORT_USER_AUTH_KEYS holds the
+        # support session's SSH authorization key and WALLET_UNLOCK_FILE marks
+        # an open wallet, and CodeQL (py/clear-text-logging-sensitive-data)
+        # reports any join of those constants into a log record as a
+        # clear-text secret leak. The label plus errno is enough to diagnose
+        # a failed removal from the journal.
+        stale_targets = (
+            ("support user authorized_keys", SUPPORT_USER_AUTH_KEYS),
+            ("legacy root support key", SUPPORT_KEY_FILE),
+            ("wallet unlock marker", WALLET_UNLOCK_FILE),
+            ("support session status", SUPPORT_STATUS_FILE),
+        )
+        for label, path in stale_targets:
             try:
                 os.remove(path)
             except FileNotFoundError:
                 pass
-            except OSError:
-                logger.exception("_cleanup_desktop_support_state: could not remove %s (non-fatal)", path)
+            except OSError as exc:
+                logger.warning(
+                    "_cleanup_desktop_support_state: could not remove %s "
+                    "(non-fatal, %s)",
+                    label,
+                    exc.strerror or type(exc).__name__,
+                )
         shutil.rmtree(SUPPORT_USER_HOME, ignore_errors=True)
     except Exception:
         logger.exception("_cleanup_desktop_support_state: cleanup failed (non-fatal)")

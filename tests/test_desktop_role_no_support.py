@@ -193,6 +193,48 @@ class HubRoleConfig(unittest.TestCase):
         self.assertIn("SUPPORT_STATUS_FILE", purge)
         self.assertIn("shutil.rmtree(SUPPORT_USER_HOME", purge)
 
+    def test_startup_cleanup_never_logs_a_support_path(self):
+        """CWE-312/CWE-532 (CodeQL py/clear-text-logging-sensitive-data).
+
+        SUPPORT_USER_AUTH_KEYS holds the live per-session support SSH key, so
+        anything derived from it counts as sensitive. The Desktop Only startup
+        cleanup must log a fixed label and the errno text -- never the path
+        itself. Regression guard for the CodeQL alert on this function.
+        """
+        purge = _fn(self.tree, "_cleanup_desktop_support_state")
+        purge_src = _fn_source(self.tree, "_cleanup_desktop_support_state", self.src)
+        log_calls = 0
+        for node in ast.walk(purge):
+            if not (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Attribute)
+                and node.func.attr in {"exception", "error", "warning", "info", "debug", "critical"}
+                and isinstance(node.func.value, ast.Name)
+                and node.func.value.id == "logger"
+            ):
+                continue
+            log_calls += 1
+            logged_names = {
+                sub.id
+                for arg in node.args
+                for sub in ast.walk(arg)
+                if isinstance(sub, ast.Name)
+            }
+            self.assertNotIn(
+                "path", logged_names,
+                f"{node.func.attr} at line {node.lineno} logs a support path (sensitive)",
+            )
+            self.assertNotIn(
+                "stale_targets", logged_names,
+                f"{node.func.attr} at line {node.lineno} logs the support path tuple",
+            )
+        self.assertGreaterEqual(log_calls, 2, "expected the per-path and outer handler logs")
+        # The paths are still removed, and each one carries a log label.
+        self.assertIn("for label, path in stale_targets:", purge_src)
+        for constant in ("SUPPORT_USER_AUTH_KEYS", "SUPPORT_KEY_FILE",
+                         "WALLET_UNLOCK_FILE", "SUPPORT_STATUS_FILE"):
+            self.assertIn(constant, purge_src)
+
     def test_startup_support_timers_do_not_run_on_desktop(self):
         body = _fn_source(self.tree, "_startup_security_migrations", self.src)
         condition = body.index("if _support_role_available():")
