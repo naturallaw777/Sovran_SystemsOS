@@ -15,8 +15,8 @@ boot — and scales into your own Bitcoin node, Lightning stack, private cloud,
 and communications server when you are ready.
 
 [Website](https://sovransystems.com) ·
-[Download ISO](https://downloads.sovransystems.com/Sovran_SystemsOS-1.2.5.iso) ·
-[Verify SHA-256](https://downloads.sovransystems.com/Sovran_SystemsOS-1.2.5.iso.sha256) ·
+[Download ISO](https://downloads.sovransystems.com/Sovran_SystemsOS-1.2.6.iso) ·
+[Verify SHA-256](https://downloads.sovransystems.com/Sovran_SystemsOS-1.2.6.iso.sha256) ·
 [Install Guide](#install-sovran_systemsos) ·
 [Build from Source](#build-from-source)
 
@@ -181,8 +181,8 @@ and restricted to local/LAN addresses).
 > real funds or sensitive keys in a trial VM.
 
 1. **Download** both the installer image and its checksum:
-   - [Sovran_SystemsOS-1.2.5.iso](https://downloads.sovransystems.com/Sovran_SystemsOS-1.2.5.iso)
-   - [Sovran_SystemsOS-1.2.5.iso.sha256](https://downloads.sovransystems.com/Sovran_SystemsOS-1.2.5.iso.sha256)
+   - [Sovran_SystemsOS-1.2.6.iso](https://downloads.sovransystems.com/Sovran_SystemsOS-1.2.6.iso)
+   - [Sovran_SystemsOS-1.2.6.iso.sha256](https://downloads.sovransystems.com/Sovran_SystemsOS-1.2.6.iso.sha256)
 2. **Verify the SHA-256 checksum** before flashing. **Stop if it does not match.**
 3. **Flash to a USB drive** using [Balena Etcher](https://etcher.balena.io)
    (flashing erases the selected USB drive).
@@ -199,19 +199,19 @@ Keep both downloaded files in the same folder:
 
 - **Linux:**
   ```bash
-  sha256sum --check Sovran_SystemsOS-1.2.5.iso.sha256
-  # Expected: Sovran_SystemsOS-1.2.5.iso: OK
+  sha256sum --check Sovran_SystemsOS-1.2.6.iso.sha256
+  # Expected: Sovran_SystemsOS-1.2.6.iso: OK
   ```
 - **macOS:**
   ```bash
-  shasum -a 256 Sovran_SystemsOS-1.2.5.iso
+  shasum -a 256 Sovran_SystemsOS-1.2.6.iso
   ```
 - **Windows (PowerShell):**
   ```powershell
-  Get-FileHash .\Sovran_SystemsOS-1.2.5.iso -Algorithm SHA256
+  Get-FileHash .\Sovran_SystemsOS-1.2.6.iso -Algorithm SHA256
   ```
   Compare the output hash on macOS/Windows with the contents of
-  `Sovran_SystemsOS-1.2.5.iso.sha256`.
+  `Sovran_SystemsOS-1.2.6.iso.sha256`.
 
 </details>
 
