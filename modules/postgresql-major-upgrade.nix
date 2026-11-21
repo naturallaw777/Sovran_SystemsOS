@@ -11,23 +11,45 @@ let
 
   # Keep the old major-version tools in this system closure so a first boot
   # does not depend on binaries surviving in a previous generation or on Nix
-  # garbage-collection timing. Include every installed numeric major >= 14
-  # that is older than the configured target.
-  oldPackageNames = builtins.filter
+  # garbage-collection timing. Include every numeric major >= 14 that is older
+  # than the configured target.
+  #
+  # nixos-unstable drops a major once it reaches EOL upstream, replacing it with
+  # a throw. The binaries for that major are then nowhere in `pkgs`, which would
+  # make automatic upgrades from it impossible. The flake pins nixpkgs-stable
+  # and exposes it as `pkgs.stable`; that tree still carries the retired majors,
+  # so fall back to it for any major this nixpkgs no longer provides. The target
+  # package itself always comes from `cfg.package` and therefore from the pinned
+  # nixpkgs. `or { }` keeps the module evaluable where the overlay is not
+  # applied, e.g. in a bare NixOS configuration.
+  stablePkgs = pkgs.stable or { };
+
+  oldMajorCandidates = lib.unique (builtins.filter
     (name:
       let match = builtins.match "postgresql_([0-9]+)" name;
       in match != null
         && builtins.fromJSON (builtins.head match) >= 14
         && builtins.fromJSON (builtins.head match) < targetMajorNumber
     )
-    (builtins.attrNames pkgs);
+    (builtins.attrNames pkgs ++ builtins.attrNames stablePkgs));
+
+  # nixpkgs keeps EOL names as attributes that throw, so presence alone does not
+  # mean the package is usable.
+  usable = name: base:
+    base ? ${name} && (builtins.tryEval base.${name}).success;
+
+  oldPackageNames = builtins.filter
+    (name: usable name pkgs || usable name stablePkgs)
+    oldMajorCandidates;
 
   oldPackages = map
     (name:
       let
         match = builtins.match "postgresql_([0-9]+)" name;
         major = builtins.head match;
-        basePackage = builtins.getAttr name pkgs;
+        basePackage =
+          if usable name pkgs then builtins.getAttr name pkgs
+          else builtins.getAttr name stablePkgs;
         jitPackage = if cfg.enableJIT then basePackage.withJIT else basePackage.withoutJIT;
         finalPackage = jitPackage.withPackages cfg.extensions;
       in
