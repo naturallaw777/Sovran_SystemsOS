@@ -43,16 +43,14 @@ from . import backup_ops as _backup_ops
 from .ddns_update import normalise_url as _normalise_ddns_url
 from .security_helpers import (
     _nix_escape,
-    NPUB_RE,
-    _validate_npub,
+    _nostr_key_to_hex,
+    _hex_to_npub,
     _validate_ddns_url,
     _validate_ssh_pubkey,
     _DDNS_URL_MAX_LEN,
     _DDNS_CONTROL_RE,
     _DDNS_ALLOWED_HOSTNAMES,
     _SSH_PUBKEY_ALGORITHMS,
-    _bech32_decode,
-    _bech32_convertbits_decode,
     load_session_store,
     save_session_store,
     LoginThrottle,
@@ -124,7 +122,9 @@ CUSTOM_NIX  = "/etc/nixos/custom.nix"
 HUB_BEGIN   = "  # ── Hub Managed (do not edit) ──────────────"
 HUB_END     = "  # ── End Hub Managed ────────────────────────"
 DOMAINS_DIR = "/var/lib/domains"
-NOSTR_NPUB_FILE   = "/var/lib/secrets/nostr_npub"
+NOSTR_PUBKEY_FILE = "/var/lib/secrets/nostr_pubkey"
+# Retired relay wrote the npub here; read-only fallback so the key survives the upgrade.
+NOSTR_NPUB_LEGACY_FILE = "/var/lib/secrets/nostr_npub"
 NJALLA_SCRIPT     = "/var/lib/njalla/njalla.sh"
 NJALLA_DDNS_URLS_FILE = "/var/lib/njalla/ddns_urls.json"
 
@@ -143,7 +143,7 @@ CADDY_UNIT          = "caddy.service"
 # Domain keys that produce a public HTTPS virtual host via Caddy
 _SERVICE_DOMAIN_KEYS = frozenset([
     "matrix", "wordpress", "nextcloud", "btcpayserver",
-    "vaultwarden", "haven", "element-calling", "lightning",
+    "vaultwarden", "nostr-rs-relay", "element-calling", "lightning",
 ])
 
 INTERNAL_IP_FILE = "/var/lib/secrets/internal-ip"
@@ -274,16 +274,16 @@ FEATURE_REGISTRY = [
         "port_requirements": [],
     },
     {
-        "id": "haven",
-        "name": "Haven NOSTR Relay",
-        "description": "Run your own private Nostr relay",
+        "id": "nostr-rs-relay",
+        "name": "Nostr Relay",
+        "description": "Run your own Nostr relay",
         "category": "nostr",
         "needs_domain": True,
-        "domain_name": "haven",
+        "domain_name": "nostr-rs-relay",
         "needs_ddns": True,
         "extra_fields": [
             {
-                "id": "nostr_npub",
+                "id": "nostr_pubkey",
                 "label": "Nostr Public Key (npub1...)",
                 "type": "text",
                 "required": True,
@@ -291,7 +291,7 @@ FEATURE_REGISTRY = [
             },
         ],
         "conflicts_with": [],
-        # Haven uses only 80/443, already covered by the main install alert
+        # Relay uses only 80/443, already covered by the main install alert
         "port_requirements": [],
     },
     {
@@ -395,12 +395,12 @@ FEATURE_REGISTRY = [
 
 # Feature ids that have been removed/deprecated. The Hub must never write these
 # back into custom.nix, and should strip any it finds (see startup migration).
-DEPRECATED_FEATURE_IDS: set[str] = {"bitcoin-core"}
+DEPRECATED_FEATURE_IDS: set[str] = {"bitcoin-core", "haven"}
 
 # Map feature IDs to their systemd units in config.json
 FEATURE_SERVICE_MAP = {
     "rdp": "gnome-remote-desktop.service",
-    "haven": "haven-relay.service",
+    "nostr-rs-relay": "nostr-rs-relay.service",
     "element-calling": "livekit.service",
     "mempool": "mempool.service",
     "bitcoin-tor-gossip": None,
@@ -436,7 +436,7 @@ SERVICE_PORT_REQUIREMENTS: dict[str, list[dict]] = {
     "vaultwarden.service":              [],
     "phpfpm-nextcloud.service":         [],
     "phpfpm-wordpress.service":         [],
-    "haven-relay.service":              [],
+    "nostr-rs-relay.service":           [],
     "albyhub.service":                  [],
     "nwc-lnurl.service":                [],
     # SSH (only open when feature is enabled)
@@ -451,7 +451,7 @@ SERVICE_DOMAIN_MAP: dict[str, str] = {
     "vaultwarden.service":         "vaultwarden",
     "phpfpm-nextcloud.service":    "nextcloud",
     "phpfpm-wordpress.service":    "wordpress",
-    "haven-relay.service":         "haven",
+    "nostr-rs-relay.service":      "nostr-rs-relay",
     "livekit.service":             "element-calling",
     "albyhub.service":             "lightning",
 }
@@ -557,7 +557,7 @@ SERVICE_DESCRIPTIONS: dict[str, str] = {
         "Build websites, blogs, or online stores with full creative control and zero monthly hosting fees. "
         "Sovran_SystemsOS hosts it on your infrastructure — your content, your rules."
     ),
-    "haven-relay.service": (
+    "nostr-rs-relay.service": (
         "Your own Nostr relay for censorship-resistant social networking. Publish and receive notes "
         "on the Nostr protocol from infrastructure you control — no platform can silence you. "
         "Sovran_SystemsOS keeps your relay online and connected to the network."
@@ -2022,9 +2022,9 @@ def _recover_stale_backup_status() -> bool:
 
 def _read_hub_overrides() -> tuple[dict, str | None, str | None, str | None]:
     """Parse the Hub Managed section inside custom.nix.
-    Returns (features_dict, nostr_npub_or_none, timezone_or_none, locale_or_none)."""
+    Returns (features_dict, nostr_pubkey_or_none, timezone_or_none, locale_or_none)."""
     features: dict[str, bool] = {}
-    nostr_npub = None
+    nostr_pubkey = None
     timezone = None
     locale = None
     try:
@@ -2033,7 +2033,7 @@ def _read_hub_overrides() -> tuple[dict, str | None, str | None, str | None]:
         begin = content.find(HUB_BEGIN)
         end = content.find(HUB_END)
         if begin == -1 or end == -1:
-            return features, nostr_npub, timezone, locale
+            return features, nostr_pubkey, timezone, locale
         section = content[begin:end]
         for m in re.finditer(
             r'sovran_systemsOS\.features\.([a-zA-Z0-9_-]+)\s*=\s*(?:lib\.mkForce\s+)?(true|false)\s*;',
@@ -2048,11 +2048,21 @@ def _read_hub_overrides() -> tuple[dict, str | None, str | None, str | None]:
         ):
             features["btcpay-web"] = m.group(1) == "true"
         m2 = re.search(
-            r'sovran_systemsOS\.nostr_npub\s*=\s*(?:lib\.mkForce\s+)?"([^"]*)"',
+            r'sovran_systemsOS\.nostr_pubkey\s*=\s*(?:lib\.mkForce\s+)?"([^"]*)"',
             section,
         )
         if m2:
-            nostr_npub = m2.group(1)
+            nostr_pubkey = m2.group(1)
+        if not nostr_pubkey:
+            # Migrate the retired npub-based setting: decode it to hex so the
+            # next Hub write persists it as nostr_pubkey. The user's key is
+            # carried over; nothing is lost.
+            m2_legacy = re.search(
+                r'sovran_systemsOS\.nostr_npub\s*=\s*(?:lib\.mkForce\s+)?"([^"]*)"',
+                section,
+            )
+            if m2_legacy:
+                nostr_pubkey = _nostr_key_to_hex(m2_legacy.group(1))
         m3 = re.search(
             r'time\.timeZone\s*=\s*(?:lib\.mkForce\s+)?"([^"]*)"',
             section,
@@ -2067,10 +2077,18 @@ def _read_hub_overrides() -> tuple[dict, str | None, str | None, str | None]:
             locale = m4.group(1)
     except FileNotFoundError:
         pass
-    return features, nostr_npub, timezone, locale
+    if not nostr_pubkey:
+        # Fallback for installs that only have the legacy secrets file
+        # (written by the retired relay feature): migrate it to hex too.
+        try:
+            with open(NOSTR_NPUB_LEGACY_FILE, "r") as f:
+                nostr_pubkey = _nostr_key_to_hex(f.read())
+        except OSError:
+            pass
+    return features, nostr_pubkey, timezone, locale
 
 
-def _write_hub_overrides(features: dict, nostr_npub: str | None, timezone: str | None = None, locale: str | None = None) -> None:
+def _write_hub_overrides(features: dict, nostr_pubkey: str | None, timezone: str | None = None, locale: str | None = None) -> None:
     """Write the Hub Managed section inside custom.nix."""
     lines = []
     for feat_id, enabled in features.items():
@@ -2081,8 +2099,8 @@ def _write_hub_overrides(features: dict, nostr_npub: str | None, timezone: str |
             lines.append(f"  sovran_systemsOS.web.btcpayserver = lib.mkForce {val};")
         else:
             lines.append(f"  sovran_systemsOS.features.{feat_id} = lib.mkForce {val};")
-    if nostr_npub:
-        lines.append(f'  sovran_systemsOS.nostr_npub = lib.mkForce "{_nix_escape(nostr_npub)}";')
+    if nostr_pubkey:
+        lines.append(f'  sovran_systemsOS.nostr_pubkey = lib.mkForce "{_nix_escape(nostr_pubkey)}";')
     if timezone:
         lines.append(f'  time.timeZone = lib.mkForce "{_nix_escape(timezone)}";')
     if locale:
@@ -2136,7 +2154,7 @@ def _write_hub_overrides(features: dict, nostr_npub: str | None, timezone: str |
 def _migrate_strip_deprecated_features() -> None:
     """One-time migration: remove deprecated feature lines from the Hub Managed
     section of custom.nix.  Any feature id in DEPRECATED_FEATURE_IDS is dropped
-    while all other Hub-managed settings (other features, nostr_npub, timezone,
+    while all other Hub-managed settings (other features, nostr_pubkey, timezone,
     locale) are preserved byte-for-byte in meaning.
 
     This is a no-op (and never raises) if CUSTOM_NIX is missing, unreadable, or
@@ -2158,10 +2176,10 @@ def _migrate_strip_deprecated_features() -> None:
         return
 
     try:
-        features, nostr_npub, timezone, locale = _read_hub_overrides()
+        features, nostr_pubkey, timezone, locale = _read_hub_overrides()
         # _read_hub_overrides already excludes DEPRECATED_FEATURE_IDS, so
         # calling _write_hub_overrides with its output drops the stale lines.
-        _write_hub_overrides(features, nostr_npub, timezone, locale)
+        _write_hub_overrides(features, nostr_pubkey, timezone, locale)
     except Exception:
         # Never let a migration failure break startup.
         logger.exception("_migrate_strip_deprecated_features: unexpected error (non-fatal)")
@@ -2179,11 +2197,11 @@ def _migrate_strip_desktop_sshd() -> None:
     if _support_role_available():
         return
     try:
-        features, nostr_npub, timezone, locale = _read_hub_overrides()
+        features, nostr_pubkey, timezone, locale = _read_hub_overrides()
         if "sshd" not in features:
             return
         features.pop("sshd", None)
-        _write_hub_overrides(features, nostr_npub, timezone, locale)
+        _write_hub_overrides(features, nostr_pubkey, timezone, locale)
     except Exception:
         logger.exception("_migrate_strip_desktop_sshd: cleanup failed (non-fatal)")
 
@@ -3560,7 +3578,7 @@ async def api_service_detail(unit: str, icon: str | None = None):
     }
 
     loop = asyncio.get_event_loop()
-    overrides, nostr_npub, *_ = await loop.run_in_executor(None, _read_hub_overrides)
+    overrides, nostr_pubkey, *_ = await loop.run_in_executor(None, _read_hub_overrides)
 
     # Find the service config entry, preferring icon match when provided
     entry = None
@@ -3727,8 +3745,8 @@ async def api_service_detail(unit: str, icon: str | None = None):
             extra_fields = []
             for ef in feat_meta.get("extra_fields", []):
                 ef_copy = dict(ef)
-                if ef["id"] == "nostr_npub":
-                    ef_copy["current_value"] = nostr_npub or ""
+                if ef["id"] == "nostr_pubkey":
+                    ef_copy["current_value"] = _hex_to_npub(nostr_pubkey or "") or nostr_pubkey or ""
                 extra_fields.append(ef_copy)
             feature_entry = {
                 "id": feat_id,
@@ -4524,7 +4542,7 @@ async def api_backup_eject(req: BackupEjectRequest | None = None, target: str = 
 async def api_features():
     """Return all toggleable features with current state and domain requirements."""
     loop = asyncio.get_event_loop()
-    overrides, nostr_npub, *_ = await loop.run_in_executor(None, _read_hub_overrides)
+    overrides, nostr_pubkey, *_ = await loop.run_in_executor(None, _read_hub_overrides)
 
     ssl_email_path = os.path.join(DOMAINS_DIR, "sslemail")
     ssl_email_configured = os.path.exists(ssl_email_path)
@@ -4566,8 +4584,8 @@ async def api_features():
         extra_fields = []
         for ef in feat.get("extra_fields", []):
             ef_copy = dict(ef)
-            if ef["id"] == "nostr_npub":
-                ef_copy["current_value"] = nostr_npub or ""
+            if ef["id"] == "nostr_pubkey":
+                ef_copy["current_value"] = _hex_to_npub(nostr_pubkey or "") or nostr_pubkey or ""
             extra_fields.append(ef_copy)
 
         entry: dict = {
@@ -4616,7 +4634,7 @@ async def api_features_toggle(req: FeatureToggleRequest):
         )
 
     loop = asyncio.get_event_loop()
-    features, nostr_npub, cur_tz, cur_locale = await loop.run_in_executor(None, _read_hub_overrides)
+    features, nostr_pubkey, cur_tz, cur_locale = await loop.run_in_executor(None, _read_hub_overrides)
 
     if req.enabled:
         # Onion-address advertising is only meaningful while the Bitcoin Core
@@ -4658,15 +4676,17 @@ async def api_features_toggle(req: FeatureToggleRequest):
                     },
                 )
 
-        # Haven requires nostr_npub
-        if req.feature == "haven":
-            npub = (req.extra or {}).get("nostr_npub", "").strip()
-            if npub:
-                if not _validate_npub(npub):
-                    raise HTTPException(status_code=400, detail="Invalid Nostr npub (must be npub1 followed by 58 bech32 characters with valid checksum)")
-                nostr_npub = npub
-            elif not nostr_npub:
-                raise HTTPException(status_code=400, detail="nostr_npub is required for Haven")
+        # nostr-rs-relay requires the operator pubkey for the write whitelist.
+        # Users paste their npub1... (what Nostr clients show); the Hub converts it to hex.
+        if req.feature == "nostr-rs-relay":
+            pubkey = (req.extra or {}).get("nostr_pubkey", "").strip()
+            if pubkey:
+                normalized = _nostr_key_to_hex(pubkey)
+                if normalized is None:
+                    raise HTTPException(status_code=400, detail="Invalid Nostr public key (paste your npub1... key)")
+                nostr_pubkey = normalized
+            elif not nostr_pubkey:
+                raise HTTPException(status_code=400, detail="nostr_pubkey is required for Nostr Relay")
 
         # Auto-disable conflicting features
         for conflict_id in feat_meta.get("conflicts_with", []):
@@ -4682,20 +4702,21 @@ async def api_features_toggle(req: FeatureToggleRequest):
             await loop.run_in_executor(None, _revoke_support_for_sshd_disable)
         features[req.feature] = False
 
-    # Persist any extra fields (nostr_npub)
-    new_npub = (req.extra or {}).get("nostr_npub", "").strip()
-    if new_npub:
-        if not _validate_npub(new_npub):
-            raise HTTPException(status_code=400, detail="Invalid Nostr npub (must be npub1 followed by 58 bech32 characters with valid checksum)")
-        nostr_npub = new_npub
+    # Persist any extra fields (nostr_pubkey — stored as hex)
+    new_pubkey = (req.extra or {}).get("nostr_pubkey", "").strip()
+    if new_pubkey:
+        normalized = _nostr_key_to_hex(new_pubkey)
+        if normalized is None:
+            raise HTTPException(status_code=400, detail="Invalid Nostr public key (paste your npub1... key)")
+        nostr_pubkey = normalized
         try:
-            os.makedirs(os.path.dirname(NOSTR_NPUB_FILE), exist_ok=True)
-            with open(NOSTR_NPUB_FILE, "w") as f:
-                f.write(nostr_npub)
+            os.makedirs(os.path.dirname(NOSTR_PUBKEY_FILE), exist_ok=True)
+            with open(NOSTR_PUBKEY_FILE, "w") as f:
+                f.write(nostr_pubkey)
         except OSError:
             pass
 
-    await loop.run_in_executor(None, _write_hub_overrides, features, nostr_npub, cur_tz, cur_locale)
+    await loop.run_in_executor(None, _write_hub_overrides, features, nostr_pubkey, cur_tz, cur_locale)
 
     # When enabling a feature that relies on dynamic DNS, refresh the Njal.la
     # records right away instead of waiting for the 15-minute timer tick.
@@ -4921,7 +4942,7 @@ _HOSTNAME_RE = re.compile(
 
 # Managed domain keys that produce Caddy virtual-host blocks (excluding sslemail)
 _MANAGED_DOMAIN_KEYS: frozenset[str] = frozenset([
-    "matrix", "haven", "element-calling", "vaultwarden",
+    "matrix", "nostr-rs-relay", "element-calling", "vaultwarden",
     "btcpayserver", "nextcloud", "wordpress", "lightning",
 ])
 
@@ -5086,7 +5107,7 @@ async def api_domains_set_email(req: DomainSetEmailRequest):
 async def api_domains_status():
     """Return the value of each known domain file (or null if missing)."""
     known = [
-        "matrix", "haven", "element-calling", "sslemail",
+        "matrix", "nostr-rs-relay", "element-calling", "sslemail",
         "vaultwarden", "btcpayserver", "nextcloud", "wordpress", "lightning",
     ]
     domains: dict[str, str | None] = {}
@@ -5898,8 +5919,8 @@ async def api_system_set_timezone(req: TimezoneRequest):
         raise HTTPException(status_code=400, detail="Invalid timezone format.")
 
     loop = asyncio.get_event_loop()
-    features, nostr_npub, _, cur_locale = await loop.run_in_executor(None, _read_hub_overrides)
-    await loop.run_in_executor(None, _write_hub_overrides, features, nostr_npub, tz, cur_locale)
+    features, nostr_pubkey, _, cur_locale = await loop.run_in_executor(None, _read_hub_overrides)
+    await loop.run_in_executor(None, _write_hub_overrides, features, nostr_pubkey, tz, cur_locale)
 
     try:
         open(REBUILD_LOG, "w").close()
@@ -5942,8 +5963,8 @@ async def api_system_set_locale(req: LocaleRequest):
         raise HTTPException(status_code=400, detail=f"Unsupported locale: {locale}")
 
     loop = asyncio.get_event_loop()
-    features, nostr_npub, cur_tz, _ = await loop.run_in_executor(None, _read_hub_overrides)
-    await loop.run_in_executor(None, _write_hub_overrides, features, nostr_npub, cur_tz, locale)
+    features, nostr_pubkey, cur_tz, _ = await loop.run_in_executor(None, _read_hub_overrides)
+    await loop.run_in_executor(None, _write_hub_overrides, features, nostr_pubkey, cur_tz, locale)
 
     try:
         open(REBUILD_LOG, "w").close()

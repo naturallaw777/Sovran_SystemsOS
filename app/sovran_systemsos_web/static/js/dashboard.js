@@ -55,7 +55,7 @@
     "vaultwarden.service",
     "phpfpm-nextcloud.service",
     "phpfpm-wordpress.service",
-    "haven-relay.service",
+    "nostr-rs-relay.service",
     "livekit.service",
     "albyhub.service"
   ];
@@ -336,7 +336,7 @@
     if (isNodeRole()) {
       return 'On this <strong>Bitcoin Node</strong> install, <strong>BTCPay Server</strong> and <strong>Lightning Wallet Connections (LNURL)</strong> are the domain services that use these ports.';
     }
-    return 'All your domain services share ports 80 and 443 — Matrix, BTCPay Server, VaultWarden, Nextcloud, WordPress, Haven Relay, Lightning Wallet Connections, and Element Calling.';
+    return 'All your domain services share ports 80 and 443 — Matrix, BTCPay Server, VaultWarden, Nextcloud, WordPress, Nostr Relay, Lightning Wallet Connections, and Element Calling.';
   }
 
   function step(n, title, sub, value) {

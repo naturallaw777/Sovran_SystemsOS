@@ -106,7 +106,7 @@ let
     ]
     # ── Nostr / Relay (server+desktop only) ────────────────────
     ++ lib.optionals cfg.roles.server_plus_desktop [
-      { name = "Haven Relay"; unit = "haven-relay.service"; type = "system"; icon = "haven"; enabled = cfg.features.haven; category = "nostr"; credentials = []; }
+      { name = "Nostr Relay"; unit = "nostr-rs-relay.service"; type = "system"; icon = "nostr-rs-relay"; enabled = cfg.features.nostr-rs-relay; category = "nostr"; credentials = []; }
     ]
     # ── Support (Server + Desktop and Bitcoin Node only) ────────
     # Desktop Only has no Tech Support tile, window or remote SSH feature,
@@ -165,7 +165,7 @@ let
     "vaultwarden.service" = if pkgs ? vaultwarden then pkgs.vaultwarden.version else "1.32.0";
     # Nextcloud and WordPress are downloaded into /var/lib/www, so their
     # deployed versions are read from their own PHP version files by the Hub.
-    "haven-relay.service" = if pkgs ? haven-relay then pkgs.haven-relay.version else (if pkgs ? haven then pkgs.haven.version else "0.1.0");
+    "nostr-rs-relay.service" = if pkgs ? nostr-rs-relay then pkgs.nostr-rs-relay.version else "0.9.0";
   });
 
   # Shared shell prelude used by both the update and rebuild wrapper scripts.

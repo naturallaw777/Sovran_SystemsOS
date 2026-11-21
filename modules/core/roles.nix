@@ -42,7 +42,17 @@
 
     # ── Features (default OFF — user can enable in custom.nix) ──
     features = {
-      haven = lib.mkEnableOption "Haven NOSTR relay";
+      nostr-rs-relay = lib.mkEnableOption "nostr-rs-relay NOSTR relay";
+      # Deprecated no-op retained so older custom.nix files that still set
+      # sovran_systemsOS.features.haven evaluate cleanly. The Haven relay was
+      # removed; use features.nostr-rs-relay instead.
+      haven = lib.mkOption {
+        type = lib.types.bool;
+        default = false;
+        internal = true;
+        visible = false;
+        description = "Deprecated no-op: renamed to `nostr-rs-relay`. Enable `features.nostr-rs-relay` instead.";
+      };
       mempool = lib.mkEnableOption "Bitcoin Mempool Explorer";
       element-calling = lib.mkEnableOption "Element Video and Audio Calling";
       bitcoin-tor-gossip = lib.mkEnableOption "Advertise the Bitcoin Core onion service through Bitcoin peer gossip";
@@ -191,10 +201,19 @@
       description = "Domain requirements registered by each module";
     };
 
+    # Deprecated no-op retained so older custom.nix files that still set
+    # sovran_systemsOS.nostr_npub evaluate cleanly.
     nostr_npub = lib.mkOption {
       type = lib.types.str;
       default = "";
-      description = "Nostr public key (npub1...) for Haven relay";
+      internal = true;
+      visible = false;
+      description = "Deprecated no-op: renamed to `nostr_pubkey`. Use a 64-character hex Nostr public key instead of npub1....";
+    };
+    nostr_pubkey = lib.mkOption {
+      type = lib.types.str;
+      default = "";
+      description = "Nostr public key (64 hex characters, NOT npub1...) whitelisted as the only writer on the nostr-rs-relay relay. Empty means an open relay.";
     };
   };
 

@@ -27,6 +27,10 @@ from sovran_systemsos_web.security_helpers import (  # noqa: E402
     _nix_escape,
     NPUB_RE,
     _validate_npub,
+    _validate_nostr_pubkey,
+    _npub_to_hex,
+    _hex_to_npub,
+    _nostr_key_to_hex,
     _validate_ddns_url,
     _validate_ssh_pubkey,
     _DDNS_ALLOWED_HOSTNAMES,
@@ -176,6 +180,69 @@ class TestNpubBech32Validation(unittest.TestCase):
 
     def test_synthetic_all_q_rejected_by_checksum(self):
         self.assertFalse(_validate_npub("npub1" + "q" * 58))
+
+
+# ---------------------------------------------------------------------------
+# Nostr hex pubkey / npub normalization
+# ---------------------------------------------------------------------------
+
+class TestNostrKeyToHex(unittest.TestCase):
+    """_nostr_key_to_hex accepts npub1... or hex and normalizes to lowercase hex."""
+
+    PUBKEY_BYTES = bytes(range(32))
+    HEX = PUBKEY_BYTES.hex()
+
+    def _make_npub(self, payload_bytes: bytes) -> str:
+        from sovran_systemsos_web.security_helpers import (
+            _bech32_create_checksum,
+            _bech32_convertbits_encode,
+            _BECH32_CHARSET,
+        )
+
+        data5 = _bech32_convertbits_encode(payload_bytes, 8, 5)
+        checksum = _bech32_create_checksum("npub", data5)
+        full = data5 + checksum
+        return "npub1" + "".join(_BECH32_CHARSET[d] for d in full)
+
+    def test_hex_passthrough_lowercased(self):
+        self.assertEqual(_nostr_key_to_hex(self.HEX.upper()), self.HEX)
+
+    def test_valid_npub_decoded_to_hex(self):
+        npub = self._make_npub(self.PUBKEY_BYTES)
+        self.assertEqual(_nostr_key_to_hex(npub), self.HEX)
+
+    def test_invalid_npub_rejected(self):
+        npub = self._make_npub(self.PUBKEY_BYTES)
+        corrupted = npub[:-1] + ("q" if npub[-1] != "q" else "p")
+        self.assertIsNone(_nostr_key_to_hex(corrupted))
+
+    def test_garbage_rejected(self):
+        self.assertIsNone(_nostr_key_to_hex("hello world"))
+
+    def test_empty_rejected(self):
+        self.assertIsNone(_nostr_key_to_hex(""))
+
+    def test_npub_to_hex_roundtrip_via_hex_to_npub(self):
+        npub = self._make_npub(self.PUBKEY_BYTES)
+        hex_key = _npub_to_hex(npub)
+        self.assertEqual(hex_key, self.HEX)
+        self.assertEqual(_hex_to_npub(hex_key), npub)
+
+
+class TestHexToNpub(unittest.TestCase):
+    """_hex_to_npub encodes 64-char hex keys as npub1... strings."""
+
+    def test_roundtrip_zero_bytes(self):
+        hex_key = "00" * 32
+        npub = _hex_to_npub(hex_key)
+        self.assertTrue(npub.startswith("npub1"))
+        self.assertEqual(_npub_to_hex(npub), hex_key)
+
+    def test_rejects_non_hex(self):
+        self.assertIsNone(_hex_to_npub("zz" * 32))
+
+    def test_rejects_wrong_length(self):
+        self.assertIsNone(_hex_to_npub("ab" * 31))
 
 
 # ---------------------------------------------------------------------------

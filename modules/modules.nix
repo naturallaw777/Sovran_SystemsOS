@@ -32,7 +32,7 @@
     ./wallet-autoconnect.nix
 
     # ── Features (default OFF — enable in custom.nix) ─────────
-    ./haven.nix
+    ./nostr-rs-relay.nix
     ./element-calling.nix
     ./rdp.nix
     ./sshd.nix

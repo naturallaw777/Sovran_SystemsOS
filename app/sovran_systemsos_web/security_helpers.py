@@ -130,6 +130,85 @@ def _validate_npub(value: str) -> bool:
     return hrp == "npub" and len(payload) == 32
 
 
+
+def _bech32_convertbits_encode(data: bytes, frombits: int, tobits: int) -> list[int]:
+    """Convert an 8-bit byte sequence to 5-bit groups, padding as needed."""
+    acc = 0
+    bits = 0
+    ret: list[int] = []
+    maxv = (1 << tobits) - 1
+    for value in data:
+        acc = (acc << frombits) | value
+        bits += frombits
+        while bits >= tobits:
+            bits -= tobits
+            ret.append((acc >> bits) & maxv)
+    if bits:
+        ret.append((acc << (tobits - bits)) & maxv)
+    return ret
+
+
+def _bech32_encode(hrp: str, payload: bytes) -> str:
+    data = _bech32_convertbits_encode(payload, 8, 5)
+    checksum = _bech32_create_checksum(hrp, data)
+    return hrp + "1" + "".join(_BECH32_CHARSET[d] for d in data + checksum)
+
+
+def _npub_to_hex(value: str) -> str | None:
+    """Decode an ``npub1...`` NIP-19 key to 64 lowercase hex chars, or ``None``."""
+    if not isinstance(value, str):
+        return None
+    v = value.strip().lower()
+    if not _validate_npub(v):
+        return None
+    result = _bech32_decode(v)
+    if result is None:
+        return None
+    _, payload = result
+    return payload.hex()
+
+
+def _hex_to_npub(value: str) -> str | None:
+    """Encode a 64-char hex public key as an ``npub1...`` NIP-19 string, or ``None``."""
+    if not _validate_nostr_pubkey(value):
+        return None
+    return _bech32_encode("npub", bytes.fromhex(value.strip().lower()))
+
+
+def _nostr_key_to_hex(value: str) -> str | None:
+    """Normalize a user-supplied Nostr public key to 64 lowercase hex chars.
+
+    Accepts either an ``npub1...`` NIP-19 key (what Nostr clients display) or
+    the 64-char hex form (what nostr-rs-relay's whitelist expects). Returns
+    ``None`` when the value is not a valid key in either form.
+    """
+    if not isinstance(value, str):
+        return None
+    v = value.strip()
+    if v.lower().startswith("npub1"):
+        return _npub_to_hex(v)
+    if _validate_nostr_pubkey(v):
+        return v.lower()
+    return None
+
+NOSTR_PUBKEY_RE = re.compile(r"^[0-9a-fA-F]{64}$")
+
+
+def _validate_nostr_pubkey(value: str) -> bool:
+    """Return ``True`` iff *value* is a 64-character hex Nostr public key.
+
+    nostr-rs-relay expects raw hex public keys for its
+    ``[authorization] pubkey_whitelist``. The Hub normalizes ``npub1...``
+    input to hex via :func:`_nostr_key_to_hex` before it reaches the system,
+    so this validator only covers the hex form. Leading/trailing whitespace
+    is ignored; the match is case-insensitive hex.
+    """
+    if not isinstance(value, str):
+        return False
+    return bool(NOSTR_PUBKEY_RE.fullmatch(value.strip()))
+
+
+
 # ── DDNS URL validation ────────────────────────────────────────────────────────
 
 _DDNS_URL_MAX_LEN = 2048

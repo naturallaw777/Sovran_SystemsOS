@@ -62,18 +62,18 @@ function openDomainSetupModal(feat, onSaved) {
   var isWalletConnections = (feat.id === "nwc-wallets" || feat.domain_name === "lightning");
   var isBtcpay = feat.id === "btcpay-web";
 
-  var npubField = "";
-  if (feat.id === "haven") {
-    var currentNpub = "";
+  var pubkeyField = "";
+  if (feat.id === "nostr-rs-relay") {
+    var currentPubkey = "";
     if (feat.extra_fields && feat.extra_fields.length > 0) {
       for (var i = 0; i < feat.extra_fields.length; i++) {
-        if (feat.extra_fields[i].id === "nostr_npub") {
-          currentNpub = feat.extra_fields[i].current_value || "";
+        if (feat.extra_fields[i].id === "nostr_pubkey") {
+          currentPubkey = feat.extra_fields[i].current_value || "";
           break;
         }
       }
     }
-    npubField = '<div class="domain-field-group"><label class="domain-field-label" for="domain-npub-input">Nostr Public Key (npub1...):</label><input class="domain-field-input" type="text" id="domain-npub-input" placeholder="npub1..." value="' + escHtml(currentNpub) + '" /></div>';
+    pubkeyField = '<div class="domain-field-group"><label class="domain-field-label" for="domain-pubkey-input">Nostr Public Key (npub1...):</label><input class="domain-field-input" type="text" id="domain-pubkey-input" placeholder="npub1..." value="' + escHtml(currentPubkey) + '" /><p class="domain-field-hint">Paste the npub from your Nostr client — the Hub configures everything else for you. Only this key may publish to your relay.</p></div>';
   }
 
   var nwcWarning = isWalletConnections
@@ -101,7 +101,7 @@ function openDomainSetupModal(feat, onSaved) {
     '</div>' +
     '<div class="domain-field-group"><label class="domain-field-label" for="domain-subdomain-input">Service address (e.g. ' + domainLabelExample + '):</label><input class="domain-field-input" type="text" id="domain-subdomain-input" placeholder="' + domainPlaceholder + '" /></div>' +
     '<div class="domain-field-group"><label class="domain-field-label" for="domain-ddns-input">Njal.la Update Command:</label><input class="domain-field-input" type="text" id="domain-ddns-input" placeholder="curl &quot;https://njal.la/update/?h=' + domainPlaceholder + '&amp;k=abc123&amp;auto&quot;" /><p class="domain-field-hint">Paste the update command from Njal.la</p></div>' +
-    npubField +
+    pubkeyField +
     '<div class="domain-field-actions"><button class="btn btn-close-modal" id="domain-setup-cancel-btn">Cancel</button><button class="btn btn-primary" id="domain-setup-save-btn">Save &amp; Enable</button></div>';
 
   document.getElementById("domain-setup-cancel-btn").addEventListener("click", closeDomainSetupModal);
@@ -109,13 +109,13 @@ function openDomainSetupModal(feat, onSaved) {
   document.getElementById("domain-setup-save-btn").addEventListener("click", async function() {
     var subdomain = (document.getElementById("domain-subdomain-input") || {}).value || "";
     var ddnsUrl   = (document.getElementById("domain-ddns-input")     || {}).value || "";
-    var npub      = document.getElementById("domain-npub-input") ? (document.getElementById("domain-npub-input").value || "") : "";
+    var pubkey    = document.getElementById("domain-pubkey-input") ? (document.getElementById("domain-pubkey-input").value || "") : "";
     subdomain = subdomain.trim();
     ddnsUrl   = ddnsUrl.trim();
-    npub      = npub.trim();
+    pubkey    = pubkey.trim();
 
     if (!subdomain) { alert("Please enter a domain."); return; }
-    if (feat.id === "haven" && !npub) { alert("Please enter your Nostr public key."); return; }
+    if (feat.id === "nostr-rs-relay" && !pubkey) { alert("Please enter your Nostr public key."); return; }
 
     var saveBtn = document.getElementById("domain-setup-save-btn");
     saveBtn.disabled = true;
@@ -132,7 +132,7 @@ function openDomainSetupModal(feat, onSaved) {
         }),
       });
       closeDomainSetupModal();
-      onSaved(npub);
+      onSaved(pubkey);
     } catch (err) {
       saveBtn.disabled = false;
       saveBtn.textContent = "Save & Enable";
@@ -151,18 +151,18 @@ function openDomainReconfigureModal(feat, existingDomain, onSaved) {
 
   var isWalletConnections = (feat.id === "nwc-wallets" || feat.domain_name === "lightning");
 
-  var npubField = "";
-  if (feat.id === "haven") {
-    var currentNpub = "";
+  var pubkeyField = "";
+  if (feat.id === "nostr-rs-relay") {
+    var currentPubkey = "";
     if (feat.extra_fields && feat.extra_fields.length > 0) {
       for (var i = 0; i < feat.extra_fields.length; i++) {
-        if (feat.extra_fields[i].id === "nostr_npub") {
-          currentNpub = feat.extra_fields[i].current_value || "";
+        if (feat.extra_fields[i].id === "nostr_pubkey") {
+          currentPubkey = feat.extra_fields[i].current_value || "";
           break;
         }
       }
     }
-    npubField = '<div class="domain-field-group"><label class="domain-field-label" for="domain-npub-input">Nostr Public Key (npub1...):</label><input class="domain-field-input" type="text" id="domain-npub-input" placeholder="npub1..." value="' + escHtml(currentNpub) + '" /></div>';
+    pubkeyField = '<div class="domain-field-group"><label class="domain-field-label" for="domain-pubkey-input">Nostr Public Key (npub1...):</label><input class="domain-field-input" type="text" id="domain-pubkey-input" placeholder="npub1..." value="' + escHtml(currentPubkey) + '" /><p class="domain-field-hint">Paste the npub from your Nostr client — the Hub configures everything else for you. Only this key may publish to your relay.</p></div>';
   }
 
   var nwcWarning = isWalletConnections
@@ -194,7 +194,7 @@ function openDomainReconfigureModal(feat, existingDomain, onSaved) {
     '</div>' +
     '<div class="domain-field-group"><label class="domain-field-label" for="domain-subdomain-input">Service domain (e.g. ' + domainLabelExample + '):</label><input class="domain-field-input" type="text" id="domain-subdomain-input" placeholder="' + domainPlaceholder + '" value="' + escHtml(currentDomain) + '" /></div>' +
     '<div class="domain-field-group"><label class="domain-field-label" for="domain-ddns-input">Njal.la Dynamic DNS Update Command:</label><input class="domain-field-input" type="text" id="domain-ddns-input" placeholder="curl &quot;https://njal.la/update/?h=' + domainPlaceholder + '&amp;k=abc123&amp;auto&quot;" /><p class="domain-field-hint">ℹ Paste the full curl command from your Njal.la dashboard\'s Dynamic record</p></div>' +
-    npubField +
+    pubkeyField +
     '<div class="domain-field-actions"><button class="btn btn-close-modal" id="domain-setup-cancel-btn">Cancel</button><button class="btn btn-primary" id="domain-setup-save-btn">Save &amp; Update</button></div>';
 
   document.getElementById("domain-setup-cancel-btn").addEventListener("click", closeDomainSetupModal);
@@ -202,13 +202,13 @@ function openDomainReconfigureModal(feat, existingDomain, onSaved) {
   document.getElementById("domain-setup-save-btn").addEventListener("click", async function() {
     var subdomain = (document.getElementById("domain-subdomain-input") || {}).value || "";
     var ddnsUrl   = (document.getElementById("domain-ddns-input")     || {}).value || "";
-    var npub      = document.getElementById("domain-npub-input") ? (document.getElementById("domain-npub-input").value || "") : "";
+    var pubkey    = document.getElementById("domain-pubkey-input") ? (document.getElementById("domain-pubkey-input").value || "") : "";
     subdomain = subdomain.trim();
     ddnsUrl   = ddnsUrl.trim();
-    npub      = npub.trim();
+    pubkey    = pubkey.trim();
 
     if (!subdomain) { alert("Please enter a subdomain."); return; }
-    if (feat.id === "haven" && !npub) { alert("Please enter your Nostr public key."); return; }
+    if (feat.id === "nostr-rs-relay" && !pubkey) { alert("Please enter your Nostr public key."); return; }
 
     var saveBtn = document.getElementById("domain-setup-save-btn");
     saveBtn.disabled = true;
@@ -225,7 +225,7 @@ function openDomainReconfigureModal(feat, existingDomain, onSaved) {
         }),
       });
       closeDomainSetupModal();
-      onSaved(npub);
+      onSaved(pubkey);
     } catch (err) {
       saveBtn.disabled = false;
       saveBtn.textContent = "Save & Update";
@@ -374,16 +374,16 @@ function handleFeatureToggle(feat, newEnabled) {
       checkDomainAndEnable(feat, {});
       return;
     }
-    if (feat.id === "haven") {
-      var npub = "";
+    if (feat.id === "nostr-rs-relay") {
+      var pubkey = "";
       if (feat.extra_fields) {
-        var ef = feat.extra_fields.find(function(e) { return e.id === "nostr_npub"; });
-        if (ef) npub = ef.current_value || "";
+        var ef = feat.extra_fields.find(function(e) { return e.id === "nostr_pubkey"; });
+        if (ef) pubkey = ef.current_value || "";
       }
-      if (!npub) {
-        // Need to collect npub via domain modal
-        openDomainSetupModal(feat, function(collectedNpub) {
-          performFeatureToggle(feat.id, true, { nostr_npub: collectedNpub });
+      if (!pubkey) {
+        // Need to collect the pubkey via domain modal
+        openDomainSetupModal(feat, function(collectedPubkey) {
+          performFeatureToggle(feat.id, true, { nostr_pubkey: collectedPubkey });
         });
         return;
       }
@@ -415,9 +415,9 @@ function handleFeatureToggle(feat, newEnabled) {
 }
 
 function checkDomainAndEnable(feat, extra) {
-  openDomainSetupModal(feat, function(collectedNpub) {
+  openDomainSetupModal(feat, function(collectedPubkey) {
     var extraData = {};
-    if (collectedNpub) extraData.nostr_npub = collectedNpub;
+    if (collectedPubkey) extraData.nostr_pubkey = collectedPubkey;
     performFeatureToggle(feat.id, true, extraData);
   });
 }

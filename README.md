@@ -61,7 +61,7 @@ auditable NixOS foundation controlled from one place.
 - **Private communications** — [Matrix Synapse](https://github.com/element-hq/synapse)
   and [Element](https://element.io), optional audio/video calling via
   [LiveKit](https://livekit.io), and an optional
-  [Haven](https://github.com/bitvora/haven) Nostr relay.
+  [nostr-rs-relay](https://git.sr.ht/~gheartsfield/nostr-rs-relay) Nostr relay.
 - **Private cloud & web** — [Nextcloud](https://nextcloud.com) (files,
   calendars, contacts), [Vaultwarden](https://github.com/dani-garcia/vaultwarden)
   passwords, [WordPress](https://wordpress.org), [Caddy](https://caddyserver.com)
@@ -302,7 +302,7 @@ what happens automatically and how to investigate an exceptional failure.
 | `configuration.nix` | Base host, boot, GNOME desktop, users, security, and backups |
 | `modules/core/` | Roles, Hub service, Caddy, DDNS, desktop wiring, support, remote deploy |
 | `modules/sovran-bitcoin-integration.nix` | OS-specific overrides for the `Sovran_Bitcoin` flake input |
-| `modules/*.nix` | Self-hosted services (Synapse, LiveKit, Haven, Nextcloud, Vaultwarden, WordPress), wallet autoconnect, RDP, SSH, Mullvad |
+| `modules/*.nix` | Self-hosted services (Synapse, LiveKit, nostr-rs-relay, Nextcloud, Vaultwarden, WordPress), wallet autoconnect, RDP, SSH, Mullvad |
 | `app/` | Sovran Hub FastAPI backend, scripts, templates, and web UI |
 | `iso/` | Installer configuration, UI, and assets |
 | `scripts/` · `tests/` | Release/CDN automation and Nix/security integration tests |

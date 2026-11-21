@@ -20,7 +20,7 @@ var _onboardingRole = "server_plus_desktop";
 // Domains that may need configuration, with service unit mapping for enabled check
 const DOMAIN_DEFS = [
   { name: "matrix",          label: "Matrix (Synapse)",             unit: "matrix-synapse.service",   needsDdns: true },
-  { name: "haven",           label: "Haven Nostr Relay",            unit: "haven-relay.service",      needsDdns: true },
+  { name: "nostr-rs-relay",  label: "Nostr Relay",                  unit: "nostr-rs-relay.service",   needsDdns: true },
   { name: "element-calling", label: "Element Video/Audio Calling",  unit: "livekit.service",          needsDdns: true },
   { name: "vaultwarden",     label: "Vaultwarden (Password Vault)", unit: "vaultwarden.service",      needsDdns: true },
   { name: "btcpayserver",    label: "BTCPay Server",                unit: "btcpayserver.service",     needsDdns: true },

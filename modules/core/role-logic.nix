@@ -30,7 +30,7 @@
       };
 
       sovran_systemsOS.features = {
-        haven = lib.mkForce false;
+        nostr-rs-relay = lib.mkForce false;
         mempool = lib.mkForce false;
         element-calling = lib.mkForce false;
         bitcoin-tor-gossip = lib.mkForce false;

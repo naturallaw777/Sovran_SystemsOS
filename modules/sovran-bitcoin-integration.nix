@@ -31,9 +31,21 @@ let
     NWC_LND_ADDRESS = "${lndRpcAddress}:${lndRpcPort}";
     NWC_LND_CERT_FILE = lndCertPath;
     NWC_LND_MACAROON_FILE = "/run/lnd/albyhub.macaroon";
+    # nostr-rs-relay listens on the same origin as the rest of the site,
+    # so wallets connect to the relay domain itself (no path prefix — the
+    # retired relay served WebSocket traffic under /nostr). The Hub writes
+    # the configured relay domain to /var/lib/domains/nostr-rs-relay; read it
+    # at evaluation time when present (a rebuild is triggered right after the
+    # domain is saved, so the value here follows it).
     NWC_RELAY =
-      if cfg.features.haven && config.networking.domain != null && config.networking.domain != ""
-      then "wss://haven.${config.networking.domain}/nostr"
+      let
+        relayDomainFile = "/var/lib/domains/nostr-rs-relay";
+        raw = if builtins.pathExists relayDomainFile then builtins.readFile relayDomainFile else "";
+        match = builtins.match "[[:space:]]*([^[:space:]]+)[[:space:]]*" raw;
+        relayDomain = if match == null then "" else builtins.head match;
+      in
+      if cfg.features.nostr-rs-relay && relayDomain != ""
+      then "wss://${relayDomain}"
       else "wss://relay.getalby.com,wss://relay2.getalby.com";
   };
 in {

@@ -11,7 +11,7 @@ let
     || config.sovran_systemsOS.services.wordpress
     || config.sovran_systemsOS.services.nextcloud
     || config.sovran_systemsOS.services.vaultwarden
-    || config.sovran_systemsOS.features.haven
+    || config.sovran_systemsOS.features.nostr-rs-relay
     || config.sovran_systemsOS.features."nwc-wallets"
     || config.sovran_systemsOS.features.element-calling;
 
@@ -111,7 +111,7 @@ in
       NEXTCLOUD=$(read_domain nextcloud)
       BTCPAY=$(read_domain btcpayserver)
       VAULTWARDEN=$(read_domain vaultwarden)
-      HAVEN=$(read_domain haven)
+      NOSTR_RELAY=$(read_domain nostr-rs-relay)
       LIGHTNING=$(read_domain lightning)
       ACME_EMAIL=$(read_domain sslemail)
 
@@ -208,11 +208,11 @@ $VAULTWARDEN {
 EOF
       fi
 
-      # ── Haven ───────────────────────────────────────
-      if [ -n "$HAVEN" ]; then
+      # ── Nostr Relay (nostr-rs-relay) ────────────────
+      if [ -n "$NOSTR_RELAY" ]; then
         cat >> /run/caddy/Caddyfile <<EOF
 
-$HAVEN {
+$NOSTR_RELAY {
   reverse_proxy localhost:3355 {
     header_up Host {host}
     header_up X-Real-IP {remote_host}
