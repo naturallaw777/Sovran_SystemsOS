@@ -132,14 +132,14 @@
     gnomeExtensions.vitals
     gnomeExtensions.just-perfection
     gnomeExtensions.appindicator
-    (gnomeExtensions.pop-shell.overrideAttrs (old: {
-  patches = (old.patches or [ ]) ++ [
-    (fetchurl {
-      url = "https://raw.githubusercontent.com/NixOS/nixpkgs/0dfacd4bc311b11f4e2f2681a82b4cfbfe36e500/pkgs/desktops/gnome/extensions/pop-shell/gnome-51.patch";
-      hash = "sha256-lDF+g5S8rLPWSXDJ3nERS4CnjeybmwhbP41Meb/KFpc=";
-    })
-  ];
-}))
+    # pop-shell's GNOME 51 support (pop-os/shell#1830) is already applied by
+    # nixpkgs: pkgs/desktops/gnome/extensions/pop-shell/gnome-51.patch is in
+    # that derivation's `patches`, and nixpkgs' patch sequence applies it in
+    # ascending file order. Re-adding it from an old nixpkgs revision made the
+    # first hunk of the second application fail and broke the build. Keep the
+    # extension unmodified so nixpkgs' own patch set stays authoritative; if a
+    # GNOME major is ever added here again, patch only what nixpkgs is missing.
+    gnomeExtensions.pop-shell
 
   (gnomeExtensions.date-menu-formatter.overrideAttrs (old: {
   postPatch = (old.postPatch or "") + ''
