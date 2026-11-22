@@ -15,6 +15,7 @@ boot — and scales into your own Bitcoin node, Lightning stack, private cloud,
 and communications server when you are ready.
 
 [Website](https://sovransystems.com) ·
+[GitHub](https://github.com/naturallaw777/Sovran_SystemsOS) ·
 [Download ISO](https://downloads.sovransystems.com/Sovran_SystemsOS-1.2.6.iso) ·
 [Verify SHA-256](https://downloads.sovransystems.com/Sovran_SystemsOS-1.2.6.iso.sha256) ·
 [Install Guide](#install-sovran_systemsos) ·
@@ -26,7 +27,8 @@ and communications server when you are ready.
 
 </div>
 
-> **📌 Branch note:** Active development happens on GitHub `main` and Gitea
+> **📌 Branch note:** Active development happens on
+> [GitHub `main`](https://github.com/naturallaw777/Sovran_SystemsOS) and Gitea
 > `staging-dev`. Audited, release-ready builds live on
 > [Gitea `stable`](https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS/src/branch/stable).
 
@@ -282,10 +284,13 @@ Python/FastAPI + vanilla JS Sovran Hub (`app/`).
 ### Build from source
 
 Requires Nix with flakes enabled. Clone `stable` from Gitea for release builds
-(or GitHub `main` for active development):
+(or [GitHub `main`](https://github.com/naturallaw777/Sovran_SystemsOS) for
+active development):
 
 ```bash
 git clone -b stable https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS.git
+# or, for active development on GitHub:
+# git clone -b main https://github.com/naturallaw777/Sovran_SystemsOS.git
 cd Sovran_SystemsOS
 
 nix build .#nixosConfigurations.sovran_systemsos-iso.config.system.build.isoImage
