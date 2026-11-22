@@ -180,17 +180,44 @@ and restricted to local/LAN addresses).
 > *Installing in a virtual machine* below for recommended settings. Don't store
 > real funds or sensitive keys in a trial VM.
 
-1. **Download** both the installer image and its checksum:
+These six steps match the install guide on
+[sovransystems.com](https://sovransystems.com/index.html#download) — check your
+hardware, pick your mode, download, verify, flash, boot.
+
+1. **Check your hardware.** Before you download, make sure your machine meets
+   the requirements for the mode you want to run. **Desktop** has the lowest
+   bar — any modern 64-bit computer will do. **Node** and **Server + Desktop**
+   need more RAM and storage. See [Recommended hardware](#recommended-hardware).
+2. **Choose your install path.** Sovran_SystemsOS has three modes —
+   **Desktop**, **Node**, and **Server + Desktop** — each built for a different
+   level of sovereignty. Know which one you are installing before you sit down;
+   it takes two minutes to read and saves a lot of confusion later. See
+   [Three modes](#three-modes).
+3. **Download the installer:**
    - [Sovran_SystemsOS-1.2.6.iso](https://downloads.sovransystems.com/Sovran_SystemsOS-1.2.6.iso)
    - [Sovran_SystemsOS-1.2.6.iso.sha256](https://downloads.sovransystems.com/Sovran_SystemsOS-1.2.6.iso.sha256)
-2. **Verify the SHA-256 checksum** before flashing. **Stop if it does not match.**
-3. **Flash to a USB drive** using [Balena Etcher](https://etcher.balena.io)
-   (flashing erases the selected USB drive).
-4. **Boot from USB** via your computer's boot menu (`F12`, `F11`, `F10`, `F9`,
-   `Esc`, or `Delete`), choose your mode and target disk carefully, and complete
-   the guided installer. **Back up any important data first.**
-5. **Open the Sovran Hub** from the desktop, or from another device on the same
-   LAN at `http://sovransystemsos.local:8937` (Node and Server + Desktop).
+     (the checksum file)
+4. **Verify the checksum.** After downloading, confirm the file is untampered.
+   Keep both files in the same folder and compare:
+   - **Linux:** `sha256sum Sovran_SystemsOS-1.2.6.iso`
+   - **macOS:** `shasum -a 256 Sovran_SystemsOS-1.2.6.iso`
+   - **Windows (PowerShell):** `Get-FileHash Sovran_SystemsOS-1.2.6.iso`
+
+   Compare the output to the contents of the `.sha256` file — the two values
+   must match exactly. **Stop if they do not.** Copy-paste commands are in the
+   *Checksum verification commands* panel below.
+5. **Flash to USB with [Balena Etcher](https://etcher.balena.io)** — free, and
+   works on Linux, Mac, and Windows. Open Balena Etcher, select
+   `Sovran_SystemsOS-1.2.6.iso`, select your USB drive, and click **Flash**.
+   (Flashing erases the selected USB drive.)
+6. **Boot and install.** Insert the USB, restart your machine, boot from it via
+   your computer's boot menu (`F12`, `F11`, `F10`, `F9`, `Esc`, or `Delete`),
+   and follow the on-screen installer. Choose your mode and target disk
+   carefully.
+
+
+Sovran_SystemsOS is fully open source — you can always
+[build from source](#build-from-source) yourself.
 
 <details>
 <summary><strong>Checksum verification commands (Linux, macOS, Windows)</strong></summary>
