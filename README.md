@@ -30,7 +30,7 @@ and communications server when you are ready.
 > **📌 Branch note:** Active development happens on
 > [GitHub `main`](https://github.com/naturallaw777/Sovran_SystemsOS) and Gitea
 > `staging-dev`. Audited, release-ready builds live on
-> [Gitea `stable`](https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS/src/branch/stable).
+> [Gitea `stable`](https://git.sovransystems.com/Sovran_Systems/Sovran_SystemsOS).
 
 ---
 
