@@ -16,8 +16,8 @@ and communications server when you are ready.
 
 [Website](https://sovransystems.com) ·
 [GitHub](https://github.com/naturallaw777/Sovran_SystemsOS) ·
-[Download ISO](https://downloads.sovransystems.com/Sovran_SystemsOS-1.2.6.iso) ·
-[Verify SHA-256](https://downloads.sovransystems.com/Sovran_SystemsOS-1.2.6.iso.sha256) ·
+[Download ISO](https://downloads.sovransystems.com/Sovran_SystemsOS-1.2.7.iso) ·
+[Verify SHA-256](https://downloads.sovransystems.com/Sovran_SystemsOS-1.2.7.iso.sha256) ·
 [Install Guide](#install-sovran_systemsos) ·
 [Build from Source](#build-from-source)
 
@@ -196,21 +196,21 @@ hardware, pick your mode, download, verify, flash, boot.
    it takes two minutes to read and saves a lot of confusion later. See
    [Three modes](#three-modes).
 3. **Download the installer:**
-   - [Sovran_SystemsOS-1.2.6.iso](https://downloads.sovransystems.com/Sovran_SystemsOS-1.2.6.iso)
-   - [Sovran_SystemsOS-1.2.6.iso.sha256](https://downloads.sovransystems.com/Sovran_SystemsOS-1.2.6.iso.sha256)
+   - [Sovran_SystemsOS-1.2.7.iso](https://downloads.sovransystems.com/Sovran_SystemsOS-1.2.7.iso)
+   - [Sovran_SystemsOS-1.2.7.iso.sha256](https://downloads.sovransystems.com/Sovran_SystemsOS-1.2.7.iso.sha256)
      (the checksum file)
 4. **Verify the checksum.** After downloading, confirm the file is untampered.
    Keep both files in the same folder and compare:
-   - **Linux:** `sha256sum Sovran_SystemsOS-1.2.6.iso`
-   - **macOS:** `shasum -a 256 Sovran_SystemsOS-1.2.6.iso`
-   - **Windows (PowerShell):** `Get-FileHash Sovran_SystemsOS-1.2.6.iso`
+   - **Linux:** `sha256sum Sovran_SystemsOS-1.2.7.iso`
+   - **macOS:** `shasum -a 256 Sovran_SystemsOS-1.2.7.iso`
+   - **Windows (PowerShell):** `Get-FileHash Sovran_SystemsOS-1.2.7.iso`
 
    Compare the output to the contents of the `.sha256` file — the two values
    must match exactly. **Stop if they do not.** Copy-paste commands are in the
    *Checksum verification commands* panel below.
 5. **Flash to USB with [Balena Etcher](https://etcher.balena.io)** — free, and
    works on Linux, Mac, and Windows. Open Balena Etcher, select
-   `Sovran_SystemsOS-1.2.6.iso`, select your USB drive, and click **Flash**.
+   `Sovran_SystemsOS-1.2.7.iso`, select your USB drive, and click **Flash**.
    (Flashing erases the selected USB drive.)
 6. **Boot and install.** Insert the USB, restart your machine, boot from it via
    your computer's boot menu (`F12`, `F11`, `F10`, `F9`, `Esc`, or `Delete`),
@@ -228,19 +228,19 @@ Keep both downloaded files in the same folder:
 
 - **Linux:**
   ```bash
-  sha256sum --check Sovran_SystemsOS-1.2.6.iso.sha256
-  # Expected: Sovran_SystemsOS-1.2.6.iso: OK
+  sha256sum --check Sovran_SystemsOS-1.2.7.iso.sha256
+  # Expected: Sovran_SystemsOS-1.2.7.iso: OK
   ```
 - **macOS:**
   ```bash
-  shasum -a 256 Sovran_SystemsOS-1.2.6.iso
+  shasum -a 256 Sovran_SystemsOS-1.2.7.iso
   ```
 - **Windows (PowerShell):**
   ```powershell
-  Get-FileHash .\Sovran_SystemsOS-1.2.6.iso -Algorithm SHA256
+  Get-FileHash .\Sovran_SystemsOS-1.2.7.iso -Algorithm SHA256
   ```
   Compare the output hash on macOS/Windows with the contents of
-  `Sovran_SystemsOS-1.2.6.iso.sha256`.
+  `Sovran_SystemsOS-1.2.7.iso.sha256`.
 
 </details>
 
