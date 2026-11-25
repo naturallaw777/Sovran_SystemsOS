@@ -54,22 +54,6 @@
         "type": "github"
       }
     },
-    "nixpkgs-brave": {
-      "locked": {
-        "lastModified": 1795619747,
-        "narHash": "sha256-T53xQkGk9qjqPRE+mTU4vfRsRelWgngSr8e9imGe6rM=",
-        "owner": "NixOS",
-        "repo": "nixpkgs",
-        "rev": "5502bbb78c8bea0ce44b63c4fabc7eeedcafeec1",
-        "type": "github"
-      },
-      "original": {
-        "owner": "NixOS",
-        "ref": "master",
-        "repo": "nixpkgs",
-        "type": "github"
-      }
-    },
     "nixpkgs-stable": {
       "locked": {
         "lastModified": 1795370043,
@@ -158,7 +142,6 @@
       "inputs": {
         "btc-clients": "btc-clients",
         "nixpkgs": "nixpkgs_2",
-        "nixpkgs-brave": "nixpkgs-brave",
         "nixpkgs-stable": "nixpkgs-stable",
         "nixvim": "nixvim",
         "sovran-bitcoin": "sovran-bitcoin"
